@@ -4250,8 +4250,37 @@ html{-webkit-text-size-adjust:100%;}
 if('serviceWorker' in navigator){
   const base=location.href.substring(0,location.href.lastIndexOf('/')+1);
   navigator.serviceWorker.register(base+'sw.js',{scope:'./'})
-    .then(r=>console.log('[PWA] SW:',r.scope))
+    .then(reg=>{
+      console.log('[PWA] SW:',reg.scope);
+
+      // Detectar cuando hay un SW nuevo esperando y forzar actualización
+      reg.addEventListener('updatefound',()=>{
+        const newSW=reg.installing;
+        if(!newSW) return;
+        newSW.addEventListener('statechange',()=>{
+          // Cuando el nuevo SW está instalado y el actual sigue controlando
+          if(newSW.state==='installed' && navigator.serviceWorker.controller){
+            console.log('[PWA] Nueva versión detectada — recargando...');
+            // Pequeño delay para que el SW termine de activarse
+            setTimeout(()=>window.location.reload(),500);
+          }
+        });
+      });
+
+      // Forzar que el SW revise si hay actualizaciones cada vez que la app se enfoca
+      document.addEventListener('visibilitychange',()=>{
+        if(document.visibilityState==='visible') reg.update();
+      });
+    })
     .catch(()=>{});
+
+  // Escuchar el mensaje SW_UPDATED que manda el nuevo service worker al activarse
+  navigator.serviceWorker.addEventListener('message',e=>{
+    if(e.data && e.data.type==='SW_UPDATED'){
+      console.log('[PWA] SW actualizado a',e.data.version,'— recargando');
+      window.location.reload();
+    }
+  });
 }
 </script>
 </head>
