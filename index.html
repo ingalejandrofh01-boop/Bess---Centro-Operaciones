@@ -35,15 +35,20 @@ const firebaseConfig = {
   appId:             "1:999605736584:web:b1a8d5deb2530b83d13b3d"
 };
 
-const fbApp = initializeApp(firebaseConfig);
-const fbDB  = getFirestore(fbApp);
-window._fbDB = fbDB;
-window._fbOnSnapshot = onSnapshot;
-window._fbCollection = collection;
-window._fbSetDoc = setDoc;
-window._fbDoc = doc;
-// Expose full Firestore API for DOCS module (avoids dynamic imports)
-window._fbFS = { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, setDoc, where };
+let fbApp, fbDB;
+try {
+  fbApp = initializeApp(firebaseConfig);
+  fbDB  = getFirestore(fbApp);
+  window._fbDB = fbDB;
+  window._fbOnSnapshot = onSnapshot;
+  window._fbCollection = collection;
+  window._fbSetDoc = setDoc;
+  window._fbDoc = doc;
+  window._fbFS = { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, setDoc, where };
+} catch(initErr) {
+  console.error('[BESS] Firebase init error:', initErr.message);
+  // firebase-ready will still fire at end of module, _fb won't be set
+}
 
 window._fb = {
   async addRecord(record) {
@@ -4418,12 +4423,6 @@ html{-webkit-text-size-adjust:100%;}
 @keyframes slideUp{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 
 
-/* ── Banner advertencia file:// ── */
-#file-protocol-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#7c3aed,#6d28d9);color:#fff;font-family:var(--mono);font-size:11px;padding:8px 16px;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(109,40,217,.4);}
-#file-protocol-banner.show{display:flex}
-#file-protocol-banner code{background:rgba(255,255,255,.18);padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;cursor:pointer;transition:background .15s;white-space:nowrap;}
-#file-protocol-banner code:hover{background:rgba(255,255,255,.32)}
-#file-protocol-banner .fp-close{margin-left:auto;cursor:pointer;opacity:.7;font-size:15px;background:none;border:none;color:#fff;padding:0 4px;}
 </style>
 
 
@@ -4968,22 +4967,6 @@ if('serviceWorker' in navigator){
 
 <div id="shell">
 
-<div id="file-protocol-banner">
-  <span>⚠️ Modo <strong>archivo local</strong> — algunas funciones bloqueadas por el navegador.</span>
-  <span>Abre una terminal en esta carpeta y ejecuta:</span>
-  <code onclick="navigator.clipboard.writeText('python -m http.server 8765').then(()=>{this.textContent='¡Copiado!';setTimeout(()=>this.textContent='python -m http.server 8765',1500)})" title="Clic para copiar">python -m http.server 8765</code>
-  <span>→ luego abre <strong>http://localhost:8765</strong></span>
-  <button class="fp-close" onclick="document.getElementById('file-protocol-banner').classList.remove('show')" title="Cerrar">✕</button>
-</div>
-<script>
-(function(){
-  if(location.protocol!=='file:') return;
-  document.addEventListener('DOMContentLoaded',function(){
-    var b=document.getElementById('file-protocol-banner');
-    if(b) b.classList.add('show');
-  });
-})();
-</script>
 
 
 
@@ -7661,19 +7644,36 @@ async function expDoZip(mode){
 // ══════════════════════════════════════════════════════════════
 
 // _waitFB: polls until window._fb is set by the ES module (which always runs after classic scripts)
+var _fbTimedOut = false;  // true cuando Firebase no cargó en tiempo
+
 function _waitFB() {
   if (window._fb) return Promise.resolve();
+  if (_fbTimedOut) return Promise.reject(new Error('Firebase no disponible — sin conexión'));
   return new Promise((res, rej) => {
+    // Fast path: listen for firebase-ready event
+    const onReady = () => {
+      clearInterval(poll);
+      if (window._fb) { _fbTimedOut = false; res(); }
+      else { _fbTimedOut = true; rej(new Error('Firebase no disponible — sin conexión')); }
+    };
+    window.addEventListener('firebase-ready', onReady, { once: true });
+
     const start = Date.now();
     const poll = setInterval(() => {
-      if (window._fb) { clearInterval(poll); res(); return; }
-      // Timeout after 10s — resolve anyway so app doesn't hang on mobile
-      if (Date.now() - start > 10000) {
+      if (window._fb) {
         clearInterval(poll);
-        console.warn('[BESS] Firebase timeout — continuando sin conexión');
-        res();
+        window.removeEventListener('firebase-ready', onReady);
+        _fbTimedOut = false; res(); return;
       }
-    }, 50);
+      // 30s timeout para redes móviles lentas
+      if (Date.now() - start > 30000) {
+        clearInterval(poll);
+        window.removeEventListener('firebase-ready', onReady);
+        _fbTimedOut = true;
+        console.warn('[BESS] Firebase timeout — continuando sin conexión');
+        rej(new Error('Firebase no disponible — sin conexión'));
+      }
+    }, 100);
   });
 }
 
@@ -7684,6 +7684,12 @@ window.addEventListener('firebase-ready', () => {
   if(dot) dot.style.background = 'var(--green)';
   if(lbl) lbl.textContent = 'Firebase ✓';
   setTimeout(()=>{ const st=document.getElementById('fb-status'); if(st) st.style.opacity='.5'; }, 3000);
+  // Si Firebase llegó tarde (después del timeout), recargar datos
+  if(_fbTimedOut){
+    _fbTimedOut = false;
+    console.log('[BESS] Firebase conectado tardíamente — recargando datos');
+    idbGetAll().then(recs=>{ if(recs.length){ ccRecords=recs; ccBuildState(); } }).catch(()=>{});
+  }
   // Precargar docs para el cálculo de almacenamiento en el dashboard
   if(window._fb && window._fb.docsGetAll){
     window._fb.docsGetAll().then(d=>{ window._docsAll=d; renderDashEnhancements(); }).catch(()=>{});
@@ -7691,10 +7697,22 @@ window.addEventListener('firebase-ready', () => {
 });
 
 async function idbAdd(record)    { await _waitFB(); return window._fb.addRecord(record); }
-async function idbGetAll()       { await _waitFB(); return window._fb.getAll(); }
-async function idbDelete(id)     { await _waitFB(); return window._fb.deleteRecord(id); }
-async function idbClear()        { await _waitFB(); return window._fb.clearAll(); }
-async function openDB()          { await _waitFB(); return true; }
+async function idbGetAll()       {
+  try { await _waitFB(); return window._fb ? window._fb.getAll() : []; }
+  catch(e) { console.warn('[BESS] idbGetAll sin Firebase:', e.message); return []; }
+}
+async function idbDelete(id)     {
+  try { await _waitFB(); return window._fb ? window._fb.deleteRecord(id) : null; }
+  catch(e) { console.warn('[BESS] idbDelete sin Firebase:', e.message); }
+}
+async function idbClear()        {
+  try { await _waitFB(); return window._fb ? window._fb.clearAll() : null; }
+  catch(e) { console.warn('[BESS] idbClear sin Firebase:', e.message); }
+}
+async function openDB()          {
+  try { await _waitFB(); return true; }
+  catch(e) { return false; }
+}
 
 // ── Bar helpers ──────────────────────────
 function getDateKey() {
@@ -7707,7 +7725,8 @@ function getDateKey() {
 
 async function updateMonthlyUI() {
   try {
-    const all  = await idbGetAll();
+    const all  = await idbGetAll().catch(()=>[]);
+    if(!all) return; // Firebase no disponible
     const { site, month, year, monthKey } = getDateKey();
     // Filter to current site+month for the bar counter
     const current = all.filter(r => r.site === site && r.monthKey === monthKey);
@@ -9572,12 +9591,17 @@ async function ccInit(){
 
   setProgress(30, 'Conectando a Firebase…');
   try{
-    await openDB(); // polls until window._fb exists
+    const dbOk = await openDB(); // polls until window._fb exists
     setProgress(60, 'Descargando bitácoras…');
-    try{
-      ccRecords = await idbGetAll();
-    } catch(fetchErr){
-      console.warn('No se pudieron cargar bitácoras:', fetchErr.message);
+    if(dbOk && window._fb){
+      try{
+        ccRecords = await idbGetAll();
+      } catch(fetchErr){
+        console.warn('No se pudieron cargar bitácoras:', fetchErr.message);
+        ccRecords = [];
+      }
+    } else {
+      console.warn('[BESS] Sin Firebase — trabajando sin datos remotos');
       ccRecords = [];
     }
     setProgress(100, '¡Sistema listo! ✓');
@@ -15023,6 +15047,31 @@ function opRenderS(){
   opSetCond(sr&&sr.cond||'');
 }
 
+function opSync(){
+  if(!opW||!opW.srs) return;
+  var sr=opW.srs[opW.idx];
+  if(!sr) return;
+  var socEl=document.getElementById('op-soc-inp');
+  if(socEl) sr.soc=socEl.value;
+  var evEl=document.getElementById('op-evento-inp');
+  if(evEl) sr.evento=evEl.value;
+  var obsEl=document.getElementById('op-obs-inp');
+  if(obsEl) sr.obs=obsEl.value;
+}
+function opSetStatus(v){
+  if(!opW||!opW.srs) return;
+  var sr=opW.srs[opW.idx];
+  if(!sr) return;
+  sr.status=v;
+  document.querySelectorAll('#op-status-btns .op-sbtn').forEach(function(b){
+    b.classList.remove('s-ok','s-inc','s-nop','s-dis','s-mnt');
+    if(b.dataset.val===v){
+      var m={'OK':'s-ok','INCOMPLETO':'s-inc','NO OPERATIVO':'s-nop','DESCONECTADO':'s-dis','MANTENIMIENTO':'s-mnt'};
+      b.classList.add(m[v]||'s-ok');
+    }
+  });
+  opBuildSide();
+}
 function opSetOper(v){
   opW.srs[opW.idx].oper=v;
   document.querySelectorAll('#op-oper-btns .op-bool-btn').forEach(function(b){
