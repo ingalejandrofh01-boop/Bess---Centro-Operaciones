@@ -18798,13 +18798,16 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
   setTimeout(function(){ _collabPaintParticipantsInSidebar(reportType); }, 800);
 
   waitFB(function(){
+    /* Incluir al host en participants desde el primer write — evita race condition
+       donde el doc existe con participants:{} y los guests lo ven sin host */
+    var _hostEntry={id:myId(),name:myName(),color:myColor(),role:myRole(),joinedAt:Date.now()};
+    var _initParts={};
+    _initParts[myId()]=_hostEntry;
     window._fb.collabCreate({
       id:sid, reportType:reportType, reportLabel:reportLabel||'Reporte',
       hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
       totalSites:totalSites||0, status:'active',
-      participants:{}, assignments:{}, srs:{}, fragmentsDone:[]
-    }).then(function(){
-      window._fb.collabJoin(sid,{id:myId(),name:myName(),color:myColor(),role:myRole(),joinedAt:Date.now()});
+      participants:_initParts, assignments:{}, srs:{}, fragmentsDone:[]
     }).catch(function(e){ console.error('[Collab] create:',e.message); });
 
     /* Notificar a todos */
@@ -19361,12 +19364,15 @@ function _collabUpdateBar(reportType){
   var fragDone=Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
   var totalAssign=Object.keys(COLLAB._assignments).length;
 
-  /* Label */
+  /* Label — nP incluye al propio usuario */
   var lbl=document.getElementById('csb-label'+sfx);
   if(lbl){
-    if(!hasAssign&&COLLAB.isHost&&nP<=1) lbl.textContent='Sesion abierta — esperando al equipo';
-    else if(!hasAssign&&COLLAB.isHost&&nP>1) lbl.textContent=nP+' colaboradores listos — \u2702 Divide los sitios';
-    else if(!hasAssign&&!COLLAB.isHost) lbl.textContent='En sesion con '+nP+' colaboradores — esperando division';
+    var others=nP-1; /* colaboradores que NO soy yo */
+    var colabWord=others===1?'colaborador':'colaboradores';
+    if(!hasAssign&&COLLAB.isHost&&nP<=1) lbl.textContent='\uD83D\uDFE2 Sesion abierta — esperando al equipo';
+    else if(!hasAssign&&COLLAB.isHost&&nP>1) lbl.textContent='\uD83D\uDC65 '+nP+' en sesion — \u2702 Divide los sitios';
+    else if(!hasAssign&&!COLLAB.isHost&&others<=0) lbl.textContent='\uD83D\uDFE2 Conectado — esperando que el host divida';
+    else if(!hasAssign&&!COLLAB.isHost) lbl.textContent='\uD83D\uDC65 '+nP+' en sesion — esperando division';
     else if(hasAssign) lbl.textContent=fragDone+'/'+totalAssign+' partes listas'+(fragDone>=totalAssign&&COLLAB.isHost?' — \u2728 Puedes hacer Merge!':'');
   }
 
