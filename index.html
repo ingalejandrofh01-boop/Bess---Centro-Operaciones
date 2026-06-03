@@ -18793,6 +18793,9 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
   COLLAB._participants=[{id:myId(),name:myName(),color:myColor(),role:myRole()}];
   COLLAB._myFrom=0; COLLAB._myTo=totalSites-1;
   _collabUpdateBar(reportType);
+  /* Mostrar participantes en sidebar inmediatamente (al menos el propio host) */
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(reportType); }, 200);
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(reportType); }, 800);
 
   waitFB(function(){
     window._fb.collabCreate({
@@ -18912,18 +18915,34 @@ function _collabPaintAssignments(){
       if(uid===myId()){
         item.style.background='rgba('+_hexToRgb(assign.color)+',.08)';
       }
-      /* Tag del nombre en el primer item del rango */
+      /* Tag del nombre + rango en el primer item del rango */
       if(i===assign.from){
+        var isMe=uid===myId();
         var tag=document.createElement('span');
         tag.className='csb-assign-tag';
-        tag.style.cssText='font-size:7px;font-family:var(--mono);background:'+assign.color
-          +';color:#fff;padding:1px 5px;border-radius:8px;margin-left:auto;flex-shrink:0;white-space:nowrap;';
-        tag.textContent=(assign.name||'?').split(' ')[0];
+        tag.style.cssText='display:inline-flex;align-items:center;gap:3px;'
+          +'font-size:7px;font-family:var(--mono);background:'+assign.color
+          +';color:#fff;padding:1px 6px 1px 4px;border-radius:8px;margin-left:auto;flex-shrink:0;white-space:nowrap;'
+          +(isMe?'box-shadow:0 0 0 1.5px rgba(255,255,255,.5);':'opacity:.8;');
+        /* Punto indicador */
+        var dot=document.createElement('span');
+        dot.style.cssText='width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.7);flex-shrink:0;';
+        tag.appendChild(dot);
+        var txt=document.createTextNode(
+          (isMe?'Tú':'')
+          +(isMe?' · ':' ')
+          +(assign.name||'?').split(' ')[0]
+          +' S.'+(assign.from+1)+'–'+(assign.to+1)
+        );
+        tag.appendChild(txt);
         item.style.display='flex'; item.style.alignItems='center';
         item.appendChild(tag);
       }
     }
   });
+
+  /* También actualizar el panel de participantes en sidebar */
+  _collabPaintParticipantsInSidebar(reportType);
 }
 
 function _hexToRgb(hex){
@@ -19171,6 +19190,9 @@ window.collabJoinSession = function(){
 
   _collabListenSession(sid, rType);
   _collabListenFragments(sid, rType);
+  /* Pintar panel de participantes en sidebar una vez cargue el wizard */
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 400);
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 1200);
   /* Si ya hay asignaciones guardadas en Firestore, aplicarlas despues de que el wizard cargue */
   setTimeout(function(){
     if(COLLAB._assignments&&Object.keys(COLLAB._assignments).length){
@@ -19257,26 +19279,72 @@ function _collabPaintParticipantsInSidebar(reportType){
   var hdr=document.getElementById(reportType==='val'?'rv-sidebar-hdr':'op-sidebar-hdr');
   if(!hdr) return;
   var prev=hdr.querySelector('.csb-part-mini'); if(prev) prev.remove();
-  if(COLLAB._participants.length<=1) return;
+  /* Siempre mostrar el panel si hay sesion activa */
+  if(!COLLAB.sessionId) return;
   var mini=document.createElement('div');
   mini.className='csb-part-mini';
-  mini.style.cssText='display:flex;gap:3px;align-items:center;margin-top:6px;padding:4px 0;border-top:1px solid rgba(74,120,245,.15);';
+  mini.style.cssText='display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:6px 0 4px;border-top:1px solid rgba(74,120,245,.2);';
+
+  /* Fila de avatares + conteo */
+  var rowTop=document.createElement('div');
+  rowTop.style.cssText='display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
+
+  var nP=COLLAB._participants.length;
   COLLAB._participants.forEach(function(p){
     var isMe=p.id===myId();
     var pts=(p.name||'?').trim().split(' ').filter(Boolean);
     var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'OP';
+    var assign=COLLAB._assignments[p.id];
+    var frag=COLLAB._fragments&&COLLAB._fragments[p.id];
+    var tip=p.name+(isMe?' (tú)':'')+( assign?' · Sitios '+(assign.from+1)+'–'+(assign.to+1):'')+(frag&&frag.done?' ✓':'');
     var av=document.createElement('div');
-    av.title=p.name+(isMe?' (tu)':'');
-    av.style.cssText='width:20px;height:20px;border-radius:50%;background:'+p.color+';'
+    av.title=tip;
+    av.style.cssText='width:22px;height:22px;border-radius:50%;background:'+p.color+';'
       +'display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;'
-      +(isMe?'box-shadow:0 0 0 2px #4af5b8;':'');
+      +(isMe?'box-shadow:0 0 0 2px #4af5b8;':'')
+      +(frag&&frag.done?'opacity:0.6;':'');
     av.textContent=ini;
-    mini.appendChild(av);
+    rowTop.appendChild(av);
   });
+
   var lbl=document.createElement('span');
-  lbl.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(100,150,255,.6);';
-  lbl.textContent=COLLAB._participants.length+' editando';
-  mini.appendChild(lbl);
+  lbl.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(100,150,255,.55);margin-left:2px;';
+  var hasAssign=Object.keys(COLLAB._assignments).length>0;
+  if(nP<=1&&!hasAssign) lbl.textContent='Sesión abierta — esperando equipo';
+  else if(!hasAssign) lbl.textContent=nP+' en sesión · sin dividir';
+  else lbl.textContent=nP+' editando';
+  rowTop.appendChild(lbl);
+  mini.appendChild(rowTop);
+
+  /* Si ya hay asignaciones, mostrar chips de sitios por persona */
+  if(hasAssign){
+    var rowSites=document.createElement('div');
+    rowSites.style.cssText='display:flex;flex-direction:column;gap:2px;margin-top:2px;';
+    COLLAB._participants.forEach(function(p){
+      var isMe=p.id===myId();
+      var assign=COLLAB._assignments[p.id];
+      if(!assign) return;
+      var frag=COLLAB._fragments&&COLLAB._fragments[p.id];
+      var pts=(p.name||'?').trim().split(' ').filter(Boolean);
+      var firstName=pts[0]||'?';
+      var chip=document.createElement('div');
+      chip.style.cssText='display:flex;align-items:center;gap:5px;padding:2px 6px;border-radius:8px;'
+        +'background:'+(isMe?'rgba('+_hexToRgb(p.color)+',.18)':'rgba(255,255,255,.04)')+';'
+        +'border:1px solid '+(isMe?p.color:'rgba(255,255,255,.08)')+';';
+      var dot=document.createElement('span');
+      dot.style.cssText='width:7px;height:7px;border-radius:50%;background:'+p.color+';flex-shrink:0;';
+      var txt=document.createElement('span');
+      txt.style.cssText='font-size:8.5px;font-family:var(--mono);color:'+(isMe?'#e0eaff':'rgba(180,200,255,.5)')+';white-space:nowrap;flex:1;';
+      txt.textContent=(isMe?'Tú':'')+(isMe&&firstName?(' ('+firstName+')'):(firstName))+' · S.'+(assign.from+1)+'–'+(assign.to+1);
+      var badge=document.createElement('span');
+      badge.style.cssText='font-size:8px;font-family:var(--mono);color:'+(frag&&frag.done?'#4af5b8':'rgba(100,150,255,.4)')+';flex-shrink:0;';
+      badge.textContent=frag&&frag.done?'✓ Listo':'editando';
+      chip.appendChild(dot); chip.appendChild(txt); chip.appendChild(badge);
+      rowSites.appendChild(chip);
+    });
+    mini.appendChild(rowSites);
+  }
+
   hdr.appendChild(mini);
 }
 
@@ -19340,6 +19408,9 @@ function _collabUpdateBar(reportType){
 
   /* Panel de progreso si ya hay division */
   if(hasAssign) _collabRenderDivisionPanel();
+
+  /* Refrescar panel de participantes en sidebar siempre */
+  if(COLLAB.reportType) _collabPaintParticipantsInSidebar(COLLAB.reportType);
 }
 
 function _collabHideBar(rt){ var sfx=rt==='op'?'-op':''; var b=document.getElementById('collab-status-bar'+sfx); if(b) b.classList.remove('active'); }
