@@ -6184,7 +6184,10 @@ async function expDoZip(mode){
     <div class="rv-sidebar">
       <div class="rv-sidebar-hdr" id="rv-sidebar-hdr">
         <span>Sitios</span>
-        <span id="rv-side-count" style="color:var(--sky);font-size:10px">0 / 51</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button id="rv-sort-btn" onclick="rvToggleSort()" title="Ordenar A→Z / original" style="padding:2px 7px;border-radius:6px;border:1px solid var(--b1);background:transparent;font-family:var(--mono);font-size:9px;color:var(--t3);cursor:pointer;letter-spacing:.5px">A→Z</button>
+          <span id="rv-side-count" style="color:var(--sky);font-size:10px">0 / 51</span>
+        </div>
       </div>
       <div class="rv-sidebar-scroll">
         <div id="rv-site-list"></div>
@@ -6522,7 +6525,13 @@ async function expDoZip(mode){
   </div>
   <div class="op-wiz-body">
     <div class="op-sidebar">
-      <div class="op-sidebar-hdr" id="op-sidebar-hdr"><span>Sitios</span><span id="op-side-count" style="color:var(--sky);font-size:10px">0 / 62</span></div>
+      <div class="op-sidebar-hdr" id="op-sidebar-hdr">
+        <span>Sitios</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button id="op-sort-btn" onclick="opToggleSort()" title="Ordenar A→Z / original" style="padding:2px 7px;border-radius:6px;border:1px solid var(--b1);background:transparent;font-family:var(--mono);font-size:9px;color:var(--t3);cursor:pointer;letter-spacing:.5px">A→Z</button>
+          <span id="op-side-count" style="color:var(--sky);font-size:10px">0 / 62</span>
+        </div>
+      </div>
       <div class="op-side-scroll"><div id="op-site-list"></div></div>
     </div>
     <div class="op-form" id="op-form-panel">
@@ -13990,21 +13999,46 @@ function rvBackSites(){
 }
 
 /* SIDEBAR */
+var _rvSortAZ = false;
+function rvToggleSort(){
+  _rvSortAZ = !_rvSortAZ;
+  var btn = document.getElementById('rv-sort-btn');
+  if(btn){
+    btn.textContent = _rvSortAZ ? '↺ Orig.' : 'A→Z';
+    btn.style.color = _rvSortAZ ? 'var(--sky)' : 'var(--t3)';
+    btn.style.borderColor = _rvSortAZ ? 'var(--sky)' : 'var(--b1)';
+    btn.style.background = _rvSortAZ ? 'rgba(26,63,204,.08)' : 'transparent';
+  }
+  rvBuildSide();
+}
+
 function rvBuildSide(){
   var done=rvW.srs.filter(function(s){return s.skip||s.bat!==null;}).length;
   var pct=Math.round(done/RV_SITES.length*100);
   _rv('rv-side-count',function(e){e.textContent=done+' / '+RV_SITES.length;});
   _rv('rv-prog-fill',function(e){e.style.width=pct+'%';});
   _rv('rv-prog-txt',function(e){e.textContent=pct+'%';});
+
+  /* Construir lista de índices, respetando asignación collab si la hay */
+  var myAssign = window.COLLAB&&COLLAB._assignments&&COLLAB._assignments[myId()];
+  var indices = RV_SITES.map(function(_,i){return i;});
+  if(myAssign){
+    indices = indices.filter(function(i){return i>=myAssign.from&&i<=myAssign.to;});
+  }
+  if(_rvSortAZ){
+    indices = indices.slice().sort(function(a,b){
+      return RV_SITES[a].localeCompare(RV_SITES[b],'es',{sensitivity:'base'});
+    });
+  }
+
   var h='';
-  RV_SITES.forEach(function(s,i){
-    var sr=rvW.srs[i];
+  indices.forEach(function(i){
+    var s=RV_SITES[i]; var sr=rvW.srs[i];
     h+='<div class="rv-sitem'+(i===rvW.idx?' cur':'')+'" onclick="rvJump('+i+')" style="color:'+rvSCol(sr)+'">'+
        '<span class="rv-sico" style="background:'+rvSBg(sr)+';color:'+rvSCol(sr)+'">'+rvSIco(sr)+'</span>'+
        '<span style="overflow:hidden;text-overflow:ellipsis">'+s+'</span></div>';
   });
   _rv('rv-site-list',function(e){e.innerHTML=h;});
-  /* scroll active into view */
   var sc=document.getElementById('rv-site-list');
   if(sc){var cur=sc.querySelector('.rv-sitem.cur');if(cur)cur.scrollIntoView({block:'nearest'});}
 }
@@ -14493,13 +14527,14 @@ window.rvShowDet = function(id){
     modal.id='rv-det-modal';
     modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(10,31,94,.55);backdrop-filter:blur(8px);z-index:9100;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;';
     modal.innerHTML=
-      '<div style="background:#fff;border:1px solid var(--b1);border-radius:14px;width:100%;max-width:1050px;margin:0 auto;box-shadow:0 24px 80px rgba(10,31,94,.2);">'+
+      '<div id="rv-det-inner" style="background:#fff;border:1px solid var(--b1);border-radius:14px;width:100%;max-width:1050px;margin:0 auto;box-shadow:0 24px 80px rgba(10,31,94,.2);">'+
         '<div style="background:linear-gradient(135deg,#f0f6ff,#e8eefa);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;padding:14px 22px 10px;">'+
           '<div>'+
             '<div id="rv-det-hdr" style="font-family:var(--disp);font-size:18px;font-weight:800;color:var(--text)"></div>'+
             '<div id="rv-det-sub" style="font-family:var(--mono);font-size:10px;color:#6685ac;margin-top:3px"></div>'+
           '</div>'+
           '<div style="display:flex;gap:8px;">'+
+            '<button id="rv-det-png-btn" onclick="rvExportDetPNG()" style="padding:5px 14px;border-radius:7px;border:1.5px solid #a855f7;background:linear-gradient(135deg,#a855f7,#7c3aed);font-family:var(--mono);font-size:11px;cursor:pointer;color:#fff;font-weight:700;">📷 PNG</button>'+
             '<button onclick="rvCloseModal()" style="padding:5px 14px;border-radius:7px;border:1.5px solid var(--b1);background:transparent;font-family:var(--mono);font-size:11px;cursor:pointer;color:var(--t2);">✕ Cerrar</button>'+
           '</div>'+
         '</div>'+
@@ -14529,6 +14564,28 @@ window.rvShowDet = function(id){
 };
 
 function rvCloseModal(){var m=document.getElementById('rv-det-modal');if(m)m.style.display='none';}
+
+function rvExportDetPNG(){
+  var inner=document.getElementById('rv-det-inner');
+  if(!inner||typeof html2canvas==='undefined'){alert('No disponible.');return;}
+  var btn=document.getElementById('rv-det-png-btn');
+  if(btn){btn.textContent='Exportando...';btn.disabled=true;}
+  /* Temporalmente ocultar botones para que no salgan en el PNG */
+  var btns=inner.querySelectorAll('button');
+  btns.forEach(function(b){b.style.visibility='hidden';});
+  html2canvas(inner,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
+    btns.forEach(function(b){b.style.visibility='';});
+    var link=document.createElement('a');
+    var now=new Date();
+    link.download='ReporteValidacion_'+now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate()+'.png';
+    link.href=canvas.toDataURL('image/png');link.click();
+    if(btn){btn.textContent='📷 PNG';btn.disabled=false;}
+  }).catch(function(){
+    btns.forEach(function(b){b.style.visibility='';});
+    if(btn){btn.textContent='📷 PNG';btn.disabled=false;}
+    alert('Error al exportar PNG.');
+  });
+}
 
 /* PNG export from summary preview */
 function rvExportPNG(){
@@ -14882,6 +14939,18 @@ window.rvDelMon = function(id, ev){
 
 var OP_SITES=["Almacén General", "Alpha", "BHS", "Comedor", "FBO", "PTAR", "Sala Bravo B1", "Sala Bravo B2", "T1", "T2 B1", "T2 B2", "T3 B1", "T3 B2", "T3 B3", "T4 B1", "T4 B2", "T4 B3", "Hidro", "HUX 01", "HUX 02", "Minatitlán", "Veracruz", "Mérida B1", "Mérida B2", "Acapulco", "CD Juárez", "Chihuahua 2G", "Chihuahua", "Culiacán", "Durango", "Monterrey B1", "Monterrey B2", "Monterrey B3", "Monterrey B4", "Torreón", "Zacatecas", "Zihuatanejo", "Reynosa", "DISEKO", "Alysa", "Vitrogenera", "RegioPet 1", "RegioPet 2", "RegioPet 3", "Bocar", "IPASA 1", "IPASA 2", "IPASA 3", "IPASA 4", "TOTIS", "FM Boca del Río", "Tejidos y Texturizados", "Resideo", "Brom", "Vesta", "THOR B1", "THOR B2", "Park Royal Luna", "Park Royal Sol", "LG", "FM Mérida", "ABADIMEX"];
 var opW=null, opReps=[], OP_SK='op:bess:v1';
+var _opSortAZ = false;
+function opToggleSort(){
+  _opSortAZ = !_opSortAZ;
+  var btn = document.getElementById('op-sort-btn');
+  if(btn){
+    btn.textContent = _opSortAZ ? '\u21ba Orig.' : 'A\u2192Z';
+    btn.style.color = _opSortAZ ? 'var(--sky)' : 'var(--t3)';
+    btn.style.borderColor = _opSortAZ ? 'var(--sky)' : 'var(--b1)';
+    btn.style.background = _opSortAZ ? 'rgba(26,63,204,.08)' : 'transparent';
+  }
+  opBuildSide();
+}
 function opLoad(){try{var d=localStorage.getItem(OP_SK);if(d)opReps=JSON.parse(d);}catch(e){}}
 function opPersist(){try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}}
 function opMkS(){return{oper:null,status:'',soc:'',com:null,sev:'',evento:'',obs:'',skip:false};}
@@ -14979,9 +15048,19 @@ function opBuildSide(){
   _op('op-side-count',function(e){e.textContent=done+' / '+OP_SITES.length;});
   _op('op-prog-fill',function(e){e.style.width=pct+'%';});
   _op('op-prog-txt',function(e){e.textContent=pct+'%';});
+  var myAssign = window.COLLAB&&COLLAB._assignments&&COLLAB._assignments[myId()];
+  var indices = OP_SITES.map(function(_,i){return i;});
+  if(myAssign){
+    indices = indices.filter(function(i){return i>=myAssign.from&&i<=myAssign.to;});
+  }
+  if(_opSortAZ){
+    indices = indices.slice().sort(function(a,b){
+      return OP_SITES[a].localeCompare(OP_SITES[b],'es',{sensitivity:'base'});
+    });
+  }
   var h='';
-  OP_SITES.forEach(function(s,i){
-    var sr=opW.srs[i];var col=opSColour(sr);var ico=opSIco(sr);
+  indices.forEach(function(i){
+    var s=OP_SITES[i]; var sr=opW.srs[i];var col=opSColour(sr);var ico=opSIco(sr);
     var bg='transparent';
     if(sr&&sr.status==='OK')bg='rgba(34,197,94,.12)';
     else if(sr&&sr.status==='NO OPERATIVO')bg='rgba(239,68,68,.12)';
@@ -15288,10 +15367,13 @@ window.opShowDet = function(id){
     modal.id='op-det-modal';
     modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(10,31,94,.55);backdrop-filter:blur(8px);z-index:9100;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;';
     modal.innerHTML=
-      '<div style="background:#fff;border:1px solid var(--b1);border-radius:14px;width:100%;max-width:1200px;margin:0 auto;box-shadow:0 24px 80px rgba(10,31,94,.2);">'+
+      '<div id="op-det-inner" style="background:#fff;border:1px solid var(--b1);border-radius:14px;width:100%;max-width:1200px;margin:0 auto;box-shadow:0 24px 80px rgba(10,31,94,.2);">'+
         '<div style="background:linear-gradient(135deg,#f0f6ff,#e8eefa);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;padding:16px 22px;">'+
           '<div id="op-det-modal-hdr" style="font-family:var(--disp);font-size:17px;font-weight:800;color:var(--text)"></div>'+
-          '<button onclick="opCloseModal()" style="padding:5px 14px;border-radius:7px;border:1.5px solid var(--b1);background:transparent;font-family:var(--mono);font-size:11px;cursor:pointer;color:var(--t2);">✕ Cerrar</button>'+
+          '<div style="display:flex;gap:8px;">'+
+            '<button id="op-det-png-btn" onclick="opExportDetPNG()" style="padding:5px 14px;border-radius:7px;border:1.5px solid #a855f7;background:linear-gradient(135deg,#a855f7,#7c3aed);font-family:var(--mono);font-size:11px;cursor:pointer;color:#fff;font-weight:700;">📷 PNG</button>'+
+            '<button onclick="opCloseModal()" style="padding:5px 14px;border-radius:7px;border:1.5px solid var(--b1);background:transparent;font-family:var(--mono);font-size:11px;cursor:pointer;color:var(--t2);">✕ Cerrar</button>'+
+          '</div>'+
         '</div>'+
         '<div id="op-det-modal-body" style="padding:18px 22px 24px;overflow-x:auto;"></div>'+
       '</div>';
@@ -15316,23 +15398,24 @@ window.opShowDet = function(id){
 
 function opCloseModal(){var m=document.getElementById('op-det-modal');if(m)m.style.display='none';}
 
-function opExportModalPNG(){
-  var el=document.getElementById('op-det-body');
-  if(!el||typeof html2canvas==='undefined'){alert('Error.');return;}
-  var btn=event&&event.target?event.target:null;
+function opExportDetPNG(){
+  var inner=document.getElementById('op-det-inner');
+  if(!inner||typeof html2canvas==='undefined'){alert('No disponible.');return;}
+  var btn=document.getElementById('op-det-png-btn');
   if(btn){btn.textContent='Exportando...';btn.disabled=true;}
-  el.style.background='#fff';el.style.padding='16px';
-  html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
-    el.style.background='';el.style.padding='';
+  var btns=inner.querySelectorAll('button');
+  btns.forEach(function(b){b.style.visibility='hidden';});
+  html2canvas(inner,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
+    btns.forEach(function(b){b.style.visibility='';});
     var link=document.createElement('a');
     var now=new Date();
     link.download='ReporteOperativo_'+now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate()+'.png';
     link.href=canvas.toDataURL('image/png');link.click();
     if(btn){btn.textContent='📷 PNG';btn.disabled=false;}
   }).catch(function(){
-    el.style.background='';el.style.padding='';
+    btns.forEach(function(b){b.style.visibility='';});
     if(btn){btn.textContent='📷 PNG';btn.disabled=false;}
-    alert('Error al exportar.');
+    alert('Error al exportar PNG.');
   });
 }
 
@@ -15575,9 +15658,19 @@ function opBuildSide(){
   _op('op-side-count',function(e){e.textContent=done+' / '+OP_SITES.length;});
   _op('op-prog-fill',function(e){e.style.width=pct+'%';});
   _op('op-prog-txt',function(e){e.textContent=pct+'%';});
+  var myAssign = window.COLLAB&&COLLAB._assignments&&COLLAB._assignments[myId()];
+  var indices = OP_SITES.map(function(_,i){return i;});
+  if(myAssign){
+    indices = indices.filter(function(i){return i>=myAssign.from&&i<=myAssign.to;});
+  }
+  if(_opSortAZ){
+    indices = indices.slice().sort(function(a,b){
+      return OP_SITES[a].localeCompare(OP_SITES[b],'es',{sensitivity:'base'});
+    });
+  }
   var h='';
-  OP_SITES.forEach(function(s,i){
-    var sr=opW.srs[i];var col=opSColour(sr);var ico=opSIco(sr);
+  indices.forEach(function(i){
+    var s=OP_SITES[i]; var sr=opW.srs[i];var col=opSColour(sr);var ico=opSIco(sr);
     var bg='transparent';
     if(sr&&sr.status==='OK')bg='rgba(34,197,94,.12)';
     else if(sr&&sr.status==='NO OPERATIVO')bg='rgba(239,68,68,.12)';
