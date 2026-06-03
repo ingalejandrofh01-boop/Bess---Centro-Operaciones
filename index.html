@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780459281">
+<meta name="app-version" content="1780459543">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -4472,7 +4472,7 @@ html{-webkit-text-size-adjust:100%;}
 <script>
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
-  var APP_VERSION = '1780459281';
+  var APP_VERSION = '1780459543';
   var stored = localStorage.getItem('bess_app_version');
   if(stored && stored !== APP_VERSION){
     /* Version nueva detectada — limpiar caches y recargar */
@@ -19141,28 +19141,43 @@ window.collabJoinSession = function(){
   if(lbl) lbl.textContent='Conectando a sesion...';
 
   if(rType==='val'){
-    /* Inicializar wizard si no esta activo */
-    if(window.rvInitSetup) rvInitSetup();
-    /* Abrir wizard con delay para que rvW este listo */
+    /* Inicializar rvW directamente en modo sites, saltando el setup */
+    if(window.RV_SITES){
+      var userName=localStorage.getItem('bess_uname')||'Operador';
+      window.rvW={type:'matutino',date:new Date().toISOString(),op:userName,
+                  step:'sites',idx:0,srs:window.RV_SITES.map(function(){return window.rvMkS?rvMkS():{};})};
+    } else if(window.rvInitSetup){ rvInitSetup(); }
     setTimeout(function(){
       var wiz=document.getElementById('rv-wizard-modal');
       if(wiz) wiz.classList.add('open');
-      /* Ir al primer sitio */
-      if(window.rvW && window.rvBuildSide) rvBuildSide();
-      if(window.rvW && window.rvRenderS) rvRenderS();
-    }, 100);
+      if(window.rvW) window.rvW.step='sites';
+      if(window.rvBuildSide) rvBuildSide();
+      if(window.rvRenderS) rvRenderS();
+    },150);
   } else {
-    if(window.opInitSetup) opInitSetup();
+    if(window.OP_SITES){
+      var userName2=localStorage.getItem('bess_uname')||'Operador';
+      window.opW={period:'Hora Punta Vespertina',date:new Date().toISOString(),op:userName2,
+                  step:'sites',idx:0,srs:window.OP_SITES.map(function(){return window.opMkS?opMkS():{};})};
+    } else if(window.opInitSetup){ opInitSetup(); }
     setTimeout(function(){
       var wiz2=document.getElementById('op-wizard-modal');
       if(wiz2) wiz2.classList.add('open');
-      if(window.opW && window.opBuildSide) opBuildSide();
-      if(window.opW && window.opRenderS) opRenderS();
-    }, 100);
+      if(window.opW) window.opW.step='sites';
+      if(window.opBuildSide) opBuildSide();
+      if(window.opRenderS) opRenderS();
+    },150);
   }
 
   _collabListenSession(sid, rType);
   _collabListenFragments(sid, rType);
+  /* Si ya hay asignaciones guardadas en Firestore, aplicarlas despues de que el wizard cargue */
+  setTimeout(function(){
+    if(COLLAB._assignments&&Object.keys(COLLAB._assignments).length){
+      _collabApplyMyAssignment();
+      _collabPaintAssignments();
+    }
+  }, 600);
   safeToast('\uD83E\uDD1D Te uniste al reporte de '+banner.dataset.hostName);
 };
 
