@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780470303">
+<meta name="app-version" content="1780471148">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -13804,9 +13804,14 @@ function rvStartSites(){
     if(lbl) lbl.textContent='Iniciando sesion colaborativa...';
   }
   if(window.collabStartSession){
-    var rvSites=window.RV_SITES||[];
-    var label=window.RV_TYPES&&rvW.type&&window.RV_TYPES[rvW.type]?window.RV_TYPES[rvW.type].label:rvW.type;
-    collabStartSession('val', label||'Validacion', rvSites.length);
+    /* Guard: no crear sesion nueva si ya hay una activa */
+    if(window.COLLAB&&window.COLLAB.sessionId){
+      _collabUpdateBar&&_collabUpdateBar('val');
+    } else {
+      var rvSites=window.RV_SITES||[];
+      var label=window.RV_TYPES&&rvW.type&&window.RV_TYPES[rvW.type]?window.RV_TYPES[rvW.type].label:rvW.type;
+      collabStartSession('val', label||'Validacion', rvSites.length);
+    }
   }
 }
 function rvCancelWiz(){_rv('rv-wizard-modal',function(e){e.classList.remove('open');});rvInitSetup();}
@@ -15398,8 +15403,13 @@ function opStartSites(){
     if(lbl) lbl.textContent='Iniciando sesion colaborativa...';
   }
   if(window.collabStartSession){
-    var opSites=window.OP_SITES||[];
-    collabStartSession('op', opW.period||'Reporte Operativo', opSites.length);
+    /* Guard: no crear sesion nueva si ya hay una activa */
+    if(window.COLLAB&&window.COLLAB.sessionId){
+      _collabUpdateBar&&_collabUpdateBar('op');
+    } else {
+      var opSites=window.OP_SITES||[];
+      collabStartSession('op', opW.period||'Reporte Operativo', opSites.length);
+    }
   }
 }
 function opCancelWiz(){
