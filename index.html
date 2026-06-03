@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780472413">
+<meta name="app-version" content="1780472687">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -184,10 +184,17 @@ window._fb = {
   },
   async collabJoin(sessionId, participant) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
-    await setDoc(ref, {
+    const data = {
       [`participants.${participant.id}`]: participant,
       updatedAt: Date.now()
-    }, { merge: true });
+    };
+    console.log('[Collab] collabJoin escribiendo en Firestore:', sessionId, participant.name, data);
+    try {
+      await setDoc(ref, data, { merge: true });
+      console.log('[Collab] collabJoin OK — participante guardado:', participant.name);
+    } catch(e) {
+      console.error('[Collab] collabJoin ERROR:', e.code, e.message);
+    }
   },
   async collabLeave(sessionId, userId) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
