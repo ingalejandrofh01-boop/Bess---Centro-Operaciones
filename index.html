@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780472687">
+<meta name="app-version" content="1780472854">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -23,7 +23,7 @@
 <script type="module">
 import { initializeApp }                              from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs,
-         deleteDoc, doc, query, orderBy, writeBatch, onSnapshot, setDoc, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+         deleteDoc, doc, query, orderBy, writeBatch, onSnapshot, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Firebase Storage no disponible en plan Spark — archivos guardados en Firestore como base64
 
 const firebaseConfig = {
@@ -188,12 +188,21 @@ window._fb = {
       [`participants.${participant.id}`]: participant,
       updatedAt: Date.now()
     };
-    console.log('[Collab] collabJoin escribiendo en Firestore:', sessionId, participant.name, data);
+    console.log('[Collab] collabJoin escribiendo en Firestore:', sessionId, participant.name);
     try {
-      await setDoc(ref, data, { merge: true });
-      console.log('[Collab] collabJoin OK — participante guardado:', participant.name);
+      /* updateDoc preserva todos los campos existentes — más seguro que setDoc+merge
+         para dot-notation sobre objetos que pueden estar vacíos */
+      await updateDoc(ref, data);
+      console.log('[Collab] collabJoin OK:', participant.name);
     } catch(e) {
       console.error('[Collab] collabJoin ERROR:', e.code, e.message);
+      /* Fallback: si el doc no existe aún, usar setDoc */
+      try {
+        await setDoc(ref, { participants: { [participant.id]: participant }, updatedAt: Date.now() }, { merge: true });
+        console.log('[Collab] collabJoin fallback OK:', participant.name);
+      } catch(e2) {
+        console.error('[Collab] collabJoin fallback ERROR:', e2.code, e2.message);
+      }
     }
   },
   async collabLeave(sessionId, userId) {
