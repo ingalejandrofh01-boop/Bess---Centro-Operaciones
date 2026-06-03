@@ -4084,7 +4084,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 .rv-progbar{flex:1;height:5px;background:var(--b1);border-radius:3px;overflow:hidden}
 .rv-progfill{height:100%;background:linear-gradient(90deg,var(--sky-d),var(--sky),var(--sky-ll));transition:width .3s;border-radius:3px}
 .rv-sidebar{display:flex;flex-direction:column;background:var(--s1);border-right:1px solid var(--b1);overflow:hidden}
-.rv-sidebar-hdr{padding:10px 14px 8px;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.rv-sidebar-hdr{padding:8px 14px 6px;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;min-height:0}
 .rv-sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
 .rv-sitem{display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;border-left:3px solid transparent;font-size:11px;font-family:var(--body);color:var(--t2);white-space:nowrap;overflow:hidden;transition:background .1s}
 .rv-sitem:hover{background:var(--s2)}
@@ -6276,10 +6276,10 @@ async function expDoZip(mode){
     <div class="rv-sidebar">
       <div class="rv-sidebar-hdr" id="rv-sidebar-hdr">
         <span>Sitios</span>
-        <div style="display:flex;align-items:center;gap:6px">
-          <button id="rv-sort-btn" onclick="rvToggleSort()" title="Ordenar A→Z / original" style="padding:2px 7px;border-radius:6px;border:1px solid var(--b1);background:transparent;font-family:var(--mono);font-size:9px;color:var(--t3);cursor:pointer;letter-spacing:.5px">A→Z</button>
-          <span id="rv-side-count" style="color:var(--sky);font-size:10px">0 / 51</span>
-        </div>
+        <span id="rv-side-count" style="color:var(--sky);font-size:10px">0 / 51</span>
+      </div>
+      <div style="padding:4px 8px;border-bottom:1px solid var(--b1);flex-shrink:0;background:var(--s1)">
+        <button id="rv-sort-btn" onclick="rvToggleSort()" style="width:100%;padding:3px 0;border-radius:5px;border:1px solid var(--b1);background:transparent;font-family:var(--mono);font-size:8px;color:var(--t3);cursor:pointer;letter-spacing:.5px">A→Z Ordenar</button>
       </div>
       <div class="rv-sidebar-scroll">
         <div id="rv-site-list"></div>
@@ -6619,10 +6619,10 @@ async function expDoZip(mode){
     <div class="op-sidebar">
       <div class="op-sidebar-hdr" id="op-sidebar-hdr">
         <span>Sitios</span>
-        <div style="display:flex;align-items:center;gap:6px">
-          <button id="op-sort-btn" onclick="opToggleSort()" title="Ordenar A→Z / original" style="padding:2px 7px;border-radius:6px;border:1px solid var(--b1);background:transparent;font-family:var(--mono);font-size:9px;color:var(--t3);cursor:pointer;letter-spacing:.5px">A→Z</button>
-          <span id="op-side-count" style="color:var(--sky);font-size:10px">0 / 62</span>
-        </div>
+        <span id="op-side-count" style="color:var(--sky);font-size:10px">0 / 62</span>
+      </div>
+      <div style="padding:4px 8px;border-bottom:1px solid var(--b1);flex-shrink:0;background:var(--s1)">
+        <button id="op-sort-btn" onclick="opToggleSort()" style="width:100%;padding:3px 0;border-radius:5px;border:1px solid var(--b1);background:transparent;font-family:var(--mono);font-size:8px;color:var(--t3);cursor:pointer;letter-spacing:.5px">A→Z Ordenar</button>
       </div>
       <div class="op-side-scroll"><div id="op-site-list"></div></div>
     </div>
@@ -14096,10 +14096,11 @@ function rvToggleSort(){
   _rvSortAZ = !_rvSortAZ;
   var btn = document.getElementById('rv-sort-btn');
   if(btn){
-    btn.textContent = _rvSortAZ ? '↺ Orig.' : 'A→Z';
+    btn.textContent = _rvSortAZ ? '↺ Orden original' : 'A→Z Ordenar';
     btn.style.color = _rvSortAZ ? 'var(--sky)' : 'var(--t3)';
     btn.style.borderColor = _rvSortAZ ? 'var(--sky)' : 'var(--b1)';
     btn.style.background = _rvSortAZ ? 'rgba(26,63,204,.08)' : 'transparent';
+    btn.style.fontWeight = _rvSortAZ ? '700' : '';
   }
   rvBuildSide();
 }
@@ -15036,10 +15037,11 @@ function opToggleSort(){
   _opSortAZ = !_opSortAZ;
   var btn = document.getElementById('op-sort-btn');
   if(btn){
-    btn.textContent = _opSortAZ ? '\u21ba Orig.' : 'A\u2192Z';
+    btn.textContent = _opSortAZ ? '↺ Orden original' : 'A→Z Ordenar';
     btn.style.color = _opSortAZ ? 'var(--sky)' : 'var(--t3)';
     btn.style.borderColor = _opSortAZ ? 'var(--sky)' : 'var(--b1)';
     btn.style.background = _opSortAZ ? 'rgba(26,63,204,.08)' : 'transparent';
+    btn.style.fontWeight = _opSortAZ ? '700' : '';
   }
   opBuildSide();
 }
