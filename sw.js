@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker  (sw.js)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const CACHE_NAME   = 'bess-ops-v4';   // ← bumpeado: fuerza reinstalación
+const CACHE_NAME   = 'bess-ops-v5';   // ← bumpeado: fuerza reinstalación
 const SHELL_FILE   = './index.html';
 const OFFLINE_URLS = [SHELL_FILE, './'];
 
