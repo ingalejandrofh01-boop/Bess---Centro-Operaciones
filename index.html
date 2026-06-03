@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780471148">
+<meta name="app-version" content="1780472075">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -4493,14 +4493,20 @@ html{-webkit-text-size-adjust:100%;}
 if('serviceWorker' in navigator){
   const base=location.href.substring(0,location.href.lastIndexOf('/')+1);
 
-  /* Matar SWs viejos agresivamente antes de registrar el nuevo */
+  /* Desregistrar cualquier SW viejo y NO registrar uno nuevo si sw.js no existe */
   navigator.serviceWorker.getRegistrations().then(regs => {
     regs.forEach(r => {
-      r.unregister().then(() => console.log('[PWA] SW viejo eliminado:', r.scope));
+      r.unregister().then(() => console.log('[PWA] SW eliminado:', r.scope));
     });
   }).catch(()=>{});
 
-  navigator.serviceWorker.register(base+'sw.js', { scope:'./', updateViaCache:'none' })
+  /* Solo registrar SW si el archivo existe */
+  fetch(base+'sw.js', {method:'HEAD'}).then(r => {
+    if(!r.ok) { console.log('[PWA] sw.js no encontrado, omitiendo registro'); return; }
+    return navigator.serviceWorker.register(base+'sw.js', { scope:'./', updateViaCache:'none' });
+  }).catch(()=>{});
+
+  if(false) navigator.serviceWorker.register(base+'sw.js', { scope:'./', updateViaCache:'none' })
     .then(reg => {
       console.log('[PWA] SW registrado:', reg.scope);
 
@@ -19257,6 +19263,8 @@ function _collabListenSession(sid, reportType){
   if(!window._fb||!window._fb.listenCollabSession) return;
 
   COLLAB._unsubSession=window._fb.listenCollabSession(sid,function(session){
+    var parts=Object.values((session&&session.participants)||{}).filter(Boolean);
+    console.log('[Collab] SESSION UPDATE — participantes:',parts.length, parts.map(function(p){return p.name;}), 'asignaciones:',Object.keys((session&&session.assignments)||{}).length);
     if(!session||session.status==='closed'){
       if(!COLLAB.isHost){ _collabHideBar(reportType); COLLAB.sessionId=null; }
       return;
