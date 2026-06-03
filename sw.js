@@ -67,6 +67,9 @@ self.addEventListener('fetch', event => {
   }
  
   // Resto → Cache first con fallback a red
+  // Solo cachear GET — Cache API rechaza HEAD y otros métodos
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;

@@ -4050,6 +4050,150 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 .rv-btn-png:hover{filter:brightness(1.1)}
 
 /* ════ REPORTE OPERATIVO MODULE ════ */
+#op-wizard-modal{position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,76px);right:0;bottom:0;z-index:400;display:none;flex-direction:column;background:var(--bg)}
+#op-wizard-modal.open{display:flex}
+#op-sum-modal{position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,76px);right:0;bottom:0;z-index:401;display:none;overflow-y:auto;background:var(--bg)}
+#op-sum-modal.open{display:block}
+@media(max-width:768px){#op-wizard-modal,#op-sum-modal{left:0}}
+.op-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0}
+.op-botbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0;box-shadow:0 -2px 8px rgba(26,63,204,.06)}
+.op-wiz-body{display:grid;grid-template-columns:210px 1fr;flex:1;min-height:0;overflow:hidden}
+.op-sidebar{display:flex;flex-direction:column;background:var(--s1);border-right:1px solid var(--b1);overflow:hidden}
+.op-sidebar-hdr{padding:10px 14px 8px;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.op-side-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+.op-sitem{display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;border-left:3px solid transparent;font-size:11px;font-family:var(--body);color:var(--t2);white-space:nowrap;overflow:hidden;transition:background .1s}
+.op-sitem:hover{background:var(--s2)}
+.op-sitem.cur{background:rgba(26,63,204,.07);border-left-color:var(--sky);color:var(--sky);font-weight:600}
+.op-sico{width:18px;height:18px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:var(--mono)}
+.op-form{overflow-y:auto;padding:22px 26px;min-width:0;background:var(--bg)}
+.op-sec{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.op-sec-ttl{display:block;font-family:var(--mono);font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.op-status-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.op-sbtn{padding:11px 8px;border-radius:8px;border:2px solid var(--b1);background:var(--s1);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:700;font-family:var(--body);color:var(--t2)}
+.op-sbtn:hover{border-color:var(--accent)}
+.op-sbtn.s-ok{border-color:#22c55e;background:rgba(34,197,94,.1);color:#15803d}
+.op-sbtn.s-inc{border-color:#f59e0b;background:rgba(245,158,11,.1);color:#b45309}
+.op-sbtn.s-nop{border-color:#ef4444;background:rgba(239,68,68,.08);color:#b91c1c}
+.op-sbtn.s-dis{border-color:#94a3b8;background:rgba(148,163,184,.1);color:#475569}
+.op-sbtn.s-mnt{border-color:#8b5cf6;background:rgba(139,92,246,.08);color:#6d28d9}
+.op-bool-row{display:flex;gap:8px}
+.op-bool-btn{flex:1;padding:10px 6px;border-radius:7px;border:1.5px solid var(--b2);background:var(--bg);cursor:pointer;font-size:12px;font-weight:700;font-family:var(--body);color:var(--t2);text-align:center;transition:all .15s}
+.op-bool-btn.b-yes{border-color:#22c55e;background:rgba(34,197,94,.1);color:#15803d}
+.op-bool-btn.b-no{border-color:#ef4444;background:rgba(239,68,68,.08);color:#b91c1c}
+.op-sev-row{display:flex;gap:7px}
+.op-sev-btn{flex:1;padding:8px 4px;border-radius:7px;border:1.5px solid var(--b2);background:var(--bg);cursor:pointer;font-size:11px;font-weight:700;font-family:var(--mono);color:var(--t2);text-align:center;transition:all .15s;letter-spacing:.5px;text-transform:uppercase}
+.op-sev-btn.sv-0{border-color:var(--b2);background:var(--s2);color:var(--t3)}
+.op-sev-btn.sv-b{border-color:#22c55e;background:rgba(34,197,94,.1);color:#15803d}
+.op-sev-btn.sv-m{border-color:#f59e0b;background:rgba(245,158,11,.1);color:#b45309}
+.op-sev-btn.sv-a{border-color:#ef4444;background:rgba(239,68,68,.1);color:#b91c1c}
+.op-inp{width:100%;padding:8px 11px;background:var(--s1);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-size:12px;font-family:var(--body);outline:none;transition:border-color .15s;box-sizing:border-box}
+.op-inp:focus{border-color:var(--accent)}
+.op-btn-p{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#1a3fcc,#1252e8);color:#fff;font-family:var(--disp);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.op-btn-p:hover{filter:brightness(1.08)}
+.op-btn-p:disabled{opacity:.38;cursor:not-allowed}
+.op-btn-s{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:7px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.op-btn-s:hover{border-color:var(--sky);color:var(--sky)}
+.op-btn-png{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-family:var(--disp);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.op-paper{background:#fff;border:1px solid #c8d6ee;border-radius:10px;overflow:hidden;box-shadow:0 2px 16px rgba(26,63,204,.1);margin-bottom:20px}
+.op-paper-hdr{background:linear-gradient(90deg,#1a3fcc,#1252e8);padding:11px 18px;display:flex;align-items:center;justify-content:space-between}
+.op-legend-row{background:#e8eefa;border-bottom:1px solid #c8d6ee;padding:8px 18px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.op-kpi-row{background:#f8faff;border-bottom:2px solid #c8d6ee;padding:8px 18px;display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:16px;align-items:center}
+.op-kpi-total{background:#1a3fcc;color:#fff;border-radius:8px;padding:5px 14px;font-family:var(--mono);font-size:11px;font-weight:700;text-align:center}
+.op-kpi-block{border-radius:6px;padding:5px 12px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:700}
+.op-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.op-tbl th{padding:7px 8px;font-family:var(--mono);font-size:7.5px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;background:#1a3fcc;border:1px solid #2555e8;font-weight:700;text-align:center}
+.op-tbl th:first-child,.op-tbl th:nth-child(2){text-align:left}
+.op-tbl td{padding:6px 8px;border:1px solid #dde6f5;text-align:center;color:#2d4470;font-family:var(--body);vertical-align:middle;font-size:11px}
+.op-tbl td:first-child{text-align:left;font-weight:600;color:#06101e}
+.op-tbl td:nth-child(2){text-align:center;color:#6685ac;font-family:var(--mono);font-size:10px}
+.op-tbl tr:nth-child(even) td{background:#f8faff}
+.op-tbl tr.op-ok td{background:rgba(34,197,94,.05)}
+.op-tbl tr.op-inc td{background:rgba(245,158,11,.07)}
+.op-tbl tr.op-nop td{background:rgba(239,68,68,.06)}
+.op-tbl tr.op-dis td{background:rgba(148,163,184,.07)}
+.op-tbl tr.op-mnt td{background:rgba(139,92,246,.04)}
+.op-tag-ok{color:#15803d;font-weight:800}.op-tag-inc{color:#b45309;font-weight:800}.op-tag-nop{color:#b91c1c;font-weight:800}.op-tag-dis{color:#475569;font-weight:800}.op-tag-mnt{color:#6d28d9;font-weight:800}
+.op-sev-baja{display:inline-block;padding:2px 8px;border-radius:4px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;font-family:var(--mono)}
+.op-sev-media{display:inline-block;padding:2px 8px;border-radius:4px;background:#fef9c3;color:#b45309;font-weight:700;font-size:10px;font-family:var(--mono)}
+.op-sev-alta{display:inline-block;padding:2px 8px;border-radius:4px;background:#fee2e2;color:#b91c1c;font-weight:700;font-size:10px;font-family:var(--mono)}
+.op-chk-yes{color:#15803d;font-size:15px;font-weight:900}.op-chk-no{color:#b91c1c;font-size:15px;font-weight:900}
+.op-paper-ftr{padding:9px 18px;background:#f0f6ff;border-top:1px solid #c8d6ee;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.op-cal-del-btn{margin-left:auto;flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1px solid rgba(220,38,38,.25);background:transparent;color:var(--red);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.cal-rep-item:hover .op-cal-del-btn{opacity:1}
+
+/* ════ REPORTE OPERATIVO MODULE ════ */
+#op-wizard-modal{position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,76px);right:0;bottom:0;z-index:400;display:none;flex-direction:column;background:var(--bg)}
+#op-wizard-modal.open{display:flex}
+#op-sum-modal{position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,76px);right:0;bottom:0;z-index:401;display:none;overflow-y:auto;background:var(--bg)}
+#op-sum-modal.open{display:block}
+@media(max-width:768px){#op-wizard-modal,#op-sum-modal{left:0}}
+.op-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0}
+.op-botbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0;box-shadow:0 -2px 8px rgba(26,63,204,.06)}
+.op-wiz-body{display:grid;grid-template-columns:210px 1fr;flex:1;min-height:0;overflow:hidden}
+.op-sidebar{display:flex;flex-direction:column;background:var(--s1);border-right:1px solid var(--b1);overflow:hidden}
+.op-sidebar-hdr{padding:10px 14px 8px;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.op-side-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+.op-sitem{display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;border-left:3px solid transparent;font-size:11px;font-family:var(--body);color:var(--t2);white-space:nowrap;overflow:hidden;transition:background .1s}
+.op-sitem:hover{background:var(--s2)}
+.op-sitem.cur{background:rgba(26,63,204,.07);border-left-color:var(--sky);color:var(--sky);font-weight:600}
+.op-sico{width:18px;height:18px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:var(--mono)}
+.op-form{overflow-y:auto;padding:22px 26px;min-width:0;background:var(--bg)}
+.op-sec{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.op-sec-ttl{display:block;font-family:var(--mono);font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.op-status-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.op-sbtn{padding:11px 8px;border-radius:8px;border:2px solid var(--b1);background:var(--s1);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:700;font-family:var(--body);color:var(--t2)}
+.op-sbtn:hover{border-color:var(--accent)}
+.op-sbtn.s-ok{border-color:#22c55e;background:rgba(34,197,94,.1);color:#15803d}
+.op-sbtn.s-inc{border-color:#f59e0b;background:rgba(245,158,11,.1);color:#b45309}
+.op-sbtn.s-nop{border-color:#ef4444;background:rgba(239,68,68,.08);color:#b91c1c}
+.op-sbtn.s-dis{border-color:#94a3b8;background:rgba(148,163,184,.1);color:#475569}
+.op-sbtn.s-mnt{border-color:#8b5cf6;background:rgba(139,92,246,.08);color:#6d28d9}
+.op-bool-row{display:flex;gap:8px}
+.op-bool-btn{flex:1;padding:10px 6px;border-radius:7px;border:1.5px solid var(--b2);background:var(--bg);cursor:pointer;font-size:12px;font-weight:700;font-family:var(--body);color:var(--t2);text-align:center;transition:all .15s}
+.op-bool-btn.b-yes{border-color:#22c55e;background:rgba(34,197,94,.1);color:#15803d}
+.op-bool-btn.b-no{border-color:#ef4444;background:rgba(239,68,68,.08);color:#b91c1c}
+.op-sev-row{display:flex;gap:7px}
+.op-sev-btn{flex:1;padding:8px 4px;border-radius:7px;border:1.5px solid var(--b2);background:var(--bg);cursor:pointer;font-size:11px;font-weight:700;font-family:var(--mono);color:var(--t2);text-align:center;transition:all .15s;letter-spacing:.5px;text-transform:uppercase}
+.op-sev-btn.sv-0{border-color:var(--b2);background:var(--s2);color:var(--t3)}
+.op-sev-btn.sv-b{border-color:#22c55e;background:rgba(34,197,94,.1);color:#15803d}
+.op-sev-btn.sv-m{border-color:#f59e0b;background:rgba(245,158,11,.1);color:#b45309}
+.op-sev-btn.sv-a{border-color:#ef4444;background:rgba(239,68,68,.1);color:#b91c1c}
+.op-inp{width:100%;padding:8px 11px;background:var(--s1);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-size:12px;font-family:var(--body);outline:none;transition:border-color .15s;box-sizing:border-box}
+.op-inp:focus{border-color:var(--accent)}
+.op-btn-p{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#1a3fcc,#1252e8);color:#fff;font-family:var(--disp);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.op-btn-p:hover{filter:brightness(1.08)}
+.op-btn-p:disabled{opacity:.38;cursor:not-allowed}
+.op-btn-s{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:7px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.op-btn-s:hover{border-color:var(--sky);color:var(--sky)}
+.op-btn-png{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-family:var(--disp);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.op-paper{background:#fff;border:1px solid #c8d6ee;border-radius:10px;overflow:hidden;box-shadow:0 2px 16px rgba(26,63,204,.1);margin-bottom:20px}
+.op-paper-hdr{background:linear-gradient(90deg,#1a3fcc,#1252e8);padding:11px 18px;display:flex;align-items:center;justify-content:space-between}
+.op-legend-row{background:#e8eefa;border-bottom:1px solid #c8d6ee;padding:8px 18px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.op-kpi-row{background:#f8faff;border-bottom:2px solid #c8d6ee;padding:8px 18px;display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:16px;align-items:center}
+.op-kpi-total{background:#1a3fcc;color:#fff;border-radius:8px;padding:5px 14px;font-family:var(--mono);font-size:11px;font-weight:700;text-align:center}
+.op-kpi-block{border-radius:6px;padding:5px 12px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:700}
+.op-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.op-tbl th{padding:7px 8px;font-family:var(--mono);font-size:7.5px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;background:#1a3fcc;border:1px solid #2555e8;font-weight:700;text-align:center}
+.op-tbl th:first-child,.op-tbl th:nth-child(2){text-align:left}
+.op-tbl td{padding:6px 8px;border:1px solid #dde6f5;text-align:center;color:#2d4470;font-family:var(--body);vertical-align:middle;font-size:11px}
+.op-tbl td:first-child{text-align:left;font-weight:600;color:#06101e}
+.op-tbl td:nth-child(2){text-align:center;color:#6685ac;font-family:var(--mono);font-size:10px}
+.op-tbl tr:nth-child(even) td{background:#f8faff}
+.op-tbl tr.op-ok td{background:rgba(34,197,94,.05)}
+.op-tbl tr.op-inc td{background:rgba(245,158,11,.07)}
+.op-tbl tr.op-nop td{background:rgba(239,68,68,.06)}
+.op-tbl tr.op-dis td{background:rgba(148,163,184,.07)}
+.op-tbl tr.op-mnt td{background:rgba(139,92,246,.04)}
+.op-tag-ok{color:#15803d;font-weight:800}.op-tag-inc{color:#b45309;font-weight:800}.op-tag-nop{color:#b91c1c;font-weight:800}.op-tag-dis{color:#475569;font-weight:800}.op-tag-mnt{color:#6d28d9;font-weight:800}
+.op-sev-baja{display:inline-block;padding:2px 8px;border-radius:4px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;font-family:var(--mono)}
+.op-sev-media{display:inline-block;padding:2px 8px;border-radius:4px;background:#fef9c3;color:#b45309;font-weight:700;font-size:10px;font-family:var(--mono)}
+.op-sev-alta{display:inline-block;padding:2px 8px;border-radius:4px;background:#fee2e2;color:#b91c1c;font-weight:700;font-size:10px;font-family:var(--mono)}
+.op-chk-yes{color:#15803d;font-size:15px;font-weight:900}.op-chk-no{color:#b91c1c;font-size:15px;font-weight:900}
+.op-paper-ftr{padding:9px 18px;background:#f0f6ff;border-top:1px solid #c8d6ee;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.op-cal-del-btn{margin-left:auto;flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1px solid rgba(220,38,38,.25);background:transparent;color:var(--red);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.cal-rep-item:hover .op-cal-del-btn{opacity:1}
+
+/* ════ REPORTE OPERATIVO MODULE ════ */
 #op-wizard-modal{position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,80px);right:0;bottom:0;z-index:400;display:none;flex-direction:column;background:var(--bg)}
 #op-wizard-modal.open{display:flex}
 #op-sum-modal{position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,80px);right:0;bottom:0;z-index:401;display:none;overflow-y:auto;background:var(--bg)}
@@ -4275,27 +4419,11 @@ html{-webkit-text-size-adjust:100%;}
 
 
 /* ── Banner advertencia file:// ── */
-#file-protocol-banner{
-  display:none;
-  position:fixed;top:0;left:0;right:0;z-index:9999;
-  background:linear-gradient(90deg,#7c3aed,#6d28d9);
-  color:#fff;font-family:var(--mono);font-size:11px;
-  padding:8px 16px;align-items:center;gap:12px;
-  box-shadow:0 2px 12px rgba(109,40,217,.4);
-}
+#file-protocol-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#7c3aed,#6d28d9);color:#fff;font-family:var(--mono);font-size:11px;padding:8px 16px;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(109,40,217,.4);}
 #file-protocol-banner.show{display:flex}
-#file-protocol-banner code{
-  background:rgba(255,255,255,.18);padding:2px 8px;
-  border-radius:4px;font-family:monospace;font-size:11px;
-  cursor:pointer;transition:background .15s;white-space:nowrap;
-}
+#file-protocol-banner code{background:rgba(255,255,255,.18);padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;cursor:pointer;transition:background .15s;white-space:nowrap;}
 #file-protocol-banner code:hover{background:rgba(255,255,255,.32)}
-#file-protocol-banner .fp-close{
-  margin-left:auto;cursor:pointer;opacity:.7;font-size:15px;
-  background:none;border:none;color:#fff;padding:0 4px;
-}
-#file-protocol-banner .fp-close:hover{opacity:1}
-
+#file-protocol-banner .fp-close{margin-left:auto;cursor:pointer;opacity:.7;font-size:15px;background:none;border:none;color:#fff;padding:0 4px;}
 </style>
 
 
@@ -4367,8 +4495,7 @@ html{-webkit-text-size-adjust:100%;}
 <meta name="msapplication-tap-highlight" content="no">
 <script>
 /* ══ localStorage Polyfill — funciona aunque Edge/Safari bloqueen storage en file:// ══
-   Usa cookie como backup en celular cuando Tracking Prevention bloquea localStorage.
-   Transparente: todo el código sigue usando localStorage.getItem/setItem sin cambios. */
+   Usa cookie como backup en celular cuando Tracking Prevention bloquea localStorage. */
 (function(){
   var _mem = {};
   function _safeLS(){
@@ -4376,26 +4503,20 @@ html{-webkit-text-size-adjust:100%;}
     catch(e){ return null; }
   }
   var _ls = _safeLS();
-  if(_ls) return; // localStorage funciona normal — no hacer nada
-
+  if(_ls) return;
   console.warn('[BESS] localStorage bloqueado — usando memoria + cookies como fallback');
-
-  // Leer cookies al inicio para restaurar sesión anterior
   (document.cookie||'').split(';').forEach(function(c){
     var p = c.trim().split('=');
     if(p.length===2 && p[0].startsWith('b_')){
       _mem[decodeURIComponent(p[0].slice(2))] = decodeURIComponent(p[1]);
     }
   });
-
   var _fake = {
     getItem: function(k){ return Object.prototype.hasOwnProperty.call(_mem,k) ? _mem[k] : null; },
     setItem: function(k,v){
       _mem[k] = String(v);
-      // Persistir en cookie (90 días) para que sobreviva recargas en móvil
       try {
         var exp = new Date(Date.now()+90*24*3600*1000).toUTCString();
-        // Solo persistir claves de identidad (pequeñas); no JSON grandes
         if(k.startsWith('bess_u') || k==='bess_uid'){
           document.cookie = 'b_'+encodeURIComponent(k)+'='+encodeURIComponent(String(v))+
             ';expires='+exp+';path=/;SameSite=Lax';
@@ -4410,8 +4531,6 @@ html{-webkit-text-size-adjust:100%;}
     key: function(i){ return Object.keys(_mem)[i]||null; },
     get length(){ return Object.keys(_mem).length; }
   };
-
-  // Reemplazar localStorage globalmente
   try { Object.defineProperty(window,'localStorage',{get:function(){return _fake;},configurable:true}); }
   catch(e){ window.localStorage = _fake; }
 })();
@@ -4849,26 +4968,24 @@ if('serviceWorker' in navigator){
 
 <div id="shell">
 
-<!-- ── Banner: aviso file:// protocol ── -->
 <div id="file-protocol-banner">
-  <span>⚠️ Abriendo como <strong>archivo local</strong> — localStorage y notificaciones bloqueados por el navegador.</span>
-  <span>Solución rápida: abre una terminal en esta carpeta y ejecuta</span>
+  <span>⚠️ Modo <strong>archivo local</strong> — algunas funciones bloqueadas por el navegador.</span>
+  <span>Abre una terminal en esta carpeta y ejecuta:</span>
   <code onclick="navigator.clipboard.writeText('python -m http.server 8765').then(()=>{this.textContent='¡Copiado!';setTimeout(()=>this.textContent='python -m http.server 8765',1500)})" title="Clic para copiar">python -m http.server 8765</code>
   <span>→ luego abre <strong>http://localhost:8765</strong></span>
-  <button class="fp-close" onclick="document.getElementById('file-protocol-banner').classList.remove('show');localStorage.setItem('fp_dismissed','1')" title="Cerrar">✕</button>
+  <button class="fp-close" onclick="document.getElementById('file-protocol-banner').classList.remove('show')" title="Cerrar">✕</button>
 </div>
-
 <script>
-/* Mostrar banner file:// solo cuando la app corre desde file:// */
 (function(){
-  if(location.protocol !== 'file:') return;
-  try { if(localStorage.getItem('fp_dismissed')) return; } catch(e){}
-  document.addEventListener('DOMContentLoaded', function(){
-    var b = document.getElementById('file-protocol-banner');
+  if(location.protocol!=='file:') return;
+  document.addEventListener('DOMContentLoaded',function(){
+    var b=document.getElementById('file-protocol-banner');
     if(b) b.classList.add('show');
   });
 })();
 </script>
+
+
 
 
 <!-- NAV -->
@@ -11712,8 +11829,293 @@ ${doc.innerHTML}
   document.title='BESS_${siteFlt}_${mk}';
 <\/script>
 
+<!-- MONITOR BESS MODALS -->
 
-</body>
+<!-- Modal: Nueva lectura V/SOC -->
+<div class="mb-modal-overlay" id="mb-modal-bat">
+  <div class="mb-modal" style="width:580px;max-width:97vw;">
+    <div class="mb-modal-title">Nueva Lectura</div>
+    <div class="mb-modal-sub">Registrar voltaje y SOC del sitio seleccionado</div>
+    <div class="mb-field-group">
+      <label class="mb-field-label">Sitio</label>
+      <select class="mb-field-select" id="mb-bat-site" onchange="mbOnBatSiteChange()"></select>
+    </div>
+    <div id="mb-bat-rack-banner" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:rgba(124,58,237,.07);border:1.5px solid rgba(124,58,237,.2);border-radius:9px;margin-bottom:1rem;">
+      <span style="font-size:1.1rem">🗂</span>
+      <div>
+        <div style="font-size:.62rem;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Racks registrados en este sitio</div>
+        <div id="mb-bat-rack-count-label" style="font-size:.85rem;font-weight:700;color:var(--text)"></div>
+      </div>
+    </div>
+    <div id="mb-bat-rack-table-wrap" style="display:none;margin-bottom:1rem;">
+      <div style="font-size:.6rem;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:6px;">Valores por rack <span style="color:var(--t3);font-weight:400;font-size:.58rem;text-transform:none">(deja vacío si no tienes el dato)</span></div>
+      <div style="overflow-x:auto;border:1px solid var(--b1);border-radius:9px;background:#fafcff;">
+        <table style="border-collapse:collapse;width:100%;min-width:340px;">
+          <thead>
+            <tr style="background:var(--s2);">
+              <th style="text-align:left;font-size:.57rem;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;padding:7px 10px;font-weight:700;border-bottom:1px solid var(--b1);">Rack</th>
+              <th style="font-size:.57rem;color:#1255d4;text-transform:uppercase;letter-spacing:.1em;padding:7px 8px;font-weight:700;border-bottom:1px solid var(--b1);">Voltaje (V)</th>
+              <th style="font-size:.57rem;color:#0ea875;text-transform:uppercase;letter-spacing:.1em;padding:7px 8px;font-weight:700;border-bottom:1px solid var(--b1);">SOC (%)</th>
+              <th style="font-size:.57rem;color:#a855f7;text-transform:uppercase;letter-spacing:.1em;padding:7px 8px;font-weight:700;border-bottom:1px solid var(--b1);">Corriente (A)</th>
+            </tr>
+          </thead>
+          <tbody id="mb-bat-rack-rows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="mb-bat-single-wrap">
+      <div class="mb-modal-grid">
+        <div class="mb-field-group"><label class="mb-field-label">Voltaje (V)</label><input type="number" class="mb-field-input" id="mb-bat-volt" step="0.01" placeholder="48.25"></div>
+        <div class="mb-field-group"><label class="mb-field-label">SOC (%)</label><input type="number" class="mb-field-input" id="mb-bat-soc" step="0.1" min="0" max="100" placeholder="82.5"></div>
+      </div>
+      <div class="mb-modal-grid">
+        <div class="mb-field-group"><label class="mb-field-label">Corriente (A) — negativo = descarga</label><input type="number" class="mb-field-input" id="mb-bat-amp" step="0.01" placeholder="12.50"></div>
+        <div class="mb-field-group"><label class="mb-field-label">Rack / Módulo</label><input type="text" class="mb-field-input" id="mb-bat-rack" placeholder="Rack 1 (vacío = sin rack)"></div>
+      </div>
+    </div>
+    <div class="mb-field-group"><label class="mb-field-label">Fecha y Hora</label><input type="datetime-local" class="mb-field-input" id="mb-bat-time"></div>
+    <div class="mb-field-group"><label class="mb-field-label">Notas (opcional)</label><input type="text" class="mb-field-input" id="mb-bat-note" placeholder="Observaciones..."></div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-secondary" onclick="mbCloseModal('bat')">Cancelar</button>
+      <button class="mb-btn-primary" onclick="mbSaveReading()">Guardar Lectura</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nueva Temperatura -->
+<div class="mb-modal-overlay" id="mb-modal-temp">
+  <div class="mb-modal" style="width:660px;max-width:97vw;">
+    <div class="mb-modal-title" id="mb-temp-modal-title">🌡 Registro de Temperatura</div>
+    <div class="mb-modal-sub" id="mb-temp-modal-sub">Guarda Pre, Durante y Post en su momento real</div>
+    <div class="mb-field-group">
+      <label class="mb-field-label">Sitio</label>
+      <select class="mb-field-select" id="mb-temp-site" onchange="mbOnTempSiteChange()"></select>
+    </div>
+    <!-- Stepper de fases -->
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:1.1rem;border-radius:10px;overflow:hidden;border:1.5px solid var(--b1);">
+      <div id="mb-tp-step-pre" onclick="mbTempSelectPhase('pre')" style="flex:1;padding:.6rem .5rem;text-align:center;font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s;">⬛ Pre</div>
+      <div style="width:1px;background:var(--b1);align-self:stretch;"></div>
+      <div id="mb-tp-step-dur" onclick="mbTempSelectPhase('during')" style="flex:1;padding:.6rem .5rem;text-align:center;font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s;">🔴 Durante</div>
+      <div style="width:1px;background:var(--b1);align-self:stretch;"></div>
+      <div id="mb-tp-step-pos" onclick="mbTempSelectPhase('post')" style="flex:1;padding:.6rem .5rem;text-align:center;font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s;">✅ Post</div>
+    </div>
+    <!-- Tabla de racks (si hay racks configurados) -->
+    <div id="mb-temp-rack-table-wrap" style="display:none;margin-bottom:1rem;">
+      <div style="background:#fff8f0;border:1.5px solid rgba(224,123,0,.25);border-radius:10px;padding:.85rem 1rem;">
+        <div style="font-size:.6rem;color:#e07b00;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:.6rem;" id="mb-temp-rack-phase-label">🌡 Temperatura por Rack</div>
+        <div style="overflow-x:auto;">
+          <table style="border-collapse:collapse;width:100%;min-width:360px;">
+            <thead><tr>
+              <th style="text-align:left;font-size:.56rem;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;padding:0 8px 6px;font-weight:700;">Rack</th>
+              <th id="mb-temp-col-prev" style="font-size:.55rem;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;padding:0 8px 6px;font-weight:700;text-align:right;">—</th>
+              <th id="mb-temp-col-cur" style="font-size:.56rem;color:#e07b00;text-transform:uppercase;letter-spacing:.1em;padding:0 8px 6px;font-weight:700;text-align:right;">Valor (°C)</th>
+            </tr></thead>
+            <tbody id="mb-temp-rack-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- Sin racks: campo simple -->
+    <div id="mb-temp-single-wrap" style="display:none;margin-bottom:1rem;">
+      <div style="background:#fff8f0;border:1.5px solid rgba(224,123,0,.25);border-radius:10px;padding:1rem;">
+        <div style="font-size:.65rem;color:#e07b00;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:.75rem;" id="mb-temp-single-label">🌡 Temperatura (°C)</div>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <label class="mb-field-label">Temperatura actual</label>
+            <input type="number" class="mb-field-input" id="mb-temp-val" step="0.1" placeholder="°C" style="border-color:rgba(224,123,0,.4)">
+          </div>
+          <div id="mb-temp-prev-display" style="font-family:var(--mono);font-size:.75rem;color:var(--t3);display:none;"></div>
+        </div>
+        <div class="mb-field-group" style="margin-top:.75rem;margin-bottom:0">
+          <label class="mb-field-label">Punto de medición</label>
+          <input type="text" class="mb-field-input" id="mb-temp-point" placeholder="General / Rack 1">
+        </div>
+      </div>
+    </div>
+    <div class="mb-field-group">
+      <label class="mb-field-label">Fecha y Hora</label>
+      <input type="datetime-local" class="mb-field-input" id="mb-temp-time">
+    </div>
+    <div class="mb-field-group"><label class="mb-field-label">Notas (opcional)</label><input type="text" class="mb-field-input" id="mb-temp-note" placeholder="Observaciones..."></div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-secondary" onclick="mbCloseModal('temp')">Cancelar</button>
+      <button class="mb-btn-primary temp" id="mb-temp-save-btn" onclick="mbSaveTempReading()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Configurar Racks -->
+<div class="mb-modal-overlay" id="mb-modal-rack-config">
+  <div class="mb-modal">
+    <div class="mb-modal-title">🗂 Configurar Racks por Sitio</div>
+    <div class="mb-modal-sub">Define cuántos racks tiene cada sitio.</div>
+    <div class="mb-field-group">
+      <label class="mb-field-label">Sitio</label>
+      <select class="mb-field-select" id="mb-rcc-site" onchange="mbOnRccSiteChange()"></select>
+    </div>
+    <div id="mb-rcc-current" style="display:none;padding:8px 12px;background:rgba(124,58,237,.07);border:1.5px solid rgba(124,58,237,.2);border-radius:9px;margin-bottom:1rem;font-size:.72rem;color:#7c3aed;font-weight:600;"></div>
+    <div class="mb-field-group">
+      <label class="mb-field-label">Número total de racks</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="number" class="mb-field-input" id="mb-rcc-count" min="1" max="20" step="1" placeholder="Ej: 5" style="width:120px;flex:none;" oninput="mbOnRccCountChange()">
+        <span style="font-size:.7rem;color:var(--t3)">El sistema creará: Rack 1, Rack 2 … Rack N</span>
+      </div>
+    </div>
+    <div id="mb-rcc-prefix-wrap" style="display:none;" class="mb-field-group">
+      <label class="mb-field-label">Prefijo del nombre <span style="font-weight:400;color:var(--t3)">(opcional, default "Rack")</span></label>
+      <input type="text" class="mb-field-input" id="mb-rcc-prefix" placeholder="Rack" oninput="mbOnRccCountChange()">
+    </div>
+    <div id="mb-rcc-preview" style="display:none;margin-bottom:1rem;">
+      <div style="font-size:.6rem;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:6px;">Vista previa de racks</div>
+      <div id="mb-rcc-preview-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-secondary" onclick="mbCloseModal('rack-config')">Cancelar</button>
+      <button class="mb-btn-primary" style="background:#7c3aed;" onclick="mbSaveRackConfig()">Guardar Configuración</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar última lectura BAT -->
+<div class="mb-modal-overlay" id="mb-modal-edit-bat">
+  <div class="mb-modal">
+    <div class="mb-modal-title">Editar Última Lectura</div>
+    <div class="mb-modal-sub" id="mb-edit-bat-sub">Modificar el registro más reciente del sitio</div>
+    <div class="mb-field-group"><label class="mb-field-label">Sitio</label><input type="text" class="mb-field-input" id="mb-edit-bat-site-label" disabled style="opacity:.5"></div>
+    <div class="mb-modal-grid">
+      <div class="mb-field-group"><label class="mb-field-label">Voltaje (V)</label><input type="number" class="mb-field-input" id="mb-edit-bat-volt" step="0.01"></div>
+      <div class="mb-field-group"><label class="mb-field-label">SOC (%)</label><input type="number" class="mb-field-input" id="mb-edit-bat-soc" step="0.1" min="0" max="100"></div>
+    </div>
+    <div class="mb-modal-grid">
+      <div class="mb-field-group"><label class="mb-field-label">Corriente (A)</label><input type="number" class="mb-field-input" id="mb-edit-bat-amp" step="0.01"></div>
+      <div class="mb-field-group"><label class="mb-field-label">Rack / Módulo</label><input type="text" class="mb-field-input" id="mb-edit-bat-rack" placeholder="Rack 1"></div>
+    </div>
+    <div class="mb-field-group"><label class="mb-field-label">Fecha y Hora</label><input type="datetime-local" class="mb-field-input" id="mb-edit-bat-time"></div>
+    <div class="mb-field-group"><label class="mb-field-label">Notas (opcional)</label><input type="text" class="mb-field-input" id="mb-edit-bat-note"></div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-secondary" onclick="mbCloseEditModal('bat')">Cancelar</button>
+      <button class="mb-btn-primary" onclick="mbSaveEditBat()">Guardar Cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar última lectura TEMP -->
+<div class="mb-modal-overlay" id="mb-modal-edit-temp">
+  <div class="mb-modal" style="width:580px">
+    <div class="mb-modal-title">Editar Última Temperatura</div>
+    <div class="mb-modal-sub" id="mb-edit-temp-sub">Modificar el registro más reciente del sitio</div>
+    <div class="mb-field-group"><label class="mb-field-label">Sitio</label><input type="text" class="mb-field-input" id="mb-edit-temp-site-label" disabled style="opacity:.5"></div>
+    <div style="background:#fff8f0;border:1.5px solid rgba(224,123,0,.25);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-size:.65rem;color:#e07b00;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:.75rem;">🔋 Temperaturas por Fase (°C)</div>
+      <div class="mb-modal-grid" style="grid-template-columns:1fr 1fr 1fr;gap:.75rem;">
+        <div class="mb-field-group" style="margin:0"><label class="mb-field-label" style="color:#1255d4">⬛ Pre-Descarga</label><input type="number" class="mb-field-input" id="mb-edit-temp-pre" step="0.1"></div>
+        <div class="mb-field-group" style="margin:0"><label class="mb-field-label" style="color:#e07b00">🔴 Durante Descarga</label><input type="number" class="mb-field-input" id="mb-edit-temp-during" step="0.1"></div>
+        <div class="mb-field-group" style="margin:0"><label class="mb-field-label" style="color:#0ea875">✅ Post-Descarga</label><input type="number" class="mb-field-input" id="mb-edit-temp-post" step="0.1"></div>
+      </div>
+    </div>
+    <div class="mb-modal-grid">
+      <div class="mb-field-group"><label class="mb-field-label">Punto de medición</label><input type="text" class="mb-field-input" id="mb-edit-temp-point"></div>
+      <div class="mb-field-group"><label class="mb-field-label">Fecha y Hora</label><input type="datetime-local" class="mb-field-input" id="mb-edit-temp-time"></div>
+    </div>
+    <div class="mb-field-group"><label class="mb-field-label">Notas (opcional)</label><input type="text" class="mb-field-input" id="mb-edit-temp-note"></div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-secondary" onclick="mbCloseEditModal('temp')">Cancelar</button>
+      <button class="mb-btn-primary temp" onclick="mbSaveEditTemp()">Guardar Cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Historial por rack -->
+<div class="mb-modal-overlay" id="mb-modal-edit-rack">
+  <div class="mb-modal" style="width:660px;max-width:97vw;">
+    <div class="mb-modal-title">🗂 Historial por Rack</div>
+    <div class="mb-field-group"><label class="mb-field-label">Sitio</label><input type="text" class="mb-field-input" id="mb-edit-rack-site-label" disabled style="opacity:.5"></div>
+    <div id="mb-edit-rack-site-sub" style="font-size:.68rem;color:var(--t3);margin-bottom:.75rem;"></div>
+    <div class="mb-field-group">
+      <label class="mb-field-label">Rack</label>
+      <select class="mb-field-select" id="mb-edit-rack-selector" onchange="mbLoadRackReadings()"></select>
+      <span id="mb-edit-rack-count" style="font-size:.68rem;color:var(--t3);margin-left:8px;"></span>
+    </div>
+    <div id="mb-edit-rack-readings-list" style="border:1px solid var(--b1);border-radius:10px;overflow:hidden;max-height:220px;overflow-y:auto;margin-bottom:1rem;background:#fafcff;"></div>
+    <div id="mb-edit-rack-form" style="display:none;background:#f5f8ff;border:1.5px solid rgba(18,85,212,.2);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-size:.65rem;color:#1255d4;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:.75rem;">✏ Editar lectura seleccionada</div>
+      <div class="mb-modal-grid">
+        <div class="mb-field-group" style="margin:0"><label class="mb-field-label">Voltaje (V)</label><input type="number" class="mb-field-input" id="mb-erf-volt" step="0.01"></div>
+        <div class="mb-field-group" style="margin:0"><label class="mb-field-label">SOC (%)</label><input type="number" class="mb-field-input" id="mb-erf-soc" step="0.1" min="0" max="100"></div>
+        <div class="mb-field-group" style="margin:0"><label class="mb-field-label">Corriente (A)</label><input type="number" class="mb-field-input" id="mb-erf-amp" step="0.01"></div>
+        <div class="mb-field-group" style="margin:0"><label class="mb-field-label">Fecha y Hora</label><input type="datetime-local" class="mb-field-input" id="mb-erf-time"></div>
+      </div>
+      <div class="mb-field-group" style="margin-top:.5rem"><label class="mb-field-label">Notas</label><input type="text" class="mb-field-input" id="mb-erf-note"></div>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;">
+        <button class="mb-btn-primary" style="flex:0;padding:.5rem 1.2rem;" onclick="mbSaveRackEdit()">Guardar</button>
+        <button class="mb-btn-secondary" onclick="mbCancelRackEdit()">Cancelar</button>
+      </div>
+    </div>
+    <div class="mb-modal-actions">
+      <button class="mb-btn-secondary" onclick="mbCloseEditRackModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmar eliminación -->
+<div class="mb-modal-overlay" id="mb-modal-confirm">
+  <div class="mb-modal" style="max-width:420px;text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:.5rem;" id="mb-confirm-icon">⚠️</div>
+    <div class="mb-modal-title" id="mb-confirm-title">Confirmar</div>
+    <div style="color:var(--t2);font-size:.82rem;margin:.75rem 0 1.5rem;line-height:1.5" id="mb-confirm-msg"></div>
+    <div style="display:flex;gap:.75rem;justify-content:center;">
+      <button class="mb-btn-secondary" onclick="mbCloseConfirm()">Cancelar</button>
+      <button class="mb-btn-primary" style="background:#d63250;flex:0;padding:.7rem 1.5rem;" onclick="mbConfirmOk()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Gráfica expandida -->
+<div class="mb-chart-modal-overlay" id="mb-chart-modal-overlay">
+  <div class="mb-chart-modal">
+    <div class="mb-cm-header">
+      <div class="mb-cm-title">
+        <span id="mb-cm-title-accent" style="width:4px;height:18px;border-radius:2px;background:#1255d4;"></span>
+        <span id="mb-cm-title-text">Gráfica</span>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <button class="mb-cm-export-btn" onclick="mbExportCurrentSiteExcel()">⬇ Excel</button>
+        <button class="mb-cm-pdf-btn" onclick="mbExportCurrentSitePDF()">📄 PDF</button>
+        <button class="mb-cm-close" onclick="mbCloseChartModal()">✕</button>
+      </div>
+    </div>
+    <div class="mb-cm-controls">
+      <span class="mb-cm-ctrl-label">Rango:</span>
+      <div class="mb-range-btns">
+        <button class="mb-range-btn active" onclick="mbSetRange('all')">Todo</button>
+        <button class="mb-range-btn" onclick="mbSetRange('7d')">7D</button>
+        <button class="mb-range-btn" onclick="mbSetRange('30d')">30D</button>
+        <button class="mb-range-btn" onclick="mbSetRange('90d')">90D</button>
+      </div>
+      <div class="mb-ctrl-sep"></div>
+      <span class="mb-cm-ctrl-label">Zoom:</span>
+      <div class="mb-zoom-btns">
+        <button class="mb-zoom-btn" onclick="mbZoomIn()">+</button>
+        <button class="mb-zoom-btn" onclick="mbZoomOut()">−</button>
+        <button class="mb-zoom-btn" onclick="mbResetZoom()">⟳</button>
+      </div>
+    </div>
+    <div class="mb-cm-body">
+      <div class="mb-cm-chart-container" id="mb-cm-chart-container"></div>
+      <div class="mb-cm-metrics" id="mb-cm-metrics"></div>
+      <div class="mb-cm-table-wrap">
+        <table class="mb-cm-table">
+          <thead><tr id="mb-cm-thead"></tr></thead>
+          <tbody id="mb-cm-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
 </html>`;
 
   // Download as HTML file directly — no print dialog needed
@@ -14529,7 +14931,7 @@ function opSetPeriod(p){
   });
 }
 function opStartSites(){
-  /* Inicializar opW si aún no existe (ej: primer acceso sin pasar por opInitSetup) */
+  /* Inicializar opW si aún no existe (primer acceso directo sin pasar por opInitSetup) */
   if(!opW) opInitSetup();
   /* Usar identidad de sesión directamente */
   opW.op = localStorage.getItem('bess_uname') || 'Operador';
