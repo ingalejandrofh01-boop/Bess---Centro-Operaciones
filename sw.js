@@ -3,7 +3,7 @@
 //  DEPLOY_TS se actualiza automaticamente en cada build
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1780459543_f2b60116';          // reemplazado en build
+const DEPLOY_TS  = '1780470303_bess';          // reemplazado en build
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
@@ -37,13 +37,14 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (!['http:', 'https:'].includes(url.protocol)) return;
 
-  // Firebase y APIs externas → siempre red
+  // Firebase y APIs externas → NO interceptar, dejar pasar directo
   const NET_ONLY = [
     'firebaseio.com','firestore.googleapis.com','googleapis.com',
     'firebase.com','gstatic.com','cdnjs.cloudflare.com','unpkg.com',
+    'google.com','googleapis.com',
   ];
   if (NET_ONLY.some(d => url.hostname.includes(d))) {
-    event.respondWith(fetch(event.request));
+    // NO llamar event.respondWith — el browser maneja la peticion directamente
     return;
   }
 

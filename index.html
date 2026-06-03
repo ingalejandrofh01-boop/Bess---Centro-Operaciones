@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780459543">
+<meta name="app-version" content="1780470303">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -4492,6 +4492,13 @@ html{-webkit-text-size-adjust:100%;}
 <script>
 if('serviceWorker' in navigator){
   const base=location.href.substring(0,location.href.lastIndexOf('/')+1);
+
+  /* Matar SWs viejos agresivamente antes de registrar el nuevo */
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => {
+      r.unregister().then(() => console.log('[PWA] SW viejo eliminado:', r.scope));
+    });
+  }).catch(()=>{});
 
   navigator.serviceWorker.register(base+'sw.js', { scope:'./', updateViaCache:'none' })
     .then(reg => {
