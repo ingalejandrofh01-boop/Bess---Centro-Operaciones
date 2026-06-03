@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="app-version" content="1780458846">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -4468,6 +4469,26 @@ html{-webkit-text-size-adjust:100%;}
 <meta name="apple-mobile-web-app-title" content="Centro de Operaciones BESS">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="msapplication-tap-highlight" content="no">
+<script>
+/* ── Detección de version nueva — independiente del Service Worker ── */
+(function(){
+  var APP_VERSION = '1780458846';
+  var stored = localStorage.getItem('bess_app_version');
+  if(stored && stored !== APP_VERSION){
+    /* Version nueva detectada — limpiar caches y recargar */
+    localStorage.setItem('bess_app_version', APP_VERSION);
+    if('caches' in window){
+      caches.keys().then(function(keys){
+        keys.forEach(function(k){ caches.delete(k); });
+      }).then(function(){ window.location.reload(true); });
+    } else {
+      window.location.reload(true);
+    }
+    return;
+  }
+  localStorage.setItem('bess_app_version', APP_VERSION);
+})();
+</script>
 <script>
 if('serviceWorker' in navigator){
   const base=location.href.substring(0,location.href.lastIndexOf('/')+1);

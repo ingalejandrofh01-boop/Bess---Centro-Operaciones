@@ -3,7 +3,7 @@
 //  DEPLOY_TS se actualiza automaticamente en cada build
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1780458578_235c81d8';          // reemplazado en build
+const DEPLOY_TS  = '1780458846_da66ec46';          // reemplazado en build
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
