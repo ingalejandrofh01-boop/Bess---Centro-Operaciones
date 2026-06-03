@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780458846">
+<meta name="app-version" content="1780459281">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -4472,7 +4472,7 @@ html{-webkit-text-size-adjust:100%;}
 <script>
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
-  var APP_VERSION = '1780458846';
+  var APP_VERSION = '1780459281';
   var stored = localStorage.getItem('bess_app_version');
   if(stored && stored !== APP_VERSION){
     /* Version nueva detectada — limpiar caches y recargar */
@@ -4529,6 +4529,8 @@ if('serviceWorker' in navigator){
       window.location.reload();
     }
   });
+}
+</script>
 </head>
 <body>
 <!-- INTRO -->
@@ -11214,11 +11216,13 @@ function lbDl(){if(!lbImages[lbIdx])return;const a=document.createElement('a');a
 
 // INTRO — solo anima textos y barra de progreso (el canvas WebGL ya corre inline)
 function runIntro(){
-  setTimeout(()=>document.getElementById('it').classList.add('on'),200);
-  setTimeout(()=>document.getElementById('ih').classList.add('on'),500);
-  setTimeout(()=>document.getElementById('is').classList.add('on'),900);
-  setTimeout(()=>document.getElementById('ip').classList.add('on'),1100);
-  const fill=document.getElementById('ipf'),lbl=document.getElementById('ipl'),pct=document.getElementById('ipct');
+  var _g=function(id){return document.getElementById(id);};
+  setTimeout(()=>{ var e=_g('it'); if(e) e.classList.add('on'); },200);
+  setTimeout(()=>{ var e=_g('ih'); if(e) e.classList.add('on'); },500);
+  setTimeout(()=>{ var e=_g('is'); if(e) e.classList.add('on'); },900);
+  setTimeout(()=>{ var e=_g('ip'); if(e) e.classList.add('on'); },1100);
+  const fill=_g('ipf'),lbl=_g('ipl'),pct=_g('ipct');
+  if(!fill||!lbl) return;
   const steps=[[0,'Iniciando sistema…','0%'],[20,'Conectando a Firebase…','20%'],[45,'Descargando bitácoras…','45%'],[70,'Cargando plantillas…','70%'],[88,'Construyendo vistas…','88%'],[100,'¡Sistema listo! ✓','100%']];
   steps.forEach(([p,m,pp],i)=>{setTimeout(()=>{fill.style.width=p+'%';lbl.textContent=m;if(pct)pct.textContent=pp},1100+i*280)});
 }
@@ -19137,11 +19141,24 @@ window.collabJoinSession = function(){
   if(lbl) lbl.textContent='Conectando a sesion...';
 
   if(rType==='val'){
-    if(window.rvInitSetup&&(!window.rvW||window.rvW.step==='setup')) rvInitSetup();
-    var wiz=document.getElementById('rv-wizard-modal'); if(wiz) wiz.classList.add('open');
+    /* Inicializar wizard si no esta activo */
+    if(window.rvInitSetup) rvInitSetup();
+    /* Abrir wizard con delay para que rvW este listo */
+    setTimeout(function(){
+      var wiz=document.getElementById('rv-wizard-modal');
+      if(wiz) wiz.classList.add('open');
+      /* Ir al primer sitio */
+      if(window.rvW && window.rvBuildSide) rvBuildSide();
+      if(window.rvW && window.rvRenderS) rvRenderS();
+    }, 100);
   } else {
-    if(window.opInitSetup&&(!window.opW||window.opW.step==='setup')) opInitSetup();
-    var wiz2=document.getElementById('op-wizard-modal'); if(wiz2) wiz2.classList.add('open');
+    if(window.opInitSetup) opInitSetup();
+    setTimeout(function(){
+      var wiz2=document.getElementById('op-wizard-modal');
+      if(wiz2) wiz2.classList.add('open');
+      if(window.opW && window.opBuildSide) opBuildSide();
+      if(window.opW && window.opRenderS) opRenderS();
+    }, 100);
   }
 
   _collabListenSession(sid, rType);

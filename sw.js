@@ -3,7 +3,7 @@
 //  DEPLOY_TS se actualiza automaticamente en cada build
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1780458846_da66ec46';          // reemplazado en build
+const DEPLOY_TS  = '1780459281_2c766695';          // reemplazado en build
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
@@ -53,7 +53,8 @@ self.addEventListener('fetch', event => {
       fetch(event.request, { cache: 'no-cache' })
         .then(resp => {
           if (resp && resp.status === 200) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, resp.clone()));
+            const clone = resp.clone(); // clonar ANTES de retornar
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
           }
           return resp;
         })
@@ -70,7 +71,8 @@ self.addEventListener('fetch', event => {
       if (cached) return cached;
       return fetch(event.request).then(resp => {
         if (resp && resp.status === 200 && ['basic','cors'].includes(resp.type)) {
-          caches.open(CACHE_NAME).then(c => c.put(event.request, resp.clone()));
+          const clone = resp.clone(); // clonar ANTES de retornar
+          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
         }
         return resp;
       }).catch(() => cached);
