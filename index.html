@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780472854">
+<meta name="app-version" content="1780473020">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -13828,7 +13828,7 @@ function rvStartSites(){
   if(window.collabStartSession){
     /* Guard: no crear sesion nueva si ya hay una activa */
     if(window.COLLAB&&window.COLLAB.sessionId){
-      _collabUpdateBar&&_collabUpdateBar('val');
+      window._collabUpdateBar&&window._collabUpdateBar('val');
     } else {
       var rvSites=window.RV_SITES||[];
       var label=window.RV_TYPES&&rvW.type&&window.RV_TYPES[rvW.type]?window.RV_TYPES[rvW.type].label:rvW.type;
@@ -15427,7 +15427,7 @@ function opStartSites(){
   if(window.collabStartSession){
     /* Guard: no crear sesion nueva si ya hay una activa */
     if(window.COLLAB&&window.COLLAB.sessionId){
-      _collabUpdateBar&&_collabUpdateBar('op');
+      window._collabUpdateBar&&window._collabUpdateBar('op');
     } else {
       var opSites=window.OP_SITES||[];
       collabStartSession('op', opW.period||'Reporte Operativo', opSites.length);
@@ -19398,7 +19398,7 @@ function _collabPaintParticipantsInSidebar(reportType){
 /* ══════════════════════════════════════════════════════════════
    Barra de estado
 ══════════════════════════════════════════════════════════════ */
-function _collabUpdateBar(reportType){
+window._collabUpdateBar = function _collabUpdateBar(reportType){
   var sfx=reportType==='op'?'-op':'';
   var bar=document.getElementById('collab-status-bar'+sfx); if(!bar) return;
   bar.classList.add('active');
@@ -19464,6 +19464,7 @@ function _collabUpdateBar(reportType){
 }
 
 function _collabHideBar(rt){ var sfx=rt==='op'?'-op':''; var b=document.getElementById('collab-status-bar'+sfx); if(b) b.classList.remove('active'); }
+window._collabUpdateBar=_collabUpdateBar;
 
 /* ══════════════════════════════════════════════════════════════
    Banner de invitacion
