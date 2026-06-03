@@ -422,6 +422,20 @@ window._fb = {
     const cSnap = await getDocs(collection(fbDB, 'docs_bess_v2', id, 'chunks'));
     for(const c of cSnap.docs) await deleteDoc(c.ref);
     await deleteDoc(doc(fbDB, 'docs_bess_v2', id));
+  },
+
+  /* ── MANTENIMIENTO ── */
+  listenMantenimiento(cb) {
+    const ref = doc(fbDB, 'sistema', 'mantenimiento');
+    return onSnapshot(ref, snap => {
+      cb(snap.exists() ? snap.data() : null);
+    });
+  },
+  async setMantenimiento(data) {
+    await setDoc(doc(fbDB, 'sistema', 'mantenimiento'), data, { merge: true });
+  },
+  async clearMantenimiento() {
+    await setDoc(doc(fbDB, 'sistema', 'mantenimiento'), { activo: false });
   }
 };
 
@@ -1046,6 +1060,84 @@ window.dispatchEvent(new Event('firebase-ready'));
 :root{
   /* ── Skysense Brand Blue ── */
   --sky:#1a3fcc;
+
+/* ── MANTENIMIENTO OVERLAY ── */
+#mant-overlay{
+  display:none;
+  position:fixed;inset:0;z-index:99999;
+  background:rgba(4,8,28,.92);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  align-items:center;justify-content:center;
+  animation:mantFadeIn .4s ease;
+}
+#mant-overlay.show{display:flex;}
+@keyframes mantFadeIn{from{opacity:0}to{opacity:1}}
+#mant-box{
+  background:linear-gradient(145deg,rgba(10,20,60,.95),rgba(6,14,40,.98));
+  border:1px solid rgba(74,120,245,.3);
+  border-radius:20px;
+  padding:40px 44px 36px;
+  max-width:480px;width:90%;
+  text-align:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(74,120,245,.1);
+  position:relative;
+}
+#mant-box::before{
+  content:'';position:absolute;inset:-1px;border-radius:21px;
+  background:linear-gradient(135deg,rgba(74,120,245,.3),rgba(124,58,237,.2),rgba(74,120,245,.1));
+  z-index:-1;
+}
+.mant-gear{
+  font-size:52px;margin-bottom:6px;
+  display:inline-block;
+  animation:mantSpin 4s linear infinite;
+}
+@keyframes mantSpin{
+  0%{transform:rotate(0deg);}
+  100%{transform:rotate(360deg);}
+}
+.mant-logo{
+  font-family:var(--disp,sans-serif);font-size:11px;font-weight:800;
+  color:rgba(154,179,255,.5);letter-spacing:3px;text-transform:uppercase;
+  margin-bottom:18px;
+}
+.mant-title{
+  font-family:var(--disp,sans-serif);font-size:22px;font-weight:900;
+  color:#e0eaff;letter-spacing:-.4px;margin-bottom:8px;
+}
+.mant-msg{
+  font-family:var(--mono,monospace);font-size:12px;
+  color:rgba(154,179,255,.75);line-height:1.6;margin-bottom:24px;
+}
+.mant-eta{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(74,120,245,.1);border:1px solid rgba(74,120,245,.2);
+  border-radius:10px;padding:8px 18px;margin-bottom:22px;
+  font-family:var(--mono,monospace);font-size:11px;color:#9ab3ff;
+}
+.mant-eta strong{color:#4af5b8;font-size:13px;}
+.mant-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.mant-btn-continue{
+  padding:9px 20px;border-radius:10px;cursor:pointer;
+  border:1px solid rgba(74,120,245,.35);
+  background:rgba(74,120,245,.1);
+  color:#9ab3ff;font-family:var(--mono,monospace);font-size:11px;font-weight:600;
+  transition:background .15s;
+}
+.mant-btn-continue:hover{background:rgba(74,120,245,.22);color:#fff;}
+.mant-btn-reload{
+  padding:9px 22px;border-radius:10px;cursor:pointer;border:none;
+  background:linear-gradient(135deg,#1a3fcc,#1252e8);
+  color:#fff;font-family:var(--mono,monospace);font-size:11px;font-weight:700;
+  box-shadow:0 4px 14px rgba(26,63,204,.4);transition:opacity .15s;
+}
+.mant-btn-reload:hover{opacity:.88;}
+.mant-dismiss-note{
+  font-family:var(--mono,monospace);font-size:9px;
+  color:rgba(154,179,255,.4);margin-top:14px;
+  letter-spacing:.5px;
+}
   --sky-l:#2d5be3;
   --sky-ll:#4a78f5;
   --sky-d:#0f2ea3;
@@ -20087,6 +20179,157 @@ else _boot();
 
 })();
 </script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   SISTEMA DE MANTENIMIENTO
+   Firestore doc: sistema/mantenimiento
+   Campos: activo (bool), titulo, mensaje, eta, allowContinue
+   Activar: ir a Firestore y crear/editar ese documento.
+   Desactivar: poner activo: false o borrar el doc.
+══════════════════════════════════════════════════════════════ */
+(function(){
+  var _mantDismissed = false; /* el usuario eligió continuar */
+  var _mantUnsubscribe = null;
+  var _mantActive = false;
+
+  /* Detectar si hay trabajo en curso que no debe interrumpirse */
+  function _mantWorkInProgress(){
+    /* Wizard de validación o operativo abierto */
+    var rvWiz = document.getElementById('rv-wizard-modal');
+    var opWiz = document.getElementById('op-wizard-modal');
+    var rvSum = document.getElementById('rv-sum-modal');
+    var opSum = document.getElementById('op-sum-modal');
+    if(rvWiz && rvWiz.classList.contains('open')) return true;
+    if(opWiz && opWiz.classList.contains('open')) return true;
+    if(rvSum && rvSum.classList.contains('open')) return true;
+    if(opSum && opSum.classList.contains('open')) return true;
+    /* Sesión colaborativa activa */
+    if(window.COLLAB && window.COLLAB.sessionId) return true;
+    return false;
+  }
+
+  function mantShow(data){
+    _mantActive = true;
+    var overlay = document.getElementById('mant-overlay');
+    if(!overlay) return;
+
+    /* Poblar contenido */
+    var titleEl  = document.getElementById('mant-title');
+    var msgEl    = document.getElementById('mant-msg');
+    var etaRow   = document.getElementById('mant-eta-row');
+    var etaVal   = document.getElementById('mant-eta-val');
+    var continueBtn = document.getElementById('mant-continue-btn');
+    var dismissNote = document.getElementById('mant-dismiss-note');
+
+    if(titleEl) titleEl.textContent  = data.titulo  || 'Sistema en Mantenimiento';
+    if(msgEl)   msgEl.innerHTML      = (data.mensaje || 'Realizando mejoras al sistema.<br>Volvemos pronto.').replace(/\n/g,'<br>');
+
+    if(data.eta && etaRow && etaVal){
+      etaRow.style.display = 'inline-flex';
+      etaVal.textContent   = data.eta;
+    } else if(etaRow){
+      etaRow.style.display = 'none';
+    }
+
+    /* Botón "Continuar de todas formas":
+       aparece si allowContinue=true O si hay trabajo en curso */
+    var inProgress = _mantWorkInProgress();
+    var canContinue = data.allowContinue || inProgress;
+    if(continueBtn) continueBtn.style.display = canContinue ? 'inline-block' : 'none';
+    if(dismissNote){
+      if(inProgress){
+        dismissNote.textContent = 'Tienes un reporte en curso — puedes terminarlo y luego recargar.';
+      } else if(canContinue){
+        dismissNote.textContent = 'Puedes continuar usando la app bajo tu responsabilidad.';
+      } else {
+        dismissNote.textContent = '';
+      }
+    }
+
+    /* Mostrar solo si no fue ya descartado por el usuario */
+    if(!_mantDismissed){
+      overlay.classList.add('show');
+    }
+  }
+
+  function mantHide(){
+    _mantActive = false;
+    _mantDismissed = false;
+    var overlay = document.getElementById('mant-overlay');
+    if(overlay) overlay.classList.remove('show');
+    /* Toast de "sistema restaurado" */
+    if(typeof safeToast === 'function'){
+      safeToast('✅ Sistema restaurado — recarga para ver los cambios');
+    } else {
+      /* Fallback si safeToast no está disponible aún */
+      var t = document.createElement('div');
+      t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
+        +'background:linear-gradient(135deg,#059669,#065f46);color:#fff;'
+        +'padding:12px 24px;border-radius:12px;font-family:monospace;font-size:12px;'
+        +'font-weight:700;z-index:99998;box-shadow:0 8px 24px rgba(0,0,0,.3);'
+        +'animation:mantFadeIn .3s ease;';
+      t.textContent = '✅ Sistema restaurado — recarga para ver los últimos cambios';
+      document.body.appendChild(t);
+      setTimeout(function(){ t.remove(); }, 5000);
+    }
+  }
+
+  /* El usuario elige continuar trabajando */
+  window.mantDismiss = function(){
+    _mantDismissed = true;
+    var overlay = document.getElementById('mant-overlay');
+    if(overlay) overlay.classList.remove('show');
+  };
+
+  /* Iniciar listener una vez que Firebase esté listo */
+  function startMantListener(){
+    if(!window._fb || !window._fb.listenMantenimiento) return;
+    if(_mantUnsubscribe) return; /* ya escuchando */
+    _mantUnsubscribe = window._fb.listenMantenimiento(function(data){
+      if(data && data.activo === true){
+        mantShow(data);
+      } else {
+        if(_mantActive) mantHide();
+        else _mantActive = false;
+      }
+    });
+  }
+
+  window.addEventListener('firebase-ready', function(){
+    setTimeout(startMantListener, 800);
+  });
+
+  /* Por si firebase-ready ya disparó antes de que este script cargara */
+  if(window._fb && window._fb.listenMantenimiento){
+    setTimeout(startMantListener, 400);
+  }
+
+})();
+</script>
+
+<!-- ═══ MANTENIMIENTO OVERLAY ═══ -->
+<div id="mant-overlay">
+  <div id="mant-box">
+    <div class="mant-logo">⚡ skysense · Centro de Operaciones BESS</div>
+    <div class="mant-gear">⚙️</div>
+    <div class="mant-title" id="mant-title">En Mantenimiento</div>
+    <div class="mant-msg" id="mant-msg">Estamos realizando mejoras al sistema.<br>Volvemos pronto.</div>
+    <div class="mant-eta" id="mant-eta-row" style="display:none">
+      <span>⏱ Tiempo estimado:</span>
+      <strong id="mant-eta-val">—</strong>
+    </div>
+    <div class="mant-actions">
+      <button class="mant-btn-continue" id="mant-continue-btn" onclick="mantDismiss()" style="display:none">
+        ▶ Continuar de todas formas
+      </button>
+      <button class="mant-btn-reload" onclick="location.reload()">
+        🔄 Recargar cuando esté listo
+      </button>
+    </div>
+    <div class="mant-dismiss-note" id="mant-dismiss-note"></div>
+  </div>
+</div>
 
 </body>
 </html>
