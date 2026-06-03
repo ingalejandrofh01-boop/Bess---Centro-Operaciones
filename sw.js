@@ -2,11 +2,11 @@
 //  BESS Ops — Service Worker
 //  DEPLOY_TS se actualiza automaticamente en cada build
 // ═══════════════════════════════════════════════════════════════════════════
-
+ 
 const DEPLOY_TS  = '1780470914_bess';          // reemplazado en build
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
-
+ 
 // ── Install ────────────────────────────────────────────────────────────────
 self.addEventListener('install', event => {
   self.skipWaiting();  // activar inmediatamente, sin esperar pestañas
@@ -16,7 +16,7 @@ self.addEventListener('install', event => {
       .catch(() => {})
   );
 });
-
+ 
 // ── Activate: borrar cachés viejas y tomar control ────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
@@ -31,12 +31,12 @@ self.addEventListener('activate', event => {
       ))
   );
 });
-
+ 
 // ── Fetch ──────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (!['http:', 'https:'].includes(url.protocol)) return;
-
+ 
   // Firebase y APIs externas → NO interceptar, dejar pasar directo
   const NET_ONLY = [
     'firebaseio.com','firestore.googleapis.com','googleapis.com',
@@ -47,7 +47,7 @@ self.addEventListener('fetch', event => {
     // NO llamar event.respondWith — el browser maneja la peticion directamente
     return;
   }
-
+ 
   // HTML → Network first (siempre intenta obtener la versión más nueva)
   if (event.request.mode === 'navigate') {
     event.respondWith(
@@ -65,7 +65,7 @@ self.addEventListener('fetch', event => {
     );
     return;
   }
-
+ 
   // Resto → Cache first con fallback a red
   event.respondWith(
     caches.match(event.request).then(cached => {
@@ -80,7 +80,7 @@ self.addEventListener('fetch', event => {
     })
   );
 });
-
+ 
 // ── Push Notifications ─────────────────────────────────────────────────────
 self.addEventListener('push', event => {
   let data = { title: 'Centro de Operaciones BESS', body: 'Nueva notificacion', icon: '' };
@@ -92,7 +92,7 @@ self.addEventListener('push', event => {
     })
   );
 });
-
+ 
 // ── Notification click ─────────────────────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();
