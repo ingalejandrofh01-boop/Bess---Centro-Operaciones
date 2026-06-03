@@ -14113,7 +14113,8 @@ function rvBuildSide(){
   _rv('rv-prog-txt',function(e){e.textContent=pct+'%';});
 
   /* Construir lista de índices, respetando asignación collab si la hay */
-  var myAssign = window.COLLAB&&COLLAB._assignments&&COLLAB._assignments[myId()];
+  var myAssign = null;
+  try{ myAssign = window.COLLAB&&COLLAB._assignments&&window.myId&&COLLAB._assignments[myId()]; }catch(e){}
   var indices = RV_SITES.map(function(_,i){return i;});
   if(myAssign){
     indices = indices.filter(function(i){return i>=myAssign.from&&i<=myAssign.to;});
@@ -15142,7 +15143,8 @@ function opBuildSide(){
   _op('op-side-count',function(e){e.textContent=done+' / '+OP_SITES.length;});
   _op('op-prog-fill',function(e){e.style.width=pct+'%';});
   _op('op-prog-txt',function(e){e.textContent=pct+'%';});
-  var myAssign = window.COLLAB&&COLLAB._assignments&&COLLAB._assignments[myId()];
+  var myAssign = null;
+  try{ myAssign = window.COLLAB&&COLLAB._assignments&&window.myId&&COLLAB._assignments[myId()]; }catch(e){}
   var indices = OP_SITES.map(function(_,i){return i;});
   if(myAssign){
     indices = indices.filter(function(i){return i>=myAssign.from&&i<=myAssign.to;});
@@ -15752,7 +15754,8 @@ function opBuildSide(){
   _op('op-side-count',function(e){e.textContent=done+' / '+OP_SITES.length;});
   _op('op-prog-fill',function(e){e.style.width=pct+'%';});
   _op('op-prog-txt',function(e){e.textContent=pct+'%';});
-  var myAssign = window.COLLAB&&COLLAB._assignments&&COLLAB._assignments[myId()];
+  var myAssign = null;
+  try{ myAssign = window.COLLAB&&COLLAB._assignments&&window.myId&&COLLAB._assignments[myId()]; }catch(e){}
   var indices = OP_SITES.map(function(_,i){return i;});
   if(myAssign){
     indices = indices.filter(function(i){return i>=myAssign.from&&i<=myAssign.to;});
