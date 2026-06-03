@@ -1432,7 +1432,7 @@ body::after{content:'';position:fixed;top:0;left:var(--nav-w);right:0;height:3px
 
 /* ═══ SHELL ═══ */
 #shell{position:relative;z-index:1;display:flex;height:100vh;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .5s}
-#shell.show{visibility:visible;opacity:1}
+#shell.show{visibility:visible;opacity:1;display:flex}
 
 /* ═══ ICON NAV ═══ */
 .icon-nav{
@@ -7663,9 +7663,16 @@ async function expDoZip(mode){
 // _waitFB: polls until window._fb is set by the ES module (which always runs after classic scripts)
 function _waitFB() {
   if (window._fb) return Promise.resolve();
-  return new Promise(res => {
+  return new Promise((res, rej) => {
+    const start = Date.now();
     const poll = setInterval(() => {
-      if (window._fb) { clearInterval(poll); res(); }
+      if (window._fb) { clearInterval(poll); res(); return; }
+      // Timeout after 10s — resolve anyway so app doesn't hang on mobile
+      if (Date.now() - start > 10000) {
+        clearInterval(poll);
+        console.warn('[BESS] Firebase timeout — continuando sin conexión');
+        res();
+      }
     }, 50);
   });
 }
@@ -9561,7 +9568,7 @@ async function ccInit(){
     ccRecords = ccRecords || [];
     try{ ccBuildState(); }catch(_){}
     _showShell(0);
-  }, 4000);
+  }, 3000);
 
   setProgress(30, 'Conectando a Firebase…');
   try{
@@ -11363,7 +11370,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('discharge-date').value=today;
   autoSetFolio();
-  render();
+  // Defer render() so the intro screen appears immediately on mobile
+  // (render() is heavy and would freeze the thread if called synchronously)
+  setTimeout(function(){ try{ render(); }catch(e){} }, 50);
 
   // tpl-modal close on overlay click
   const tplModal = document.getElementById('tpl-modal');
@@ -11371,10 +11380,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(e.target === tplModal) closeTemplateManager();
   });
 
-  // Run intro animation
-  try { runIntro(); } catch(e){}
-
-  // CC init in background
+  // CC init — also calls runIntro() internally
   try { ccInit(); } catch(e){}
 });
 
@@ -11393,10 +11399,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
     }, 600);
   }
-  // Primary: 4 seconds
-  setTimeout(_goToShell, 4000);
-  // Safety net: 8 seconds regardless
-  setTimeout(_goToShell, 8000);
+  // Primary: 2 seconds (reducido para móvil)
+  setTimeout(_goToShell, 2000);
+  // Safety net: 5 seconds regardless
+  setTimeout(_goToShell, 5000);
 })();
 
 // ═══════════════════════════════════════════════════════════
