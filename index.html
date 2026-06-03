@@ -14130,8 +14130,12 @@ function rvSave(){
   document.querySelectorAll('.nav-item').forEach(function(n){
     n.classList.toggle('active',n.dataset.page==='calval');
   });
+  /* Asegurar que el reporte recién guardado aparezca aunque Firebase tarde.
+     Si el listener NO está activo, rvReps ya tiene el reporte (guardado localmente).
+     Si está activo, el snapshot llegará sólo — pero como fallback lo metemos en rvReps ahora. */
+  if(!rvReps.some(function(r){return r.id===rep.id;})) rvReps.unshift(rep);
   setTimeout(function(){
-    rvLoad();opLoad();ucalRender();
+    ucalRender();
     setTimeout(function(){
       var todayEl=document.querySelector('#ucal-content .cal-day-label.today');
       if(todayEl)todayEl.scrollIntoView({behavior:'smooth',block:'center'});
@@ -14432,7 +14436,7 @@ function rvExportModalPNG(){
   var _o=window.goPage;
   window.goPage=function(id){
     if(id==='repval'){_o(id);rvLoad();setTimeout(function(){if(!rvW||rvW.step==='setup')rvInitSetup();},50);return;}
-    if(id==='calval'){_o(id);rvLoad();opLoad();setTimeout(ucalRender,50);return;}
+    if(id==='calval'){_o(id);if(!_rvFbUnsubscribe)rvLoad();if(!_opFbUnsubscribe)opLoad();setTimeout(ucalRender,50);return;}
     _o(id);
   };
 })();
@@ -14486,7 +14490,11 @@ function ucalDeleteMonth(yr, mo1){
 }
 
 function ucalRender(){
-  rvLoad();opLoad();
+  /* Solo leer localStorage si el listener de Firebase NO está activo.
+     Si el listener está activo, rvReps/opReps ya tienen la versión de Firebase
+     y llamar rvLoad()/opLoad() los sobreescribiría con datos viejos. */
+  if(!_rvFbUnsubscribe) rvLoad();
+  if(!_opFbUnsubscribe) opLoad();
   var cc=document.getElementById('ucal-content');if(!cc)return;
   var now=new Date();
   var viewDate=ucalMonth||now;
@@ -14989,42 +14997,7 @@ function opRenderSum(){
   });
 }
 
-function opSave(){
-  opLoad();
-  var rep={id:Date.now().toString(),period:opW.period,date:opW.date,op:opW.op,
-    srs:JSON.parse(JSON.stringify(opW.srs)),createdAt:new Date().toISOString()};
-  opReps.unshift(rep);
-  opPersist();
-  // Save to Firebase
-  if(window._fb&&window._fb.saveReporteOp){
-    window._fb.saveReporteOp(rep).then(function(fbId){
-      rep.fbId=fbId;console.log('Op saved to Firebase:',fbId);
-    }).catch(function(e){console.warn('Firebase op error:',e);});
-  }
-  // Push notification
-  opPushNotif(rep);
-  // Re-enable buttons
-  ['op-save-btn','op-save-btn2'].forEach(function(id){
-    _op(id,function(e){e.disabled=false;e.textContent='✓ Guardar Reporte Operativo';});
-  });
-  // Hide modals
-  _op('op-wizard-modal',function(e){e.classList.remove('open');});
-  _op('op-sum-modal',function(e){e.classList.remove('open');});
-  // Banner
-  rvShowSavedBanner('Operativo',rep.createdAt,'linear-gradient(135deg,#1a3fcc,#1252e8)');
-  opW=null;
-  opCalMonth=null;
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  var pg=document.getElementById('page-calval');if(pg)pg.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.toggle('active',n.dataset.page==='calval');});
-  setTimeout(function(){
-    rvLoad();opLoad();ucalRender();
-    setTimeout(function(){
-      var todayEl=document.querySelector('#ucal-content .cal-day-label.today');
-      if(todayEl)todayEl.scrollIntoView({behavior:'smooth',block:'center'});
-    },250);
-  },60);
-}
+/* opSave definido más abajo como versión canónica (con ucalMonth reset correcto) */
 
 function opExportPNG(){
   var el=document.getElementById('op-paper-content');
@@ -15665,8 +15638,11 @@ function opSave(){
   document.querySelectorAll('.nav-item').forEach(function(n){
     n.classList.toggle('active',n.dataset.page==='calval');
   });
+  /* Garantizar que el reporte aparezca de inmediato en el calendario aunque
+     Firebase tarde en devolver el snapshot al listener. */
+  if(!opReps.some(function(r){return r.id===rep.id;})) opReps.unshift(rep);
   setTimeout(function(){
-    rvLoad();opLoad();ucalRender();
+    ucalRender();
     setTimeout(function(){
       var todayEl=document.querySelector('#ucal-content .cal-day-label.today');
       if(todayEl)todayEl.scrollIntoView({behavior:'smooth',block:'center'});
@@ -19085,7 +19061,18 @@ window.collabSaveMyFragment = function(reportType){
   };
 
   window._fb.collabSaveFragment(COLLAB.sessionId, myId(), fragment).then(function(){
-    safeToast('\u2705 Tu parte guardada — esperando al equipo');
+    /* Mostrar pantalla de éxito al guest */
+    var rType=reportType;
+    var barId='collab-status-bar'+(rType==='op'?'-op':'');
+    var bar=document.getElementById(barId);
+    if(bar){
+      bar.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 20px;gap:8px;width:100%">'
+        +'<div style="font-size:28px">✅</div>'
+        +'<div style="font-family:var(--disp,sans-serif);font-size:15px;font-weight:700;color:var(--green,#059669)">¡Tu parte está lista!</div>'
+        +'<div style="font-family:var(--mono,monospace);font-size:11px;color:var(--t2,#6685ac);text-align:center">Tus sitios fueron guardados correctamente.<br>El host unificará el reporte final.</div>'
+        +'</div>';
+    }
+    safeToast('✅ Tu parte guardada — esperando al equipo');
     /* Si soy host y hay solo 1 participante, merge directo */
     if(COLLAB.isHost&&COLLAB._participants.length<=1){
       setTimeout(collabMergeAndFinalize, 500);
