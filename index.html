@@ -3431,38 +3431,38 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 ══════════════════════════════════════════════ */
 #sd-wrap{
   position:fixed;
-  left:88px; /* after the sidebar */
-  bottom:28px;
+  right:16px;
+  bottom:20px;
+  left:auto;
   z-index:9098;
   display:flex;
   flex-direction:column;
-  align-items:flex-start;
-  gap:10px;
+  align-items:flex-end;
+  gap:8px;
 }
 /* Toggle button */
 #sd-toggle{
-  height:38px;
-  border-radius:20px;
-  padding:0 14px 0 12px;
+  height:36px;
+  width:36px;
+  border-radius:50%;
+  padding:0;
   background:linear-gradient(110deg,#1a3fcc,#1255d4);
   border:none;
-  box-shadow:0 4px 18px rgba(18,85,212,.35),0 1px 4px rgba(0,0,0,.15);
+  box-shadow:0 3px 12px rgba(18,85,212,.4),0 1px 4px rgba(0,0,0,.15);
   cursor:pointer;
-  display:flex;align-items:center;gap:7px;
+  display:flex;align-items:center;justify-content:center;
   color:#fff;
-  font-family:'DM Mono',monospace;
-  font-size:10px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;
   transition:transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
   -webkit-tap-highlight-color:transparent;
   position:relative;z-index:1;
-  white-space:nowrap;
 }
-#sd-toggle:hover{transform:scale(1.05);box-shadow:0 6px 24px rgba(18,85,212,.45);}
+#sd-toggle:hover{transform:scale(1.1);box-shadow:0 5px 18px rgba(18,85,212,.5);}
 #sd-toggle .sd-tog-icon{transition:transform .3s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;}
+#sd-toggle .sd-tog-label{display:none;}
 #sd-wrap.open #sd-toggle .sd-tog-icon{transform:rotate(45deg);}
-/* Items container */
+/* Items container — opens upward, aligned right */
 #sd-items{
-  display:flex;flex-direction:column;gap:8px;align-items:flex-start;
+  display:flex;flex-direction:column;gap:6px;align-items:flex-end;
   overflow:hidden;
   max-height:0;
   opacity:0;
@@ -3477,7 +3477,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 /* Each app button */
 .sd-item{
   display:flex;align-items:center;gap:8px;
-  height:38px;
+  height:36px;
   border-radius:24px;
   padding:0 14px 0 10px;
   text-decoration:none;
@@ -3489,16 +3489,16 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
   transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;
   -webkit-tap-highlight-color:transparent;
 }
-.sd-item:hover{transform:translateX(4px) scale(1.04);}
+.sd-item:hover{transform:translateX(-4px) scale(1.04);}
 .sd-item:active{transform:scale(.96);}
 #sd-wa  {background:linear-gradient(110deg,#128c7e,#25d366);}
 #sd-od  {background:linear-gradient(110deg,#0078d4,#1a9af7);}
 #sd-teams{background:linear-gradient(110deg,#4b53bc,#7b83eb);}
 .sd-item svg{flex-shrink:0;}
 @media(max-width:700px){
-  #sd-wrap{left:14px;bottom:calc(72px + env(safe-area-inset-bottom) + 12px);}
-  .sd-item{height:36px;font-size:9px;padding:0 12px 0 9px;}
-  #sd-toggle{height:34px;font-size:9px;}
+  #sd-wrap{right:12px;bottom:18px;left:auto;}
+  .sd-item{height:34px;font-size:9px;padding:0 12px 0 9px;}
+  #sd-toggle{height:34px;width:34px;}
 }
 
 /* ══════════════════════════════════════════════
@@ -3506,7 +3506,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 ══════════════════════════════════════════════ */
 #fab-nueva{
   position:fixed;
-  right:24px; bottom:28px;
+  right:24px; bottom:70px;
   width:auto; height:52px;
   border-radius:30px; border:none;
   padding:0 22px 0 16px;
@@ -4987,12 +4987,11 @@ if('serviceWorker' in navigator){
   <!-- Toggle button -->
   <button id="sd-toggle" onclick="document.getElementById('sd-wrap').classList.toggle('open')" title="Apps externas">
     <span class="sd-tog-icon">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
         <line x1="12" y1="5" x2="12" y2="19"/>
         <line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
     </span>
-    Apps
   </button>
 </div>
 
