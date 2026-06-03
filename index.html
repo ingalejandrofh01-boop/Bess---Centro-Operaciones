@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780472075">
+<meta name="app-version" content="1780472413">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -18831,6 +18831,11 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
       hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
       totalSites:totalSites||0, status:'active',
       participants:_initParts, assignments:{}, srs:{}, fragmentsDone:[]
+    }).then(function(){
+      /* Arrancar listener DESPUES de que el doc existe en Firestore */
+      console.log('[Collab] Doc creado, arrancando listener sid:',sid);
+      _collabListenSession(sid, reportType);
+      _collabListenFragments(sid, reportType);
     }).catch(function(e){ console.error('[Collab] create:',e.message); });
 
     /* Notificar a todos */
@@ -18845,8 +18850,6 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
       console.log('[Collab] Invitacion publicada, sid:',sid);
     }).catch(function(e){ console.error('[Collab] pushNotif:',e.message); });
 
-    _collabListenSession(sid, reportType);
-    _collabListenFragments(sid, reportType);
     safeToast('\uD83E\uDD1D Sesion colaborativa iniciada');
   });
 };
