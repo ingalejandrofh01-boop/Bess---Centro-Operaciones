@@ -3176,122 +3176,77 @@ main{grid-row:2}
 }
 #collab-status-bar-op.active{display:flex;}
 
-/* ── PANEL DE SESIÓN COLABORATIVA ─────────────────────────── */
-#collab-session-panel{
-  position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,76px);right:0;bottom:0;
-  z-index:450;display:none;flex-direction:column;
-  background:var(--bg,#060e2a);overflow-y:auto;
+/* ── Collab panel dentro del sum-modal ── */
+.sum-collab-panel{
+  display:none;
+  border-radius:14px;
+  overflow:hidden;
+  margin-bottom:22px;
+  border:1px solid rgba(74,120,245,.25);
 }
-#collab-session-panel.open{display:flex;}
-@media(max-width:768px){#collab-session-panel{left:0;}}
-.csp-topbar{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 20px;
-  background:linear-gradient(90deg,rgba(10,18,50,.98),rgba(15,25,65,.98));
-  border-bottom:1px solid rgba(74,120,245,.2);
-  position:sticky;top:0;z-index:10;flex-shrink:0;
+.sum-collab-panel.active{ display:block; }
+.scp-header{
+  background:linear-gradient(90deg,rgba(10,18,50,.97),rgba(15,25,70,.97));
+  padding:12px 18px;
+  display:flex;align-items:center;gap:10px;
 }
-.csp-topbar h2{
-  font-family:var(--disp,sans-serif);font-size:15px;font-weight:900;
-  color:#e0eaff;margin:0;letter-spacing:-.3px;flex:1;
-}
-.csp-pulse{width:8px;height:8px;border-radius:50%;background:#4af5b8;
+.scp-pulse{width:8px;height:8px;border-radius:50%;background:#4af5b8;
   box-shadow:0 0 8px rgba(74,245,184,.7);animation:cib-pulse 2s ease infinite;flex-shrink:0;}
-.csp-body{padding:20px;max-width:1100px;margin:0 auto;width:100%;flex:1;}
-/* Participants table */
-.csp-participants{
-  background:var(--s1,rgba(255,255,255,.03));
-  border:1px solid var(--b1,rgba(74,120,245,.15));
-  border-radius:12px;overflow:hidden;margin-bottom:20px;
+.scp-header-title{font-family:var(--mono);font-size:11px;font-weight:700;color:#e0eaff;flex:1;letter-spacing:.3px;}
+.scp-header-status{font-family:var(--mono);font-size:10px;color:#9ab3ff;}
+/* Table */
+.scp-table-wrap{background:rgba(8,16,48,.85);padding:0 0 4px;}
+.scp-ptbl{width:100%;border-collapse:collapse;}
+.scp-ptbl th{
+  font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;
+  color:rgba(154,179,255,.6);padding:8px 14px 6px;border-bottom:1px solid rgba(74,120,245,.12);
+  text-align:left;background:rgba(0,0,0,.2);
 }
-.csp-ptable{width:100%;border-collapse:collapse;}
-.csp-ptable th{
-  font-family:var(--mono,monospace);font-size:9px;letter-spacing:1.5px;
-  text-transform:uppercase;color:var(--t3,#4a6080);padding:10px 14px;
-  border-bottom:1px solid var(--b1,rgba(74,120,245,.15));text-align:left;
-  background:rgba(0,0,0,.15);
+.scp-ptbl td{
+  padding:9px 14px;border-bottom:1px solid rgba(74,120,245,.06);
+  font-family:var(--body);font-size:12px;color:#c8d8f0;
+  vertical-align:middle;
 }
-.csp-ptable td{
-  padding:10px 14px;border-bottom:1px solid rgba(74,120,245,.07);
-  font-family:var(--body,sans-serif);font-size:12px;color:var(--text,#e0eaff);
+.scp-ptbl tr:last-child td{border-bottom:none;}
+.scp-av{width:24px;height:24px;border-radius:50%;font-size:9px;font-weight:700;color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;margin-right:6px;flex-shrink:0;vertical-align:middle;}
+.scp-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;
+  font-size:9px;font-family:var(--mono);font-weight:700;letter-spacing:.3px;}
+.scp-chip-w{background:rgba(74,120,245,.12);color:#9ab3ff;}
+.scp-chip-d{background:rgba(34,197,94,.12);color:#4ade80;}
+.scp-pbar{height:5px;border-radius:3px;background:rgba(74,120,245,.15);overflow:hidden;width:80px;display:inline-block;vertical-align:middle;}
+.scp-pfill{height:100%;border-radius:3px;transition:width .4s;}
+/* Guest done */
+.scp-guest-done{
+  background:rgba(8,16,48,.85);padding:28px 20px;text-align:center;
 }
-.csp-ptable tr:last-child td{border-bottom:none;}
-.csp-avatar{
-  width:26px;height:26px;border-radius:50%;
-  font-size:9px;font-weight:700;color:#fff;
-  display:inline-flex;align-items:center;justify-content:center;
-  vertical-align:middle;margin-right:7px;flex-shrink:0;
+.scp-guest-done .scp-bigcheck{font-size:44px;margin-bottom:8px;}
+.scp-guest-done h3{font-family:var(--disp);font-size:17px;font-weight:900;color:#4ade80;margin:0 0 6px;}
+.scp-guest-done p{font-family:var(--mono);font-size:11px;color:#9ab3ff;margin:0;line-height:1.6;}
+/* Host action footer */
+.scp-footer{
+  background:linear-gradient(90deg,rgba(8,14,40,.98),rgba(12,20,58,.98));
+  padding:12px 16px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  border-top:1px solid rgba(74,120,245,.15);
 }
-.csp-progress-bar{
-  height:6px;border-radius:3px;background:rgba(74,120,245,.15);
-  overflow:hidden;flex:1;min-width:60px;
-}
-.csp-progress-fill{height:100%;border-radius:3px;transition:width .4s;}
-.csp-status-chip{
-  display:inline-flex;align-items:center;gap:4px;
-  padding:2px 8px;border-radius:10px;font-size:9px;font-family:var(--mono,monospace);
-  font-weight:700;letter-spacing:.5px;
-}
-.csp-chip-wait{background:rgba(74,120,245,.12);color:#9ab3ff;}
-.csp-chip-done{background:rgba(5,150,105,.15);color:#34d399;}
-.csp-chip-merge{background:rgba(251,191,36,.12);color:#fbbf24;}
-/* Action bar */
-.csp-actions{
-  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
-  padding:14px 20px;
-  background:linear-gradient(90deg,rgba(10,18,50,.95),rgba(15,25,65,.95));
-  border-top:1px solid rgba(74,120,245,.2);
-  position:sticky;bottom:0;flex-shrink:0;
-}
-.csp-btn-merge{
-  padding:10px 24px;border-radius:10px;border:none;cursor:pointer;
-  font-family:var(--disp,sans-serif);font-size:13px;font-weight:700;
+.scp-merge-btn{
+  padding:10px 22px;border-radius:10px;border:none;cursor:pointer;
+  font-family:var(--disp);font-size:13px;font-weight:700;
   background:linear-gradient(135deg,#059669,#065f46);color:#fff;
   box-shadow:0 4px 16px rgba(5,150,105,.4);
-  transition:opacity .2s,transform .1s;
+  transition:opacity .15s,transform .1s;
 }
-.csp-btn-merge:hover{opacity:.9;transform:translateY(-1px);}
-.csp-btn-merge:disabled{opacity:.5;cursor:not-allowed;transform:none;}
-.csp-btn-export{
-  padding:10px 18px;border-radius:10px;border:1px solid rgba(74,120,245,.4);
-  background:rgba(74,120,245,.12);color:#9ab3ff;cursor:pointer;
-  font-family:var(--mono,monospace);font-size:11px;font-weight:600;
-  transition:background .2s;
+.scp-merge-btn:hover:not(:disabled){opacity:.9;transform:translateY(-1px);}
+.scp-merge-btn:disabled{background:rgba(74,120,245,.2)!important;color:#9ab3ff;box-shadow:none;cursor:not-allowed;transform:none;}
+.scp-secondary-btn{
+  padding:8px 14px;border-radius:9px;border:1px solid rgba(74,120,245,.3);
+  background:rgba(74,120,245,.1);color:#9ab3ff;cursor:pointer;
+  font-family:var(--mono);font-size:10px;transition:background .15s;
 }
-.csp-btn-export:hover{background:rgba(74,120,245,.25);color:#fff;}
-.csp-btn-export:disabled{opacity:.4;cursor:not-allowed;}
-.csp-wait-msg{
-  font-family:var(--mono,monospace);font-size:11px;color:#9ab3ff;
-  display:flex;align-items:center;gap:6px;margin-left:auto;
-}
-/* Preview section */
-.csp-preview-label{
-  font-family:var(--mono,monospace);font-size:9px;letter-spacing:2px;
-  text-transform:uppercase;color:var(--t3,#4a6080);margin-bottom:10px;
-}
-.csp-section-title{
-  font-family:var(--disp,sans-serif);font-size:14px;font-weight:900;
-  color:#e0eaff;margin-bottom:12px;display:flex;align-items:center;gap:8px;
-}
-/* Guest done screen */
-.csp-guest-done{
-  text-align:center;padding:32px 20px;
-}
-.csp-guest-done .csp-check{font-size:52px;margin-bottom:10px;}
-.csp-guest-done h3{
-  font-family:var(--disp,sans-serif);font-size:18px;font-weight:900;
-  color:#34d399;margin:0 0 8px;
-}
-.csp-guest-done p{
-  font-family:var(--mono,monospace);font-size:11px;color:var(--t2,#6685ac);
-  margin:0;line-height:1.6;
-}
-.csp-saved-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  margin-top:14px;padding:6px 14px;border-radius:10px;
-  background:rgba(5,150,105,.15);border:1px solid rgba(5,150,105,.3);
-  font-family:var(--mono,monospace);font-size:10px;color:#34d399;font-weight:700;
-}
+.scp-secondary-btn:hover:not(:disabled){background:rgba(74,120,245,.22);color:#fff;}
+.scp-secondary-btn:disabled{opacity:.4;cursor:not-allowed;}
+.scp-wait-lbl{font-family:var(--mono);font-size:10px;color:#9ab3ff;margin-left:auto;}
 
 /* ═══════════════════════════════════════════════════════
    BÚSQUEDA GLOBAL — Ctrl+K
@@ -6368,6 +6323,40 @@ async function expDoZip(mode){
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px" id="rv-sum-stats"></div>
     <div id="rv-sum-issues"></div>
 
+    <!-- ── Bloque colaborativo (aparece solo en modo collab) ── -->
+    <div id="rv-collab-panel" class="sum-collab-panel">
+      <!-- Header -->
+      <div class="scp-header">
+        <div class="scp-pulse"></div>
+        <span class="scp-header-title" id="rv-scp-title">Sesión Colaborativa</span>
+        <span class="scp-header-status" id="rv-scp-status"></span>
+      </div>
+      <!-- Guest done view -->
+      <div id="rv-scp-guest" class="scp-guest-done" style="display:none">
+        <div class="scp-bigcheck">✅</div>
+        <h3>¡Tu parte está lista!</h3>
+        <p>Tus sitios fueron guardados correctamente.<br>El host hará el merge y guardará el reporte final.</p>
+      </div>
+      <!-- Host team table -->
+      <div id="rv-scp-host" class="scp-table-wrap" style="display:none">
+        <table class="scp-ptbl">
+          <thead><tr>
+            <th>Integrante</th><th>Sitios</th><th>Progreso</th><th>Estado</th>
+          </tr></thead>
+          <tbody id="rv-scp-tbody"></tbody>
+        </table>
+      </div>
+      <!-- Host action footer -->
+      <div id="rv-scp-footer" class="scp-footer" style="display:none">
+        <button id="rv-scp-merge-btn" class="scp-merge-btn" disabled onclick="window._collabDoMerge&&_collabDoMerge('val')">
+          ⟳ Esperando partes…
+        </button>
+        <button id="rv-scp-export-btn" class="scp-secondary-btn" disabled onclick="rvExportPNG()">📷 PNG</button>
+        <button class="scp-secondary-btn" onclick="window.print()">🖨 Imprimir</button>
+        <span id="rv-scp-wait" class="scp-wait-lbl"></span>
+      </div>
+    </div>
+
     <!-- Professional paper report -->
     <div class="rv-paper">
       <div style="background:linear-gradient(135deg,#f0f6ff,#e8eefa);border-bottom:2px solid #c8d6ee;padding:0">
@@ -6615,6 +6604,37 @@ async function expDoZip(mode){
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="op-sum-kpis"></div>
+
+    <!-- ── Bloque colaborativo (aparece solo en modo collab) ── -->
+    <div id="op-collab-panel" class="sum-collab-panel">
+      <div class="scp-header">
+        <div class="scp-pulse"></div>
+        <span class="scp-header-title" id="op-scp-title">Sesión Colaborativa</span>
+        <span class="scp-header-status" id="op-scp-status"></span>
+      </div>
+      <div id="op-scp-guest" class="scp-guest-done" style="display:none">
+        <div class="scp-bigcheck">✅</div>
+        <h3>¡Tu parte está lista!</h3>
+        <p>Tus sitios fueron guardados correctamente.<br>El host hará el merge y guardará el reporte final.</p>
+      </div>
+      <div id="op-scp-host" class="scp-table-wrap" style="display:none">
+        <table class="scp-ptbl">
+          <thead><tr>
+            <th>Integrante</th><th>Sitios</th><th>Progreso</th><th>Estado</th>
+          </tr></thead>
+          <tbody id="op-scp-tbody"></tbody>
+        </table>
+      </div>
+      <div id="op-scp-footer" class="scp-footer" style="display:none">
+        <button id="op-scp-merge-btn" class="scp-merge-btn" disabled onclick="window._collabDoMerge&&_collabDoMerge('op')">
+          ⟳ Esperando partes…
+        </button>
+        <button id="op-scp-export-btn" class="scp-secondary-btn" disabled onclick="opExportPNG()">📷 PNG</button>
+        <button class="scp-secondary-btn" onclick="window.print()">🖨 Imprimir</button>
+        <span id="op-scp-wait" class="scp-wait-lbl"></span>
+      </div>
+    </div>
+
     <div class="op-paper" id="op-paper-content">
       <div class="op-paper-hdr">
         <div id="op-paper-title" style="color:#fff;font-family:var(--disp);font-size:14px;font-weight:900;letter-spacing:.5px">REPORTE OPERATIVO BESS</div>
@@ -6649,74 +6669,6 @@ async function expDoZip(mode){
     </div>
   </div>
 </div>
-
-<!-- ═══ PANEL DE SESIÓN COLABORATIVA ═══ -->
-<div id="collab-session-panel">
-  <!-- Topbar -->
-  <div class="csp-topbar">
-    <div class="csp-pulse"></div>
-    <h2 id="csp-title">Sesión Colaborativa</h2>
-    <span id="csp-progress-label" style="font-family:var(--mono);font-size:10px;color:#9ab3ff;margin-right:8px"></span>
-    <button id="csp-back-btn" onclick="window._cspClose&&_cspClose()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(74,120,245,.3);background:transparent;color:#9ab3ff;font-family:var(--mono);font-size:10px;cursor:pointer">✕ Cerrar</button>
-  </div>
-
-  <!-- Body -->
-  <div class="csp-body">
-
-    <!-- Participants table -->
-    <div class="csp-section-title">
-      <span>👥</span> Equipo
-    </div>
-    <div class="csp-participants">
-      <table class="csp-ptable">
-        <thead>
-          <tr>
-            <th>Integrante</th>
-            <th>Rol</th>
-            <th>Sitios asignados</th>
-            <th>Progreso</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody id="csp-ptable-body">
-          <tr><td colspan="5" style="text-align:center;color:var(--t3);padding:20px;font-family:var(--mono);font-size:11px">Cargando participantes…</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Host: merged preview + actions -->
-    <div id="csp-host-section" style="display:none">
-      <div class="csp-section-title"><span>📋</span> Vista Previa del Reporte Unificado</div>
-      <div id="csp-preview-container" style="background:#fff;border-radius:10px;overflow:hidden;border:1px solid #dde6f5;margin-bottom:16px"></div>
-    </div>
-
-    <!-- Guest done screen -->
-    <div id="csp-guest-section" class="csp-guest-done" style="display:none">
-      <div class="csp-check">✅</div>
-      <h3>¡Tu parte está lista!</h3>
-      <p>Tus sitios fueron guardados correctamente.<br>El host revisará y unificará el reporte final.</p>
-      <div class="csp-saved-badge">🔒 Fragmento entregado al equipo</div>
-    </div>
-
-  </div><!-- /csp-body -->
-
-  <!-- Bottom action bar -->
-  <div class="csp-actions">
-    <!-- Host actions -->
-    <div id="csp-host-actions" style="display:none;gap:10px;flex-wrap:wrap;align-items:center;width:100%;display:none">
-      <button id="csp-merge-btn" class="csp-btn-merge" onclick="window._cspMerge&&_cspMerge()" disabled>
-        ⟳ Esperando partes…
-      </button>
-      <button id="csp-export-png-btn" class="csp-btn-export" onclick="window._cspExportPNG&&_cspExportPNG()" disabled>📷 Exportar PNG</button>
-      <button id="csp-print-btn" class="csp-btn-export" onclick="window.print()" disabled>🖨 Imprimir</button>
-      <span id="csp-host-status" class="csp-wait-msg"></span>
-    </div>
-    <!-- Guest actions -->
-    <div id="csp-guest-actions" style="display:none;gap:10px;align-items:center;width:100%">
-      <span style="font-family:var(--mono);font-size:11px;color:#9ab3ff">✅ Fragmento entregado — esperando al host</span>
-    </div>
-  </div>
-</div><!-- /#collab-session-panel -->
 
 <!-- PAGE: REPORTE OPERATIVO -->
 <div class="page" id="page-repop">
@@ -14021,7 +13973,14 @@ function rvStartSites(){
     }
   }
 }
-function rvCancelWiz(){_rv('rv-wizard-modal',function(e){e.classList.remove('open');});rvInitSetup();}
+function rvCancelWiz(){
+  _rv('rv-wizard-modal',function(e){e.classList.remove('open');});
+  _rv('rv-sum-modal',function(e){e.classList.remove('open');});
+  if(window._collabHideSumPanel) _collabHideSumPanel('val');
+  if(window.collabEndSession) collabEndSession();
+  rvW=null;
+  rvInitSetup();
+}
 function rvBackSites(){
   _rv('rv-sum-modal',function(e){e.classList.remove('open');});
   _rv('rv-wizard-modal',function(e){e.classList.add('open');});
@@ -14998,7 +14957,14 @@ function opStartSites(){
   _op('op-wizard-modal',function(e){e.classList.add('open');});
   opBuildSide();opRenderS();
 }
-function opCancelWiz(){_op('op-wizard-modal',function(e){e.classList.remove('open');});opInitSetup();}
+function opCancelWiz(){
+  _op('op-wizard-modal',function(e){e.classList.remove('open');});
+  _op('op-sum-modal',function(e){e.classList.remove('open');});
+  if(window._collabHideSumPanel) _collabHideSumPanel('op');
+  if(window.collabEndSession) collabEndSession();
+  opW=null;
+  opInitSetup();
+}
 function opBackSites(){
   _op('op-sum-modal',function(e){e.classList.remove('open');});
   _op('op-wizard-modal',function(e){e.classList.add('open');});
@@ -15594,13 +15560,11 @@ function opStartSites(){
 }
 function opCancelWiz(){
   _op('op-wizard-modal',function(e){e.classList.remove('open');});
-  opInitSetup();
-  if(window.collabEndSession) collabEndSession();
-}
-function opBackSites(){
   _op('op-sum-modal',function(e){e.classList.remove('open');});
-  _op('op-wizard-modal',function(e){e.classList.add('open');});
-  opW.idx=0;opBuildSide();opRenderS();
+  if(window._collabHideSumPanel) _collabHideSumPanel('op');
+  if(window.collabEndSession) collabEndSession();
+  opW=null;
+  opInitSetup();
 }
 
 function opBuildSide(){
@@ -19247,12 +19211,9 @@ window.collabSaveMyFragment = function(reportType){
 
   window._fb.collabSaveFragment(COLLAB.sessionId, myId(), fragment).then(function(){
     safeToast('✅ Tu parte guardada');
-    /* Si soy host y hay solo 1 participante (sesión de 1), merge directo */
+    /* Host de 1 solo participante → merge directo */
     if(COLLAB.isHost&&COLLAB._participants.length<=1){
-      setTimeout(function(){
-        var panel=document.getElementById('collab-session-panel');
-        if(panel&&panel.classList.contains('open')) _cspMerge&&_cspMerge();
-      }, 600);
+      setTimeout(function(){ window._collabDoMerge&&_collabDoMerge(reportType); }, 600);
     }
   }).catch(function(e){
     console.error('[Collab] saveFragment:',e);
@@ -19263,18 +19224,16 @@ window.collabSaveMyFragment = function(reportType){
 };
 
 /* ══════════════════════════════════════════════════════════════
-   MERGE FINAL (solo host)
+   MERGE FINAL (delegado al nuevo sistema)
 ══════════════════════════════════════════════════════════════ */
 window.collabMergeAndFinalize = function(){
   if(!COLLAB.isHost) return;
-  /* Si el panel ya está abierto, usar su merge */
-  var panel=document.getElementById('collab-session-panel');
-  if(panel&&panel.classList.contains('open')){
-    window._cspMerge&&_cspMerge(); return;
-  }
-  /* Si el panel no está abierto, abrirlo y disparar merge */
-  _cspOpen(COLLAB.reportType);
-  setTimeout(function(){ window._cspMerge&&_cspMerge(); }, 400);
+  var reportType=COLLAB.reportType;
+  var pfx=reportType==='val'?'rv':'op';
+  var panel=document.getElementById(pfx+'-collab-panel');
+  if(panel&&panel.classList.contains('active')){ window._collabDoMerge&&_collabDoMerge(reportType); return; }
+  _collabOpenSumModal(reportType);
+  setTimeout(function(){ window._collabDoMerge&&_collabDoMerge(reportType); }, 500);
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -19292,15 +19251,15 @@ function _collabListenFragments(sid, reportType){
     var done=Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
     console.log('[Collab] Fragmentos:',done,'/',total,'listos');
 
-    /* Actualizar panel de division */
+    /* Actualizar panel de division en barra */
     _collabRenderDivisionPanel();
 
-    /* Refrescar panel de sesión si está abierto */
-    _cspOnFragmentUpdate();
+    /* Refrescar panel de suma si está abierto */
+    if(COLLAB.reportType) _collabRefreshSumPanel(COLLAB.reportType);
 
     /* Si todos terminaron, notificar al host */
     if(total>0&&done>=total&&COLLAB.isHost){
-      safeToast('🎉 Todos terminaron — puedes hacer Merge y Guardar');
+      safeToast('🎉 Todos terminaron — haz Merge y Guarda');
     }
   });
 }
@@ -19780,246 +19739,142 @@ window._collabShowUsersPopupRv=function(){_collabShowUsersPopup('val');};
 window._collabShowUsersPopupOp=function(){_collabShowUsersPopup('op');};
 
 /* ══════════════════════════════════════════════════════════════
-   PANEL DE SESIÓN COLABORATIVA
-   Pantalla unificada de control para host y guest.
-   Se abre cuando alguien termina sus sitios, en vez de cerrar y sacar.
+   COLLAB SUM-PANEL  — control de sesión dentro del sum-modal
+   v7: sin panel separado, todo dentro del reporte
 ══════════════════════════════════════════════════════════════ */
-var _cspReportType = null;   /* 'val' | 'op' */
-var _cspMergedDone = false;  /* ya se hizo merge + save */
 
-function _cspOpen(reportType){
-  _cspReportType = reportType;
-  _cspMergedDone = false;
-  var panel = document.getElementById('collab-session-panel');
+/* Abrir el sum-modal en modo collab ─────────────────────────
+   Llama al render normal del resumen y luego muestra el bloque
+   colaborativo adecuado (guest o host).                        */
+function _collabOpenSumModal(reportType){
+  /* 1. Abrir el summary modal normal */
+  if(reportType==='val'){
+    if(window.rvRenderSum) rvRenderSum();
+  } else {
+    if(window.opRenderSum) opRenderSum();
+  }
+  /* 2. Activar y poblar el bloque collab */
+  var pfx = reportType==='val' ? 'rv' : 'op';
+  var panel = document.getElementById(pfx+'-collab-panel');
   if(!panel) return;
-  panel.classList.add('open');
-
-  /* Título */
-  var titleEl = document.getElementById('csp-title');
-  if(titleEl) titleEl.textContent = (reportType==='val'?'Sesión Colaborativa — Validación':'Sesión Colaborativa — Reporte Operativo');
-
-  /* Mostrar sección host o guest */
-  var hostSec = document.getElementById('csp-host-section');
-  var guestSec = document.getElementById('csp-guest-section');
-  var hostAct = document.getElementById('csp-host-actions');
-  var guestAct = document.getElementById('csp-guest-actions');
-  if(COLLAB.isHost){
-    if(hostSec) hostSec.style.display='block';
-    if(guestSec) guestSec.style.display='none';
-    if(hostAct){ hostAct.style.display='flex'; }
-    if(guestAct) guestAct.style.display='none';
-  } else {
-    if(hostSec) hostSec.style.display='none';
-    if(guestSec) guestSec.style.display='block';
-    if(hostAct) hostAct.style.display='none';
-    if(guestAct){ guestAct.style.display='flex'; }
-  }
-
-  _cspRefresh();
+  panel.classList.add('active');
+  _collabRefreshSumPanel(reportType);
 }
 
-function _cspClose(){
-  var panel = document.getElementById('collab-session-panel');
-  if(panel) panel.classList.remove('open');
-}
+/* Refrescar tabla de equipo y estado del botón Merge ────────*/
+function _collabRefreshSumPanel(reportType){
+  var pfx = reportType==='val' ? 'rv' : 'op';
+  var panel = document.getElementById(pfx+'-collab-panel');
+  if(!panel||!panel.classList.contains('active')) return;
 
-function _cspRefresh(){
-  if(!document.getElementById('collab-session-panel').classList.contains('open')) return;
-  _cspRenderParticipants();
-  _cspUpdateHostActions();
-  if(COLLAB.isHost) _cspRenderPreview();
-}
+  var isHost = COLLAB.isHost;
 
-/* ── Tabla de participantes ───────────────────────────────── */
-function _cspRenderParticipants(){
-  var tbody = document.getElementById('csp-ptable-body');
-  if(!tbody) return;
+  /* Mostrar sección correcta */
+  var guestSec  = document.getElementById(pfx+'-scp-guest');
+  var hostSec   = document.getElementById(pfx+'-scp-host');
+  var footerSec = document.getElementById(pfx+'-scp-footer');
+  if(guestSec)  guestSec.style.display  = isHost ? 'none' : 'block';
+  if(hostSec)   hostSec.style.display   = isHost ? 'block' : 'none';
+  if(footerSec) footerSec.style.display = isHost ? 'flex'  : 'none';
 
-  var total = Object.keys(COLLAB._assignments).length;
-  var done  = Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
-  var prog  = document.getElementById('csp-progress-label');
-  if(prog) prog.textContent = total>0 ? done+'/'+total+' partes listas' : '';
-
-  if(!COLLAB._participants.length){
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--t3);padding:20px;font-family:var(--mono);font-size:11px">Sin participantes aún…</td></tr>';
-    return;
-  }
-
-  var sites = _cspReportType==='val'?(window.RV_SITES||[]):(window.OP_SITES||[]);
-
-  tbody.innerHTML = COLLAB._participants.map(function(p){
-    var isMe   = p.id===myId();
-    var assign = COLLAB._assignments[p.id];
-    var frag   = COLLAB._fragments[p.id];
-    var fragDone = frag&&frag.done;
-
-    /* Avatar initials */
-    var pts = (p.name||'?').trim().split(' ').filter(Boolean);
-    var ini = (pts.length>=2 ? pts[0][0]+pts[pts.length-1][0] : (p.name||'?').slice(0,2)).toUpperCase();
-
-    /* Progress */
-    var pct = 0;
-    if(assign && frag && frag.srs){
-      var filled = frag.srs.filter(function(s,i){
-        return i>=assign.from&&i<=assign.to&&s&&(s.bat||s.status||s.skip);
-      }).length;
-      var span = (assign.to-assign.from)+1;
-      pct = span>0 ? Math.round(filled/span*100) : 0;
-    } else if(fragDone){ pct=100; }
-
-    var sitesLabel = assign
-      ? 'Sitios '+(assign.from+1)+'–'+(assign.to+1)+' ('+((assign.to-assign.from)+1)+')'
-      : (COLLAB.isHost&&p.id===myId() ? 'Todos (sin división)' : '—');
-
-    var chipClass = fragDone ? 'csp-chip-done' : 'csp-chip-wait';
-    var chipLabel = fragDone ? '✓ Listo' : (p.id===myId()&&!fragDone&&!COLLAB.isHost ? 'Entregado' : 'En progreso');
-    var hostBadge = (p.id===myId()&&COLLAB.isHost) ? '<span style="font-size:9px;background:rgba(251,191,36,.15);color:#fbbf24;border-radius:6px;padding:1px 6px;margin-left:4px;font-family:var(--mono)">HOST</span>' : '';
-
-    return '<tr style="'+(isMe?'background:rgba(74,120,245,.05)':'')+'">'+
-      '<td><span class="csp-avatar" style="background:'+(p.color||'#4a78f5')+'">'+ini+'</span>'+
-        (p.name||'?')+hostBadge+(isMe?' <span style="font-size:9px;color:var(--t3)">(tú)</span>':'')+
-      '</td>'+
-      '<td style="font-family:var(--mono);font-size:10px;color:var(--t3)">'+(p.role||'Operador')+'</td>'+
-      '<td style="font-family:var(--mono);font-size:10px">'+sitesLabel+'</td>'+
-      '<td><div style="display:flex;align-items:center;gap:8px">'+
-        '<div class="csp-progress-bar"><div class="csp-progress-fill" style="width:'+pct+'%;background:'+(pct>=100?'#22c55e':'#4a78f5')+'"></div></div>'+
-        '<span style="font-family:var(--mono);font-size:9px;color:var(--t3);white-space:nowrap">'+pct+'%</span>'+
-      '</div></td>'+
-      '<td><span class="csp-status-chip '+chipClass+'">'+chipLabel+'</span></td>'+
-    '</tr>';
-  }).join('');
-}
-
-/* ── Acciones del host ────────────────────────────────────── */
-function _cspUpdateHostActions(){
-  if(!COLLAB.isHost) return;
-  var mergeBtn = document.getElementById('csp-merge-btn');
-  var expBtn   = document.getElementById('csp-export-png-btn');
-  var printBtn = document.getElementById('csp-print-btn');
-  var statusEl = document.getElementById('csp-host-status');
-
-  var total = Object.keys(COLLAB._assignments).length;
-  var done  = Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
-  var allReady = (total===0 || done>=total);
-
-  if(_cspMergedDone){
-    if(mergeBtn){ mergeBtn.disabled=false; mergeBtn.textContent='✓ Guardado en Calendario'; mergeBtn.style.background='linear-gradient(135deg,#059669,#065f46)'; mergeBtn.onclick=null; }
-    if(expBtn){ expBtn.disabled=false; }
-    if(printBtn){ printBtn.disabled=false; }
-    if(statusEl) statusEl.textContent='';
-  } else if(allReady){
-    if(mergeBtn){ mergeBtn.disabled=false; mergeBtn.textContent='✨ Merge y Guardar en Calendario'; mergeBtn.onclick=function(){ window._cspMerge&&_cspMerge(); }; }
-    if(expBtn){ expBtn.disabled=false; }
-    if(printBtn){ printBtn.disabled=false; }
-    if(statusEl) statusEl.textContent='';
-  } else {
-    if(mergeBtn){ mergeBtn.disabled=true; mergeBtn.textContent='⟳ Esperando partes… ('+done+'/'+total+')'; }
-    if(expBtn){ expBtn.disabled=true; }
-    if(printBtn){ printBtn.disabled=true; }
-    if(statusEl) statusEl.textContent='Esperando que todos terminen';
-  }
-}
-
-/* ── Preview del reporte merged ──────────────────────────── */
-function _cspRenderPreview(){
-  var container = document.getElementById('csp-preview-container');
-  if(!container) return;
-
-  /* Hacer merge en memoria temporalmente para la vista previa */
-  var reportType = _cspReportType;
-  var localSrs = reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
-  if(!localSrs){ container.innerHTML='<div style="padding:20px;text-align:center;color:#aaa;font-family:var(--mono);font-size:11px">Vista previa no disponible</div>'; return; }
-
-  var merged = localSrs.map(function(s){ return s?JSON.parse(JSON.stringify(s)):{} ;});
-  Object.values(COLLAB._fragments).forEach(function(frag){
-    if(!frag||!frag.srs) return;
-    frag.srs.forEach(function(s,i){
-      if(!s) return;
-      var current = merged[i];
-      var hasData = s.bat||s.status||s.skip;
-      var currentHasData = current&&(current.bat||current.status||current.skip);
-      if(hasData&&!currentHasData) merged[i]=s;
-    });
+  /* Ocultar botón Guardar normal mientras esté en collab */
+  var saveIds = reportType==='val'
+    ? ['rv-save-btn','rv-save-btn2']
+    : ['op-save-btn','op-save-btn2'];
+  saveIds.forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.style.display=isHost?'none':'none'; /* oculto para ambos mientras collab */
   });
 
-  /* Construir HTML de preview */
-  if(reportType==='val'){
-    _cspRenderValPreview(container, merged);
-  } else {
-    _cspRenderOpPreview(container, merged);
+  var total = Object.keys(COLLAB._assignments).length;
+  var done  = Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
+  var allReady = total===0 || done>=total;
+
+  /* Header status */
+  var statusEl = document.getElementById(pfx+'-scp-status');
+  if(statusEl) statusEl.textContent = isHost
+    ? (allReady ? '✅ Todos listos' : done+'/'+total+' partes')
+    : '✅ Tu parte entregada';
+
+  var titleEl = document.getElementById(pfx+'-scp-title');
+  if(titleEl) titleEl.textContent = isHost
+    ? 'Equipo — ' + COLLAB._participants.length + ' integrante'+(COLLAB._participants.length!==1?'s':'')
+    : 'Sesión Colaborativa';
+
+  /* Tabla de participantes (host) */
+  if(isHost){
+    var sites = reportType==='val'?(window.RV_SITES||[]):(window.OP_SITES||[]);
+    var tbody = document.getElementById(pfx+'-scp-tbody');
+    if(tbody){
+      tbody.innerHTML = COLLAB._participants.map(function(p){
+        var isMe   = p.id===myId();
+        var assign = COLLAB._assignments[p.id];
+        var frag   = COLLAB._fragments[p.id];
+        var fragDone = frag&&frag.done;
+        var pts = (p.name||'?').trim().split(' ').filter(Boolean);
+        var ini = (pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase();
+        var pct=0;
+        if(assign&&frag&&frag.srs){
+          var filled=frag.srs.filter(function(s,i){return i>=assign.from&&i<=assign.to&&s&&(s.bat||s.status||s.skip);}).length;
+          var span=(assign.to-assign.from)+1; pct=span>0?Math.round(filled/span*100):0;
+        } else if(fragDone) pct=100;
+        var sitesLbl = assign?'#'+(assign.from+1)+'–'+(assign.to+1):(isMe&&!assign?'Todos':'—');
+        var hostTag  = (isMe&&COLLAB.isHost)?'<span style="font-size:8px;background:rgba(251,191,36,.15);color:#fbbf24;border-radius:5px;padding:1px 5px;margin-left:3px">HOST</span>':'';
+        var meLbl    = isMe?'<span style="font-size:9px;color:rgba(154,179,255,.5);margin-left:2px">(tú)</span>':'';
+        return '<tr style="'+(isMe?'background:rgba(74,120,245,.05)':'')+'">'+
+          '<td><span class="scp-av" style="background:'+(p.color||'#4a78f5')+'">'+ini+'</span>'+(p.name||'?')+hostTag+meLbl+'</td>'+
+          '<td style="font-family:var(--mono);font-size:10px;color:rgba(154,179,255,.7)">'+sitesLbl+'</td>'+
+          '<td><span class="scp-pbar"><span class="scp-pfill" style="width:'+pct+'%;background:'+(pct>=100?'#22c55e':'#4a78f5')+'"></span></span> <span style="font-family:var(--mono);font-size:9px;color:rgba(154,179,255,.6)">'+pct+'%</span></td>'+
+          '<td><span class="scp-chip '+(fragDone?'scp-chip-d':'scp-chip-w')+'">'+(fragDone?'✓ Listo':'En progreso')+'</span></td>'+
+        '</tr>';
+      }).join('');
+    }
+
+    /* Merge button */
+    var mergeBtn = document.getElementById(pfx+'-scp-merge-btn');
+    var exportBtn= document.getElementById(pfx+'-scp-export-btn');
+    var waitLbl  = document.getElementById(pfx+'-scp-wait');
+    if(mergeBtn){
+      mergeBtn.disabled = !allReady;
+      if(allReady){
+        mergeBtn.textContent='✨ Merge y Guardar en Calendario';
+        mergeBtn.style.background='linear-gradient(135deg,#059669,#065f46)';
+      } else {
+        mergeBtn.textContent='⟳ Esperando partes… ('+done+'/'+total+')';
+        mergeBtn.style.background='';
+      }
+    }
+    if(exportBtn) exportBtn.disabled = false;
+    if(waitLbl) waitLbl.textContent = allReady?'':'Esperando que todos terminen';
   }
 }
 
-function _cspRenderValPreview(container, merged){
-  var total=0,err=0;
-  if(window.rvW){
-    var stats = window.rvStats ? rvStats(merged) : {n:merged.length,err:0};
-    total=stats.n; err=stats.err;
-  }
-  var rows = (window.RV_SITES||[]).map(function(site,i){
-    var sr=merged[i]; if(!sr||sr.skip) return '';
-    var ok=sr.bat==='OK',warn=sr.bat==='PARCIAL',crit=sr.bat==='ERROR'||sr.bat==='FALLA';
-    var color=ok?'#22c55e':warn?'#f59e0b':crit?'#ef4444':'#94a3b8';
-    return '<tr><td style="font-family:var(--mono);font-size:10px;padding:5px 10px">'+site+'</td>'+
-      '<td style="padding:5px 10px;text-align:center"><span style="font-size:9px;font-weight:700;color:'+color+'">'+( sr.bat||'—')+'</span></td>'+
-      '<td style="padding:5px 10px;text-align:center;font-family:var(--mono);font-size:9px">'+(sr.reloj!=null?(sr.reloj===1?'✓':'✗'):'—')+'</td>'+
-      '<td style="padding:5px 10px;text-align:center;font-family:var(--mono);font-size:9px">'+(sr.temp?sr.temp+'°C':'—')+'</td>'+
-      '<td style="padding:5px 10px;font-family:var(--mono);font-size:9px;color:#6685ac">'+(sr.obs||'')+'</td></tr>';
-  }).join('');
-  container.innerHTML='<div style="padding:10px 14px;background:linear-gradient(135deg,#f0f6ff,#e8eefa);border-bottom:1px solid #c8d6ee;display:flex;justify-content:space-between;align-items:center">'+
-    '<span style="font-family:var(--disp);font-size:12px;font-weight:900;color:#0a1e5e">Validación BESS — Vista previa</span>'+
-    '<span style="font-family:var(--mono);font-size:9px;color:#6685ac">'+total+' sitios · '+err+' con errores</span>'+
-  '</div>'+
-  '<div style="overflow-x:auto;max-height:320px;overflow-y:auto">'+
-  '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
-    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Sitio</th>'+
-    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Baterías</th>'+
-    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Reloj</th>'+
-    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Temp.</th>'+
-    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Obs.</th>'+
-  '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+/* Esconder bloque collab y restaurar botones ────────────────*/
+function _collabHideSumPanel(reportType){
+  var pfx = reportType==='val'?'rv':'op';
+  var panel = document.getElementById(pfx+'-collab-panel');
+  if(panel) panel.classList.remove('active');
+  /* Restaurar botón guardar */
+  var saveIds = reportType==='val'
+    ?['rv-save-btn','rv-save-btn2']
+    :['op-save-btn','op-save-btn2'];
+  saveIds.forEach(function(id){
+    var el=document.getElementById(id); if(el) el.style.display='';
+  });
 }
+window._collabHideSumPanel = _collabHideSumPanel;
+window._collabRefreshSumPanel = _collabRefreshSumPanel;
+window._collabOpenSumModal = _collabOpenSumModal;
 
-function _cspRenderOpPreview(container, merged){
-  var kpis = window.opCalcKpis ? opCalcKpis(merged) : {n:merged.length,op:0,par:0,crit:0,pct:0};
-  var sTag={'OK':'<span style="font-size:9px;font-weight:700;color:#22c55e">OK</span>',
-    'INCOMPLETO':'<span style="font-size:9px;font-weight:700;color:#f59e0b">INCOM.</span>',
-    'NO OPERATIVO':'<span style="font-size:9px;font-weight:700;color:#ef4444">NO OP.</span>',
-    'DESCONECTADO':'<span style="font-size:9px;font-weight:700;color:#94a3b8">DESC.</span>',
-    'MANTENIMIENTO':'<span style="font-size:9px;font-weight:700;color:#8b5cf6">MANT.</span>'};
-  var rows = (window.OP_SITES||[]).map(function(site,i){
-    var sr=merged[i]; if(!sr||sr.skip||!sr.status) return '';
-    return '<tr><td style="font-family:var(--mono);font-size:10px;padding:5px 10px">'+site+'</td>'+
-      '<td style="padding:5px 10px;text-align:center">'+(sTag[sr.status]||sr.status)+'</td>'+
-      '<td style="padding:5px 10px;text-align:center;font-family:var(--mono);font-size:9px">'+(sr.soc?sr.soc+'%':'—')+'</td>'+
-      '<td style="padding:5px 10px;text-align:left;font-family:var(--mono);font-size:9px;color:#6685ac;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(sr.obs||sr.evento||'')+'</td></tr>';
-  }).join('');
-  container.innerHTML='<div style="padding:10px 14px;background:linear-gradient(135deg,#e8f0ff,#dce8ff);border-bottom:1px solid #c0d0f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
-    '<span style="font-family:var(--disp);font-size:12px;font-weight:900;color:#0a1e5e">Reporte Operativo BESS — Vista previa</span>'+
-    '<div style="display:flex;gap:12px;flex-wrap:wrap">'+
-      '<span style="font-family:var(--mono);font-size:9px;color:#22c55e">✓ Op: '+kpis.op+'</span>'+
-      '<span style="font-family:var(--mono);font-size:9px;color:#f59e0b">⚠ Parc: '+kpis.par+'</span>'+
-      '<span style="font-family:var(--mono);font-size:9px;color:#ef4444">✕ Crít: '+kpis.crit+'</span>'+
-    '</div>'+
-  '</div>'+
-  '<div style="overflow-x:auto;max-height:320px;overflow-y:auto">'+
-  '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
-    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Sitio</th>'+
-    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Status</th>'+
-    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">SOC</th>'+
-    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Obs/Evento</th>'+
-  '</tr></thead><tbody>'+rows+'</tbody></table></div>';
-}
-
-/* ── Merge y guardar ─────────────────────────────────────── */
-window._cspMerge = function(){
+/* Merge y guardar desde el panel ────────────────────────────*/
+window._collabDoMerge = function(reportType){
   if(!COLLAB.isHost) return;
-  var reportType = _cspReportType;
-  var localSrs = reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
-  if(!localSrs){ safeToast('⚠️ Datos del reporte no disponibles'); return; }
-
-  var mergeBtn = document.getElementById('csp-merge-btn');
+  var pfx = reportType==='val'?'rv':'op';
+  var mergeBtn = document.getElementById(pfx+'-scp-merge-btn');
   if(mergeBtn){ mergeBtn.disabled=true; mergeBtn.textContent='Guardando…'; }
+
+  var localSrs = reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
+  if(!localSrs){ safeToast('⚠️ Datos no disponibles'); if(mergeBtn){mergeBtn.disabled=false;mergeBtn.textContent='✨ Merge y Guardar en Calendario';} return; }
 
   /* Merge */
   var merged = localSrs.map(function(s){ return s; });
@@ -20027,125 +19882,41 @@ window._cspMerge = function(){
     if(!frag||!frag.srs) return;
     frag.srs.forEach(function(s,i){
       if(!s) return;
-      var current=merged[i];
-      var hasData=s.bat||s.status||s.skip;
-      var currentHasData=current&&(current.bat||current.status||current.skip);
-      if(hasData&&!currentHasData) merged[i]=s;
+      var cur=merged[i], hasData=s.bat||s.status||s.skip, curHas=cur&&(cur.bat||cur.status||cur.skip);
+      if(hasData&&!curHas) merged[i]=s;
     });
   });
-
   if(reportType==='val'&&window.rvW) window.rvW.srs=merged;
   if(reportType==='op'&&window.opW) window.opW.srs=merged;
 
-  var doneCount=merged.filter(function(s){return s&&(s.bat||s.status||s.skip);}).length;
+  var sid = COLLAB.sessionId;
 
   /* Cerrar sesión collab */
   window.collabEndSession();
 
-  /* Guardar reporte — sin navegar afuera (usamos versión silenciosa) */
+  /* Ocultar panel y ejecutar guardado normal (que navega al calendario) */
+  _collabHideSumPanel(reportType);
   setTimeout(function(){
-    _cspSaveAndStay(reportType, merged, doneCount);
-  }, 200);
+    if(reportType==='val'&&window.rvSave) rvSave();
+    else if(reportType==='op'&&window.opSave) opSave();
+  }, 150);
 };
 
-function _cspSaveAndStay(reportType, merged, doneCount){
-  /* Guardar como lo haría rvSave/opSave pero sin cerrar el panel ni navegar */
-  if(reportType==='val'){
-    if(!window.rvW) return;
-    rvLoad();
-    var rt=RV_TYPES[rvW.type]||RV_TYPES.matutino;
-    var rep={id:Date.now().toString(),type:rvW.type,date:rvW.date,
-      op:rvW.op,srs:JSON.parse(JSON.stringify(merged)),
-      createdAt:new Date().toISOString()};
-    rvReps.unshift(rep);
-    rvPersist();
-    if(window._fb&&window._fb.saveReporteVal){
-      window._fb.saveReporteVal(rep).then(function(fbId){ rep.fbId=fbId; }).catch(function(e){console.warn(e);});
-    }
-    rvPushNotif(rep);
-    if(!rvReps.some(function(r){return r.id===rep.id;})) rvReps.unshift(rep);
-    rvW=null; rvCalMonth=null; rvCalF='all';
-    /* Cerrar wizards por si acaso */
-    var wiz=document.getElementById('rv-wizard-modal'); if(wiz) wiz.classList.remove('open');
-    var sum=document.getElementById('rv-sum-modal'); if(sum) sum.classList.remove('open');
-  } else {
-    if(!window.opW) return;
-    opLoad();
-    var rep={id:Date.now().toString(),period:opW.period,date:opW.date,op:opW.op,
-      srs:JSON.parse(JSON.stringify(merged)),createdAt:new Date().toISOString()};
-    opReps.unshift(rep);
-    opPersist();
-    if(window._fb&&window._fb.saveReporteOp){
-      window._fb.saveReporteOp(rep).then(function(fbId){ rep.fbId=fbId; }).catch(function(e){console.warn(e);});
-    }
-    opPushNotif(rep);
-    if(!opReps.some(function(r){return r.id===rep.id;})) opReps.unshift(rep);
-    opW=null; ucalMonth=null;
-    var wiz=document.getElementById('op-wizard-modal'); if(wiz) wiz.classList.remove('open');
-    var sum=document.getElementById('op-sum-modal'); if(sum) sum.classList.remove('open');
-  }
-
-  /* Marcar como guardado */
-  _cspMergedDone = true;
-  _cspUpdateHostActions();
-  _cspRenderPreview(); /* actualizar preview con datos merged definitivos */
-  safeToast('✅ Reporte guardado en calendario — '+doneCount+' sitios consolidados');
-
-  /* Actualizar calendairo en background */
-  setTimeout(function(){ if(!_rvFbUnsubscribe) rvLoad(); if(!_opFbUnsubscribe) opLoad(); ucalRender(); }, 200);
-
-  /* Mostrar botón de ir al calendario */
-  var actBar = document.getElementById('csp-host-actions');
-  if(actBar){
-    var goBtn = document.createElement('button');
-    goBtn.className='csp-btn-export';
-    goBtn.style.marginLeft='auto';
-    goBtn.textContent='📅 Ver en Calendario';
-    goBtn.onclick = function(){
-      _cspClose();
-      document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-      var calPg=document.getElementById('page-calval'); if(calPg) calPg.classList.add('active');
-      document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active',n.dataset.page==='calval'); });
-      setTimeout(function(){ ucalRender(); },80);
-    };
-    /* Quitar si ya existe uno previo */
-    var prev = actBar.querySelector('.csp-cal-go-btn');
-    if(prev) prev.remove();
-    goBtn.classList.add('csp-cal-go-btn');
-    actBar.appendChild(goBtn);
-  }
-}
-
-/* ── Exportar PNG desde el panel ─────────────────────────── */
-window._cspExportPNG = function(){
-  var reportType = _cspReportType;
-  var elId = reportType==='val' ? 'rv-paper-content' : 'op-paper-content';
-  /* Intentar usar el papel del sum-modal si está disponible */
-  var el = document.getElementById(elId);
-  if(!el) el = document.querySelector(reportType==='val'?'.rv-paper':'#op-paper-content');
-  if(!el||typeof html2canvas==='undefined'){ alert('No disponible. Usa Imprimir como PDF.'); return; }
-  var btn = document.getElementById('csp-export-png-btn');
-  if(btn){ btn.textContent='Exportando…'; btn.disabled=true; }
-  html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
-    var link=document.createElement('a');
-    var now=new Date();
-    link.download='ReporteBESS_'+(reportType==='val'?'Val':'Op')+'_'+now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate()+'.png';
-    link.href=canvas.toDataURL('image/png'); link.click();
-    if(btn){ btn.textContent='📷 Exportar PNG'; btn.disabled=false; }
-  }).catch(function(){
-    if(btn){ btn.textContent='📷 Exportar PNG'; btn.disabled=false; }
-    alert('Error al exportar. Intenta Imprimir > Guardar como PDF.');
-  });
+/* Collabm merge y finalizar (llamado también desde la barra) */
+window.collabMergeAndFinalize = function(){
+  if(!COLLAB.isHost) return;
+  var reportType=COLLAB.reportType;
+  /* Si el sum-modal está abierto, usar el botón ahí */
+  var pfx=reportType==='val'?'rv':'op';
+  var panel=document.getElementById(pfx+'-collab-panel');
+  if(panel&&panel.classList.contains('active')){ window._collabDoMerge&&_collabDoMerge(reportType); return; }
+  /* Si no, abrir sum y ejecutar merge */
+  _collabOpenSumModal(reportType);
+  setTimeout(function(){ window._collabDoMerge&&_collabDoMerge(reportType); }, 500);
 };
-
-/* ── Refrescar panel cuando llegan fragmentos ────────────── */
-function _cspOnFragmentUpdate(){
-  if(!document.getElementById('collab-session-panel').classList.contains('open')) return;
-  _cspRefresh();
-}
 
 /* ══════════════════════════════════════════════════════════════
-   Hook de guardado — interceptar para abrir panel de sesión
+   Hook de guardado — interceptar Guardar cuando hay sesión
 ══════════════════════════════════════════════════════════════ */
 function _collabHookSave(){
   /* rvSave */
@@ -20153,17 +19924,15 @@ function _collabHookSave(){
   if(_rv&&!_rv.__cs){
     window.rvSave=function(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
-        /* Guest: guardar fragmento y abrir panel de sesión */
+        /* Guest: guardar fragmento, abrir sum-modal con pantalla de éxito */
         window.collabSaveMyFragment('val');
-        _rv_closeOnly();
-        _cspOpen('val');
+        _collabOpenSumModal('val');
         return;
       }
       if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
-        /* Host con división: guardar su fragmento y abrir panel de sesión */
+        /* Host con división: guardar su fragmento, abrir sum-modal con panel equipo */
         window.collabSaveMyFragment('val');
-        _rv_closeOnly();
-        _cspOpen('val');
+        _collabOpenSumModal('val');
         return;
       }
       /* Sin colaboración: guardado normal */
@@ -20178,14 +19947,12 @@ function _collabHookSave(){
     window.opSave=function(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
         window.collabSaveMyFragment('op');
-        _op_closeOnly();
-        _cspOpen('op');
+        _collabOpenSumModal('op');
         return;
       }
       if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
         window.collabSaveMyFragment('op');
-        _op_closeOnly();
-        _cspOpen('op');
+        _collabOpenSumModal('op');
         return;
       }
       _op.apply(this,arguments);
@@ -20193,16 +19960,6 @@ function _collabHookSave(){
     };
     window.opSave.__cs=true;
   }
-}
-
-/* Cerrar wizard RV sin guardar reporte completo */
-function _rv_closeOnly(){
-  var wiz=document.getElementById('rv-wizard-modal'); if(wiz) wiz.classList.remove('open');
-  var sum=document.getElementById('rv-sum-modal'); if(sum) sum.classList.remove('open');
-}
-function _op_closeOnly(){
-  var wiz=document.getElementById('op-wizard-modal'); if(wiz) wiz.classList.remove('open');
-  var sum=document.getElementById('op-sum-modal'); if(sum) sum.classList.remove('open');
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -20216,19 +19973,18 @@ function _boot(){
     if(att>60) clearInterval(iv);
   },250);
 
-  /* Refrescar barra, sidebar y panel de sesión cada 3s mientras haya sesión activa */
+  /* Refrescar barra, sidebar y panel de suma cada 3s */
   setInterval(function(){
     if(!COLLAB.sessionId) return;
     _collabUpdateBar(COLLAB.reportType);
     if(!Object.keys(COLLAB._assignments).length){
       _collabPaintParticipantsInSidebar(COLLAB.reportType);
     }
-    /* Refrescar panel si está abierto */
-    var panel=document.getElementById('collab-session-panel');
-    if(panel&&panel.classList.contains('open')) _cspRefresh();
+    /* Refrescar panel de suma si está activo */
+    if(COLLAB.reportType) _collabRefreshSumPanel(COLLAB.reportType);
   },3000);
 
-  console.log('[Collab] v7 SessionPanel arrancado');
+  console.log('[Collab] v7 SumPanel arrancado');
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_boot);
