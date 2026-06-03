@@ -3176,6 +3176,123 @@ main{grid-row:2}
 }
 #collab-status-bar-op.active{display:flex;}
 
+/* ── PANEL DE SESIÓN COLABORATIVA ─────────────────────────── */
+#collab-session-panel{
+  position:fixed;top:var(--topbar-h,54px);left:var(--nav-w,76px);right:0;bottom:0;
+  z-index:450;display:none;flex-direction:column;
+  background:var(--bg,#060e2a);overflow-y:auto;
+}
+#collab-session-panel.open{display:flex;}
+@media(max-width:768px){#collab-session-panel{left:0;}}
+.csp-topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 20px;
+  background:linear-gradient(90deg,rgba(10,18,50,.98),rgba(15,25,65,.98));
+  border-bottom:1px solid rgba(74,120,245,.2);
+  position:sticky;top:0;z-index:10;flex-shrink:0;
+}
+.csp-topbar h2{
+  font-family:var(--disp,sans-serif);font-size:15px;font-weight:900;
+  color:#e0eaff;margin:0;letter-spacing:-.3px;flex:1;
+}
+.csp-pulse{width:8px;height:8px;border-radius:50%;background:#4af5b8;
+  box-shadow:0 0 8px rgba(74,245,184,.7);animation:cib-pulse 2s ease infinite;flex-shrink:0;}
+.csp-body{padding:20px;max-width:1100px;margin:0 auto;width:100%;flex:1;}
+/* Participants table */
+.csp-participants{
+  background:var(--s1,rgba(255,255,255,.03));
+  border:1px solid var(--b1,rgba(74,120,245,.15));
+  border-radius:12px;overflow:hidden;margin-bottom:20px;
+}
+.csp-ptable{width:100%;border-collapse:collapse;}
+.csp-ptable th{
+  font-family:var(--mono,monospace);font-size:9px;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--t3,#4a6080);padding:10px 14px;
+  border-bottom:1px solid var(--b1,rgba(74,120,245,.15));text-align:left;
+  background:rgba(0,0,0,.15);
+}
+.csp-ptable td{
+  padding:10px 14px;border-bottom:1px solid rgba(74,120,245,.07);
+  font-family:var(--body,sans-serif);font-size:12px;color:var(--text,#e0eaff);
+}
+.csp-ptable tr:last-child td{border-bottom:none;}
+.csp-avatar{
+  width:26px;height:26px;border-radius:50%;
+  font-size:9px;font-weight:700;color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;
+  vertical-align:middle;margin-right:7px;flex-shrink:0;
+}
+.csp-progress-bar{
+  height:6px;border-radius:3px;background:rgba(74,120,245,.15);
+  overflow:hidden;flex:1;min-width:60px;
+}
+.csp-progress-fill{height:100%;border-radius:3px;transition:width .4s;}
+.csp-status-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:10px;font-size:9px;font-family:var(--mono,monospace);
+  font-weight:700;letter-spacing:.5px;
+}
+.csp-chip-wait{background:rgba(74,120,245,.12);color:#9ab3ff;}
+.csp-chip-done{background:rgba(5,150,105,.15);color:#34d399;}
+.csp-chip-merge{background:rgba(251,191,36,.12);color:#fbbf24;}
+/* Action bar */
+.csp-actions{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  padding:14px 20px;
+  background:linear-gradient(90deg,rgba(10,18,50,.95),rgba(15,25,65,.95));
+  border-top:1px solid rgba(74,120,245,.2);
+  position:sticky;bottom:0;flex-shrink:0;
+}
+.csp-btn-merge{
+  padding:10px 24px;border-radius:10px;border:none;cursor:pointer;
+  font-family:var(--disp,sans-serif);font-size:13px;font-weight:700;
+  background:linear-gradient(135deg,#059669,#065f46);color:#fff;
+  box-shadow:0 4px 16px rgba(5,150,105,.4);
+  transition:opacity .2s,transform .1s;
+}
+.csp-btn-merge:hover{opacity:.9;transform:translateY(-1px);}
+.csp-btn-merge:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.csp-btn-export{
+  padding:10px 18px;border-radius:10px;border:1px solid rgba(74,120,245,.4);
+  background:rgba(74,120,245,.12);color:#9ab3ff;cursor:pointer;
+  font-family:var(--mono,monospace);font-size:11px;font-weight:600;
+  transition:background .2s;
+}
+.csp-btn-export:hover{background:rgba(74,120,245,.25);color:#fff;}
+.csp-btn-export:disabled{opacity:.4;cursor:not-allowed;}
+.csp-wait-msg{
+  font-family:var(--mono,monospace);font-size:11px;color:#9ab3ff;
+  display:flex;align-items:center;gap:6px;margin-left:auto;
+}
+/* Preview section */
+.csp-preview-label{
+  font-family:var(--mono,monospace);font-size:9px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--t3,#4a6080);margin-bottom:10px;
+}
+.csp-section-title{
+  font-family:var(--disp,sans-serif);font-size:14px;font-weight:900;
+  color:#e0eaff;margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+/* Guest done screen */
+.csp-guest-done{
+  text-align:center;padding:32px 20px;
+}
+.csp-guest-done .csp-check{font-size:52px;margin-bottom:10px;}
+.csp-guest-done h3{
+  font-family:var(--disp,sans-serif);font-size:18px;font-weight:900;
+  color:#34d399;margin:0 0 8px;
+}
+.csp-guest-done p{
+  font-family:var(--mono,monospace);font-size:11px;color:var(--t2,#6685ac);
+  margin:0;line-height:1.6;
+}
+.csp-saved-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:14px;padding:6px 14px;border-radius:10px;
+  background:rgba(5,150,105,.15);border:1px solid rgba(5,150,105,.3);
+  font-family:var(--mono,monospace);font-size:10px;color:#34d399;font-weight:700;
+}
+
 /* ═══════════════════════════════════════════════════════
    BÚSQUEDA GLOBAL — Ctrl+K
 ═══════════════════════════════════════════════════════ */
@@ -6532,6 +6649,74 @@ async function expDoZip(mode){
     </div>
   </div>
 </div>
+
+<!-- ═══ PANEL DE SESIÓN COLABORATIVA ═══ -->
+<div id="collab-session-panel">
+  <!-- Topbar -->
+  <div class="csp-topbar">
+    <div class="csp-pulse"></div>
+    <h2 id="csp-title">Sesión Colaborativa</h2>
+    <span id="csp-progress-label" style="font-family:var(--mono);font-size:10px;color:#9ab3ff;margin-right:8px"></span>
+    <button id="csp-back-btn" onclick="window._cspClose&&_cspClose()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(74,120,245,.3);background:transparent;color:#9ab3ff;font-family:var(--mono);font-size:10px;cursor:pointer">✕ Cerrar</button>
+  </div>
+
+  <!-- Body -->
+  <div class="csp-body">
+
+    <!-- Participants table -->
+    <div class="csp-section-title">
+      <span>👥</span> Equipo
+    </div>
+    <div class="csp-participants">
+      <table class="csp-ptable">
+        <thead>
+          <tr>
+            <th>Integrante</th>
+            <th>Rol</th>
+            <th>Sitios asignados</th>
+            <th>Progreso</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="csp-ptable-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--t3);padding:20px;font-family:var(--mono);font-size:11px">Cargando participantes…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Host: merged preview + actions -->
+    <div id="csp-host-section" style="display:none">
+      <div class="csp-section-title"><span>📋</span> Vista Previa del Reporte Unificado</div>
+      <div id="csp-preview-container" style="background:#fff;border-radius:10px;overflow:hidden;border:1px solid #dde6f5;margin-bottom:16px"></div>
+    </div>
+
+    <!-- Guest done screen -->
+    <div id="csp-guest-section" class="csp-guest-done" style="display:none">
+      <div class="csp-check">✅</div>
+      <h3>¡Tu parte está lista!</h3>
+      <p>Tus sitios fueron guardados correctamente.<br>El host revisará y unificará el reporte final.</p>
+      <div class="csp-saved-badge">🔒 Fragmento entregado al equipo</div>
+    </div>
+
+  </div><!-- /csp-body -->
+
+  <!-- Bottom action bar -->
+  <div class="csp-actions">
+    <!-- Host actions -->
+    <div id="csp-host-actions" style="display:none;gap:10px;flex-wrap:wrap;align-items:center;width:100%;display:none">
+      <button id="csp-merge-btn" class="csp-btn-merge" onclick="window._cspMerge&&_cspMerge()" disabled>
+        ⟳ Esperando partes…
+      </button>
+      <button id="csp-export-png-btn" class="csp-btn-export" onclick="window._cspExportPNG&&_cspExportPNG()" disabled>📷 Exportar PNG</button>
+      <button id="csp-print-btn" class="csp-btn-export" onclick="window.print()" disabled>🖨 Imprimir</button>
+      <span id="csp-host-status" class="csp-wait-msg"></span>
+    </div>
+    <!-- Guest actions -->
+    <div id="csp-guest-actions" style="display:none;gap:10px;align-items:center;width:100%">
+      <span style="font-family:var(--mono);font-size:11px;color:#9ab3ff">✅ Fragmento entregado — esperando al host</span>
+    </div>
+  </div>
+</div><!-- /#collab-session-panel -->
 
 <!-- PAGE: REPORTE OPERATIVO -->
 <div class="page" id="page-repop">
@@ -19061,21 +19246,13 @@ window.collabSaveMyFragment = function(reportType){
   };
 
   window._fb.collabSaveFragment(COLLAB.sessionId, myId(), fragment).then(function(){
-    /* Mostrar pantalla de éxito al guest */
-    var rType=reportType;
-    var barId='collab-status-bar'+(rType==='op'?'-op':'');
-    var bar=document.getElementById(barId);
-    if(bar){
-      bar.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 20px;gap:8px;width:100%">'
-        +'<div style="font-size:28px">✅</div>'
-        +'<div style="font-family:var(--disp,sans-serif);font-size:15px;font-weight:700;color:var(--green,#059669)">¡Tu parte está lista!</div>'
-        +'<div style="font-family:var(--mono,monospace);font-size:11px;color:var(--t2,#6685ac);text-align:center">Tus sitios fueron guardados correctamente.<br>El host unificará el reporte final.</div>'
-        +'</div>';
-    }
-    safeToast('✅ Tu parte guardada — esperando al equipo');
-    /* Si soy host y hay solo 1 participante, merge directo */
+    safeToast('✅ Tu parte guardada');
+    /* Si soy host y hay solo 1 participante (sesión de 1), merge directo */
     if(COLLAB.isHost&&COLLAB._participants.length<=1){
-      setTimeout(collabMergeAndFinalize, 500);
+      setTimeout(function(){
+        var panel=document.getElementById('collab-session-panel');
+        if(panel&&panel.classList.contains('open')) _cspMerge&&_cspMerge();
+      }, 600);
     }
   }).catch(function(e){
     console.error('[Collab] saveFragment:',e);
@@ -19090,42 +19267,14 @@ window.collabSaveMyFragment = function(reportType){
 ══════════════════════════════════════════════════════════════ */
 window.collabMergeAndFinalize = function(){
   if(!COLLAB.isHost) return;
-  var reportType=COLLAB.reportType;
-  var localSrs=reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
-  if(!localSrs){ safeToast('\u26A0\uFE0F Wizard no activo'); return; }
-
-  console.log('[Collab] Iniciando merge de',Object.keys(COLLAB._fragments).length,'fragmentos');
-
-  /* Merge: cada fragmento llena sus sitios asignados */
-  var merged = localSrs.map(function(s){ return s; }); // copia local
-
-  Object.values(COLLAB._fragments).forEach(function(frag){
-    if(!frag||!frag.srs) return;
-    frag.srs.forEach(function(s,i){
-      if(!s) return; // fuera del rango de ese colaborador
-      /* Merge: preferir datos con estado definido */
-      var current=merged[i];
-      var hasData = s.bat||s.status||s.skip;
-      var currentHasData = current&&(current.bat||current.status||current.skip);
-      if(hasData&&!currentHasData) merged[i]=s;
-    });
-  });
-
-  /* Aplicar merge al wizard local */
-  if(reportType==='val'&&window.rvW) window.rvW.srs=merged;
-  if(reportType==='op'&&window.opW) window.opW.srs=merged;
-
-  var doneCount=merged.filter(function(s){return s&&(s.bat||s.status||s.skip);}).length;
-  safeToast('\uD83D\uDD00 Merge completo — '+doneCount+' sitios consolidados. Guardando...');
-
-  /* Cerrar sesion colaborativa */
-  window.collabEndSession();
-
-  /* Ejecutar el guardado normal */
-  setTimeout(function(){
-    if(reportType==='val'&&window.rvSave) rvSave();
-    else if(reportType==='op'&&window.opSave) opSave();
-  }, 300);
+  /* Si el panel ya está abierto, usar su merge */
+  var panel=document.getElementById('collab-session-panel');
+  if(panel&&panel.classList.contains('open')){
+    window._cspMerge&&_cspMerge(); return;
+  }
+  /* Si el panel no está abierto, abrirlo y disparar merge */
+  _cspOpen(COLLAB.reportType);
+  setTimeout(function(){ window._cspMerge&&_cspMerge(); }, 400);
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -19146,9 +19295,12 @@ function _collabListenFragments(sid, reportType){
     /* Actualizar panel de division */
     _collabRenderDivisionPanel();
 
+    /* Refrescar panel de sesión si está abierto */
+    _cspOnFragmentUpdate();
+
     /* Si todos terminaron, notificar al host */
     if(total>0&&done>=total&&COLLAB.isHost){
-      safeToast('\uD83C\uDF89 Todos terminaron — puedes hacer Merge y Guardar');
+      safeToast('🎉 Todos terminaron — puedes hacer Merge y Guardar');
     }
   });
 }
@@ -19628,7 +19780,372 @@ window._collabShowUsersPopupRv=function(){_collabShowUsersPopup('val');};
 window._collabShowUsersPopupOp=function(){_collabShowUsersPopup('op');};
 
 /* ══════════════════════════════════════════════════════════════
-   Hook de guardado — interceptar para guardar fragmento
+   PANEL DE SESIÓN COLABORATIVA
+   Pantalla unificada de control para host y guest.
+   Se abre cuando alguien termina sus sitios, en vez de cerrar y sacar.
+══════════════════════════════════════════════════════════════ */
+var _cspReportType = null;   /* 'val' | 'op' */
+var _cspMergedDone = false;  /* ya se hizo merge + save */
+
+function _cspOpen(reportType){
+  _cspReportType = reportType;
+  _cspMergedDone = false;
+  var panel = document.getElementById('collab-session-panel');
+  if(!panel) return;
+  panel.classList.add('open');
+
+  /* Título */
+  var titleEl = document.getElementById('csp-title');
+  if(titleEl) titleEl.textContent = (reportType==='val'?'Sesión Colaborativa — Validación':'Sesión Colaborativa — Reporte Operativo');
+
+  /* Mostrar sección host o guest */
+  var hostSec = document.getElementById('csp-host-section');
+  var guestSec = document.getElementById('csp-guest-section');
+  var hostAct = document.getElementById('csp-host-actions');
+  var guestAct = document.getElementById('csp-guest-actions');
+  if(COLLAB.isHost){
+    if(hostSec) hostSec.style.display='block';
+    if(guestSec) guestSec.style.display='none';
+    if(hostAct){ hostAct.style.display='flex'; }
+    if(guestAct) guestAct.style.display='none';
+  } else {
+    if(hostSec) hostSec.style.display='none';
+    if(guestSec) guestSec.style.display='block';
+    if(hostAct) hostAct.style.display='none';
+    if(guestAct){ guestAct.style.display='flex'; }
+  }
+
+  _cspRefresh();
+}
+
+function _cspClose(){
+  var panel = document.getElementById('collab-session-panel');
+  if(panel) panel.classList.remove('open');
+}
+
+function _cspRefresh(){
+  if(!document.getElementById('collab-session-panel').classList.contains('open')) return;
+  _cspRenderParticipants();
+  _cspUpdateHostActions();
+  if(COLLAB.isHost) _cspRenderPreview();
+}
+
+/* ── Tabla de participantes ───────────────────────────────── */
+function _cspRenderParticipants(){
+  var tbody = document.getElementById('csp-ptable-body');
+  if(!tbody) return;
+
+  var total = Object.keys(COLLAB._assignments).length;
+  var done  = Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
+  var prog  = document.getElementById('csp-progress-label');
+  if(prog) prog.textContent = total>0 ? done+'/'+total+' partes listas' : '';
+
+  if(!COLLAB._participants.length){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--t3);padding:20px;font-family:var(--mono);font-size:11px">Sin participantes aún…</td></tr>';
+    return;
+  }
+
+  var sites = _cspReportType==='val'?(window.RV_SITES||[]):(window.OP_SITES||[]);
+
+  tbody.innerHTML = COLLAB._participants.map(function(p){
+    var isMe   = p.id===myId();
+    var assign = COLLAB._assignments[p.id];
+    var frag   = COLLAB._fragments[p.id];
+    var fragDone = frag&&frag.done;
+
+    /* Avatar initials */
+    var pts = (p.name||'?').trim().split(' ').filter(Boolean);
+    var ini = (pts.length>=2 ? pts[0][0]+pts[pts.length-1][0] : (p.name||'?').slice(0,2)).toUpperCase();
+
+    /* Progress */
+    var pct = 0;
+    if(assign && frag && frag.srs){
+      var filled = frag.srs.filter(function(s,i){
+        return i>=assign.from&&i<=assign.to&&s&&(s.bat||s.status||s.skip);
+      }).length;
+      var span = (assign.to-assign.from)+1;
+      pct = span>0 ? Math.round(filled/span*100) : 0;
+    } else if(fragDone){ pct=100; }
+
+    var sitesLabel = assign
+      ? 'Sitios '+(assign.from+1)+'–'+(assign.to+1)+' ('+((assign.to-assign.from)+1)+')'
+      : (COLLAB.isHost&&p.id===myId() ? 'Todos (sin división)' : '—');
+
+    var chipClass = fragDone ? 'csp-chip-done' : 'csp-chip-wait';
+    var chipLabel = fragDone ? '✓ Listo' : (p.id===myId()&&!fragDone&&!COLLAB.isHost ? 'Entregado' : 'En progreso');
+    var hostBadge = (p.id===myId()&&COLLAB.isHost) ? '<span style="font-size:9px;background:rgba(251,191,36,.15);color:#fbbf24;border-radius:6px;padding:1px 6px;margin-left:4px;font-family:var(--mono)">HOST</span>' : '';
+
+    return '<tr style="'+(isMe?'background:rgba(74,120,245,.05)':'')+'">'+
+      '<td><span class="csp-avatar" style="background:'+(p.color||'#4a78f5')+'">'+ini+'</span>'+
+        (p.name||'?')+hostBadge+(isMe?' <span style="font-size:9px;color:var(--t3)">(tú)</span>':'')+
+      '</td>'+
+      '<td style="font-family:var(--mono);font-size:10px;color:var(--t3)">'+(p.role||'Operador')+'</td>'+
+      '<td style="font-family:var(--mono);font-size:10px">'+sitesLabel+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:8px">'+
+        '<div class="csp-progress-bar"><div class="csp-progress-fill" style="width:'+pct+'%;background:'+(pct>=100?'#22c55e':'#4a78f5')+'"></div></div>'+
+        '<span style="font-family:var(--mono);font-size:9px;color:var(--t3);white-space:nowrap">'+pct+'%</span>'+
+      '</div></td>'+
+      '<td><span class="csp-status-chip '+chipClass+'">'+chipLabel+'</span></td>'+
+    '</tr>';
+  }).join('');
+}
+
+/* ── Acciones del host ────────────────────────────────────── */
+function _cspUpdateHostActions(){
+  if(!COLLAB.isHost) return;
+  var mergeBtn = document.getElementById('csp-merge-btn');
+  var expBtn   = document.getElementById('csp-export-png-btn');
+  var printBtn = document.getElementById('csp-print-btn');
+  var statusEl = document.getElementById('csp-host-status');
+
+  var total = Object.keys(COLLAB._assignments).length;
+  var done  = Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
+  var allReady = (total===0 || done>=total);
+
+  if(_cspMergedDone){
+    if(mergeBtn){ mergeBtn.disabled=false; mergeBtn.textContent='✓ Guardado en Calendario'; mergeBtn.style.background='linear-gradient(135deg,#059669,#065f46)'; mergeBtn.onclick=null; }
+    if(expBtn){ expBtn.disabled=false; }
+    if(printBtn){ printBtn.disabled=false; }
+    if(statusEl) statusEl.textContent='';
+  } else if(allReady){
+    if(mergeBtn){ mergeBtn.disabled=false; mergeBtn.textContent='✨ Merge y Guardar en Calendario'; mergeBtn.onclick=function(){ window._cspMerge&&_cspMerge(); }; }
+    if(expBtn){ expBtn.disabled=false; }
+    if(printBtn){ printBtn.disabled=false; }
+    if(statusEl) statusEl.textContent='';
+  } else {
+    if(mergeBtn){ mergeBtn.disabled=true; mergeBtn.textContent='⟳ Esperando partes… ('+done+'/'+total+')'; }
+    if(expBtn){ expBtn.disabled=true; }
+    if(printBtn){ printBtn.disabled=true; }
+    if(statusEl) statusEl.textContent='Esperando que todos terminen';
+  }
+}
+
+/* ── Preview del reporte merged ──────────────────────────── */
+function _cspRenderPreview(){
+  var container = document.getElementById('csp-preview-container');
+  if(!container) return;
+
+  /* Hacer merge en memoria temporalmente para la vista previa */
+  var reportType = _cspReportType;
+  var localSrs = reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
+  if(!localSrs){ container.innerHTML='<div style="padding:20px;text-align:center;color:#aaa;font-family:var(--mono);font-size:11px">Vista previa no disponible</div>'; return; }
+
+  var merged = localSrs.map(function(s){ return s?JSON.parse(JSON.stringify(s)):{} ;});
+  Object.values(COLLAB._fragments).forEach(function(frag){
+    if(!frag||!frag.srs) return;
+    frag.srs.forEach(function(s,i){
+      if(!s) return;
+      var current = merged[i];
+      var hasData = s.bat||s.status||s.skip;
+      var currentHasData = current&&(current.bat||current.status||current.skip);
+      if(hasData&&!currentHasData) merged[i]=s;
+    });
+  });
+
+  /* Construir HTML de preview */
+  if(reportType==='val'){
+    _cspRenderValPreview(container, merged);
+  } else {
+    _cspRenderOpPreview(container, merged);
+  }
+}
+
+function _cspRenderValPreview(container, merged){
+  var total=0,err=0;
+  if(window.rvW){
+    var stats = window.rvStats ? rvStats(merged) : {n:merged.length,err:0};
+    total=stats.n; err=stats.err;
+  }
+  var rows = (window.RV_SITES||[]).map(function(site,i){
+    var sr=merged[i]; if(!sr||sr.skip) return '';
+    var ok=sr.bat==='OK',warn=sr.bat==='PARCIAL',crit=sr.bat==='ERROR'||sr.bat==='FALLA';
+    var color=ok?'#22c55e':warn?'#f59e0b':crit?'#ef4444':'#94a3b8';
+    return '<tr><td style="font-family:var(--mono);font-size:10px;padding:5px 10px">'+site+'</td>'+
+      '<td style="padding:5px 10px;text-align:center"><span style="font-size:9px;font-weight:700;color:'+color+'">'+( sr.bat||'—')+'</span></td>'+
+      '<td style="padding:5px 10px;text-align:center;font-family:var(--mono);font-size:9px">'+(sr.reloj!=null?(sr.reloj===1?'✓':'✗'):'—')+'</td>'+
+      '<td style="padding:5px 10px;text-align:center;font-family:var(--mono);font-size:9px">'+(sr.temp?sr.temp+'°C':'—')+'</td>'+
+      '<td style="padding:5px 10px;font-family:var(--mono);font-size:9px;color:#6685ac">'+(sr.obs||'')+'</td></tr>';
+  }).join('');
+  container.innerHTML='<div style="padding:10px 14px;background:linear-gradient(135deg,#f0f6ff,#e8eefa);border-bottom:1px solid #c8d6ee;display:flex;justify-content:space-between;align-items:center">'+
+    '<span style="font-family:var(--disp);font-size:12px;font-weight:900;color:#0a1e5e">Validación BESS — Vista previa</span>'+
+    '<span style="font-family:var(--mono);font-size:9px;color:#6685ac">'+total+' sitios · '+err+' con errores</span>'+
+  '</div>'+
+  '<div style="overflow-x:auto;max-height:320px;overflow-y:auto">'+
+  '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
+    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Sitio</th>'+
+    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Baterías</th>'+
+    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Reloj</th>'+
+    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Temp.</th>'+
+    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Obs.</th>'+
+  '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function _cspRenderOpPreview(container, merged){
+  var kpis = window.opCalcKpis ? opCalcKpis(merged) : {n:merged.length,op:0,par:0,crit:0,pct:0};
+  var sTag={'OK':'<span style="font-size:9px;font-weight:700;color:#22c55e">OK</span>',
+    'INCOMPLETO':'<span style="font-size:9px;font-weight:700;color:#f59e0b">INCOM.</span>',
+    'NO OPERATIVO':'<span style="font-size:9px;font-weight:700;color:#ef4444">NO OP.</span>',
+    'DESCONECTADO':'<span style="font-size:9px;font-weight:700;color:#94a3b8">DESC.</span>',
+    'MANTENIMIENTO':'<span style="font-size:9px;font-weight:700;color:#8b5cf6">MANT.</span>'};
+  var rows = (window.OP_SITES||[]).map(function(site,i){
+    var sr=merged[i]; if(!sr||sr.skip||!sr.status) return '';
+    return '<tr><td style="font-family:var(--mono);font-size:10px;padding:5px 10px">'+site+'</td>'+
+      '<td style="padding:5px 10px;text-align:center">'+(sTag[sr.status]||sr.status)+'</td>'+
+      '<td style="padding:5px 10px;text-align:center;font-family:var(--mono);font-size:9px">'+(sr.soc?sr.soc+'%':'—')+'</td>'+
+      '<td style="padding:5px 10px;text-align:left;font-family:var(--mono);font-size:9px;color:#6685ac;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(sr.obs||sr.evento||'')+'</td></tr>';
+  }).join('');
+  container.innerHTML='<div style="padding:10px 14px;background:linear-gradient(135deg,#e8f0ff,#dce8ff);border-bottom:1px solid #c0d0f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
+    '<span style="font-family:var(--disp);font-size:12px;font-weight:900;color:#0a1e5e">Reporte Operativo BESS — Vista previa</span>'+
+    '<div style="display:flex;gap:12px;flex-wrap:wrap">'+
+      '<span style="font-family:var(--mono);font-size:9px;color:#22c55e">✓ Op: '+kpis.op+'</span>'+
+      '<span style="font-family:var(--mono);font-size:9px;color:#f59e0b">⚠ Parc: '+kpis.par+'</span>'+
+      '<span style="font-family:var(--mono);font-size:9px;color:#ef4444">✕ Crít: '+kpis.crit+'</span>'+
+    '</div>'+
+  '</div>'+
+  '<div style="overflow-x:auto;max-height:320px;overflow-y:auto">'+
+  '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
+    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Sitio</th>'+
+    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Status</th>'+
+    '<th style="padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">SOC</th>'+
+    '<th style="text-align:left;padding:6px 10px;font-family:var(--mono);font-size:9px;color:#6685ac;background:#f8fbff;border-bottom:1px solid #e0eaf5">Obs/Evento</th>'+
+  '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+/* ── Merge y guardar ─────────────────────────────────────── */
+window._cspMerge = function(){
+  if(!COLLAB.isHost) return;
+  var reportType = _cspReportType;
+  var localSrs = reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
+  if(!localSrs){ safeToast('⚠️ Datos del reporte no disponibles'); return; }
+
+  var mergeBtn = document.getElementById('csp-merge-btn');
+  if(mergeBtn){ mergeBtn.disabled=true; mergeBtn.textContent='Guardando…'; }
+
+  /* Merge */
+  var merged = localSrs.map(function(s){ return s; });
+  Object.values(COLLAB._fragments).forEach(function(frag){
+    if(!frag||!frag.srs) return;
+    frag.srs.forEach(function(s,i){
+      if(!s) return;
+      var current=merged[i];
+      var hasData=s.bat||s.status||s.skip;
+      var currentHasData=current&&(current.bat||current.status||current.skip);
+      if(hasData&&!currentHasData) merged[i]=s;
+    });
+  });
+
+  if(reportType==='val'&&window.rvW) window.rvW.srs=merged;
+  if(reportType==='op'&&window.opW) window.opW.srs=merged;
+
+  var doneCount=merged.filter(function(s){return s&&(s.bat||s.status||s.skip);}).length;
+
+  /* Cerrar sesión collab */
+  window.collabEndSession();
+
+  /* Guardar reporte — sin navegar afuera (usamos versión silenciosa) */
+  setTimeout(function(){
+    _cspSaveAndStay(reportType, merged, doneCount);
+  }, 200);
+};
+
+function _cspSaveAndStay(reportType, merged, doneCount){
+  /* Guardar como lo haría rvSave/opSave pero sin cerrar el panel ni navegar */
+  if(reportType==='val'){
+    if(!window.rvW) return;
+    rvLoad();
+    var rt=RV_TYPES[rvW.type]||RV_TYPES.matutino;
+    var rep={id:Date.now().toString(),type:rvW.type,date:rvW.date,
+      op:rvW.op,srs:JSON.parse(JSON.stringify(merged)),
+      createdAt:new Date().toISOString()};
+    rvReps.unshift(rep);
+    rvPersist();
+    if(window._fb&&window._fb.saveReporteVal){
+      window._fb.saveReporteVal(rep).then(function(fbId){ rep.fbId=fbId; }).catch(function(e){console.warn(e);});
+    }
+    rvPushNotif(rep);
+    if(!rvReps.some(function(r){return r.id===rep.id;})) rvReps.unshift(rep);
+    rvW=null; rvCalMonth=null; rvCalF='all';
+    /* Cerrar wizards por si acaso */
+    var wiz=document.getElementById('rv-wizard-modal'); if(wiz) wiz.classList.remove('open');
+    var sum=document.getElementById('rv-sum-modal'); if(sum) sum.classList.remove('open');
+  } else {
+    if(!window.opW) return;
+    opLoad();
+    var rep={id:Date.now().toString(),period:opW.period,date:opW.date,op:opW.op,
+      srs:JSON.parse(JSON.stringify(merged)),createdAt:new Date().toISOString()};
+    opReps.unshift(rep);
+    opPersist();
+    if(window._fb&&window._fb.saveReporteOp){
+      window._fb.saveReporteOp(rep).then(function(fbId){ rep.fbId=fbId; }).catch(function(e){console.warn(e);});
+    }
+    opPushNotif(rep);
+    if(!opReps.some(function(r){return r.id===rep.id;})) opReps.unshift(rep);
+    opW=null; ucalMonth=null;
+    var wiz=document.getElementById('op-wizard-modal'); if(wiz) wiz.classList.remove('open');
+    var sum=document.getElementById('op-sum-modal'); if(sum) sum.classList.remove('open');
+  }
+
+  /* Marcar como guardado */
+  _cspMergedDone = true;
+  _cspUpdateHostActions();
+  _cspRenderPreview(); /* actualizar preview con datos merged definitivos */
+  safeToast('✅ Reporte guardado en calendario — '+doneCount+' sitios consolidados');
+
+  /* Actualizar calendairo en background */
+  setTimeout(function(){ if(!_rvFbUnsubscribe) rvLoad(); if(!_opFbUnsubscribe) opLoad(); ucalRender(); }, 200);
+
+  /* Mostrar botón de ir al calendario */
+  var actBar = document.getElementById('csp-host-actions');
+  if(actBar){
+    var goBtn = document.createElement('button');
+    goBtn.className='csp-btn-export';
+    goBtn.style.marginLeft='auto';
+    goBtn.textContent='📅 Ver en Calendario';
+    goBtn.onclick = function(){
+      _cspClose();
+      document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+      var calPg=document.getElementById('page-calval'); if(calPg) calPg.classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active',n.dataset.page==='calval'); });
+      setTimeout(function(){ ucalRender(); },80);
+    };
+    /* Quitar si ya existe uno previo */
+    var prev = actBar.querySelector('.csp-cal-go-btn');
+    if(prev) prev.remove();
+    goBtn.classList.add('csp-cal-go-btn');
+    actBar.appendChild(goBtn);
+  }
+}
+
+/* ── Exportar PNG desde el panel ─────────────────────────── */
+window._cspExportPNG = function(){
+  var reportType = _cspReportType;
+  var elId = reportType==='val' ? 'rv-paper-content' : 'op-paper-content';
+  /* Intentar usar el papel del sum-modal si está disponible */
+  var el = document.getElementById(elId);
+  if(!el) el = document.querySelector(reportType==='val'?'.rv-paper':'#op-paper-content');
+  if(!el||typeof html2canvas==='undefined'){ alert('No disponible. Usa Imprimir como PDF.'); return; }
+  var btn = document.getElementById('csp-export-png-btn');
+  if(btn){ btn.textContent='Exportando…'; btn.disabled=true; }
+  html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
+    var link=document.createElement('a');
+    var now=new Date();
+    link.download='ReporteBESS_'+(reportType==='val'?'Val':'Op')+'_'+now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate()+'.png';
+    link.href=canvas.toDataURL('image/png'); link.click();
+    if(btn){ btn.textContent='📷 Exportar PNG'; btn.disabled=false; }
+  }).catch(function(){
+    if(btn){ btn.textContent='📷 Exportar PNG'; btn.disabled=false; }
+    alert('Error al exportar. Intenta Imprimir > Guardar como PDF.');
+  });
+};
+
+/* ── Refrescar panel cuando llegan fragmentos ────────────── */
+function _cspOnFragmentUpdate(){
+  if(!document.getElementById('collab-session-panel').classList.contains('open')) return;
+  _cspRefresh();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Hook de guardado — interceptar para abrir panel de sesión
 ══════════════════════════════════════════════════════════════ */
 function _collabHookSave(){
   /* rvSave */
@@ -19636,19 +20153,20 @@ function _collabHookSave(){
   if(_rv&&!_rv.__cs){
     window.rvSave=function(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
-        /* Guest: guardar fragmento, no el reporte completo */
+        /* Guest: guardar fragmento y abrir panel de sesión */
         window.collabSaveMyFragment('val');
-        /* Cerrar wizard sin guardar reporte */
         _rv_closeOnly();
+        _cspOpen('val');
         return;
       }
       if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
-        /* Host con division: guardar su fragmento y esperar merge */
+        /* Host con división: guardar su fragmento y abrir panel de sesión */
         window.collabSaveMyFragment('val');
         _rv_closeOnly();
+        _cspOpen('val');
         return;
       }
-      /* Sin colaboracion o sesion de 1: guardado normal */
+      /* Sin colaboración: guardado normal */
       _rv.apply(this,arguments);
       if(COLLAB.sessionId) window.collabEndSession();
     };
@@ -19661,11 +20179,13 @@ function _collabHookSave(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
         window.collabSaveMyFragment('op');
         _op_closeOnly();
+        _cspOpen('op');
         return;
       }
       if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
         window.collabSaveMyFragment('op');
         _op_closeOnly();
+        _cspOpen('op');
         return;
       }
       _op.apply(this,arguments);
@@ -19696,16 +20216,19 @@ function _boot(){
     if(att>60) clearInterval(iv);
   },250);
 
-  /* Refrescar barra y sidebar cada 3s mientras haya sesion activa */
+  /* Refrescar barra, sidebar y panel de sesión cada 3s mientras haya sesión activa */
   setInterval(function(){
     if(!COLLAB.sessionId) return;
     _collabUpdateBar(COLLAB.reportType);
     if(!Object.keys(COLLAB._assignments).length){
       _collabPaintParticipantsInSidebar(COLLAB.reportType);
     }
+    /* Refrescar panel si está abierto */
+    var panel=document.getElementById('collab-session-panel');
+    if(panel&&panel.classList.contains('open')) _cspRefresh();
   },3000);
 
-  console.log('[Collab] v6 Division+Merge arrancado');
+  console.log('[Collab] v7 SessionPanel arrancado');
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_boot);
