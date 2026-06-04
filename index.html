@@ -6164,7 +6164,7 @@ async function expDoZip(mode){
     <span class="csb-label" id="csb-label">Sesion colaborativa activa</span>
     <div class="csb-avatars" id="csb-avatars"></div>
     <span class="csb-site-tag" id="csb-site-tag"></span>
-    <button class="csb-invite-btn" onclick="window._collabShowUsersPopupRv&&_collabShowUsersPopupRv()" title="Invitar a un colaborador">+ Invitar</button>
+    <button class="csb-invite-btn" onclick="try{window._collabShowUsersPopup('val');}catch(e){console.error('[Collab] invite error:',e);}" title="Invitar a un colaborador">+ Invitar</button>
   </div>
 
   <div class="rv-wiz-body">
@@ -6487,7 +6487,7 @@ async function expDoZip(mode){
     <span class="csb-label" id="csb-label-op">Sesion colaborativa activa</span>
     <div class="csb-avatars" id="csb-avatars-op"></div>
     <span class="csb-site-tag" id="csb-site-tag-op"></span>
-    <button class="csb-invite-btn" onclick="window._collabShowUsersPopupOp&&_collabShowUsersPopupOp()" title="Invitar a un colaborador">+ Invitar</button>
+    <button class="csb-invite-btn" onclick="try{window._collabShowUsersPopup('op');}catch(e){console.error('[Collab] invite error:',e);}" title="Invitar a un colaborador">+ Invitar</button>
   </div>
   <div class="op-wiz-body">
     <div class="op-sidebar">
@@ -16005,6 +16005,187 @@ function opSave() {
 </script>
 <!-- Motor de Colaboracion v6 - Division y Merge Automatico -->
 <script>
+/* ── Definicion temprana para evitar race condition con onclick ── */
+window._collabShowUsersPopup = function _collabShowUsersPopup(reportType){
+  var ex=document.getElementById('collab-users-popup'); if(ex){ex.remove();return;}
+  var online=Object.values(window._lastPresenceSnapshot||{}).filter(function(u){
+    return u.id!==myId()&&(Date.now()-(u.ts||0))<90000;
+  });
+
+  var popup=document.createElement('div');
+  popup.id='collab-users-popup';
+  popup.style.cssText='position:fixed;top:62px;right:16px;z-index:999999;width:300px;'
+    +'background:linear-gradient(160deg,#0b1535 0%,#07102a 100%);'
+    +'border:1px solid rgba(74,120,245,.4);border-radius:16px;'
+    +'box-shadow:0 16px 56px rgba(0,0,0,.75);overflow:hidden;';
+
+  /* Cabecera */
+  var hdr=document.createElement('div');
+  hdr.style.cssText='padding:14px 16px 10px;border-bottom:1px solid rgba(74,120,245,.15);'
+    +'display:flex;align-items:center;justify-content:space-between;';
+  hdr.innerHTML='<div><div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">Colaboradores</div>'
+    +'<div style="font-size:9px;color:rgba(180,200,255,.45);font-family:var(--mono)">Sesion activa \u00b7 '
+    +COLLAB._participants.length+' en reporte</div></div>'
+    +'<div style="width:8px;height:8px;border-radius:50%;background:#4af5b8;box-shadow:0 0 6px rgba(74,245,184,.6)"></div>';
+  popup.appendChild(hdr);
+
+  /* Participantes */
+  if(COLLAB._participants.length){
+    var secA=document.createElement('div');
+    secA.style.cssText='padding:8px 16px 6px;border-bottom:1px solid rgba(255,255,255,.06);';
+    var lblA=document.createElement('div');
+    lblA.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(180,200,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;';
+    lblA.textContent='En sesion ahora';
+    secA.appendChild(lblA);
+    COLLAB._participants.forEach(function(p){
+      var isMe=p.id===myId();
+      var pts=(p.name||'?').trim().split(' ').filter(Boolean);
+      var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'OP';
+      var assign=COLLAB._assignments[p.id];
+      var frag=COLLAB._fragments[p.id];
+      var info=assign?'Sitios '+(assign.from+1)+'-'+(assign.to+1)+(frag&&frag.done?' \u2713':''):'Sin asignar';
+
+      var row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 0;';
+      var av=document.createElement('div');
+      av.style.cssText='width:34px;height:34px;border-radius:50%;background:'+(p.color||'#4a78f5')+';'
+        +'display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;'
+        +(isMe?'box-shadow:0 0 0 2px #4af5b8;':'');
+      av.textContent=ini;
+      var infoEl=document.createElement('div');
+      infoEl.style.cssText='flex:1;min-width:0;';
+      infoEl.innerHTML='<div style="font-size:12px;font-weight:600;color:#e0eaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+        +(p.name||'?')+(isMe?' <span style="font-size:9px;color:#4af5b8">(tu)</span>':'')+'</div>'
+        +'<div style="font-size:9px;color:rgba(180,200,255,.4);font-family:var(--mono)">'+info+'</div>';
+      row.appendChild(av); row.appendChild(infoEl);
+      secA.appendChild(row);
+    });
+    popup.appendChild(secA);
+  }
+
+  /* Invitar */
+  var secB=document.createElement('div');
+  var lblB=document.createElement('div');
+  lblB.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(180,200,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin:10px 16px 6px;';
+  lblB.textContent='Invitar usuario';
+  secB.appendChild(lblB);
+  var listEl=document.createElement('div');
+  listEl.style.cssText='max-height:180px;overflow-y:auto;';
+
+  if(online.length){
+    online.forEach(function(u){
+      var pts2=(u.name||'?').trim().split(' ').filter(Boolean);
+      var ini2=(pts2.length>=2?pts2[0][0]+pts2[pts2.length-1][0]:(u.name||'?').slice(0,2)).toUpperCase()||'OP';
+      var alreadyIn=COLLAB._participants.some(function(x){return x.id===u.id;});
+      var row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 16px;'
+        +'border-bottom:1px solid rgba(255,255,255,.04);'
+        +(alreadyIn?'opacity:.5;cursor:default;':'cursor:pointer;');
+      var av2=document.createElement('div');
+      av2.style.cssText='width:36px;height:36px;border-radius:50%;background:'+(u.color||'#4a78f5')+';'
+        +'display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;pointer-events:none;';
+      av2.textContent=ini2;
+      var info2=document.createElement('div');
+      info2.style.cssText='flex:1;min-width:0;pointer-events:none;';
+      info2.innerHTML='<div style="font-size:12px;font-weight:600;color:#e0eaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(u.name||'?')+'</div>'
+        +'<div style="font-size:9px;color:rgba(180,200,255,.4);font-family:var(--mono)">'+(u.role||'En linea')+'</div>';
+      var tag=document.createElement('div');
+      tag.style.cssText='font-size:9px;font-family:var(--mono);white-space:nowrap;pointer-events:none;color:'+(alreadyIn?'#4af5b8':'#4a78f5')+';font-weight:600;';
+      tag.textContent=alreadyIn?'En sesion':'Invitar \u2192';
+      row.appendChild(av2); row.appendChild(info2); row.appendChild(tag);
+      if(!alreadyIn){
+        row.addEventListener('mouseenter',function(){row.style.background='rgba(74,120,245,.14)';});
+        row.addEventListener('mouseleave',function(){row.style.background='';});
+        row.addEventListener('click',function(e){
+          e.stopPropagation();
+          if(!COLLAB.sessionId||!window._fb||!window._fb.pushNotif) return;
+          row.style.pointerEvents='none'; row.style.opacity='.5';
+          tag.textContent='Enviando...'; tag.style.color='#9ab3ff';
+          var uname=u.name||'?';
+          window._fb.pushNotif({
+            tipo:'collab_invite',
+            titulo:(COLLAB.reportType==='val'?'Validacion de Sistemas':'Reporte Operativo')+' en elaboracion',
+            cuerpo:myName()+' ('+myRole()+') te invita a unirte al reporte en curso',
+            hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
+            sessionId:COLLAB.sessionId, reportType:COLLAB.reportType,
+            reportLabel:'Reporte', totalSites:0, urgente:false, leida:false
+          }).then(function(){
+            tag.textContent='Enviado \u2713'; tag.style.color='#4af5b8';
+            safeToast('\uD83D\uDCE8 Invitacion enviada a '+uname+' exitosamente');
+            setTimeout(function(){ if(popup.parentNode) popup.remove(); },1400);
+          }).catch(function(err){
+            tag.textContent='Error \u2715'; tag.style.color='#ef4444';
+            row.style.pointerEvents=''; row.style.opacity='1';
+            console.error('[Collab] invite error:',err);
+            safeToast('\u26A0\uFE0F '+(err&&err.code?err.code:'Error al enviar'));
+          });
+        });
+      }
+      listEl.appendChild(row);
+    });
+  } else {
+    var empty=document.createElement('div');
+    empty.style.cssText='padding:14px 16px 8px;text-align:center;font-size:11px;color:rgba(180,200,255,.4);line-height:1.7;';
+    empty.innerHTML='No hay usuarios visibles en presencia<br><span style="font-size:9px;color:rgba(180,200,255,.3)">Usa el bot\u00f3n de abajo para notificar a todos</span>';
+    listEl.appendChild(empty);
+  }
+  secB.appendChild(listEl);
+  popup.appendChild(secB);
+
+  /* ── Boton broadcast: reenviar invitacion a TODOS sin depender de presencia ── */
+  var bcSec=document.createElement('div');
+  bcSec.style.cssText='padding:8px 16px 4px;border-top:1px solid rgba(255,255,255,.06);';
+  var bcLbl=document.createElement('div');
+  bcLbl.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(180,200,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;';
+  bcLbl.textContent='Notificar a todos';
+  bcSec.appendChild(bcLbl);
+  var bcBtn=document.createElement('button');
+  bcBtn.style.cssText='width:100%;padding:9px;border-radius:9px;border:1px solid rgba(74,120,245,.4);'
+    +'background:linear-gradient(135deg,rgba(74,120,245,.2),rgba(124,74,245,.15));'
+    +'color:#9ab3ff;font-size:10px;cursor:pointer;font-family:var(--mono);font-weight:600;letter-spacing:.5px;';
+  bcBtn.innerHTML='\uD83D\uDCE2 Reenviar invitaci\u00f3n a todos';
+  bcBtn.addEventListener('mouseenter',function(){bcBtn.style.background='linear-gradient(135deg,rgba(74,120,245,.35),rgba(124,74,245,.3))';bcBtn.style.color='#fff';});
+  bcBtn.addEventListener('mouseleave',function(){bcBtn.style.background='linear-gradient(135deg,rgba(74,120,245,.2),rgba(124,74,245,.15))';bcBtn.style.color='#9ab3ff';});
+  bcBtn.addEventListener('click',function(){
+    if(!COLLAB.sessionId||!window._fb||!window._fb.pushNotif){safeToast('\u26A0\uFE0F Sin sesi\u00f3n activa');return;}
+    bcBtn.textContent='Enviando...'; bcBtn.disabled=true; bcBtn.style.opacity='.6';
+    window._fb.pushNotif({
+      tipo:'collab_invite',
+      titulo:(COLLAB.reportType==='val'?'Validacion de Sistemas':'Reporte Operativo')+' en elaboracion',
+      cuerpo:myName()+' ('+myRole()+') te invita a colaborar en el reporte',
+      hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
+      sessionId:COLLAB.sessionId, reportType:COLLAB.reportType,
+      reportLabel:'Reporte', totalSites:0, urgente:true, leida:false
+    }).then(function(){
+      bcBtn.textContent='\u2705 Invitaci\u00f3n enviada';
+      bcBtn.style.color='#4af5b8';
+      safeToast('\uD83D\uDCE8 Invitaci\u00f3n reenviada \u2014 los colaboradores ver\u00e1n la notificaci\u00f3n');
+      setTimeout(function(){ if(popup.parentNode) popup.remove(); },1800);
+    }).catch(function(err){
+      bcBtn.textContent='\uD83D\uDCE2 Reenviar invitaci\u00f3n a todos';
+      bcBtn.disabled=false; bcBtn.style.opacity='1';
+      safeToast('\u26A0\uFE0F '+(err&&err.code?err.code:'Error al enviar'));
+    });
+  });
+  bcSec.appendChild(bcBtn);
+  popup.appendChild(bcSec);
+
+  var footer=document.createElement('div');
+  footer.style.cssText='padding:8px 16px 10px;';
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='Cerrar';
+  closeBtn.style.cssText='width:100%;padding:7px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(200,220,255,.5);font-size:10px;cursor:pointer;font-family:var(--mono);';
+  closeBtn.addEventListener('click',function(){popup.remove();});
+  footer.appendChild(closeBtn);
+  popup.appendChild(footer);
+  document.body.appendChild(popup);
+  setTimeout(function(){
+    document.addEventListener('mousedown',function closeIt(e){
+      if(!popup.contains(e.target)){popup.remove();document.removeEventListener('mousedown',closeIt);}
+    });
+  },150);
+};
+
 var BOOT_TS = Date.now();
 var COLLAB = {
   sessionId:null, reportType:null, isHost:false,
@@ -16693,7 +16874,6 @@ window._collabUpdateBar = function _collabUpdateBar(reportType){
 }
 
 function _collabHideBar(rt){ var sfx=rt==='op'?'-op':''; var b=document.getElementById('collab-status-bar'+sfx); if(b) b.classList.remove('active'); }
-window._collabUpdateBar=_collabUpdateBar;
 
 /* ══════════════════════════════════════════════════════════════
    Banner de invitacion
@@ -16723,150 +16903,9 @@ function _collabHideBanner(){ var b=document.getElementById('collab-invite-banne
 /* ══════════════════════════════════════════════════════════════
    Popup colaboradores + invitar
 ══════════════════════════════════════════════════════════════ */
-function _collabShowUsersPopup(reportType){
-  var ex=document.getElementById('collab-users-popup'); if(ex){ex.remove();return;}
-  var online=Object.values(window._lastPresenceSnapshot||{}).filter(function(u){
-    return u.id!==myId()&&(Date.now()-(u.ts||0))<90000;
-  });
 
-  var popup=document.createElement('div');
-  popup.id='collab-users-popup';
-  popup.style.cssText='position:fixed;top:62px;right:16px;z-index:999999;width:300px;'
-    +'background:linear-gradient(160deg,#0b1535 0%,#07102a 100%);'
-    +'border:1px solid rgba(74,120,245,.4);border-radius:16px;'
-    +'box-shadow:0 16px 56px rgba(0,0,0,.75);overflow:hidden;';
-
-  /* Cabecera */
-  var hdr=document.createElement('div');
-  hdr.style.cssText='padding:14px 16px 10px;border-bottom:1px solid rgba(74,120,245,.15);'
-    +'display:flex;align-items:center;justify-content:space-between;';
-  hdr.innerHTML='<div><div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">Colaboradores</div>'
-    +'<div style="font-size:9px;color:rgba(180,200,255,.45);font-family:var(--mono)">Sesion activa \u00b7 '
-    +COLLAB._participants.length+' en reporte</div></div>'
-    +'<div style="width:8px;height:8px;border-radius:50%;background:#4af5b8;box-shadow:0 0 6px rgba(74,245,184,.6)"></div>';
-  popup.appendChild(hdr);
-
-  /* Participantes */
-  if(COLLAB._participants.length){
-    var secA=document.createElement('div');
-    secA.style.cssText='padding:8px 16px 6px;border-bottom:1px solid rgba(255,255,255,.06);';
-    var lblA=document.createElement('div');
-    lblA.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(180,200,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;';
-    lblA.textContent='En sesion ahora';
-    secA.appendChild(lblA);
-    COLLAB._participants.forEach(function(p){
-      var isMe=p.id===myId();
-      var pts=(p.name||'?').trim().split(' ').filter(Boolean);
-      var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'OP';
-      var assign=COLLAB._assignments[p.id];
-      var frag=COLLAB._fragments[p.id];
-      var info=assign?'Sitios '+(assign.from+1)+'-'+(assign.to+1)+(frag&&frag.done?' \u2713':''):'Sin asignar';
-
-      var row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 0;';
-      var av=document.createElement('div');
-      av.style.cssText='width:34px;height:34px;border-radius:50%;background:'+(p.color||'#4a78f5')+';'
-        +'display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;'
-        +(isMe?'box-shadow:0 0 0 2px #4af5b8;':'');
-      av.textContent=ini;
-      var infoEl=document.createElement('div');
-      infoEl.style.cssText='flex:1;min-width:0;';
-      infoEl.innerHTML='<div style="font-size:12px;font-weight:600;color:#e0eaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
-        +(p.name||'?')+(isMe?' <span style="font-size:9px;color:#4af5b8">(tu)</span>':'')+'</div>'
-        +'<div style="font-size:9px;color:rgba(180,200,255,.4);font-family:var(--mono)">'+info+'</div>';
-      row.appendChild(av); row.appendChild(infoEl);
-      secA.appendChild(row);
-    });
-    popup.appendChild(secA);
-  }
-
-  /* Invitar */
-  var secB=document.createElement('div');
-  var lblB=document.createElement('div');
-  lblB.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(180,200,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin:10px 16px 6px;';
-  lblB.textContent='Invitar usuario';
-  secB.appendChild(lblB);
-  var listEl=document.createElement('div');
-  listEl.style.cssText='max-height:180px;overflow-y:auto;';
-
-  if(online.length){
-    online.forEach(function(u){
-      var pts2=(u.name||'?').trim().split(' ').filter(Boolean);
-      var ini2=(pts2.length>=2?pts2[0][0]+pts2[pts2.length-1][0]:(u.name||'?').slice(0,2)).toUpperCase()||'OP';
-      var alreadyIn=COLLAB._participants.some(function(x){return x.id===u.id;});
-      var row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 16px;'
-        +'border-bottom:1px solid rgba(255,255,255,.04);'
-        +(alreadyIn?'opacity:.5;cursor:default;':'cursor:pointer;');
-      var av2=document.createElement('div');
-      av2.style.cssText='width:36px;height:36px;border-radius:50%;background:'+(u.color||'#4a78f5')+';'
-        +'display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;pointer-events:none;';
-      av2.textContent=ini2;
-      var info2=document.createElement('div');
-      info2.style.cssText='flex:1;min-width:0;pointer-events:none;';
-      info2.innerHTML='<div style="font-size:12px;font-weight:600;color:#e0eaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(u.name||'?')+'</div>'
-        +'<div style="font-size:9px;color:rgba(180,200,255,.4);font-family:var(--mono)">'+(u.role||'En linea')+'</div>';
-      var tag=document.createElement('div');
-      tag.style.cssText='font-size:9px;font-family:var(--mono);white-space:nowrap;pointer-events:none;color:'+(alreadyIn?'#4af5b8':'#4a78f5')+';font-weight:600;';
-      tag.textContent=alreadyIn?'En sesion':'Invitar \u2192';
-      row.appendChild(av2); row.appendChild(info2); row.appendChild(tag);
-      if(!alreadyIn){
-        row.addEventListener('mouseenter',function(){row.style.background='rgba(74,120,245,.14)';});
-        row.addEventListener('mouseleave',function(){row.style.background='';});
-        row.addEventListener('click',function(e){
-          e.stopPropagation();
-          if(!COLLAB.sessionId||!window._fb||!window._fb.pushNotif) return;
-          row.style.pointerEvents='none'; row.style.opacity='.5';
-          tag.textContent='Enviando...'; tag.style.color='#9ab3ff';
-          var uname=u.name||'?';
-          window._fb.pushNotif({
-            tipo:'collab_invite',
-            titulo:(COLLAB.reportType==='val'?'Validacion de Sistemas':'Reporte Operativo')+' en elaboracion',
-            cuerpo:myName()+' ('+myRole()+') te invita a unirte al reporte en curso',
-            hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
-            sessionId:COLLAB.sessionId, reportType:COLLAB.reportType,
-            reportLabel:'Reporte', totalSites:0, urgente:false, leida:false
-          }).then(function(){
-            tag.textContent='Enviado \u2713'; tag.style.color='#4af5b8';
-            safeToast('\uD83D\uDCE8 Invitacion enviada a '+uname+' exitosamente');
-            setTimeout(function(){ if(popup.parentNode) popup.remove(); },1400);
-          }).catch(function(err){
-            tag.textContent='Error \u2715'; tag.style.color='#ef4444';
-            row.style.pointerEvents=''; row.style.opacity='1';
-            console.error('[Collab] invite error:',err);
-            safeToast('\u26A0\uFE0F '+(err&&err.code?err.code:'Error al enviar'));
-          });
-        });
-      }
-      listEl.appendChild(row);
-    });
-  } else {
-    var empty=document.createElement('div');
-    empty.style.cssText='padding:18px 16px;text-align:center;font-size:11px;color:rgba(180,200,255,.4);line-height:1.7;';
-    empty.innerHTML='No hay otros usuarios<br>conectados ahora mismo';
-    listEl.appendChild(empty);
-  }
-  secB.appendChild(listEl);
-  popup.appendChild(secB);
-
-  var footer=document.createElement('div');
-  footer.style.cssText='padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);';
-  var closeBtn=document.createElement('button');
-  closeBtn.textContent='Cerrar';
-  closeBtn.style.cssText='width:100%;padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(200,220,255,.5);font-size:10px;cursor:pointer;font-family:var(--mono);';
-  closeBtn.addEventListener('click',function(){popup.remove();});
-  footer.appendChild(closeBtn);
-  popup.appendChild(footer);
-  document.body.appendChild(popup);
-  setTimeout(function(){
-    document.addEventListener('mousedown',function closeIt(e){
-      if(!popup.contains(e.target)){popup.remove();document.removeEventListener('mousedown',closeIt);}
-    });
-  },150);
-}
-
-window._collabShowUsersPopupRv=function(){_collabShowUsersPopup('val');};
-window._collabShowUsersPopupOp=function(){_collabShowUsersPopup('op');};
+window._collabShowUsersPopupRv=function(){window._collabShowUsersPopup('val');};
+window._collabShowUsersPopupOp=function(){window._collabShowUsersPopup('op');};
 
 /* ══════════════════════════════════════════════════════════════
    Hook de guardado — interceptar para guardar fragmento
