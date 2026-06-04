@@ -6172,7 +6172,11 @@ async function expDoZip(mode){
     <div class="rv-sidebar">
       <div class="rv-sidebar-hdr" id="rv-sidebar-hdr">
         <span>Sitios</span>
-        <span id="rv-side-count" style="color:var(--sky);font-size:10px">0 / 51</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="rv-side-count" style="color:var(--sky);font-size:10px">0 / 51</span>
+          <button id="rv-az-btn" onclick="rvToggleAZ()" title="Ordenar A-Z / Original"
+            style="padding:2px 7px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .15s">A-Z</button>
+        </div>
       </div>
       <div class="rv-sidebar-scroll">
         <div id="rv-site-list"></div>
@@ -6487,7 +6491,7 @@ async function expDoZip(mode){
   </div>
   <div class="op-wiz-body">
     <div class="op-sidebar">
-      <div class="op-sidebar-hdr" id="op-sidebar-hdr"><span>Sitios</span><span id="op-side-count" style="color:var(--sky);font-size:10px">0 / 62</span></div>
+      <div class="op-sidebar-hdr" id="op-sidebar-hdr"><span>Sitios</span><div style="display:flex;align-items:center;gap:6px"><span id="op-side-count" style="color:var(--sky);font-size:10px">0 / 62</span><button id="op-az-btn" onclick="opToggleAZ()" title="Ordenar A-Z / Original" style="padding:2px 7px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .15s">A-Z</button></div></div>
       <div class="op-side-scroll"><div id="op-site-list"></div></div>
     </div>
     <div class="op-form" id="op-form-panel">
@@ -14140,21 +14144,29 @@ function rvBackSites(){
 }
 
 /* SIDEBAR */
+var _rvAZ=false;
+function rvToggleAZ(){
+  _rvAZ=!_rvAZ;
+  var btn=document.getElementById('rv-az-btn');
+  if(btn){btn.style.background=_rvAZ?'var(--accent)':'var(--s2)';btn.style.color=_rvAZ?'#fff':'var(--t2)';btn.style.borderColor=_rvAZ?'var(--accent)':'var(--b2)';}
+  rvBuildSide();
+}
 function rvBuildSide(){
   var done=rvW.srs.filter(function(s){return s.skip||s.bat!==null;}).length;
   var pct=Math.round(done/RV_SITES.length*100);
   _rv('rv-side-count',function(e){e.textContent=done+' / '+RV_SITES.length;});
   _rv('rv-prog-fill',function(e){e.style.width=pct+'%';});
   _rv('rv-prog-txt',function(e){e.textContent=pct+'%';});
+  var items=RV_SITES.map(function(s,i){return{s:s,i:i};});
+  if(_rvAZ) items=items.slice().sort(function(a,b){return a.s.localeCompare(b.s,'es',{sensitivity:'base'});});
   var h='';
-  RV_SITES.forEach(function(s,i){
-    var sr=rvW.srs[i];
+  items.forEach(function(x){
+    var i=x.i; var s=x.s; var sr=rvW.srs[i];
     h+='<div class="rv-sitem'+(i===rvW.idx?' cur':'')+'" onclick="rvJump('+i+')" style="color:'+rvSCol(sr)+'">'+
        '<span class="rv-sico" style="background:'+rvSBg(sr)+';color:'+rvSCol(sr)+'">'+rvSIco(sr)+'</span>'+
        '<span style="overflow:hidden;text-overflow:ellipsis">'+s+'</span></div>';
   });
   _rv('rv-site-list',function(e){e.innerHTML=h;});
-  /* scroll active into view */
   var sc=document.getElementById('rv-site-list');
   if(sc){var cur=sc.querySelector('.rv-sitem.cur');if(cur)cur.scrollIntoView({block:'nearest'});}
 }
@@ -15209,6 +15221,21 @@ function opStartSites(){
   var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='none';
   var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
   opBuildSide();opRenderS();
+  /* Colaboracion: mostrar barra inmediatamente y luego iniciar sesion */
+  var bar=document.getElementById('collab-status-bar-op');
+  if(bar){
+    bar.classList.add('active');
+    var lbl=document.getElementById('csb-label-op');
+    if(lbl) lbl.textContent='Iniciando sesion colaborativa...';
+  }
+  if(window.collabStartSession){
+    if(window.COLLAB&&window.COLLAB.sessionId){
+      window._collabUpdateBar&&window._collabUpdateBar('op');
+    } else {
+      var opSites=window.OP_SITES||[];
+      collabStartSession('op', opW.period||'Operativo', opSites.length);
+    }
+  }
 }
 function opCancelWiz(){
   _op('op-wizard-modal',function(e){e.classList.remove('open');});
@@ -15220,18 +15247,29 @@ function opCancelWiz(){
 function opBackSites(){
   _op('op-sum-modal',function(e){e.classList.remove('open');});
   _op('op-wizard-modal',function(e){e.classList.add('open');});
+  var bar=document.getElementById('collab-status-bar-op');
+  if(bar) bar.classList.add('active');
   opW.idx=0;opBuildSide();opRenderS();
 }
 
+var _opAZ=false;
+function opToggleAZ(){
+  _opAZ=!_opAZ;
+  var btn=document.getElementById('op-az-btn');
+  if(btn){btn.style.background=_opAZ?'var(--accent)':'var(--s2)';btn.style.color=_opAZ?'#fff':'var(--t2)';btn.style.borderColor=_opAZ?'var(--accent)':'var(--b2)';}
+  opBuildSide();
+}
 function opBuildSide(){
   var done=opW.srs.filter(function(s){return s.skip||s.status;}).length;
   var pct=Math.round(done/OP_SITES.length*100);
   _op('op-side-count',function(e){e.textContent=done+' / '+OP_SITES.length;});
   _op('op-prog-fill',function(e){e.style.width=pct+'%';});
   _op('op-prog-txt',function(e){e.textContent=pct+'%';});
+  var items=OP_SITES.map(function(s,i){return{s:s,i:i};});
+  if(_opAZ) items=items.slice().sort(function(a,b){return a.s.localeCompare(b.s,'es',{sensitivity:'base'});});
   var h='';
-  OP_SITES.forEach(function(s,i){
-    var sr=opW.srs[i];var col=opSColour(sr);var ico=opSIco(sr);
+  items.forEach(function(x){
+    var i=x.i; var s=x.s; var sr=opW.srs[i]; var col=opSColour(sr); var ico=opSIco(sr);
     var bg='transparent';
     if(sr&&sr.status==='OK')bg='rgba(34,197,94,.12)';
     else if(sr&&sr.status==='NO OPERATIVO')bg='rgba(239,68,68,.12)';
@@ -15965,5 +16003,942 @@ function opSave() {
 })();
 
 </script>
+<!-- Motor de Colaboracion v6 - Division y Merge Automatico -->
+<script>
+(function(){
+'use strict';
+
+var BOOT_TS = Date.now();
+var COLLAB = {
+  sessionId:null, reportType:null, isHost:false,
+  _seenIds:new Set(), _unsubInvite:null, _unsubSession:null, _unsubFragments:null,
+  _participants:[], _assignments:{}, // {userId: {from, to, name, color}}
+  _fragments:{},   // {userId: {srs:[...]}}
+  _myFrom:0, _myTo:0,
+};
+window.COLLAB = COLLAB;
+
+/* ── Identidad ── */
+function myId(){ var id=localStorage.getItem('bess_uid'); if(!id){id='u'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);localStorage.setItem('bess_uid',id);} return id; }
+function myName(){ return localStorage.getItem('bess_uname')||'Operador'; }
+function myColor(){ return localStorage.getItem('bess_ucolor')||'#4a78f5'; }
+function myRole(){ return localStorage.getItem('bess_urole')||'Ing. BESS'; }
+function myIni(){ var p=myName().trim().split(' ').filter(Boolean); return (p.length>=2?p[0][0]+p[p.length-1][0]:myName().slice(0,2)).toUpperCase()||'OP'; }
+
+/* ── Toast seguro ── */
+function safeToast(msg){ try{ var fn=window._origShowToast||window.showToast; if(fn) fn(msg); }catch(e){} }
+
+/* ── Esperar Firebase ── */
+function waitFB(cb){
+  if(window._fb&&window._fb.pushNotif&&window._fb.listenCollabInvites){cb();return;}
+  var t=0,iv=setInterval(function(){
+    t+=100;
+    if(window._fb&&window._fb.pushNotif&&window._fb.listenCollabInvites){clearInterval(iv);cb();}
+    if(t>10000) clearInterval(iv);
+  },100);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HOST: Iniciar sesion
+══════════════════════════════════════════════════════════════ */
+window.collabStartSession = function(reportType, reportLabel, totalSites){
+  var sid='cs_'+Date.now()+'_'+myId().slice(0,6);
+  COLLAB.sessionId=sid; COLLAB.reportType=reportType; COLLAB.isHost=true;
+  COLLAB._participants=[{id:myId(),name:myName(),color:myColor(),role:myRole()}];
+  COLLAB._myFrom=0; COLLAB._myTo=totalSites-1;
+  _collabUpdateBar(reportType);
+  /* Mostrar participantes en sidebar inmediatamente (al menos el propio host) */
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(reportType); }, 200);
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(reportType); }, 800);
+
+  waitFB(function(){
+    /* Incluir al host en participants desde el primer write — evita race condition
+       donde el doc existe con participants:{} y los guests lo ven sin host */
+    var _hostEntry={id:myId(),name:myName(),color:myColor(),role:myRole(),joinedAt:Date.now()};
+    var _initParts={};
+    _initParts[myId()]=_hostEntry;
+    window._fb.collabCreate({
+      id:sid, reportType:reportType, reportLabel:reportLabel||'Reporte',
+      hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
+      totalSites:totalSites||0, status:'active',
+      participants:_initParts, assignments:{}, srs:{}, fragmentsDone:[]
+    }).then(function(){
+      /* Arrancar listener DESPUES de que el doc existe en Firestore */
+      console.log('[Collab] Doc creado, arrancando listener sid:',sid);
+      _collabListenSession(sid, reportType);
+      _collabListenFragments(sid, reportType);
+    }).catch(function(e){ console.error('[Collab] create:',e.message); });
+
+    /* Notificar a todos */
+    window._fb.pushNotif({
+      tipo:'collab_invite',
+      titulo:(reportType==='val'?'Validacion de Sistemas':'Reporte Operativo')+' en elaboracion',
+      cuerpo:myName()+' ('+myRole()+') inicio un reporte — unete para editar en conjunto',
+      hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
+      sessionId:sid, reportType:reportType, reportLabel:reportLabel||'Reporte',
+      totalSites:totalSites||0, urgente:false, leida:false
+    }).then(function(){
+      console.log('[Collab] Invitacion publicada, sid:',sid);
+    }).catch(function(e){ console.error('[Collab] pushNotif:',e.message); });
+
+    safeToast('\uD83E\uDD1D Sesion colaborativa iniciada');
+  });
+};
+
+/* ══════════════════════════════════════════════════════════════
+   Push de sitio (llamado desde rvSync/opSync/rvSetBat/opSetStatus)
+   En v6 es no-op ligero — los datos se guardan como fragmento al finalizar
+══════════════════════════════════════════════════════════════ */
+window.collabPushSite = function(siteIdx, totalSites, siteData){
+  /* No-op en modo division — cada quien guarda su propio fragmento al final.
+     Solo actualizamos el cursor en Firestore para que otros vean donde estamos. */
+  if(!COLLAB.sessionId||!window._fb||!window._fb.collabUpdate) return;
+  clearTimeout(COLLAB._pushT);
+  COLLAB._pushT = setTimeout(function(){
+    var upd = {};
+    upd['cursors.'+myId()] = siteIdx;
+    window._fb.collabUpdate(COLLAB.sessionId, upd).catch(function(){});
+  }, 800);
+};
+window.collabDividirSitios = function(){
+  if(!COLLAB.sessionId||!COLLAB.isHost) return;
+  var sites=COLLAB.reportType==='val'?(window.RV_SITES||[]):(window.OP_SITES||[]);
+  var n=sites.length;
+  var parts=COLLAB._participants.slice();
+  if(!parts.length){safeToast('\u26A0\uFE0F Sin participantes registrados'); return;}
+
+  var perPart=Math.ceil(n/parts.length);
+  var assignments={};
+  parts.forEach(function(p,i){
+    assignments[p.id]={from:i*perPart, to:Math.min((i+1)*perPart-1,n-1), name:p.name, color:p.color};
+  });
+  COLLAB._assignments=assignments;
+
+  /* Aplicar mi asignacion inmediatamente sin esperar Firestore */
+  _collabApplyMyAssignment();
+  _collabPaintAssignments();
+  _collabUpdateBar(COLLAB.reportType);
+
+  window._fb.collabSetAssignments(COLLAB.sessionId,assignments).then(function(){
+    safeToast('\u2702\uFE0F Sitios divididos entre '+parts.length+' colaboradores');
+  }).catch(function(e){ console.error('[Collab] setAssignments:',e); });
+};
+
+/* Aplicar mi asignacion — resaltar mis sitios en el sidebar */
+function _collabApplyMyAssignment(){
+  var myAssign = COLLAB._assignments[myId()];
+  if(!myAssign) return;
+  COLLAB._myFrom = myAssign.from;
+  COLLAB._myTo   = myAssign.to;
+  var reportType = COLLAB.reportType;
+
+  /* Navegar al primer sitio asignado */
+  if(reportType==='val'&&window.rvW){
+    rvW.idx = myAssign.from;
+    if(window.rvBuildSide) rvBuildSide();
+    if(window.rvRenderS) rvRenderS();
+  } else if(reportType==='op'&&window.opW){
+    opW.idx = myAssign.from;
+    if(window.opBuildSide) opBuildSide();
+    if(window.opRenderS) opRenderS();
+  }
+
+  /* Pintar con retry — el sidebar puede no estar renderizado aún */
+  _collabPaintAssignments();
+  setTimeout(_collabPaintAssignments, 300);
+  setTimeout(_collabPaintAssignments, 800);
+
+  var sitesTotal = (myAssign.to - myAssign.from) + 1;
+  safeToast('Tus sitios: '+(myAssign.from+1)+' al '+(myAssign.to+1)+' — '+sitesTotal+' sitios asignados');
+}
+
+/* Pintar asignaciones en el sidebar */
+function _collabPaintAssignments(){
+  var reportType=COLLAB.reportType;
+  var listId=reportType==='val'?'rv-site-list':'op-site-list';
+  var itemCls=reportType==='val'?'.rv-sitem':'.op-sitem';
+  var list=document.getElementById(listId); if(!list) return;
+  var items=list.querySelectorAll(itemCls);
+
+  /* Limpiar tags anteriores */
+  list.querySelectorAll('.csb-assign-tag').forEach(function(t){t.remove();});
+
+  /* Pintar por asignacion */
+  Object.entries(COLLAB._assignments).forEach(function(entry){
+    var uid=entry[0], assign=entry[1];
+    for(var i=assign.from; i<=assign.to; i++){
+      if(!items[i]) continue;
+      var item=items[i];
+      /* Borde de color del asignado */
+      item.style.borderLeft='3px solid '+assign.color;
+      item.style.paddingLeft='4px';
+      if(uid===myId()){
+        item.style.background='rgba('+_hexToRgb(assign.color)+',.08)';
+      }
+      /* Tag del nombre + rango en el primer item del rango */
+      if(i===assign.from){
+        var isMe=uid===myId();
+        var tag=document.createElement('span');
+        tag.className='csb-assign-tag';
+        tag.style.cssText='display:inline-flex;align-items:center;gap:3px;'
+          +'font-size:7px;font-family:var(--mono);background:'+assign.color
+          +';color:#fff;padding:1px 6px 1px 4px;border-radius:8px;margin-left:auto;flex-shrink:0;white-space:nowrap;'
+          +(isMe?'box-shadow:0 0 0 1.5px rgba(255,255,255,.5);':'opacity:.8;');
+        /* Punto indicador */
+        var dot=document.createElement('span');
+        dot.style.cssText='width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.7);flex-shrink:0;';
+        tag.appendChild(dot);
+        var txt=document.createTextNode(
+          (isMe?'Tú':'')
+          +(isMe?' · ':' ')
+          +(assign.name||'?').split(' ')[0]
+          +' S.'+(assign.from+1)+'–'+(assign.to+1)
+        );
+        tag.appendChild(txt);
+        item.style.display='flex'; item.style.alignItems='center';
+        item.appendChild(tag);
+      }
+    }
+  });
+
+  /* También actualizar el panel de participantes en sidebar */
+  _collabPaintParticipantsInSidebar(reportType);
+}
+
+function _hexToRgb(hex){
+  var r=0,g=0,b=0;
+  if(hex&&hex.length===7){ r=parseInt(hex.slice(1,3),16); g=parseInt(hex.slice(3,5),16); b=parseInt(hex.slice(5,7),16); }
+  return r+','+g+','+b;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Panel de division (en barra de estado)
+══════════════════════════════════════════════════════════════ */
+function _collabRenderDivisionPanel(){
+  var sfx=COLLAB.reportType==='op'?'-op':'';
+  var bar=document.getElementById('collab-status-bar'+sfx); if(!bar) return;
+
+  /* Quitar panel anterior */
+  var prev=bar.querySelector('.csb-division-panel'); if(prev) prev.remove();
+
+  if(!Object.keys(COLLAB._assignments).length) return;
+
+  var panel=document.createElement('div');
+  panel.className='csb-division-panel';
+  panel.style.cssText='width:100%;padding:4px 0 2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+
+  var sites=COLLAB.reportType==='val'?(window.RV_SITES||[]):(window.OP_SITES||[]);
+
+  Object.entries(COLLAB._assignments).forEach(function(entry){
+    var uid=entry[0], a=entry[1];
+    var isMe=uid===myId();
+    var frag=COLLAB._fragments[uid];
+    var done=frag?frag.srs.filter(function(s,i){
+      return i>=a.from&&i<=a.to&&(s&&(s.bat||s.status||s.skip));
+    }).length:0;
+    var total=(a.to-a.from)+1;
+    var pct=total>0?Math.round(done/total*100):0;
+    var pts=(a.name||'?').split(' ').filter(Boolean);
+    var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(a.name||'?').slice(0,2)).toUpperCase();
+
+    var chip=document.createElement('div');
+    chip.style.cssText='display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.06);'
+      +'border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:2px 8px 2px 4px;'
+      +(isMe?'border-color:'+a.color+';background:rgba('+_hexToRgb(a.color)+',.15);':'');
+
+    chip.innerHTML='<div style="width:18px;height:18px;border-radius:50%;background:'+a.color+';display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">'+ini+'</div>'
+      +'<span style="font-size:9px;font-family:var(--mono);color:#e0eaff">'+(isMe?'Tu':'')+(a.name||'?').split(' ')[0]+'</span>'
+      +'<span style="font-size:8px;font-family:var(--mono);color:'+a.color+'">'+pct+'%</span>'
+      +(frag&&frag.done?'<span style="font-size:10px">✓</span>':'');
+
+    panel.appendChild(chip);
+  });
+
+  /* Indicador si todos terminaron */
+  var allDone=Object.keys(COLLAB._assignments).every(function(uid){
+    return COLLAB._fragments[uid]&&COLLAB._fragments[uid].done;
+  });
+  if(allDone&&COLLAB.isHost){
+    var mergeBtn=document.createElement('button');
+    mergeBtn.style.cssText='margin-left:auto;padding:3px 12px;border-radius:10px;'
+      +'background:linear-gradient(135deg,#059669,#065f46);border:none;color:#fff;'
+      +'font-size:9px;font-family:var(--mono);cursor:pointer;font-weight:700;';
+    mergeBtn.textContent='\u2728 Merge y Guardar';
+    mergeBtn.addEventListener('click', collabMergeAndFinalize);
+    panel.appendChild(mergeBtn);
+  }
+
+  bar.appendChild(panel);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   GUARDAR FRAGMENTO PROPIO
+   Reemplaza el guardado normal cuando hay sesion colaborativa
+══════════════════════════════════════════════════════════════ */
+window.collabSaveMyFragment = function(reportType){
+  if(!COLLAB.sessionId||!window._fb||!window._fb.collabSaveFragment) return false;
+
+  /* Tomar solo mis sitios asignados */
+  var myAssign=COLLAB._assignments[myId()];
+  var localSrs=reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
+  if(!localSrs) return false;
+
+  /* Guardar fragmento completo de sitios */
+  var fragmentSrs = localSrs.map(function(s,i){
+    if(!myAssign||i<myAssign.from||i>myAssign.to) return null; // fuera de mi rango
+    return s;
+  });
+
+  var fragment = {
+    userId:myId(), userName:myName(), userColor:myColor(),
+    reportType:reportType,
+    from: myAssign?myAssign.from:0,
+    to:   myAssign?myAssign.to:(localSrs.length-1),
+    srs:  fragmentSrs,
+    done: true,
+    savedAt: Date.now()
+  };
+
+  window._fb.collabSaveFragment(COLLAB.sessionId, myId(), fragment).then(function(){
+    safeToast('\u2705 Tu parte guardada — esperando al equipo');
+    /* Si soy host y hay solo 1 participante, merge directo */
+    if(COLLAB.isHost&&COLLAB._participants.length<=1){
+      setTimeout(collabMergeAndFinalize, 500);
+    }
+  }).catch(function(e){
+    console.error('[Collab] saveFragment:',e);
+    safeToast('\u26A0\uFE0F Error al guardar fragmento');
+  });
+
+  return true; /* true = interceptado, no usar guardado normal */
+};
+
+/* ══════════════════════════════════════════════════════════════
+   MERGE FINAL (solo host)
+══════════════════════════════════════════════════════════════ */
+window.collabMergeAndFinalize = function(){
+  if(!COLLAB.isHost) return;
+  var reportType=COLLAB.reportType;
+  var localSrs=reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
+  if(!localSrs){ safeToast('\u26A0\uFE0F Wizard no activo'); return; }
+
+  console.log('[Collab] Iniciando merge de',Object.keys(COLLAB._fragments).length,'fragmentos');
+
+  /* Merge: cada fragmento llena sus sitios asignados */
+  var merged = localSrs.map(function(s){ return s; }); // copia local
+
+  Object.values(COLLAB._fragments).forEach(function(frag){
+    if(!frag||!frag.srs) return;
+    frag.srs.forEach(function(s,i){
+      if(!s) return; // fuera del rango de ese colaborador
+      /* Merge: preferir datos con estado definido */
+      var current=merged[i];
+      var hasData = s.bat||s.status||s.skip;
+      var currentHasData = current&&(current.bat||current.status||current.skip);
+      if(hasData&&!currentHasData) merged[i]=s;
+    });
+  });
+
+  /* Aplicar merge al wizard local */
+  if(reportType==='val'&&window.rvW) window.rvW.srs=merged;
+  if(reportType==='op'&&window.opW) window.opW.srs=merged;
+
+  var doneCount=merged.filter(function(s){return s&&(s.bat||s.status||s.skip);}).length;
+  safeToast('\uD83D\uDD00 Merge completo — '+doneCount+' sitios consolidados. Guardando...');
+
+  /* Cerrar sesion colaborativa */
+  window.collabEndSession();
+
+  /* Ejecutar el guardado normal */
+  setTimeout(function(){
+    if(reportType==='val'&&window.rvSave) rvSave();
+    else if(reportType==='op'&&window.opSave) opSave();
+  }, 300);
+};
+
+/* ══════════════════════════════════════════════════════════════
+   LISTENER: fragmentos en tiempo real
+══════════════════════════════════════════════════════════════ */
+function _collabListenFragments(sid, reportType){
+  if(COLLAB._unsubFragments){COLLAB._unsubFragments();COLLAB._unsubFragments=null;}
+  if(!window._fb||!window._fb.listenFragments) return;
+
+  COLLAB._unsubFragments=window._fb.listenFragments(sid,function(frags){
+    COLLAB._fragments={};
+    frags.forEach(function(f){ COLLAB._fragments[f._uid]=f; });
+
+    var total=Object.keys(COLLAB._assignments).length;
+    var done=Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
+    console.log('[Collab] Fragmentos:',done,'/',total,'listos');
+
+    /* Actualizar panel de division */
+    _collabRenderDivisionPanel();
+
+    /* Si todos terminaron, notificar al host */
+    if(total>0&&done>=total&&COLLAB.isHost){
+      safeToast('\uD83C\uDF89 Todos terminaron — puedes hacer Merge y Guardar');
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Cerrar sesion
+══════════════════════════════════════════════════════════════ */
+window.collabEndSession = function(){
+  if(!COLLAB.sessionId) return;
+  var sid=COLLAB.sessionId;
+  COLLAB.sessionId=null; COLLAB.isHost=false;
+  COLLAB._participants=[]; COLLAB._assignments={}; COLLAB._fragments={};
+  if(COLLAB._unsubInvite){COLLAB._unsubInvite();COLLAB._unsubInvite=null;}
+  if(COLLAB._unsubSession){COLLAB._unsubSession();COLLAB._unsubSession=null;}
+  if(COLLAB._unsubFragments){COLLAB._unsubFragments();COLLAB._unsubFragments=null;}
+  _collabHideBar('val'); _collabHideBar('op');
+  if(window._fb&&window._fb.collabClose) window._fb.collabClose(sid).catch(function(){});
+};
+
+/* ══════════════════════════════════════════════════════════════
+   GUEST: Unirse
+══════════════════════════════════════════════════════════════ */
+window.collabJoinSession = function(){
+  var banner=document.getElementById('collab-invite-banner'); if(!banner) return;
+  var sid=banner.dataset.sessionId, rType=banner.dataset.reportType;
+  if(!sid||!window._fb) return;
+  _collabHideBanner();
+  COLLAB.sessionId=sid; COLLAB.reportType=rType; COLLAB.isHost=false;
+
+  var me={id:myId(),name:myName(),color:myColor(),role:myRole(),joinedAt:Date.now()};
+  window._fb.collabJoin(sid,me).catch(function(){});
+
+  var pageId=rType==='val'?'repval':'repop';
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  var pg=document.getElementById('page-'+pageId); if(pg) pg.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.toggle('active',n.dataset.page===pageId);});
+
+  var bar=document.getElementById('collab-status-bar'+(rType==='op'?'-op':''));
+  if(bar) bar.classList.add('active');
+  var lbl=document.getElementById('csb-label'+(rType==='op'?'-op':''));
+  if(lbl) lbl.textContent='Conectando a sesion...';
+
+  if(rType==='val'){
+    /* Inicializar rvW directamente en modo sites, saltando el setup */
+    if(window.RV_SITES){
+      var userName=localStorage.getItem('bess_uname')||'Operador';
+      window.rvW={type:'matutino',date:new Date().toISOString(),op:userName,
+                  step:'sites',idx:0,srs:window.RV_SITES.map(function(){return window.rvMkS?rvMkS():{};})};
+    } else if(window.rvInitSetup){ rvInitSetup(); }
+    setTimeout(function(){
+      var wiz=document.getElementById('rv-wizard-modal');
+      if(wiz) wiz.classList.add('open');
+      if(window.rvW) window.rvW.step='sites';
+      if(window.rvBuildSide) rvBuildSide();
+      if(window.rvRenderS) rvRenderS();
+    },150);
+  } else {
+    if(window.OP_SITES){
+      var userName2=localStorage.getItem('bess_uname')||'Operador';
+      window.opW={period:'Hora Punta Vespertina',date:new Date().toISOString(),op:userName2,
+                  step:'sites',idx:0,srs:window.OP_SITES.map(function(){return window.opMkS?opMkS():{};})};
+    } else if(window.opInitSetup){ opInitSetup(); }
+    setTimeout(function(){
+      var wiz2=document.getElementById('op-wizard-modal');
+      if(wiz2) wiz2.classList.add('open');
+      if(window.opW) window.opW.step='sites';
+      if(window.opBuildSide) opBuildSide();
+      if(window.opRenderS) opRenderS();
+    },150);
+  }
+
+  _collabListenSession(sid, rType);
+  _collabListenFragments(sid, rType);
+  /* Pintar panel de participantes en sidebar una vez cargue el wizard */
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 400);
+  setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 1200);
+  /* Si ya hay asignaciones guardadas en Firestore, aplicarlas despues de que el wizard cargue */
+  setTimeout(function(){
+    if(COLLAB._assignments&&Object.keys(COLLAB._assignments).length){
+      _collabApplyMyAssignment();
+      _collabPaintAssignments();
+    }
+  }, 600);
+  safeToast('\uD83E\uDD1D Te uniste al reporte de '+banner.dataset.hostName);
+};
+
+window.collabDismissInvite = window.collabDismissBanner = function(){ _collabHideBanner(); };
+
+/* ══════════════════════════════════════════════════════════════
+   LISTENER: invitaciones
+══════════════════════════════════════════════════════════════ */
+function _collabStartInviteListener(){
+  if(COLLAB._unsubInvite){COLLAB._unsubInvite();COLLAB._unsubInvite=null;}
+  if(!window._fb||!window._fb.listenCollabInvites){
+    setTimeout(_collabStartInviteListener,2000); return;
+  }
+  try{
+    COLLAB._unsubInvite=window._fb.listenCollabInvites(BOOT_TS,function(notif){
+      console.log('[Collab] Invitacion — host:',notif.hostName,'docId:',notif.id,'ts:',notif.ts);
+      if(notif.hostId===myId()) return;
+      if(COLLAB.sessionId===notif.sessionId) return;
+      /* Deduplicar SOLO por ID del documento — nunca por sessionId
+         Asi multiples invitaciones a la misma sesion siempre llegan */
+      if(!notif.id){ console.warn('[Collab] Sin docId, ignorando'); return; }
+      if(COLLAB._seenIds.has(notif.id)) return;
+      COLLAB._seenIds.add(notif.id);
+      _collabShowBanner(notif);
+    });
+    console.log('[Collab] Listener invitaciones OK, BOOT_TS:',BOOT_TS);
+  }catch(e){ console.error('[Collab] listener error:',e); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LISTENER: sesion activa
+══════════════════════════════════════════════════════════════ */
+function _collabListenSession(sid, reportType){
+  if(COLLAB._unsubSession){COLLAB._unsubSession();COLLAB._unsubSession=null;}
+  if(!window._fb||!window._fb.listenCollabSession) return;
+
+  COLLAB._unsubSession=window._fb.listenCollabSession(sid,function(session){
+    var parts=Object.values((session&&session.participants)||{}).filter(Boolean);
+    console.log('[Collab] SESSION UPDATE — participantes:',parts.length, parts.map(function(p){return p.name;}), 'asignaciones:',Object.keys((session&&session.assignments)||{}).length);
+    if(!session||session.status==='closed'){
+      if(!COLLAB.isHost){ _collabHideBar(reportType); COLLAB.sessionId=null; }
+      return;
+    }
+
+    /* Actualizar participantes — siempre incluir al usuario actual */
+    var fromFb=Object.values(session.participants||{}).filter(Boolean);
+    var meAlreadyIn=fromFb.some(function(p){return p.id===myId();});
+    if(!meAlreadyIn){
+      fromFb.push({id:myId(),name:myName(),color:myColor(),role:myRole()});
+    }
+    COLLAB._participants=fromFb;
+
+    /* Asignaciones */
+    if(session.assignments&&Object.keys(session.assignments).length){
+      var wasEmpty=!Object.keys(COLLAB._assignments).length;
+      COLLAB._assignments=session.assignments;
+      if(wasEmpty){
+        _collabApplyMyAssignment();
+        if(!COLLAB.isHost) safeToast('\uD83D\uDCCB Sitios asignados — mira el sidebar');
+      }
+      _collabPaintAssignments();
+      _collabRenderDivisionPanel();
+    } else {
+      /* Sin asignaciones: al menos pintar quienes estan en sesion en el sidebar */
+      _collabPaintParticipantsInSidebar(reportType);
+    }
+
+    _collabUpdateBar(reportType);
+  });
+}
+
+/* Pintar participantes en el sidebar (antes de tener asignaciones) */
+function _collabPaintParticipantsInSidebar(reportType){
+  var listId=reportType==='val'?'rv-site-list':'op-site-list';
+  var list=document.getElementById(listId); if(!list) return;
+  /* Solo limpiar los tags de participantes, no los de asignacion */
+  list.querySelectorAll('.csb-part-indicator').forEach(function(e){e.remove();});
+  /* Mostrar los avatares de colaboradores al inicio del sidebar */
+  var hdr=document.getElementById(reportType==='val'?'rv-sidebar-hdr':'op-sidebar-hdr');
+  if(!hdr) return;
+  var prev=hdr.querySelector('.csb-part-mini'); if(prev) prev.remove();
+  /* Siempre mostrar el panel si hay sesion activa */
+  if(!COLLAB.sessionId) return;
+  var mini=document.createElement('div');
+  mini.className='csb-part-mini';
+  mini.style.cssText='display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:6px 0 4px;border-top:1px solid rgba(74,120,245,.2);';
+
+  /* Fila de avatares + conteo */
+  var rowTop=document.createElement('div');
+  rowTop.style.cssText='display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
+
+  var nP=COLLAB._participants.length;
+  COLLAB._participants.forEach(function(p){
+    var isMe=p.id===myId();
+    var pts=(p.name||'?').trim().split(' ').filter(Boolean);
+    var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'OP';
+    var assign=COLLAB._assignments[p.id];
+    var frag=COLLAB._fragments&&COLLAB._fragments[p.id];
+    var tip=p.name+(isMe?' (tú)':'')+( assign?' · Sitios '+(assign.from+1)+'–'+(assign.to+1):'')+(frag&&frag.done?' ✓':'');
+    var av=document.createElement('div');
+    av.title=tip;
+    av.style.cssText='width:22px;height:22px;border-radius:50%;background:'+p.color+';'
+      +'display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;'
+      +(isMe?'box-shadow:0 0 0 2px #4af5b8;':'')
+      +(frag&&frag.done?'opacity:0.6;':'');
+    av.textContent=ini;
+    rowTop.appendChild(av);
+  });
+
+  var lbl=document.createElement('span');
+  lbl.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(100,150,255,.55);margin-left:2px;';
+  var hasAssign=Object.keys(COLLAB._assignments).length>0;
+  if(nP<=1&&!hasAssign) lbl.textContent='Sesión abierta — esperando equipo';
+  else if(!hasAssign) lbl.textContent=nP+' en sesión · sin dividir';
+  else lbl.textContent=nP+' editando';
+  rowTop.appendChild(lbl);
+  mini.appendChild(rowTop);
+
+  /* Si ya hay asignaciones, mostrar chips de sitios por persona */
+  if(hasAssign){
+    var rowSites=document.createElement('div');
+    rowSites.style.cssText='display:flex;flex-direction:column;gap:2px;margin-top:2px;';
+    COLLAB._participants.forEach(function(p){
+      var isMe=p.id===myId();
+      var assign=COLLAB._assignments[p.id];
+      if(!assign) return;
+      var frag=COLLAB._fragments&&COLLAB._fragments[p.id];
+      var pts=(p.name||'?').trim().split(' ').filter(Boolean);
+      var firstName=pts[0]||'?';
+      var chip=document.createElement('div');
+      chip.style.cssText='display:flex;align-items:center;gap:5px;padding:2px 6px;border-radius:8px;'
+        +'background:'+(isMe?'rgba('+_hexToRgb(p.color)+',.18)':'rgba(255,255,255,.04)')+';'
+        +'border:1px solid '+(isMe?p.color:'rgba(255,255,255,.08)')+';';
+      var dot=document.createElement('span');
+      dot.style.cssText='width:7px;height:7px;border-radius:50%;background:'+p.color+';flex-shrink:0;';
+      var txt=document.createElement('span');
+      txt.style.cssText='font-size:8.5px;font-family:var(--mono);color:'+(isMe?'#e0eaff':'rgba(180,200,255,.5)')+';white-space:nowrap;flex:1;';
+      txt.textContent=(isMe?'Tú':'')+(isMe&&firstName?(' ('+firstName+')'):(firstName))+' · S.'+(assign.from+1)+'–'+(assign.to+1);
+      var badge=document.createElement('span');
+      badge.style.cssText='font-size:8px;font-family:var(--mono);color:'+(frag&&frag.done?'#4af5b8':'rgba(100,150,255,.4)')+';flex-shrink:0;';
+      badge.textContent=frag&&frag.done?'✓ Listo':'editando';
+      chip.appendChild(dot); chip.appendChild(txt); chip.appendChild(badge);
+      rowSites.appendChild(chip);
+    });
+    mini.appendChild(rowSites);
+  }
+
+  hdr.appendChild(mini);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Barra de estado
+══════════════════════════════════════════════════════════════ */
+window._collabUpdateBar = function _collabUpdateBar(reportType){
+  var sfx=reportType==='op'?'-op':'';
+  var bar=document.getElementById('collab-status-bar'+sfx); if(!bar) return;
+  bar.classList.add('active');
+
+  var nP=COLLAB._participants.length;
+  var hasAssign=Object.keys(COLLAB._assignments).length>0;
+  var fragDone=Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
+  var totalAssign=Object.keys(COLLAB._assignments).length;
+
+  /* Label — nP incluye al propio usuario */
+  var lbl=document.getElementById('csb-label'+sfx);
+  if(lbl){
+    var others=nP-1; /* colaboradores que NO soy yo */
+    var colabWord=others===1?'colaborador':'colaboradores';
+    if(!hasAssign&&COLLAB.isHost&&nP<=1) lbl.textContent='\uD83D\uDFE2 Sesion abierta — esperando al equipo';
+    else if(!hasAssign&&COLLAB.isHost&&nP>1) lbl.textContent='\uD83D\uDC65 '+nP+' en sesion — \u2702 Divide los sitios';
+    else if(!hasAssign&&!COLLAB.isHost&&others<=0) lbl.textContent='\uD83D\uDFE2 Conectado — esperando que el host divida';
+    else if(!hasAssign&&!COLLAB.isHost) lbl.textContent='\uD83D\uDC65 '+nP+' en sesion — esperando division';
+    else if(hasAssign) lbl.textContent=fragDone+'/'+totalAssign+' partes listas'+(fragDone>=totalAssign&&COLLAB.isHost?' — \u2728 Puedes hacer Merge!':'');
+  }
+
+  /* Avatars con nombre al hacer hover */
+  var avEl=document.getElementById('csb-avatars'+sfx);
+  if(avEl){
+    avEl.innerHTML=COLLAB._participants.slice(0,6).map(function(p){
+      var isMe=p.id===myId();
+      var pts=(p.name||'?').trim().split(' ').filter(Boolean);
+      var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'OP';
+      var frag=COLLAB._fragments[p.id];
+      var done=frag&&frag.done;
+      var assign=COLLAB._assignments[p.id];
+      var tip=(p.name||'?')+(assign?' (sitios '+(assign.from+1)+'-'+(assign.to+1)+')':'')+(done?' \u2713':'');
+      return '<div class="csb-av" title="'+tip+'" style="background:'+(p.color||'#4a78f5')+';'
+        +(isMe?'border:2px solid #4af5b8;':'')
+        +(done?'box-shadow:0 0 0 2px #22c55e;':'')+'">'+ini+'</div>';
+    }).join('');
+  }
+
+  /* Site tag: quien está donde */
+  var stEl=document.getElementById('csb-site-tag'+sfx);
+  if(stEl) stEl.innerHTML='';
+
+  /* Quitar botones anteriores */
+  bar.querySelectorAll('.csb-divide-btn,.csb-division-panel').forEach(function(e){e.remove();});
+
+  /* Boton Dividir: solo si hay 2+ participantes y no hay asignaciones */
+  if(COLLAB.isHost&&nP>1&&!hasAssign){
+    var divBtn=document.createElement('button');
+    divBtn.className='csb-divide-btn csb-invite-btn';
+    divBtn.style.background='linear-gradient(135deg,#4a78f5,#7c4af5)';
+    divBtn.style.color='#fff';
+    divBtn.style.border='none';
+    divBtn.innerHTML='\u2702\uFE0F Dividir '+nP+' colaboradores';
+    divBtn.addEventListener('click',window.collabDividirSitios);
+    bar.appendChild(divBtn);
+  }
+
+  /* Panel de progreso si ya hay division */
+  if(hasAssign) _collabRenderDivisionPanel();
+
+  /* Refrescar panel de participantes en sidebar siempre */
+  if(COLLAB.reportType) _collabPaintParticipantsInSidebar(COLLAB.reportType);
+}
+
+function _collabHideBar(rt){ var sfx=rt==='op'?'-op':''; var b=document.getElementById('collab-status-bar'+sfx); if(b) b.classList.remove('active'); }
+window._collabUpdateBar=_collabUpdateBar;
+
+/* ══════════════════════════════════════════════════════════════
+   Banner de invitacion
+══════════════════════════════════════════════════════════════ */
+function _collabShowBanner(n){
+  var banner=document.getElementById('collab-invite-banner'); if(!banner) return;
+  banner.dataset.sessionId=n.sessionId; banner.dataset.reportType=n.reportType; banner.dataset.hostName=n.hostName||'Colega';
+  var parts=(n.hostName||'?').trim().split(' ').filter(Boolean);
+  var ini=(parts.length>=2?parts[0][0]+parts[parts.length-1][0]:(n.hostName||'?').slice(0,2)).toUpperCase()||'OP';
+  var el=function(id){return document.getElementById(id);};
+  if(el('cib-type-badge')) el('cib-type-badge').textContent=n.reportType==='val'?'Validacion':'Operativo';
+  if(el('cib-title')) el('cib-title').textContent=n.titulo||'Reporte en elaboracion';
+  if(el('cib-sub')) el('cib-sub').textContent=n.cuerpo||'Sesion colaborativa activa';
+  if(el('cib-host-av')){el('cib-host-av').textContent=ini;el('cib-host-av').style.background=n.hostColor||'#4a78f5';}
+  if(el('cib-host-name')) el('cib-host-name').textContent=n.hostName||'Colega';
+  if(el('cib-host-role')) el('cib-host-role').textContent=(n.hostRole||'Operador')+' \u00b7 Editando ahora';
+  var pct=n.totalSites>0?Math.round((n.doneSites||0)/n.totalSites*100):0;
+  if(el('cib-prog-fill')) el('cib-prog-fill').style.width=pct+'%';
+  if(el('cib-prog-pct')) el('cib-prog-pct').textContent=pct+'%';
+  if(el('cib-prog-text')) el('cib-prog-text').textContent='Reporte '+(n.reportType==='val'?'de Validacion':'Operativo');
+  if(el('cib-participants')) el('cib-participants').innerHTML='';
+  banner.classList.add('show');
+  safeToast('\uD83E\uDD1D '+n.hostName+' inicio un reporte — toca el banner');
+}
+function _collabHideBanner(){ var b=document.getElementById('collab-invite-banner'); if(b) b.classList.remove('show'); }
+
+/* ══════════════════════════════════════════════════════════════
+   Popup colaboradores + invitar
+══════════════════════════════════════════════════════════════ */
+function _collabShowUsersPopup(reportType){
+  var ex=document.getElementById('collab-users-popup'); if(ex){ex.remove();return;}
+  var online=Object.values(window._lastPresenceSnapshot||{}).filter(function(u){
+    return u.id!==myId()&&(Date.now()-(u.ts||0))<90000;
+  });
+
+  var popup=document.createElement('div');
+  popup.id='collab-users-popup';
+  popup.style.cssText='position:fixed;top:62px;right:16px;z-index:99999;width:300px;'
+    +'background:linear-gradient(160deg,#0b1535 0%,#07102a 100%);'
+    +'border:1px solid rgba(74,120,245,.4);border-radius:16px;'
+    +'box-shadow:0 16px 56px rgba(0,0,0,.75);overflow:hidden;';
+
+  /* Cabecera */
+  var hdr=document.createElement('div');
+  hdr.style.cssText='padding:14px 16px 10px;border-bottom:1px solid rgba(74,120,245,.15);'
+    +'display:flex;align-items:center;justify-content:space-between;';
+  hdr.innerHTML='<div><div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">Colaboradores</div>'
+    +'<div style="font-size:9px;color:rgba(180,200,255,.45);font-family:var(--mono)">Sesion activa \u00b7 '
+    +COLLAB._participants.length+' en reporte</div></div>'
+    +'<div style="width:8px;height:8px;border-radius:50%;background:#4af5b8;box-shadow:0 0 6px rgba(74,245,184,.6)"></div>';
+  popup.appendChild(hdr);
+
+  /* Participantes */
+  if(COLLAB._participants.length){
+    var secA=document.createElement('div');
+    secA.style.cssText='padding:8px 16px 6px;border-bottom:1px solid rgba(255,255,255,.06);';
+    var lblA=document.createElement('div');
+    lblA.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(180,200,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;';
+    lblA.textContent='En sesion ahora';
+    secA.appendChild(lblA);
+    COLLAB._participants.forEach(function(p){
+      var isMe=p.id===myId();
+      var pts=(p.name||'?').trim().split(' ').filter(Boolean);
+      var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'OP';
+      var assign=COLLAB._assignments[p.id];
+      var frag=COLLAB._fragments[p.id];
+      var info=assign?'Sitios '+(assign.from+1)+'-'+(assign.to+1)+(frag&&frag.done?' \u2713':''):'Sin asignar';
+
+      var row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 0;';
+      var av=document.createElement('div');
+      av.style.cssText='width:34px;height:34px;border-radius:50%;background:'+(p.color||'#4a78f5')+';'
+        +'display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;'
+        +(isMe?'box-shadow:0 0 0 2px #4af5b8;':'');
+      av.textContent=ini;
+      var infoEl=document.createElement('div');
+      infoEl.style.cssText='flex:1;min-width:0;';
+      infoEl.innerHTML='<div style="font-size:12px;font-weight:600;color:#e0eaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+        +(p.name||'?')+(isMe?' <span style="font-size:9px;color:#4af5b8">(tu)</span>':'')+'</div>'
+        +'<div style="font-size:9px;color:rgba(180,200,255,.4);font-family:var(--mono)">'+info+'</div>';
+      row.appendChild(av); row.appendChild(infoEl);
+      secA.appendChild(row);
+    });
+    popup.appendChild(secA);
+  }
+
+  /* Invitar */
+  var secB=document.createElement('div');
+  var lblB=document.createElement('div');
+  lblB.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(180,200,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin:10px 16px 6px;';
+  lblB.textContent='Invitar usuario';
+  secB.appendChild(lblB);
+  var listEl=document.createElement('div');
+  listEl.style.cssText='max-height:180px;overflow-y:auto;';
+
+  if(online.length){
+    online.forEach(function(u){
+      var pts2=(u.name||'?').trim().split(' ').filter(Boolean);
+      var ini2=(pts2.length>=2?pts2[0][0]+pts2[pts2.length-1][0]:(u.name||'?').slice(0,2)).toUpperCase()||'OP';
+      var alreadyIn=COLLAB._participants.some(function(x){return x.id===u.id;});
+      var row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 16px;'
+        +'border-bottom:1px solid rgba(255,255,255,.04);'
+        +(alreadyIn?'opacity:.5;cursor:default;':'cursor:pointer;');
+      var av2=document.createElement('div');
+      av2.style.cssText='width:36px;height:36px;border-radius:50%;background:'+(u.color||'#4a78f5')+';'
+        +'display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;pointer-events:none;';
+      av2.textContent=ini2;
+      var info2=document.createElement('div');
+      info2.style.cssText='flex:1;min-width:0;pointer-events:none;';
+      info2.innerHTML='<div style="font-size:12px;font-weight:600;color:#e0eaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(u.name||'?')+'</div>'
+        +'<div style="font-size:9px;color:rgba(180,200,255,.4);font-family:var(--mono)">'+(u.role||'En linea')+'</div>';
+      var tag=document.createElement('div');
+      tag.style.cssText='font-size:9px;font-family:var(--mono);white-space:nowrap;pointer-events:none;color:'+(alreadyIn?'#4af5b8':'#4a78f5')+';font-weight:600;';
+      tag.textContent=alreadyIn?'En sesion':'Invitar \u2192';
+      row.appendChild(av2); row.appendChild(info2); row.appendChild(tag);
+      if(!alreadyIn){
+        row.addEventListener('mouseenter',function(){row.style.background='rgba(74,120,245,.14)';});
+        row.addEventListener('mouseleave',function(){row.style.background='';});
+        row.addEventListener('click',function(e){
+          e.stopPropagation();
+          if(!COLLAB.sessionId||!window._fb||!window._fb.pushNotif) return;
+          row.style.pointerEvents='none'; row.style.opacity='.5';
+          tag.textContent='Enviando...'; tag.style.color='#9ab3ff';
+          var uname=u.name||'?';
+          window._fb.pushNotif({
+            tipo:'collab_invite',
+            titulo:(COLLAB.reportType==='val'?'Validacion de Sistemas':'Reporte Operativo')+' en elaboracion',
+            cuerpo:myName()+' ('+myRole()+') te invita a unirte al reporte en curso',
+            hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
+            sessionId:COLLAB.sessionId, reportType:COLLAB.reportType,
+            reportLabel:'Reporte', totalSites:0, urgente:false, leida:false
+          }).then(function(){
+            tag.textContent='Enviado \u2713'; tag.style.color='#4af5b8';
+            safeToast('\uD83D\uDCE8 Invitacion enviada a '+uname+' exitosamente');
+            setTimeout(function(){ if(popup.parentNode) popup.remove(); },1400);
+          }).catch(function(err){
+            tag.textContent='Error \u2715'; tag.style.color='#ef4444';
+            row.style.pointerEvents=''; row.style.opacity='1';
+            console.error('[Collab] invite error:',err);
+            safeToast('\u26A0\uFE0F '+(err&&err.code?err.code:'Error al enviar'));
+          });
+        });
+      }
+      listEl.appendChild(row);
+    });
+  } else {
+    var empty=document.createElement('div');
+    empty.style.cssText='padding:18px 16px;text-align:center;font-size:11px;color:rgba(180,200,255,.4);line-height:1.7;';
+    empty.innerHTML='No hay otros usuarios<br>conectados ahora mismo';
+    listEl.appendChild(empty);
+  }
+  secB.appendChild(listEl);
+  popup.appendChild(secB);
+
+  var footer=document.createElement('div');
+  footer.style.cssText='padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);';
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='Cerrar';
+  closeBtn.style.cssText='width:100%;padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(200,220,255,.5);font-size:10px;cursor:pointer;font-family:var(--mono);';
+  closeBtn.addEventListener('click',function(){popup.remove();});
+  footer.appendChild(closeBtn);
+  popup.appendChild(footer);
+  document.body.appendChild(popup);
+  setTimeout(function(){
+    document.addEventListener('mousedown',function closeIt(e){
+      if(!popup.contains(e.target)){popup.remove();document.removeEventListener('mousedown',closeIt);}
+    });
+  },150);
+}
+
+window._collabShowUsersPopupRv=function(){_collabShowUsersPopup('val');};
+window._collabShowUsersPopupOp=function(){_collabShowUsersPopup('op');};
+
+/* ══════════════════════════════════════════════════════════════
+   Hook de guardado — interceptar para guardar fragmento
+══════════════════════════════════════════════════════════════ */
+function _collabHookSave(){
+  /* rvSave */
+  var _rv=window.rvSave;
+  if(_rv&&!_rv.__cs){
+    window.rvSave=function(){
+      if(COLLAB.sessionId&&!COLLAB.isHost){
+        /* Guest: guardar fragmento, no el reporte completo */
+        window.collabSaveMyFragment('val');
+        /* Cerrar wizard sin guardar reporte */
+        _rv_closeOnly();
+        return;
+      }
+      if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
+        /* Host con division: guardar su fragmento y esperar merge */
+        window.collabSaveMyFragment('val');
+        _rv_closeOnly();
+        return;
+      }
+      /* Sin colaboracion o sesion de 1: guardado normal */
+      _rv.apply(this,arguments);
+      if(COLLAB.sessionId) window.collabEndSession();
+    };
+    window.rvSave.__cs=true;
+  }
+  /* opSave */
+  var _op=window.opSave;
+  if(_op&&!_op.__cs){
+    window.opSave=function(){
+      if(COLLAB.sessionId&&!COLLAB.isHost){
+        window.collabSaveMyFragment('op');
+        _op_closeOnly();
+        return;
+      }
+      if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
+        window.collabSaveMyFragment('op');
+        _op_closeOnly();
+        return;
+      }
+      _op.apply(this,arguments);
+      if(COLLAB.sessionId) window.collabEndSession();
+    };
+    window.opSave.__cs=true;
+  }
+}
+
+/* Cerrar wizard RV sin guardar reporte completo */
+function _rv_closeOnly(){
+  var wiz=document.getElementById('rv-wizard-modal'); if(wiz) wiz.classList.remove('open');
+  var sum=document.getElementById('rv-sum-modal'); if(sum) sum.classList.remove('open');
+}
+function _op_closeOnly(){
+  var wiz=document.getElementById('op-wizard-modal'); if(wiz) wiz.classList.remove('open');
+  var sum=document.getElementById('op-sum-modal'); if(sum) sum.classList.remove('open');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Arranque
+══════════════════════════════════════════════════════════════ */
+function _boot(){
+  waitFB(function(){ _collabStartInviteListener(); });
+  var att=0,iv=setInterval(function(){
+    att++;
+    if(window.rvSave&&window.opSave){clearInterval(iv);_collabHookSave();}
+    if(att>60) clearInterval(iv);
+  },250);
+
+  /* Refrescar barra y sidebar cada 3s mientras haya sesion activa */
+  setInterval(function(){
+    if(!COLLAB.sessionId) return;
+    _collabUpdateBar(COLLAB.reportType);
+    if(!Object.keys(COLLAB._assignments).length){
+      _collabPaintParticipantsInSidebar(COLLAB.reportType);
+    }
+  },3000);
+
+  console.log('[Collab] v6 Division+Merge arrancado');
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_boot);
+else _boot();
+
+})();
+
 </body>
 </html>
