@@ -16275,22 +16275,25 @@ function _collabRenderDivisionPanel(){
 window.collabSaveMyFragment = function(reportType){
   if(!COLLAB.sessionId||!window._fb||!window._fb.collabSaveFragment) return false;
 
-  /* Tomar solo mis sitios asignados */
-  var myAssign=COLLAB._assignments[myId()];
+  /* Tomar mis sitios asignados; si no hay assignment aun, usar rango completo */
+  var myAssign=COLLAB._assignments[myId()]||null;
   var localSrs=reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
   if(!localSrs) return false;
 
-  /* Guardar fragmento completo de sitios */
+  var fromIdx = myAssign ? myAssign.from : 0;
+  var toIdx   = myAssign ? myAssign.to   : localSrs.length - 1;
+
+  /* Guardar fragmento de sitios en mi rango */
   var fragmentSrs = localSrs.map(function(s,i){
-    if(!myAssign||i<myAssign.from||i>myAssign.to) return null; // fuera de mi rango
+    if(i<fromIdx||i>toIdx) return null; // fuera de mi rango
     return s;
   });
 
   var fragment = {
     userId:myId(), userName:myName(), userColor:myColor(),
     reportType:reportType,
-    from: myAssign?myAssign.from:0,
-    to:   myAssign?myAssign.to:(localSrs.length-1),
+    from: fromIdx,
+    to:   toIdx,
     srs:  fragmentSrs,
     done: true,
     savedAt: Date.now()
@@ -16321,18 +16324,27 @@ window.collabMergeAndFinalize = function(){
 
   console.log('[Collab] Iniciando merge de',Object.keys(COLLAB._fragments).length,'fragmentos');
 
-  /* Merge: cada fragmento llena sus sitios asignados */
-  var merged = localSrs.map(function(s){ return s; }); // copia local
+  /* Merge: cada fragmento es autoridad en su rango asignado */
+  var merged = localSrs.map(function(s){ return s ? JSON.parse(JSON.stringify(s)) : s; });
 
   Object.values(COLLAB._fragments).forEach(function(frag){
     if(!frag||!frag.srs) return;
+    var fragFrom = typeof frag.from === 'number' ? frag.from : 0;
+    var fragTo   = typeof frag.to   === 'number' ? frag.to   : frag.srs.length - 1;
     frag.srs.forEach(function(s,i){
-      if(!s) return; // fuera del rango de ese colaborador
-      /* Merge: preferir datos con estado definido */
-      var current=merged[i];
+      if(!s) return;
       var hasData = s.bat||s.status||s.skip;
-      var currentHasData = current&&(current.bat||current.status||current.skip);
-      if(hasData&&!currentHasData) merged[i]=s;
+      if(!hasData) return;
+      var inRange = i >= fragFrom && i <= fragTo;
+      if(inRange){
+        /* Dentro del rango del colaborador: sus datos tienen prioridad */
+        merged[i] = s;
+      } else {
+        /* Fuera de rango: solo rellenar si no hay datos locales */
+        var current = merged[i];
+        var currentHasData = current&&(current.bat||current.status||current.skip);
+        if(!currentHasData) merged[i] = s;
+      }
     });
   });
 
@@ -16368,8 +16380,9 @@ function _collabListenFragments(sid, reportType){
     var done=Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
     console.log('[Collab] Fragmentos:',done,'/',total,'listos');
 
-    /* Actualizar panel de division */
+    /* Actualizar panel de division Y barra de estado */
     _collabRenderDivisionPanel();
+    _collabUpdateBar(reportType);
 
     /* Si todos terminaron, notificar al host */
     if(total>0&&done>=total&&COLLAB.isHost){
@@ -16450,13 +16463,17 @@ window.collabJoinSession = function(){
   /* Pintar panel de participantes en sidebar una vez cargue el wizard */
   setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 400);
   setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 1200);
-  /* Si ya hay asignaciones guardadas en Firestore, aplicarlas despues de que el wizard cargue */
-  setTimeout(function(){
+  /* Aplicar asignaciones: reintentar hasta 8s para cubrir latencia de Firestore */
+  var _assignWait=0, _assignIv=setInterval(function(){
+    _assignWait+=300;
     if(COLLAB._assignments&&Object.keys(COLLAB._assignments).length){
+      clearInterval(_assignIv);
       _collabApplyMyAssignment();
       _collabPaintAssignments();
+      _collabUpdateBar(rType);
     }
-  }, 600);
+    if(_assignWait>=8000) clearInterval(_assignIv);
+  },300);
   safeToast('\uD83E\uDD1D Te uniste al reporte de '+banner.dataset.hostName);
 };
 
@@ -16860,9 +16877,24 @@ function _collabHookSave(){
   if(_rv&&!_rv.__cs){
     window.rvSave=function(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
-        /* Guest: guardar fragmento, no el reporte completo */
+        /* Guest: siempre guardar fragmento aunque assignments aun no hayan llegado.
+           Si no hay assignment propio, usar rango completo como fallback. */
+        if(!COLLAB._assignments[myId()]){
+          /* Race condition: assignments aun no llegaron de Firestore.
+             Esperamos hasta 3s y reintentamos. */
+          var _maxWait=0;
+          var _waitAssign=setInterval(function(){
+            _maxWait+=200;
+            if(COLLAB._assignments[myId()]||_maxWait>=3000){
+              clearInterval(_waitAssign);
+              window.collabSaveMyFragment('val');
+              _rv_closeOnly();
+            }
+          },200);
+          _rv_closeOnly();
+          return;
+        }
         window.collabSaveMyFragment('val');
-        /* Cerrar wizard sin guardar reporte */
         _rv_closeOnly();
         return;
       }
@@ -16872,9 +16904,14 @@ function _collabHookSave(){
         _rv_closeOnly();
         return;
       }
-      /* Sin colaboracion o sesion de 1: guardado normal */
+      if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length===0){
+        /* Host sin division (solo usuario): guardado normal y cerrar sesion */
+        _rv.apply(this,arguments);
+        window.collabEndSession();
+        return;
+      }
+      /* Sin colaboracion: guardado normal */
       _rv.apply(this,arguments);
-      if(COLLAB.sessionId) window.collabEndSession();
     };
     window.rvSave.__cs=true;
   }
@@ -16883,6 +16920,19 @@ function _collabHookSave(){
   if(_op&&!_op.__cs){
     window.opSave=function(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
+        if(!COLLAB._assignments[myId()]){
+          var _maxWait2=0;
+          var _waitAssign2=setInterval(function(){
+            _maxWait2+=200;
+            if(COLLAB._assignments[myId()]||_maxWait2>=3000){
+              clearInterval(_waitAssign2);
+              window.collabSaveMyFragment('op');
+              _op_closeOnly();
+            }
+          },200);
+          _op_closeOnly();
+          return;
+        }
         window.collabSaveMyFragment('op');
         _op_closeOnly();
         return;
@@ -16892,8 +16942,12 @@ function _collabHookSave(){
         _op_closeOnly();
         return;
       }
+      if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length===0){
+        _op.apply(this,arguments);
+        window.collabEndSession();
+        return;
+      }
       _op.apply(this,arguments);
-      if(COLLAB.sessionId) window.collabEndSession();
     };
     window.opSave.__cs=true;
   }
