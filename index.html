@@ -4815,6 +4815,11 @@ if('serviceWorker' in navigator){
       <button type="button" class="id-avatar-btn" data-avatar="🦄" onclick="idPickAvatar(this)">🦄</button>
       <button type="button" class="id-avatar-btn" data-avatar="🐻‍❄️" onclick="idPickAvatar(this)">🐻‍❄️</button>
       <button type="button" class="id-avatar-btn" data-avatar="🦩" onclick="idPickAvatar(this)">🦩</button>
+      <button type="button" class="id-avatar-btn" data-avatar="🐬" onclick="idPickAvatar(this)">🐬</button>
+      <button type="button" class="id-avatar-btn" data-avatar="🦈" onclick="idPickAvatar(this)">🦈</button>
+      <button type="button" class="id-avatar-btn" data-avatar="🦇" onclick="idPickAvatar(this)">🦇</button>
+      <button type="button" class="id-avatar-btn" data-avatar="🦎" onclick="idPickAvatar(this)">🦎</button>
+      <button type="button" class="id-avatar-btn" data-avatar="🦋" onclick="idPickAvatar(this)">🦋</button>
     </div>
     <input type="hidden" id="id-avatar-input" value="">
 
@@ -5070,6 +5075,10 @@ if('serviceWorker' in navigator){
         <div class="notif-panel-hdr">
           <span class="notif-panel-title">🔔 Notificaciones</span>
           <button class="notif-clear-btn" onclick="clearAllNotifs()">Limpiar todo</button>
+        </div>
+        <div id="notif-perm-banner" style="display:none;padding:10px 14px;background:rgba(245,158,11,.12);border-bottom:1px solid rgba(245,158,11,.25);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-family:var(--mono);font-size:9px;color:#f59e0b;flex:1;min-width:0">🔕 Notificaciones del sistema desactivadas</span>
+          <button onclick="requestNotifPermission()" style="background:#f59e0b;border:none;border-radius:6px;color:#000;font-family:var(--mono);font-size:9px;font-weight:700;padding:5px 12px;cursor:pointer;white-space:nowrap;letter-spacing:.5px">🔔 Activar</button>
         </div>
         <div class="notif-list" id="notif-list">
           <div class="notif-empty"><span class="notif-empty-icon">🔔</span>Sin notificaciones</div>
@@ -6515,7 +6524,14 @@ async function expDoZip(mode){
           <button class="op-sbtn" data-val="MANTENIMIENTO" onclick="opSetStatus('MANTENIMIENTO')" style="grid-column:span 2">⚙ MANTENIMIENTO</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;margin-bottom:11px">
+        <div class="op-sec" style="margin-bottom:0"><span class="op-sec-ttl">SOC Inicial %</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="number" id="op-soc-ini-inp" min="0" max="100" placeholder="--" oninput="opSync()"
+              style="width:80px;padding:9px 8px;background:var(--s1);border:2px solid var(--b2);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:22px;font-weight:700;text-align:center;outline:none"/>
+            <span style="color:var(--t3);font-size:16px;font-family:var(--mono)">%</span>
+          </div>
+        </div>
         <div class="op-sec" style="margin-bottom:0"><span class="op-sec-ttl">SOC Final %</span>
           <div style="display:flex;align-items:center;gap:10px">
             <input type="number" id="op-soc-inp" min="0" max="100" placeholder="--" oninput="opSync()"
@@ -6593,7 +6609,7 @@ async function expDoZip(mode){
         <table class="op-tbl"><thead><tr>
           <th style="text-align:left;min-width:130px">SITIO</th><th style="min-width:36px">SKU</th>
           <th style="min-width:60px">OPERATIVO</th><th style="min-width:110px">STATUS</th>
-          <th style="min-width:50px">SOC</th><th style="min-width:80px">COMUNICACIÓN</th>
+          <th style="min-width:60px">SOC INICIAL</th><th style="min-width:60px">SOC FINAL</th><th style="min-width:80px">COMUNICACIÓN</th>
           <th style="min-width:70px">SEVERIDAD</th><th style="text-align:left;min-width:160px">EVENTO</th>
           <th style="text-align:left;min-width:240px">OBSERVACIONES</th>
         </tr></thead><tbody id="op-sum-tbody"></tbody></table>
@@ -6662,11 +6678,7 @@ async function expDoZip(mode){
         <select id="soc-month-sel" onchange="socRender()" style="background:var(--s1);border:1px solid var(--b1);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:6px;outline:none;cursor:pointer">
           <option value="">— Todos los meses —</option>
         </select>
-        <select id="soc-source-sel" onchange="socRender()" style="background:var(--s1);border:1px solid var(--b1);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:6px;outline:none;cursor:pointer">
-          <option value="">Todos (Op + Val)</option>
-          <option value="op">Solo Operativo</option>
-          <option value="val">Solo Validación</option>
-        </select>
+        <div style="background:var(--s1);border:1px solid var(--b1);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:6px">⚡ Operativo</div>
         <button onclick="socExportCSV()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(5,150,105,.1);border:1.5px solid rgba(5,150,105,.3);border-radius:7px;color:#059669;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">📊 CSV</button>
         <button onclick="socClearMonth()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(220,38,38,.08);border:1.5px solid rgba(220,38,38,.25);border-radius:7px;color:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">🗑 Borrar mes</button>
       </div>
@@ -6705,7 +6717,8 @@ async function expDoZip(mode){
           <thead>
             <tr style="background:var(--s2)">
               <th style="padding:9px 12px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Sitio</th>
-              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">SOC %</th>
+              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">SOC INICIAL %</th>
+              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">SOC FINAL %</th>
               <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Tipo</th>
               <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Período</th>
               <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Operador</th>
@@ -11488,14 +11501,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // CC init — also calls runIntro() internally
   try { ccInit(); } catch(e){}
-  // Solicitar permiso de notificaciones OS (para push nativo en móvil)
-  setTimeout(function(){
-    if('Notification' in window && Notification.permission === 'default'){
-      Notification.requestPermission().then(function(p){
-        if(p==='granted') console.log('[BESS] Notificaciones OS activadas ✓');
-      });
-    }
-  }, 5000);
+  // Notificaciones OS — mostrar banner si no hay permiso aún
+  setTimeout(function(){ _updateNotifPermBanner(); }, 1200);
   // Failsafe absoluto: si después de 10s el shell sigue sin mostrar, forzarlo
   setTimeout(function(){
     var shell = document.getElementById('shell');
@@ -12580,6 +12587,7 @@ function toggleNotifPanel(){
   if(!panel) return;
   if(_notifPanelOpen){
     panel.classList.add('open');
+    _updateNotifPermBanner();
     // Mark all as read after 1.5s
     setTimeout(()=>{
       _notifStore.forEach(n=>n.read=true);
@@ -12593,6 +12601,42 @@ function toggleNotifPanel(){
     document.removeEventListener('click',_notifOutsideClick);
   }
 }
+
+function _updateNotifPermBanner(){
+  var b=document.getElementById('notif-perm-banner');
+  if(!b) return;
+  if(!('Notification' in window) || Notification.permission==='granted'){
+    b.style.display='none';
+  } else {
+    b.style.display='flex';
+  }
+}
+
+function requestNotifPermission(){
+  if(!('Notification' in window)){
+    showToast('⚠ Tu navegador no soporta notificaciones');
+    return;
+  }
+  if(Notification.permission==='granted'){
+    showToast('✅ Notificaciones ya están activadas');
+    _updateNotifPermBanner();
+    return;
+  }
+  if(Notification.permission==='denied'){
+    showToast('🔕 Notificaciones bloqueadas — actívalas en Ajustes del navegador/sistema');
+    return;
+  }
+  Notification.requestPermission().then(function(p){
+    if(p==='granted'){
+      showToast('✅ Notificaciones activadas');
+      try{ new Notification('Centro de Operaciones BESS',{body:'🔔 Notificaciones activadas correctamente',tag:'bess-test'}); }catch(e){}
+    } else {
+      showToast('🔕 Permiso denegado — actívalas en Ajustes del navegador');
+    }
+    _updateNotifPermBanner();
+  });
+}
+
 
 function _notifOutsideClick(e){
   if(!document.getElementById('notif-wrap')?.contains(e.target)){
@@ -15220,6 +15264,7 @@ function opRenderS(){
       b.classList.add(m[b.dataset.val]||'s-ok');
     }
   });
+  _op('op-soc-ini-inp',function(e){e.value=sr.socIni||'';});
   _op('op-soc-inp',function(e){e.value=sr.soc||'';});
   document.querySelectorAll('#op-com-btns .op-bool-btn').forEach(function(b){
     b.classList.remove('b-yes','b-no');
@@ -15253,6 +15298,8 @@ function opSync(){
   if(!opW||!opW.srs) return;
   var sr=opW.srs[opW.idx];
   if(!sr) return;
+  var socIniEl=document.getElementById('op-soc-ini-inp');
+  if(socIniEl) sr.socIni=socIniEl.value;
   var socEl=document.getElementById('op-soc-inp');
   if(socEl) sr.soc=socEl.value;
   var evEl=document.getElementById('op-evento-inp');
@@ -15357,7 +15404,7 @@ function opBuildSum(){
     var site=OP_SITES[i];
     var opTxt=sr.oper===1?'<span class="op-chk-yes">✓</span>':sr.oper===0?'<span class="op-chk-no">✗</span>':'—';
     var stCls={'OK':'op-ok','INCOMPLETO':'op-inc','NO OPERATIVO':'op-nop','DESCONECTADO':'op-dis','MANTENIMIENTO':'op-mnt'}[sr.status]||'';
-    var stTag={'OK':opBdg('✓ OK','op-tag-ok'),'INCOMPLETO':opBdg('△ INC','op-tag-inc'),'NO OPERATIVO':opBdg('✕ NOP','op-tag-nop'),'DESCONECTADO':opBdg('— DIS','op-tag-dis'),'MANTENIMIENTO':opBdg('⚙ MNT','op-tag-mnt')}[sr.status]||'—';
+    var stTag={'OK':opBdg('✓ OK','op-tag-ok'),'INCOMPLETO':opBdg('△ INCOMPLETO','op-tag-inc'),'NO OPERATIVO':opBdg('✕ NO OPERATIVO','op-tag-nop'),'DESCONECTADO':opBdg('— DESCONECTADO','op-tag-dis'),'MANTENIMIENTO':opBdg('⚙ MANTENIMIENTO','op-tag-mnt')}[sr.status]||'—';
     var comTxt=sr.com===1?'<span class="op-chk-yes">☑</span>':sr.com===0?'<span class="op-chk-no">☒</span>':'—';
     var sevTxt=sr.sev?'<span class="op-sev-'+sr.sev.toLowerCase()+'">'+sr.sev+'</span>':'—';
     return'<tr class="'+stCls+(sr.skip?' op-dis':'')+'">'+
@@ -15365,6 +15412,7 @@ function opBuildSum(){
       '<td style="color:var(--t3);font-family:var(--mono);font-size:10px">'+(i+1)+'</td>'+
       '<td style="text-align:center">'+opTxt+'</td>'+
       '<td style="text-align:center">'+stTag+'</td>'+
+      '<td style="text-align:center;font-family:var(--mono)">'+(sr.socIni?sr.socIni+'%':'—')+'</td>'+
       '<td style="text-align:center;font-family:var(--mono)">'+(sr.soc?sr.soc+'%':'—')+'</td>'+
       '<td style="text-align:center">'+comTxt+'</td>'+
       '<td style="text-align:center">'+sevTxt+'</td>'+
@@ -15509,10 +15557,12 @@ function socLoad() {
     var mk = fecha ? fecha.slice(0,7) : '';
     rep.srs.forEach(function(sr, i) {
       var soc = parseFloat(sr.soc);
+      var socIni = parseFloat(sr.socIni);
       if (!isNaN(soc) && soc > 0 && soc <= 100) {
         _socData.push({
           site: OP_SITES[i] || ('Sitio '+(i+1)),
           soc: soc,
+          socIni: (!isNaN(socIni) && socIni > 0) ? socIni : null,
           type: 'op',
           period: rep.period || '',
           op: rep.op || '',
@@ -15572,7 +15622,7 @@ function _socBuildSelectors() {
 function socRender() {
   var site   = (document.getElementById('soc-site-sel')||{}).value || '';
   var month  = (document.getElementById('soc-month-sel')||{}).value || '';
-  var source = (document.getElementById('soc-source-sel')||{}).value || '';
+  var source = 'op';
 
   var filtered = _socData.filter(function(d) {
     if (site   && d.site !== site) return false;
@@ -15634,7 +15684,17 @@ function socRender() {
         }),
         datasets: [
           {
-            label: 'Operativo',
+            label: 'SOC Inicial Op.',
+            data: filtered.map(function(d){ return d.type==='op' && d.socIni != null ? d.socIni : null; }),
+            borderColor: '#7c3aed',
+            backgroundColor: 'rgba(124,58,237,.08)',
+            pointBackgroundColor: '#7c3aed',
+            pointRadius: 5, pointHoverRadius: 7,
+            borderWidth: 2, tension: 0.35, fill: false, spanGaps: false,
+            borderDash: [5,3]
+          },
+          {
+            label: 'SOC Final Op.',
             data: filtered.map(function(d){ return d.type==='op' ? d.soc : null; }),
             borderColor: '#1a3fcc',
             backgroundColor: 'rgba(26,63,204,.1)',
@@ -15643,7 +15703,17 @@ function socRender() {
             borderWidth: 2, tension: 0.35, fill: true, spanGaps: false
           },
           {
-            label: 'Validación',
+            label: 'SOC Inicial Val.',
+            data: filtered.map(function(d){ return d.type==='val' && d.socIni != null ? d.socIni : null; }),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,.08)',
+            pointBackgroundColor: '#f59e0b',
+            pointRadius: 5, pointHoverRadius: 7,
+            borderWidth: 2, tension: 0.35, fill: false, spanGaps: false,
+            borderDash: [5,3]
+          },
+          {
+            label: 'SOC Final Val.',
             data: filtered.map(function(d){ return d.type==='val' ? d.soc : null; }),
             borderColor: '#059669',
             backgroundColor: 'rgba(5,150,105,.1)',
@@ -15666,7 +15736,7 @@ function socRender() {
               label: function(ctx) {
                 if (ctx.parsed.y === null) return null;
                 var d = filtered[ctx.dataIndex];
-                return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + '% · ' + (d.site||'') + (d.period ? ' · ' + d.period : '') + (d.op ? ' · ' + d.op : '');
+                return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + '%' + (d.site ? ' · ' + d.site : '') + (d.period ? ' · ' + d.period : '') + (d.op ? ' · ' + d.op : '');
               }
             }
           }
@@ -15701,6 +15771,7 @@ function socRender() {
     try { var dt=new Date(d.date); dateStr=dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){ dateStr=d.date||d.monthKey||'—'; }
     return '<tr style="border-bottom:1px solid var(--s3)">'+
       '<td style="padding:8px 12px;font-weight:600;color:var(--text)">'+esc(d.site)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:13px;font-weight:800;color:'+(d.socIni!=null?(d.socIni>=80?'#22c55e':d.socIni>=50?'#f59e0b':'#ef4444'):'#6685ac')+'">'+(d.socIni!=null?d.socIni+'%':'—')+'</td>'+
       '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:13px;font-weight:800;color:'+socColor+'">'+d.soc+'%</td>'+
       '<td style="padding:8px 12px;text-align:center">'+typeBadge+'</td>'+
       '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t2)">'+esc(d.period||'—')+'</td>'+
@@ -15713,7 +15784,7 @@ function socRender() {
 function socExportCSV() {
   var site   = (document.getElementById('soc-site-sel')||{}).value || '';
   var month  = (document.getElementById('soc-month-sel')||{}).value || '';
-  var source = (document.getElementById('soc-source-sel')||{}).value || '';
+  var source = 'op';
   var data = _socData.filter(function(d) {
     if (site   && d.site !== site) return false;
     if (month  && d.monthKey !== month) return false;
@@ -15721,9 +15792,9 @@ function socExportCSV() {
     return true;
   }).sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
 
-  var rows = [['Sitio','SOC %','Tipo','Período','Operador','Fecha','Mes']];
+  var rows = [['Sitio','SOC INICIAL %','SOC FINAL %','Tipo','Período','Operador','Fecha','Mes']];
   data.forEach(function(d){
-    rows.push([d.site, d.soc, d.type==='op'?'Operativo':'Validación', d.period, d.op, d.date, d.monthKey]);
+    rows.push([d.site, d.socIni!=null?d.socIni:'—', d.soc, d.type==='op'?'Operativo':'Validación', d.period, d.op, d.date, d.monthKey]);
   });
   var csv = rows.map(function(r){ return r.map(function(c){ return '"'+(c||'').toString().replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
