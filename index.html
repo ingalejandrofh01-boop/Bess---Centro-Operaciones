@@ -1624,8 +1624,8 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 /* ═══ PAGES ═══ */
 .page{display:none;flex:1;overflow:hidden;min-height:0}
 .page.active{display:flex;flex-direction:column;height:100%}
-#page-historico.active{display:flex;flex-direction:column;overflow-y:auto;height:100%;}
-#page-historico #hist-root{flex:1;min-height:0;}
+#page-historico.active{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+#page-historico #hist-root{flex:1;overflow-y:auto;min-height:0;height:0;}
 .page-scroll{flex:1;overflow-y:auto}
 
 /* ═══ BITACORA PAGE ═══ */
@@ -6972,7 +6972,7 @@ async function expDoZip(mode){
      HISTÓRICO DE DESCARGAS — Skysense Energy · BESS Operations
      Vista empresarial con dashboard analítico + visor filtrable
 ═══════════════════════════════════════════════════════════════ -->
-<div class="page" id="page-historico" style="overflow-y:auto">
+<div class="page" id="page-historico">
 <div id="hist-root" style="max-width:1440px;margin:0 auto;padding:24px 28px 48px;width:100%;box-sizing:border-box;">
 
   <!-- ── TOP BAR ─────────────────────────────────────── -->
@@ -17568,7 +17568,6 @@ else _boot();
 
 })();
 </script>
-<
 <script>
 /* ── Pantalla de mantenimiento — listener Firebase ── */
 /* Estructura: sistema/mantenimiento { activo, titulo, mensaje, eta, allowContinue } */
