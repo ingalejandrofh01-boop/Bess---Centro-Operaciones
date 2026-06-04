@@ -1624,8 +1624,8 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 /* ═══ PAGES ═══ */
 .page{display:none;flex:1;overflow:hidden;min-height:0}
 .page.active{display:flex;flex-direction:column;height:100%}
-#page-historico.active{display:flex;flex-direction:column;height:100%;overflow:hidden;}
-#page-historico #hist-root{flex:1;overflow-y:auto;min-height:0;height:0;}
+#page-historico.active{display:flex;flex-direction:column;overflow-y:auto;height:100%;}
+#page-historico #hist-root{flex:1;min-height:0;}
 .page-scroll{flex:1;overflow-y:auto}
 
 /* ═══ BITACORA PAGE ═══ */
@@ -3097,7 +3097,6 @@ main{grid-row:2}
   box-shadow:0 0 0 0 rgba(74,120,245,.5);
   animation:cib-pulse 2s ease infinite;
 }
-@keyframes spin{to{transform:rotate(360deg);}}
 @keyframes cib-pulse{
   0%{box-shadow:0 0 0 0 rgba(74,120,245,.5);}
   70%{box-shadow:0 0 0 8px rgba(74,120,245,0);}
@@ -6972,7 +6971,7 @@ async function expDoZip(mode){
      HISTÓRICO DE DESCARGAS — Skysense Energy · BESS Operations
      Vista empresarial con dashboard analítico + visor filtrable
 ═══════════════════════════════════════════════════════════════ -->
-<div class="page" id="page-historico">
+<div class="page" id="page-historico" style="overflow-y:auto">
 <div id="hist-root" style="max-width:1440px;margin:0 auto;padding:24px 28px 48px;width:100%;box-sizing:border-box;">
 
   <!-- ── TOP BAR ─────────────────────────────────────── -->
@@ -17568,6 +17567,7 @@ else _boot();
 
 })();
 </script>
+<
 <script>
 /* ── Pantalla de mantenimiento — listener Firebase ── */
 /* Estructura: sistema/mantenimiento { activo, titulo, mensaje, eta, allowContinue } */
@@ -17648,39 +17648,14 @@ window.histInit = function(){
 /* ══ FIREBASE LOAD ════════════════════════════════════ */
 function histLoad(){
   H.loading = true;
-  _histShowLoading();
   if(!window._fbDB || !window._fbFS){
     setTimeout(histLoad, 800); return;
   }
   var col = window._fbFS.collection(window._fbDB,'historico_descargas');
   var q = window._fbFS.query(col, window._fbFS.orderBy('f','desc'));
 
-  /* Fallback: si onSnapshot no responde en 5s (ej. file://) usar getDocs */
-  var _snapshotFired = false;
-  var _fallbackTimer = setTimeout(function(){
-    if(!_snapshotFired){
-      console.warn('[Hist] onSnapshot sin respuesta — usando getDocs como fallback');
-      if(H.unsubscribe){ try{ H.unsubscribe(); }catch(e){} }
-      window._fbFS.getDocs(q).then(function(snap){
-        _snapshotFired = true;
-        H.all = snap.docs.map(function(d){ return d.data(); });
-        H.loaded = true; H.loading = false;
-        histPopulateSiteFilter();
-        histPopulateMonthFilter();
-        histApplyFilters();
-        console.log('[Hist] '+H.all.length+' registros cargados via getDocs');
-      }).catch(function(err){
-        H.loading = false;
-        console.warn('[Hist] getDocs error:', err);
-        _histShowEmpty('Error al conectar con Firestore. Verifica que la app esté desplegada en un servidor (no file://).');
-      });
-    }
-  }, 5000);
-
   if(H.unsubscribe) H.unsubscribe();
   H.unsubscribe = window._fbOnSnapshot(q, function(snap){
-    _snapshotFired = true;
-    clearTimeout(_fallbackTimer);
     H.all = snap.docs.map(function(d){ return d.data(); });
     H.loaded = true; H.loading = false;
     histPopulateSiteFilter();
@@ -17691,8 +17666,6 @@ function histLoad(){
     if(badge) badge.style.display='flex';
     console.log('[Hist] '+H.all.length+' registros cargados desde Firestore');
   }, function(err){
-    _snapshotFired = true;
-    clearTimeout(_fallbackTimer);
     H.loading = false;
     console.warn('[Hist] Firestore error:', err);
     _histShowEmpty('Error al conectar con Firestore. Verifica permisos.');
@@ -18049,16 +18022,6 @@ function _histShowEmpty(msg){
     +'<div style="font-family:var(--mono);font-size:11px;color:var(--t3)">'+msg+'</div>'
     +'</div></td></tr>';
 }
-
-function _histShowLoading(){
-  var tbody=document.getElementById('hist-tbody');
-  if(tbody) tbody.innerHTML='<tr><td colspan="8" class="hist-empty-cell">'
-    +'<div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:60px 20px">'
-    +'<div style="width:32px;height:32px;border:3px solid var(--b2);border-top-color:var(--sky);border-radius:50%;animation:spin 0.8s linear infinite"></div>'
-    +'<div style="font-family:var(--mono);font-size:11px;color:var(--t3)">Cargando registros desde Firestore…</div>'
-    +'</div></td></tr>';
-}
-
 
 window.histGoPage = function(p){
   H.page=p; histRenderTable();
