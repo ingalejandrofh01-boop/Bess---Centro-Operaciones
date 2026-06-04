@@ -1624,8 +1624,8 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 /* ═══ PAGES ═══ */
 .page{display:none;flex:1;overflow:hidden;min-height:0}
 .page.active{display:flex;flex-direction:column;height:100%}
-#page-historico.active{display:flex;flex-direction:column;overflow-y:auto;height:100%;}
-#page-historico #hist-root{flex:1;min-height:0;}
+#page-historico.active{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+#page-historico #hist-root{flex:1;overflow-y:auto;min-height:0;height:0;}
 .page-scroll{flex:1;overflow-y:auto}
 
 /* ═══ BITACORA PAGE ═══ */
@@ -3097,6 +3097,7 @@ main{grid-row:2}
   box-shadow:0 0 0 0 rgba(74,120,245,.5);
   animation:cib-pulse 2s ease infinite;
 }
+@keyframes spin{to{transform:rotate(360deg);}}
 @keyframes cib-pulse{
   0%{box-shadow:0 0 0 0 rgba(74,120,245,.5);}
   70%{box-shadow:0 0 0 8px rgba(74,120,245,0);}
@@ -6971,7 +6972,20 @@ async function expDoZip(mode){
      HISTÓRICO DE DESCARGAS — Skysense Energy · BESS Operations
      Vista empresarial con dashboard analítico + visor filtrable
 ═══════════════════════════════════════════════════════════════ -->
-<div class="page" id="page-historico" style="overflow-y:auto">
+<div class="page" id="page-historico">
+<!-- ══ BARRA FIJA DE IMPORTACIÓN — siempre visible ══ -->
+<div id="hist-fixed-bar" style="position:sticky;top:0;z-index:900;background:var(--s1,#0d1f6e);border-bottom:1px solid rgba(74,120,245,.25);padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <span style="font-family:var(--mono,'monospace');font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.5);text-transform:uppercase;">Histórico de Descargas</span>
+  <div style="flex:1"></div>
+  <button onclick="histExportCSV()"
+    style="padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);font-family:var(--mono,'monospace');font-size:10px;cursor:pointer;font-weight:600;">
+    ↓ Exportar CSV
+  </button>
+  <button onclick="histShowImport()"
+    style="padding:7px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#4a78f5,#3a5fd9);color:#fff;font-family:var(--mono,'monospace');font-size:11px;cursor:pointer;font-weight:700;box-shadow:0 2px 12px rgba(74,120,245,.4);">
+    ↑ Importar CSV
+  </button>
+</div>
 <div id="hist-root" style="max-width:1440px;margin:0 auto;padding:24px 28px 48px;width:100%;box-sizing:border-box;">
 
   <!-- ── TOP BAR ─────────────────────────────────────── -->
@@ -6984,9 +6998,9 @@ async function expDoZip(mode){
         📈 Histórico de Descargas
       </h1>
       <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">
-        <span id="hist-meta-rng">Sep 2024 – Jun 2026</span>&ensp;·&ensp;
-        <span id="hist-meta-sites">73 sitios</span>&ensp;·&ensp;
-        <span id="hist-meta-clients">ASUR · OMA · Industria</span>
+        <span id="hist-meta-rng">Sin datos</span>&ensp;·&ensp;
+        <span id="hist-meta-sites">0 sitios</span>&ensp;·&ensp;
+        <span id="hist-meta-clients">—</span>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -7016,33 +7030,33 @@ async function expDoZip(mode){
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px">
     <div class="hist-kpi-card" id="hist-kpi-total">
       <div class="hist-kpi-ico">📊</div>
-      <div class="hist-kpi-val" style="color:var(--sky)">23,960</div>
+      <div class="hist-kpi-val" style="color:var(--sky)">—</div>
       <div class="hist-kpi-lbl">Registros totales</div>
-      <div class="hist-kpi-sub">22 meses cubiertos</div>
+      <div class="hist-kpi-sub">Importa tu CSV</div>
     </div>
     <div class="hist-kpi-card" id="hist-kpi-ok">
       <div class="hist-kpi-ico">✅</div>
-      <div class="hist-kpi-val" style="color:var(--green)">81.0%</div>
+      <div class="hist-kpi-val" style="color:var(--green)">—</div>
       <div class="hist-kpi-lbl">Tasa OK global</div>
-      <div class="hist-kpi-sub">19,420 registros OK</div>
+      <div class="hist-kpi-sub">Sin datos</div>
     </div>
     <div class="hist-kpi-card" id="hist-kpi-noop">
       <div class="hist-kpi-ico">🔴</div>
-      <div class="hist-kpi-val" style="color:var(--red)">10.3%</div>
+      <div class="hist-kpi-val" style="color:var(--red)">—</div>
       <div class="hist-kpi-lbl">No operativo</div>
-      <div class="hist-kpi-sub">2,465 registros</div>
+      <div class="hist-kpi-sub">Sin datos</div>
     </div>
     <div class="hist-kpi-card" id="hist-kpi-desc">
       <div class="hist-kpi-ico">📡</div>
-      <div class="hist-kpi-val" style="color:var(--t3)">6.0%</div>
+      <div class="hist-kpi-val" style="color:var(--t3)">—</div>
       <div class="hist-kpi-lbl">Sin comunicación</div>
-      <div class="hist-kpi-sub">1,441 registros</div>
+      <div class="hist-kpi-sub">Sin datos</div>
     </div>
     <div class="hist-kpi-card" id="hist-kpi-sites">
       <div class="hist-kpi-ico">🏭</div>
-      <div class="hist-kpi-val" style="color:var(--sky-ll)">73</div>
+      <div class="hist-kpi-val" style="color:var(--sky-ll)">—</div>
       <div class="hist-kpi-lbl">Sitios monitoreados</div>
-      <div class="hist-kpi-sub">ASUR · OMA · Industria</div>
+      <div class="hist-kpi-sub">Sin datos</div>
     </div>
   </div>
 
@@ -7191,12 +7205,19 @@ async function expDoZip(mode){
         </thead>
         <tbody id="hist-tbody">
           <tr><td colspan="8" class="hist-empty-cell">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px">
-              <div style="font-size:40px;opacity:.3">📊</div>
-              <div style="font-family:var(--mono);font-size:11px;color:var(--t3)">Cargando registros históricos...</div>
-              <div id="hist-load-bar" style="width:200px;height:3px;background:var(--s3);border-radius:2px;overflow:hidden">
-                <div style="height:100%;background:var(--sky);border-radius:2px;animation:hist-bar-anim 1.5s ease-in-out infinite"></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:72px 20px">
+              <div style="font-size:48px;opacity:.35">📂</div>
+              <div style="font-family:var(--disp);font-size:16px;font-weight:800;color:var(--text)">Sin datos históricos</div>
+              <div style="font-family:var(--mono);font-size:11px;color:var(--t3);text-align:center;max-width:360px;line-height:1.7">
+                Importa tu archivo CSV para visualizar el histórico completo con dashboard, filtros y análisis.
               </div>
+              <button onclick="histShowImport()"
+                style="display:flex;align-items:center;gap:8px;padding:12px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--sky),#3a5fd9);color:#fff;font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;box-shadow:0 4px 20px rgba(74,120,245,.35);transition:all .2s"
+                onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 28px rgba(74,120,245,.45)'"
+                onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(74,120,245,.35)'">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Importar CSV ahora
+              </button>
             </div>
           </td></tr>
         </tbody>
@@ -7215,9 +7236,9 @@ async function expDoZip(mode){
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:28px 32px;max-width:520px;width:100%;box-shadow:0 24px 80px rgba(10,31,94,.25)">
       <div style="font-family:var(--disp);font-size:18px;font-weight:900;color:var(--text);margin-bottom:6px">Importar Histórico CSV</div>
       <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-bottom:20px;line-height:1.7">
-        Sube el archivo CSV con el histórico de descargas.<br>
-        Los registros se subirán a Firestore en lotes.<br>
-        <strong style="color:var(--orange)">⚠️ Solo necesario la primera vez.</strong>
+        Sube tu CSV con el histórico de descargas.<br>
+        Los datos se visualizan <strong style="color:var(--sky)">inmediatamente</strong> en el dashboard.<br>
+        Si Firestore está disponible, también se subirán en segundo plano para persistencia.
       </div>
       <div id="hist-import-dropzone"
         style="border:2px dashed var(--b2);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px"
@@ -7238,7 +7259,14 @@ async function expDoZip(mode){
           <div id="hist-import-bar" style="height:100%;background:linear-gradient(90deg,var(--sky),var(--green));border-radius:3px;transition:width .3s;width:0%"></div>
         </div>
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="histClearFirestore()"
+          style="padding:9px 18px;border-radius:9px;border:1px solid rgba(220,38,38,.3);background:transparent;font-family:var(--mono);font-size:10px;cursor:pointer;color:var(--red);transition:all .15s"
+          title="Elimina todos los registros históricos de Firestore"
+          onmouseover="this.style.background='rgba(220,38,38,.08)'"
+          onmouseout="this.style.background='transparent'">
+          🗑 Limpiar Firestore
+        </button>
         <button onclick="histHideImport()"
           style="padding:9px 20px;border-radius:9px;border:1px solid var(--b2);background:transparent;font-family:var(--mono);font-size:11px;cursor:pointer;color:var(--t2)">
           Cancelar
@@ -15215,10 +15243,13 @@ window.rvShowDet = function(id){
             '<div id="rv-det-sub" style="font-family:var(--mono);font-size:10px;color:#6685ac;margin-top:3px"></div>'+
           '</div>'+
           '<div style="display:flex;gap:8px;">'+
+            '<button id="rv-det-png-btn" onclick="rvDetExportPNG(this)" style="padding:5px 14px;border-radius:7px;border:1.5px solid rgba(139,92,246,.4);background:rgba(139,92,246,.08);font-family:var(--mono);font-size:11px;cursor:pointer;color:#7c3aed;font-weight:600;">\uD83D\uDCF7 Exportar PNG</button>'+
             '<button onclick="rvCloseModal()" style="padding:5px 14px;border-radius:7px;border:1.5px solid var(--b1);background:transparent;font-family:var(--mono);font-size:11px;cursor:pointer;color:var(--t2);">✕ Cerrar</button>'+
           '</div>'+
         '</div>'+
-        '<div id="rv-det-body" style="padding:20px 24px 26px;overflow-x:auto;"></div>'+
+        '<div id="rv-det-content" style="background:#fff;border-radius:0 0 14px 14px;">'+
+          '<div id="rv-det-body" style="padding:20px 24px 26px;overflow-x:auto;"></div>'+
+        '</div>'+
       '</div>';
     modal.addEventListener('click',function(e){if(e.target===modal)rvCloseModal();});
     document.body.appendChild(modal);
@@ -15244,6 +15275,38 @@ window.rvShowDet = function(id){
 };
 
 function rvCloseModal(){var m=document.getElementById('rv-det-modal');if(m)m.style.display='none';}
+
+/* PNG export from calendar validation detail modal */
+function rvDetExportPNG(btn){
+  var modal=document.getElementById('rv-det-modal');
+  /* Capturar el card completo (primer hijo del modal) */
+  var card=modal?modal.querySelector('div'):null;
+  if(!card){alert('No hay contenido para exportar.');return;}
+  if(typeof html2canvas==='undefined'){alert('html2canvas no disponible.');return;}
+  var hdr=document.getElementById('rv-det-hdr');
+  var label=(hdr?hdr.textContent:'Reporte').replace(/[^a-zA-Z0-9À-ÿ\s]/g,'').trim().replace(/\s+/g,'_');
+  var now=new Date();
+  var dateStr=now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate();
+  if(btn){btn.textContent='Exportando...';btn.disabled=true;}
+  html2canvas(card,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,
+    onclone:function(doc){
+      /* Ocultar botones de accion en el clone */
+      doc.querySelectorAll('#rv-det-png-btn,#rv-det-modal button').forEach(function(b){b.style.display='none';});
+      /* Asegurar bordes de tabla visibles */
+      doc.querySelectorAll('.rv-tbl td,.rv-tbl th').forEach(function(c){c.style.borderColor='#dee5f0';});
+    }
+  }).then(function(canvas){
+    var link=document.createElement('a');
+    link.download='Reporte_Val_'+label+'_'+dateStr+'.png';
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+    if(btn){btn.textContent='\uD83D\uDCF7 Exportar PNG';btn.disabled=false;}
+  }).catch(function(e){
+    console.error('rvDetExportPNG:',e);
+    if(btn){btn.textContent='\uD83D\uDCF7 Exportar PNG';btn.disabled=false;}
+    alert('Error al exportar PNG.');
+  });
+}
 
 /* PNG export from summary preview */
 function rvExportPNG(){
@@ -16419,8 +16482,9 @@ function opSave() {
   /* Desactivar botones para evitar doble guardado */
   ['op-save-btn','op-save-btn2'].forEach(function(id) {
     var b = document.getElementById(id);
-    if (b) { b.disabled = true; b.textContent = 'Guardando…'; b.style.opacity = '0.6'; }
+    if (b) { b.disabled = true; b.textContent = 'Guardando…'; b.style.opacity = '0.6'; b.style.display = ''; }
   });
+  try {
   var who = opW.op || localStorage.getItem('bess_uname') || 'Operador';
   var fecha = new Date(opW.date || Date.now())
     .toLocaleDateString('es-MX', {day:'2-digit', month:'short', year:'numeric'});
@@ -16484,6 +16548,15 @@ function opSave() {
     n.classList.toggle('active', n.dataset.page === 'calval');
   });
   setTimeout(function() { opLoad(); rvLoad(); if (typeof ucalRender === 'function') ucalRender(); }, 80);
+  } catch(e) {
+    console.error('[Op] opSave error:', e);
+    /* Restaurar botones para que el usuario pueda reintentar */
+    ['op-save-btn','op-save-btn2'].forEach(function(id) {
+      var b = document.getElementById(id);
+      if (b) { b.disabled = false; b.textContent = id==='op-save-btn2' ? '\u2713 Guardar Reporte Operativo' : '\u2713 Guardar Reporte'; b.style.opacity = ''; }
+    });
+    safeToast('\u26A0\uFE0F Error al guardar — intenta de nuevo');
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -16539,6 +16612,7 @@ var COLLAB = {
   _participants:[], _assignments:{}, // {userId: {from, to, name, color}}
   _fragments:{},   // {userId: {srs:[...]}}
   _myFrom:0, _myTo:0,
+  _mergeFired:false, // FIX: global flag para prevenir doble merge entre async handlers
 };
 window.COLLAB = COLLAB;
 
@@ -16568,6 +16642,7 @@ function waitFB(cb){
 window.collabStartSession = function(reportType, reportLabel, totalSites){
   var sid='cs_'+Date.now()+'_'+myId().slice(0,6);
   COLLAB.sessionId=sid; COLLAB.reportType=reportType; COLLAB.isHost=true; COLLAB._sessionLabel=reportLabel||'';
+  COLLAB._mergeFired=false; // reset para esta nueva sesion
   COLLAB._participants=[{id:myId(),name:myName(),color:myColor(),role:myRole()}];
   COLLAB._myFrom=0; COLLAB._myTo=totalSites-1;
   _collabUpdateBar(reportType);
@@ -16677,12 +16752,23 @@ function _collabApplyMyAssignment(){
 }
 
 /* Pintar asignaciones en el sidebar */
-function _collabPaintAssignments(){
+window._collabPaintAssignments = function _collabPaintAssignments(){
   var reportType=COLLAB.reportType;
   var listId=reportType==='val'?'rv-site-list':'op-site-list';
   var itemCls=reportType==='val'?'.rv-sitem':'.op-sitem';
+  var jumpFn=reportType==='val'?'rvJump':'opJump';
   var list=document.getElementById(listId); if(!list) return;
   var items=list.querySelectorAll(itemCls);
+
+  /* FIX Bug A: construir mapa { indiceReal → elemento DOM }
+     El sidebar puede estar en orden A-Z, así que no podemos usar items[i] por posición.
+     Leemos el índice real desde el onclick: rvJump(N) o opJump(N). */
+  var idxToEl={};
+  var reJump=new RegExp(jumpFn+'\\s*\\(\\s*(\\d+)\\s*\\)');
+  items.forEach(function(el){
+    var m=(el.getAttribute('onclick')||'').match(reJump);
+    if(m) idxToEl[parseInt(m[1],10)]=el;
+  });
 
   /* Limpiar decoraciones anteriores */
   list.querySelectorAll('.csb-assign-tag').forEach(function(t){t.remove();});
@@ -16698,8 +16784,7 @@ function _collabPaintAssignments(){
     var firstName=(a.name||'?').trim().split(' ')[0];
 
     for(var i=a.from; i<=a.to; i++){
-      if(!items[i]) continue;
-      var item=items[i];
+      var item=idxToEl[i]; if(!item) continue;
       /* Borde izquierdo de color */
       item.style.borderLeft='3px solid '+a.color;
       if(isMe) item.style.background='rgba('+_hexToRgb(a.color)+',.07)';
@@ -16707,9 +16792,8 @@ function _collabPaintAssignments(){
       if(i===a.to) item.style.borderBottom='1px solid rgba('+_hexToRgb(a.color)+',.25)';
     }
 
-    /* Pill SOLO en el primer item del rango — dentro de un wrapper */
-    if(!items[a.from]) return;
-    var firstItem=items[a.from];
+    /* Pill SOLO en el primer item del rango */
+    var firstItem=idxToEl[a.from]; if(!firstItem) return;
     var pill=document.createElement('div');
     pill.className='csb-assign-tag';
     pill.style.cssText=
@@ -16813,17 +16897,24 @@ window.collabSaveMyFragment = function(reportType){
   var localSrs=reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
   if(!localSrs) return false;
 
+  /* FIX Bug 1: Si no hay asignacion todavia (race condition), no guardar con rango equivocado */
+  if(!myAssign){
+    console.warn('[Collab] saveFragment: myAssign aun no cargado, reintentando...');
+    setTimeout(function(){ window.collabSaveMyFragment(reportType); }, 600);
+    return true; /* interceptado — no usar guardado normal */
+  }
+
   /* Guardar fragmento completo de sitios */
   var fragmentSrs = localSrs.map(function(s,i){
-    if(!myAssign||i<myAssign.from||i>myAssign.to) return null; // fuera de mi rango
+    if(i<myAssign.from||i>myAssign.to) return null; // fuera de mi rango
     return s;
   });
 
   var fragment = {
     userId:myId(), userName:myName(), userColor:myColor(),
     reportType:reportType,
-    from: myAssign?myAssign.from:0,
-    to:   myAssign?myAssign.to:(localSrs.length-1),
+    from: myAssign.from,
+    to:   myAssign.to,
     srs:  fragmentSrs,
     done: true,
     savedAt: Date.now()
@@ -16849,7 +16940,9 @@ window.collabSaveMyFragment = function(reportType){
 window.collabMergeAndFinalize = function(){
   if(!COLLAB.isHost) return;
   var reportType=COLLAB.reportType;
-  var frags=COLLAB._fragments;
+  /* FIX Bug 3: capturar fragmentos y datos de sesion ANTES de cerrarla */
+  var frags=JSON.parse(JSON.stringify(COLLAB._fragments));
+  var sessionLabel=COLLAB._sessionLabel||'';
   var fragCount=Object.keys(frags).length;
   console.log('[Collab] Merge de',fragCount,'fragmentos, reportType:',reportType);
 
@@ -16897,7 +16990,7 @@ window.collabMergeAndFinalize = function(){
 
   /* Inyectar merged en el wizard del host (lo abre si estaba cerrado) */
   if(reportType==='val'){
-    var rvType=window.rvW?window.rvW.type:(COLLAB._sessionLabel||'matutino');
+    var rvType=window.rvW?window.rvW.type:(sessionLabel||'matutino');
     var rvDate=window.rvW?window.rvW.date:new Date().toISOString();
     if(!window.rvW){
       window.rvW={type:rvType,date:rvDate,op:localStorage.getItem('bess_uname')||'Operador',step:'sites',idx:0,srs:merged};
@@ -16905,7 +16998,7 @@ window.collabMergeAndFinalize = function(){
       window.rvW.srs=merged;
     }
   } else {
-    var opPeriod=window.opW?window.opW.period:(COLLAB._sessionLabel||'Hora Punta Vespertina');
+    var opPeriod=window.opW?window.opW.period:(sessionLabel||'Hora Punta Vespertina');
     var opDate=window.opW?window.opW.date:new Date().toISOString();
     if(!window.opW){
       window.opW={period:opPeriod,date:opDate,op:localStorage.getItem('bess_uname')||'Operador',step:'sites',idx:0,srs:merged};
@@ -16924,8 +17017,18 @@ window.collabMergeAndFinalize = function(){
 
   /* Guardar el reporte unificado */
   setTimeout(function(){
-    if(reportType==='val'&&window.rvSave) rvSave();
-    else if(reportType==='op'&&window.opSave) opSave();
+    if(reportType==='val'&&window.rvSave){
+      rvSave();
+    } else if(reportType==='op'){
+      /* FIX Op Merge: restaurar botones que pudieron quedar disabled del fragmento,
+         construir el resumen con datos merged y luego guardar */
+      ['op-save-btn','op-save-btn2'].forEach(function(id){
+        var b=document.getElementById(id);
+        if(b){ b.disabled=false; b.textContent=(id==='op-save-btn2'?'\u2713 Guardar Reporte Operativo':'\u2713 Guardar Reporte'); b.style.opacity=''; }
+      });
+      if(window.opBuildSum) opBuildSum();
+      if(window.opSave) opSave();
+    }
   }, 400);
 };
 
@@ -16935,6 +17038,28 @@ window.collabMergeAndFinalize = function(){
 function _collabListenFragments(sid, reportType){
   if(COLLAB._unsubFragments){COLLAB._unsubFragments();COLLAB._unsubFragments=null;}
   if(!window._fb||!window._fb.listenFragments) return;
+
+  /* Resetear flag de merge para esta sesion */
+  COLLAB._mergeFired=false;
+
+  /* FIX Race Condition: funcion auxiliar para evaluar merge, puede ser llamada
+     desde el listener de fragmentos Y desde el listener de sesion (cuando assignments llegan tarde) */
+  function _checkAllDoneAndMerge(){
+    var total=Object.keys(COLLAB._assignments).length;
+    var done=Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
+    console.log('[Collab] checkAllDone:',done,'/',total,'(mergeFired:'+COLLAB._mergeFired+')');
+    if(total>0&&done>=total&&!COLLAB._mergeFired){
+      COLLAB._mergeFired=true;
+      if(COLLAB.isHost){
+        safeToast('\uD83C\uDF89 Todos listos — haciendo Merge...');
+        setTimeout(collabMergeAndFinalize, 800);
+      } else {
+        safeToast('\u2705 Todos listos — el host est\u00e1 haciendo el Merge');
+      }
+    }
+  }
+  /* Exponer para que _collabListenSession pueda reactivar el check cuando assignments llegan */
+  COLLAB._checkAllDoneAndMerge = _checkAllDoneAndMerge;
 
   COLLAB._unsubFragments=window._fb.listenFragments(sid,function(frags){
     COLLAB._fragments={};
@@ -16948,15 +17073,8 @@ function _collabListenFragments(sid, reportType){
     _collabRenderDivisionPanel();
     _collabUpdateBar(reportType);
 
-    /* Auto-merge cuando todos terminaron */
-    if(total>0&&done>=total){
-      if(COLLAB.isHost){
-        safeToast('\uD83C\uDF89 Todos listos — haciendo Merge...');
-        setTimeout(collabMergeAndFinalize, 800);
-      } else {
-        safeToast('\u2705 Todos listos — el host est\u00e1 haciendo el Merge');
-      }
-    }
+    /* Auto-merge cuando todos terminaron — solo una vez */
+    _checkAllDoneAndMerge();
   });
 }
 
@@ -16968,9 +17086,11 @@ window.collabEndSession = function(){
   var sid=COLLAB.sessionId;
   COLLAB.sessionId=null; COLLAB.isHost=false;
   COLLAB._participants=[]; COLLAB._assignments={}; COLLAB._fragments={};
+  COLLAB._mergeFired=false; // reset para proxima sesion
   if(COLLAB._unsubInvite){COLLAB._unsubInvite();COLLAB._unsubInvite=null;}
   if(COLLAB._unsubSession){COLLAB._unsubSession();COLLAB._unsubSession=null;}
   if(COLLAB._unsubFragments){COLLAB._unsubFragments();COLLAB._unsubFragments=null;}
+  COLLAB._checkAllDoneAndMerge=null; // limpiar referencia del closure anterior
   _collabHideBar('val'); _collabHideBar('op');
   if(window._fb&&window._fb.collabClose) window._fb.collabClose(sid).catch(function(){});
 };
@@ -16984,6 +17104,7 @@ window.collabJoinSession = function(){
   if(!sid||!window._fb) return;
   _collabHideBanner();
   COLLAB.sessionId=sid; COLLAB.reportType=rType; COLLAB.isHost=false;
+  COLLAB._mergeFired=false; // reset para esta sesion
 
   var me={id:myId(),name:myName(),color:myColor(),role:myRole(),joinedAt:Date.now()};
   window._fb.collabJoin(sid,me).catch(function(){});
@@ -17101,6 +17222,11 @@ function _collabListenSession(sid, reportType){
       }
       _collabPaintAssignments();
       _collabRenderDivisionPanel();
+      /* FIX Race Condition: Si los fragmentos ya llegaron antes que las assignments,
+         re-evaluar el merge ahora que ya tenemos el total correcto */
+      if(COLLAB.isHost&&COLLAB._checkAllDoneAndMerge){
+        setTimeout(COLLAB._checkAllDoneAndMerge, 200);
+      }
     } else {
       /* Sin asignaciones: al menos pintar quienes estan en sesion en el sidebar */
       _collabPaintParticipantsInSidebar(reportType);
@@ -17567,7 +17693,6 @@ else _boot();
 
 })();
 </script>
-<
 <script>
 /* ── Pantalla de mantenimiento — listener Firebase ── */
 /* Estructura: sistema/mantenimiento { activo, titulo, mensaje, eta, allowContinue } */
@@ -17623,8 +17748,74 @@ else _boot();
 (function(){
 'use strict';
 
-/* ── Datos pre-agregados (calculados del CSV original) ── */
-var AGG = {"monthly":[{"mes":"2024-09","ok":345,"no_op":25,"desc":69,"incomp":27,"total":466,"pct_ok":74.0,"pct_issues":26.0,"soc_avg":28.6},{"mes":"2024-10","ok":817,"no_op":52,"desc":64,"incomp":41,"total":974,"pct_ok":83.9,"pct_issues":16.1,"soc_avg":30.8},{"mes":"2024-11","ok":1052,"no_op":1,"desc":28,"incomp":3,"total":1084,"pct_ok":97.0,"pct_issues":3.0,"soc_avg":31.7},{"mes":"2024-12","ok":912,"no_op":136,"desc":44,"incomp":8,"total":1100,"pct_ok":82.9,"pct_issues":17.1,"soc_avg":37.6},{"mes":"2025-01","ok":1003,"no_op":38,"desc":101,"incomp":2,"total":1144,"pct_ok":87.7,"pct_issues":12.3,"soc_avg":39.5},{"mes":"2025-02","ok":1012,"no_op":0,"desc":0,"incomp":0,"total":1012,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":33.2},{"mes":"2025-03","ok":1100,"no_op":0,"desc":0,"incomp":0,"total":1100,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":29.8},{"mes":"2025-04","ok":1012,"no_op":0,"desc":0,"incomp":0,"total":1012,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":31.9},{"mes":"2025-05","ok":924,"no_op":0,"desc":0,"incomp":0,"total":924,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":31.8},{"mes":"2025-06","ok":1050,"no_op":0,"desc":0,"incomp":0,"total":1050,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":28.4},{"mes":"2025-07","ok":1150,"no_op":0,"desc":0,"incomp":0,"total":1150,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":31.8},{"mes":"2025-08","ok":1001,"no_op":24,"desc":21,"incomp":4,"total":1050,"pct_ok":95.3,"pct_issues":4.7,"soc_avg":32.3},{"mes":"2025-09","ok":778,"no_op":150,"desc":91,"incomp":31,"total":1050,"pct_ok":74.1,"pct_issues":25.9,"soc_avg":34.4},{"mes":"2025-10","ok":889,"no_op":189,"desc":55,"incomp":54,"total":1187,"pct_ok":74.9,"pct_issues":25.1,"soc_avg":34.6},{"mes":"2025-11","ok":921,"no_op":227,"desc":37,"incomp":3,"total":1188,"pct_ok":77.5,"pct_issues":22.5,"soc_avg":30.3},{"mes":"2025-12","ok":931,"no_op":323,"desc":99,"incomp":3,"total":1356,"pct_ok":68.7,"pct_issues":31.3,"soc_avg":32.5},{"mes":"2026-01","ok":976,"no_op":232,"desc":199,"incomp":3,"total":1410,"pct_ok":69.2,"pct_issues":30.8,"soc_avg":31.5},{"mes":"2026-02","ok":937,"no_op":224,"desc":203,"incomp":10,"total":1374,"pct_ok":68.2,"pct_issues":31.8,"soc_avg":31.6},{"mes":"2026-03","ok":952,"no_op":334,"desc":129,"incomp":25,"total":1440,"pct_ok":66.1,"pct_issues":33.9,"soc_avg":32.4},{"mes":"2026-04","ok":945,"no_op":268,"desc":199,"incomp":40,"total":1452,"pct_ok":65.1,"pct_issues":34.9,"soc_avg":35.6},{"mes":"2026-05","ok":898,"no_op":212,"desc":74,"incomp":62,"total":1246,"pct_ok":72.1,"pct_issues":27.9,"soc_avg":33.2},{"mes":"2026-06","ok":120,"no_op":30,"desc":28,"incomp":14,"total":192,"pct_ok":62.5,"pct_issues":37.5,"soc_avg":30.6}],"sites":[{"sitio":"Chihuahua 2G","cliente":"OMA","ciudad":"Chihuahua","total":477,"ok":238,"no_op":186,"desc":50,"incomp":3,"issues":239,"pct_ok":50,"soc_avg":52.4},{"sitio":"Sala Bravo B1","cliente":"ASUR","ciudad":"Cancún","total":475,"ok":247,"no_op":179,"desc":49,"incomp":0,"issues":228,"pct_ok":52,"soc_avg":69.9},{"sitio":"Culiacán","cliente":"OMA","ciudad":"Culiacán","total":477,"ok":259,"no_op":211,"desc":2,"incomp":5,"issues":218,"pct_ok":54,"soc_avg":48.7},{"sitio":"T3 B3","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":269,"no_op":186,"desc":5,"incomp":16,"issues":207,"pct_ok":57,"soc_avg":52.4},{"sitio":"T3 B2","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":283,"no_op":148,"desc":10,"incomp":35,"issues":193,"pct_ok":59,"soc_avg":41.5},{"sitio":"Monterrey B4","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":290,"no_op":77,"desc":109,"incomp":0,"issues":186,"pct_ok":61,"soc_avg":26.7},{"sitio":"T2 B2","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":306,"no_op":162,"desc":2,"incomp":6,"issues":170,"pct_ok":64,"soc_avg":38.0},{"sitio":"Monterrey B1","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":316,"no_op":35,"desc":122,"incomp":3,"issues":160,"pct_ok":66,"soc_avg":28.8},{"sitio":"Monterrey B2","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":319,"no_op":35,"desc":122,"incomp":0,"issues":157,"pct_ok":67,"soc_avg":24.8},{"sitio":"T3 B1","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":321,"no_op":144,"desc":8,"incomp":3,"issues":155,"pct_ok":67,"soc_avg":41.3},{"sitio":"CD Juárez","cliente":"OMA","ciudad":"CD Juárez","total":477,"ok":328,"no_op":59,"desc":89,"incomp":1,"issues":149,"pct_ok":69,"soc_avg":72.7},{"sitio":"Monterrey B3","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":328,"no_op":26,"desc":122,"incomp":0,"issues":148,"pct_ok":69,"soc_avg":28.9},{"sitio":"Sala Bravo B2","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":330,"no_op":91,"desc":53,"incomp":2,"issues":146,"pct_ok":69,"soc_avg":43.3},{"sitio":"Reynosa","cliente":"OMA","ciudad":"Reynosa","total":477,"ok":347,"no_op":83,"desc":47,"incomp":0,"issues":130,"pct_ok":73,"soc_avg":35.6},{"sitio":"Mérida B2","cliente":"ASUR","ciudad":"Mérida","total":476,"ok":348,"no_op":32,"desc":44,"incomp":52,"issues":128,"pct_ok":73,"soc_avg":55.8},{"sitio":"Acapulco","cliente":"OMA","ciudad":"Acapulco","total":477,"ok":356,"no_op":86,"desc":34,"incomp":1,"issues":121,"pct_ok":75,"soc_avg":30.7},{"sitio":"BHS","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":360,"no_op":111,"desc":5,"incomp":1,"issues":117,"pct_ok":75,"soc_avg":14.4},{"sitio":"Mérida B1","cliente":"ASUR","ciudad":"Mérida","total":476,"ok":371,"no_op":27,"desc":47,"incomp":31,"issues":105,"pct_ok":78,"soc_avg":45.5},{"sitio":"Hidro","cliente":"ASUR","ciudad":"Cancún","total":103,"ok":4,"no_op":97,"desc":2,"incomp":0,"issues":99,"pct_ok":4,"soc_avg":null},{"sitio":"T1","cliente":"ASUR","ciudad":"Cancún","total":103,"ok":5,"no_op":97,"desc":1,"incomp":0,"issues":98,"pct_ok":5,"soc_avg":null},{"sitio":"Telas Asturcón","cliente":"Industria","ciudad":"Puebla","total":421,"ok":344,"no_op":54,"desc":23,"incomp":0,"issues":77,"pct_ok":82,"soc_avg":29.8},{"sitio":"Minatitlán","cliente":"ASUR","ciudad":"Minatitlán","total":477,"ok":409,"no_op":3,"desc":63,"incomp":2,"issues":68,"pct_ok":86,"soc_avg":54.4},{"sitio":"Alysa","cliente":"Industria","ciudad":"Tizayuca","total":477,"ok":415,"no_op":24,"desc":22,"incomp":16,"issues":62,"pct_ok":87,"soc_avg":14.1},{"sitio":"Park Royal Sol","cliente":"Industria","ciudad":"Cancún","total":90,"ok":29,"no_op":61,"desc":0,"incomp":0,"issues":61,"pct_ok":32,"soc_avg":47.9},{"sitio":"Park Royal Luna","cliente":"Industria","ciudad":"Cancún","total":92,"ok":35,"no_op":55,"desc":0,"incomp":2,"issues":57,"pct_ok":38,"soc_avg":40.6},{"sitio":"PTAR","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":421,"no_op":2,"desc":53,"incomp":1,"issues":56,"pct_ok":88,"soc_avg":21.3},{"sitio":"HUX 02","cliente":"ASUR","ciudad":"Huatulco","total":477,"ok":425,"no_op":8,"desc":34,"incomp":10,"issues":52,"pct_ok":89,"soc_avg":31.0},{"sitio":"Durango","cliente":"OMA","ciudad":"Durango","total":477,"ok":428,"no_op":2,"desc":47,"incomp":0,"issues":49,"pct_ok":90,"soc_avg":67.9},{"sitio":"Veracruz","cliente":"ASUR","ciudad":"Veracruz","total":477,"ok":437,"no_op":5,"desc":3,"incomp":32,"issues":40,"pct_ok":92,"soc_avg":19.5},{"sitio":"IPASA 2","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":237,"no_op":14,"desc":23,"incomp":1,"issues":38,"pct_ok":86,"soc_avg":13.7},{"sitio":"FM boca del río","cliente":"Industria","ciudad":"Veracruz","total":218,"ok":181,"no_op":16,"desc":15,"incomp":6,"issues":37,"pct_ok":83,"soc_avg":65.7},{"sitio":"IPASA 3","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":239,"no_op":13,"desc":23,"incomp":0,"issues":36,"pct_ok":87,"soc_avg":13.6},{"sitio":"T2 B1","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":441,"no_op":3,"desc":3,"incomp":29,"issues":35,"pct_ok":93,"soc_avg":14.6},{"sitio":"IPASA 1","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":242,"no_op":9,"desc":23,"incomp":1,"issues":33,"pct_ok":88,"soc_avg":14.6},{"sitio":"IPASA 4","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":243,"no_op":9,"desc":23,"incomp":0,"issues":32,"pct_ok":88,"soc_avg":14.2},{"sitio":"FBO","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":447,"no_op":2,"desc":8,"incomp":20,"issues":30,"pct_ok":94,"soc_avg":16.2},{"sitio":"Zihuatanejo","cliente":"OMA","ciudad":"Zihuatanejo","total":477,"ok":450,"no_op":17,"desc":7,"incomp":3,"issues":27,"pct_ok":94,"soc_avg":60.5},{"sitio":"Chihuahua","cliente":"OMA","ciudad":"Chihuahua","total":477,"ok":452,"no_op":11,"desc":7,"incomp":7,"issues":25,"pct_ok":95,"soc_avg":25.1},{"sitio":"Almacén General","cliente":"ASUR","ciudad":"Cancún","total":478,"ok":454,"no_op":3,"desc":21,"incomp":0,"issues":24,"pct_ok":95,"soc_avg":40.0},{"sitio":"Vitrogenera","cliente":"Industria","ciudad":"CDMX","total":477,"ok":456,"no_op":15,"desc":5,"incomp":1,"issues":21,"pct_ok":96,"soc_avg":47.1},{"sitio":"FM MERIDA","cliente":"Industria","ciudad":"MERIDA","total":21,"ok":0,"no_op":0,"desc":21,"incomp":0,"issues":21,"pct_ok":0,"soc_avg":null},{"sitio":"Tejidos y texturizados","cliente":"Industria","ciudad":"Naucalpan","total":189,"ok":172,"no_op":4,"desc":3,"incomp":10,"issues":17,"pct_ok":91,"soc_avg":21.9},{"sitio":"Torreón","cliente":"OMA","ciudad":"Torreón","total":477,"ok":462,"no_op":2,"desc":9,"incomp":4,"issues":15,"pct_ok":97,"soc_avg":69.1},{"sitio":"RegioPet 1","cliente":"Industria","ciudad":"Monterrey","total":473,"ok":458,"no_op":8,"desc":5,"incomp":2,"issues":15,"pct_ok":97,"soc_avg":17.2},{"sitio":"Vesta","cliente":"Industria","ciudad":"Monterrey","total":163,"ok":148,"no_op":1,"desc":12,"incomp":2,"issues":15,"pct_ok":91,"soc_avg":25.0},{"sitio":"Zacatecas","cliente":"OMA","ciudad":"Zacatecas","total":477,"ok":464,"no_op":4,"desc":8,"incomp":1,"issues":13,"pct_ok":97,"soc_avg":35.9},{"sitio":"RegioPet 2","cliente":"Industria","ciudad":"Monterrey","total":473,"ok":461,"no_op":5,"desc":5,"incomp":2,"issues":12,"pct_ok":97,"soc_avg":32.0},{"sitio":"DISEKO","cliente":"Industria","ciudad":"Aguascalientes","total":477,"ok":467,"no_op":4,"desc":3,"incomp":3,"issues":10,"pct_ok":98,"soc_avg":29.1},{"sitio":"RegioPet 3","cliente":"Industria","ciudad":"Monterrey","total":473,"ok":463,"no_op":5,"desc":5,"incomp":0,"issues":10,"pct_ok":98,"soc_avg":24.9},{"sitio":"Alpha","cliente":"ASUR","ciudad":"Cancún","total":479,"ok":470,"no_op":2,"desc":6,"incomp":1,"issues":9,"pct_ok":98,"soc_avg":39.2},{"sitio":"Regio PET","cliente":"Industria","ciudad":"Monterrey","total":12,"ok":3,"no_op":0,"desc":9,"incomp":0,"issues":9,"pct_ok":25,"soc_avg":19.0},{"sitio":"THOR B2","cliente":"Industria","ciudad":"San Luis Potosí","total":122,"ok":113,"no_op":0,"desc":4,"incomp":5,"issues":9,"pct_ok":93,"soc_avg":15.5},{"sitio":"HUX 01","cliente":"ASUR","ciudad":"Huatulco","total":477,"ok":469,"no_op":2,"desc":4,"incomp":2,"issues":8,"pct_ok":98,"soc_avg":17.5},{"sitio":"Bocar","cliente":"Industria","ciudad":"CDMX","total":451,"ok":443,"no_op":6,"desc":2,"incomp":0,"issues":8,"pct_ok":98,"soc_avg":29.1},{"sitio":"LG","cliente":"Industria","ciudad":"Monterrey","total":35,"ok":27,"no_op":7,"desc":0,"incomp":1,"issues":8,"pct_ok":77,"soc_avg":42.4},{"sitio":"T4 B2","cliente":"ASUR","ciudad":"Cancún","total":475,"ok":468,"no_op":2,"desc":2,"incomp":3,"issues":7,"pct_ok":99,"soc_avg":16.0},{"sitio":"Comedor","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":471,"no_op":4,"desc":2,"incomp":0,"issues":6,"pct_ok":99,"soc_avg":27.6},{"sitio":"T4 B1","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":470,"no_op":2,"desc":2,"incomp":2,"issues":6,"pct_ok":99,"soc_avg":20.1},{"sitio":"T4 B3","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":472,"no_op":2,"desc":2,"incomp":0,"issues":4,"pct_ok":99,"soc_avg":13.3},{"sitio":"Resideo","cliente":"Industria","ciudad":"Chihuahua","total":175,"ok":171,"no_op":0,"desc":4,"incomp":0,"issues":4,"pct_ok":98,"soc_avg":24.7},{"sitio":"THOR B1","cliente":"Industria","ciudad":"San Luis Potosí","total":122,"ok":118,"no_op":0,"desc":4,"incomp":0,"issues":4,"pct_ok":97,"soc_avg":14.7},{"sitio":"Park Royal Cozumel","cliente":"Industria","ciudad":"Cozumel","total":5,"ok":1,"no_op":4,"desc":0,"incomp":0,"issues":4,"pct_ok":20,"soc_avg":null},{"sitio":"TOTIS","cliente":"Industria","ciudad":"Tizayuca","total":275,"ok":272,"no_op":0,"desc":1,"incomp":2,"issues":3,"pct_ok":99,"soc_avg":21.3},{"sitio":"Monterrey","cliente":"OMA","ciudad":"Monterrey","total":4,"ok":2,"no_op":2,"desc":0,"incomp":0,"issues":2,"pct_ok":50,"soc_avg":24.0},{"sitio":"T3","cliente":"ASUR","ciudad":"Cancún","total":3,"ok":2,"no_op":1,"desc":0,"incomp":0,"issues":1,"pct_ok":67,"soc_avg":6.0},{"sitio":"Vestas","cliente":"Industria","ciudad":"","total":3,"ok":2,"no_op":0,"desc":1,"incomp":0,"issues":1,"pct_ok":67,"soc_avg":15.0},{"sitio":"ABADIMEX","cliente":"Industria","ciudad":"Naucalpan","total":9,"ok":8,"no_op":0,"desc":1,"incomp":0,"issues":1,"pct_ok":89,"soc_avg":41.5},{"sitio":"Sala Bravo","cliente":"ASUR","ciudad":"Cancún","total":2,"ok":2,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":5.0},{"sitio":"T2","cliente":"ASUR","ciudad":"Cancún","total":2,"ok":2,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":7.5},{"sitio":"T4","cliente":"ASUR","ciudad":"Cancún","total":3,"ok":3,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":11.0},{"sitio":"Mérida","cliente":"ASUR","ciudad":"Mérida","total":2,"ok":2,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":27.5},{"sitio":"Fantasías Miguel","cliente":"Industria","ciudad":"Veracruz","total":57,"ok":57,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":73.3},{"sitio":"Brom","cliente":"Industria","ciudad":"CDMX","total":171,"ok":171,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":47.9}],"totals":{"records":23961,"ok":19420,"no_op":2465,"desc":1441,"incomp":330,"pct_ok":81.0,"months":22,"sites":73},"clients":[{"cliente":"ASUR","total":10701,"ok":8709,"pct_ok":81.4,"no_op":1315,"desc":429,"incomp":248},{"cliente":"OMA","total":6678,"ok":5039,"pct_ok":75.5,"no_op":836,"desc":775,"incomp":28},{"cliente":"Industria","total":6581,"ok":5976,"pct_ok":90.8,"no_op":314,"desc":237,"incomp":54},{"cliente":"Sin cliente","total":1,"ok":1,"pct_ok":100.0,"no_op":0,"desc":0,"incomp":0}]};
+/* ── AGG: calculado dinámicamente desde H.all ── */
+var AGG = { monthly:[], sites:[], totals:{records:0,ok:0,no_op:0,desc:0,incomp:0,pct_ok:0,months:0,sites:0}, clients:[] };
+
+function _histRecomputeAGG(data){
+  var mMap={}, sMap={}, clMap={};
+  var totOk=0,totNoop=0,totDesc=0,totIncomp=0;
+  var allMonths=new Set(), allSites=new Set();
+
+  data.forEach(function(r){
+    var mes=r.m||r.mes||(r.f||'').slice(0,7)||'';
+    var si=r.si||r.sitio||'';
+    var cl=r.cl||r.cliente||'Sin cliente';
+    var st=r.st||r.status||'';
+    var sc=r.sc!=null?parseFloat(r.sc):null;
+    var isOk=st==='OK', isNoop=st==='NO OPERATIVO', isDesc=st==='DESCONECTADO', isIncomp=st==='INCOMPLETO';
+
+    if(mes){ allMonths.add(mes);
+      if(!mMap[mes]) mMap[mes]={mes:mes,ok:0,no_op:0,desc:0,incomp:0,total:0,soc_sum:0,soc_cnt:0};
+      mMap[mes].total++;
+      if(isOk) mMap[mes].ok++; else if(isNoop) mMap[mes].no_op++; else if(isDesc) mMap[mes].desc++; else if(isIncomp) mMap[mes].incomp++;
+      if(sc!=null&&sc>0){mMap[mes].soc_sum+=sc;mMap[mes].soc_cnt++;}
+    }
+    if(si){ allSites.add(si);
+      if(!sMap[si]) sMap[si]={sitio:si,cliente:cl,ciudad:r.ci||r.ciudad||'',ok:0,no_op:0,desc:0,incomp:0,total:0,soc_sum:0,soc_cnt:0};
+      sMap[si].total++;
+      if(isOk)sMap[si].ok++;else if(isNoop)sMap[si].no_op++;else if(isDesc)sMap[si].desc++;else if(isIncomp)sMap[si].incomp++;
+      if(sc!=null&&sc>0){sMap[si].soc_sum+=sc;sMap[si].soc_cnt++;}
+    }
+    if(!clMap[cl]) clMap[cl]={cliente:cl,ok:0,no_op:0,desc:0,incomp:0,total:0};
+    clMap[cl].total++;
+    if(isOk){clMap[cl].ok++;totOk++;}else if(isNoop){clMap[cl].no_op++;totNoop++;}else if(isDesc){clMap[cl].desc++;totDesc++;}else if(isIncomp){clMap[cl].incomp++;totIncomp++;}
+  });
+
+  var monthly=Object.values(mMap).sort(function(a,b){return a.mes<b.mes?-1:1;}).map(function(m){
+    m.pct_ok=m.total?+(m.ok/m.total*100).toFixed(1):0;
+    m.pct_issues=m.total?+(100-m.pct_ok).toFixed(1):0;
+    m.soc_avg=m.soc_cnt?Math.round(m.soc_sum/m.soc_cnt*10)/10:null;
+    return m;
+  });
+  var sites=Object.values(sMap).map(function(s){
+    s.issues=s.no_op+s.desc+s.incomp;
+    s.pct_ok=s.total?Math.round(s.ok/s.total*100):0;
+    s.soc_avg=s.soc_cnt?Math.round(s.soc_sum/s.soc_cnt*10)/10:null;
+    return s;
+  }).sort(function(a,b){return b.issues-a.issues;});
+  var clients=Object.values(clMap).filter(function(c){return c.cliente!=='Sin cliente';}).map(function(c){
+    c.pct_ok=c.total?+(c.ok/c.total*100).toFixed(1):0; return c;
+  }).sort(function(a,b){return b.total-a.total;});
+
+  var tot=data.length;
+  var datesSorted=monthly.map(function(m){return m.mes;});
+  var rng='';
+  if(datesSorted.length>=2){
+    var p0=datesSorted[0].split('-'),p1=datesSorted[datesSorted.length-1].split('-');
+    var mn=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    rng=mn[parseInt(p0[1])]+' '+p0[0]+' – '+mn[parseInt(p1[1])]+' '+p1[0];
+  } else if(datesSorted.length===1){rng=datesSorted[0];}
+  var clientNames=[...new Set(clients.map(function(c){return c.cliente;}))].join(' · ')||'—';
+
+  AGG.monthly=monthly; AGG.sites=sites; AGG.clients=clients;
+  AGG.totals={records:tot,ok:totOk,no_op:totNoop,desc:totDesc,incomp:totIncomp,
+    pct_ok:tot?+(totOk/tot*100).toFixed(1):0,months:allMonths.size,sites:allSites.size};
+
+  /* Update header meta */
+  var mr=document.getElementById('hist-meta-rng'); if(mr) mr.textContent=rng||'—';
+  var ms=document.getElementById('hist-meta-sites'); if(ms) ms.textContent=allSites.size+' sitios';
+  var mc=document.getElementById('hist-meta-clients'); if(mc) mc.textContent=clientNames;
+}
 
 /* ── Estado global del visor ── */
 var H = {
@@ -17638,7 +17829,18 @@ var H = {
 
 /* ══ INIT ══════════════════════════════════════════════ */
 window.histInit = function(){
-  /* Wait for page to be visible in DOM before rendering */
+  /* If data already loaded, just re-render charts (they need fresh canvas dimensions) */
+  if(H.loaded && H.all.length){
+    requestAnimationFrame(function(){
+      setTimeout(function(){
+        _histRecomputeAGG(H.all);
+        histRenderDashboard();
+        histApplyFilters();
+      }, 150);
+    });
+    return;
+  }
+  /* First visit: render empty state then start loading */
   requestAnimationFrame(function(){
     histRenderDashboard();
     if(!H.loaded && !H.loading) histLoad();
@@ -17648,32 +17850,74 @@ window.histInit = function(){
 /* ══ FIREBASE LOAD ════════════════════════════════════ */
 function histLoad(){
   H.loading = true;
+  /* Only show loading spinner if no data yet */
+  if(!H.all.length) _histShowLoading();
   if(!window._fbDB || !window._fbFS){
     setTimeout(histLoad, 800); return;
   }
   var col = window._fbFS.collection(window._fbDB,'historico_descargas');
   var q = window._fbFS.query(col, window._fbFS.orderBy('f','desc'));
 
+  /* Fallback: si onSnapshot no responde en 5s (ej. file://) usar getDocs */
+  var _snapshotFired = false;
+  var _fallbackTimer = setTimeout(function(){
+    if(!_snapshotFired){
+      console.warn('[Hist] onSnapshot sin respuesta — usando getDocs como fallback');
+      if(H.unsubscribe){ try{ H.unsubscribe(); }catch(e){} }
+      window._fbFS.getDocs(q).then(function(snap){
+        _snapshotFired = true;
+        H.all = snap.docs.map(function(d){ return d.data(); });
+        H.loaded = true; H.loading = false;
+        histPopulateSiteFilter();
+        histPopulateMonthFilter();
+        histRenderDashboard();
+        histApplyFilters();
+        console.log('[Hist] '+H.all.length+' registros cargados via getDocs');
+      }).catch(function(err){
+        H.loading = false;
+        console.warn('[Hist] getDocs error:', err);
+        _histShowEmpty('', true);
+      });
+    }
+  }, 5000);
+
   if(H.unsubscribe) H.unsubscribe();
   H.unsubscribe = window._fbOnSnapshot(q, function(snap){
+    _snapshotFired = true;
+    clearTimeout(_fallbackTimer);
     H.all = snap.docs.map(function(d){ return d.data(); });
     H.loaded = true; H.loading = false;
     histPopulateSiteFilter();
     histPopulateMonthFilter();
+    histRenderDashboard();
     histApplyFilters();
     /* Mostrar badge EN VIVO */
     var badge = document.getElementById('hist-sync-badge');
     if(badge) badge.style.display='flex';
     console.log('[Hist] '+H.all.length+' registros cargados desde Firestore');
   }, function(err){
+    _snapshotFired = true;
+    clearTimeout(_fallbackTimer);
     H.loading = false;
     console.warn('[Hist] Firestore error:', err);
-    _histShowEmpty('Error al conectar con Firestore. Verifica permisos.');
+    if(!H.all.length) _histShowEmpty('', true);
   });
 }
 
 /* ══ DASHBOARD ════════════════════════════════════════ */
 function histRenderDashboard(){
+  _histRecomputeAGG(H.all);
+
+  /* If no data loaded yet, show empty welcome state */
+  if(!H.all.length){
+    _histSetKPI('hist-kpi-total','—','Registros totales','Importa tu CSV para comenzar','var(--sky)');
+    _histSetKPI('hist-kpi-ok','—','Tasa OK global','Sin datos','var(--green)');
+    _histSetKPI('hist-kpi-noop','—','No Operativo','Sin datos','var(--red)');
+    _histSetKPI('hist-kpi-desc','—','Sin comunicación','Sin datos','var(--t3)');
+    _histSetKPI('hist-kpi-sites','—','Sitios monitoreados','Sin datos','var(--sky-ll)');
+    return;
+  }
+
   var t = AGG.totals;
 
   /* KPI Cards */
@@ -17697,7 +17941,7 @@ function histRenderDashboard(){
     histRenderSocChart();
     histRenderClientBars();
     histRenderTopSites();
-  }, 100);
+  }, 250);
 }
 
 function _histSetKPI(id, val, lbl, sub, color){
@@ -17955,7 +18199,8 @@ function histRenderTable(){
   }
 
   if(!slice.length){
-    _histShowEmpty('Sin registros con los filtros seleccionados');
+    if(!H.all.length) _histShowEmpty('', true);
+    else _histShowEmpty('Sin registros con los filtros seleccionados');
     document.getElementById('hist-pag-info').textContent='';
     document.getElementById('hist-pag-btns').innerHTML='';
     return;
@@ -18014,14 +18259,37 @@ function histRenderTable(){
   }
 }
 
-function _histShowEmpty(msg){
+function _histShowEmpty(msg, showImportCta){
+  var tbody=document.getElementById('hist-tbody');
+  if(!tbody) return;
+  if(showImportCta){
+    tbody.innerHTML='<tr><td colspan="8" class="hist-empty-cell">'
+      +'<div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:72px 20px">'
+      +'<div style="font-size:48px;opacity:.35">📂</div>'
+      +'<div style="font-family:var(--disp);font-size:16px;font-weight:800;color:var(--text)">Sin datos históricos</div>'
+      +'<div style="font-family:var(--mono);font-size:11px;color:var(--t3);text-align:center;max-width:360px;line-height:1.7">Importa tu archivo CSV para visualizar el histórico completo con dashboard, filtros y análisis.</div>'
+      +'<button onclick="histShowImport()" style="display:flex;align-items:center;gap:8px;padding:12px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--sky),#3a5fd9);color:#fff;font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;box-shadow:0 4px 20px rgba(74,120,245,.35)">'
+      +'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
+      +'Importar CSV ahora</button>'
+      +'</div></td></tr>';
+  } else {
+    tbody.innerHTML='<tr><td colspan="8" class="hist-empty-cell">'
+      +'<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px">'
+      +'<div style="font-size:40px;opacity:.25">📊</div>'
+      +'<div style="font-family:var(--mono);font-size:11px;color:var(--t3)">'+msg+'</div>'
+      +'</div></td></tr>';
+  }
+}
+
+function _histShowLoading(){
   var tbody=document.getElementById('hist-tbody');
   if(tbody) tbody.innerHTML='<tr><td colspan="8" class="hist-empty-cell">'
-    +'<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px">'
-    +'<div style="font-size:40px;opacity:.25">📊</div>'
-    +'<div style="font-family:var(--mono);font-size:11px;color:var(--t3)">'+msg+'</div>'
+    +'<div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:60px 20px">'
+    +'<div style="width:32px;height:32px;border:3px solid var(--b2);border-top-color:var(--sky);border-radius:50%;animation:spin 0.8s linear infinite"></div>'
+    +'<div style="font-family:var(--mono);font-size:11px;color:var(--t3)">Cargando registros desde Firestore…</div>'
     +'</div></td></tr>';
 }
+
 
 window.histGoPage = function(p){
   H.page=p; histRenderTable();
@@ -18094,8 +18362,28 @@ function _histParseAndPush(text){
     });
   }
 
-  _histSetImportStatus('Subiendo '+records.length+' registros a Firestore...', 10);
-  _histBatchPush(records, 0, records.length);
+  if(!records.length){
+    _histSetImportStatus('⚠️ No se encontraron registros válidos en el CSV', 0);
+    return;
+  }
+
+  /* ── VISUALIZACIÓN LOCAL INMEDIATA ── */
+  H.all = records;
+  H.loaded = true; H.loading = false;
+  histPopulateSiteFilter();
+  histPopulateMonthFilter();
+  histRenderDashboard();
+  histApplyFilters();
+  document.getElementById('hist-import-modal').style.display='none';
+  if(typeof safeToast!=='undefined') safeToast('✅ '+records.length.toLocaleString('es-MX')+' registros cargados localmente');
+
+  /* ── SUBIDA A FIRESTORE (en segundo plano, sin bloquear la UI) ── */
+  if(window._fbDB && window._fbFS){
+    _histSetImportStatus('Subiendo '+records.length+' registros a Firestore en segundo plano...', 10);
+    _histBatchPush(records, 0, records.length);
+  } else {
+    console.warn('[Hist] Firebase no disponible — datos solo en memoria esta sesión');
+  }
 }
 
 function _histBatchPush(records, offset, total){
@@ -18105,10 +18393,9 @@ function _histBatchPush(records, offset, total){
   var batchSize=400;
   var batch=records.slice(offset, offset+batchSize);
   if(!batch.length){
-    _histSetImportStatus('✅ '+total+' registros importados correctamente', 100);
-    document.getElementById('hist-import-modal').style.display='none';
-    if(typeof safeToast!=='undefined') safeToast('✅ Histórico importado — '+total.toLocaleString('es-MX')+' registros en Firestore');
-    H.loaded=false; histLoad();
+    _histSetImportStatus('✅ '+total+' registros en Firestore', 100);
+    if(typeof safeToast!=='undefined') safeToast('☁️ '+total.toLocaleString('es-MX')+' registros guardados en Firestore');
+    /* Data already rendered locally — no need to reload */
     return;
   }
   var col=window._fbFS.collection(window._fbDB,'historico_descargas');
@@ -18130,6 +18417,47 @@ function _histSetImportStatus(msg, pct){
   var b=document.getElementById('hist-import-bar'); if(b) b.style.width=pct+'%';
   var p=document.getElementById('hist-import-pct'); if(p) p.textContent=pct+'%';
 }
+
+/* ══ CLEAR FIRESTORE ═════════════════════════════════ */
+window.histClearFirestore = function(){
+  if(!window._fbDB || !window._fbFS){
+    if(typeof safeToast!=='undefined') safeToast('⚠️ Firebase no disponible');
+    return;
+  }
+  if(!confirm('¿Eliminar TODOS los registros históricos de Firestore?\nEsto no afecta tu CSV original.')) return;
+  _histSetImportStatus('Eliminando registros de Firestore...', 5);
+  var prog=document.getElementById('hist-import-progress');
+  if(prog) prog.style.display='block';
+
+  var col=window._fbFS.collection(window._fbDB,'historico_descargas');
+  window._fbFS.getDocs(col).then(function(snap){
+    var total=snap.docs.length;
+    if(!total){
+      _histSetImportStatus('✅ Firestore ya estaba vacío', 100);
+      H.all=[]; H.loaded=false; H.loading=false;
+      histRenderDashboard(); histApplyFilters();
+      return;
+    }
+    var deleted=0;
+    var promises=snap.docs.map(function(d){
+      return window._fbFS.deleteDoc(window._fbFS.doc(window._fbDB,'historico_descargas',d.id))
+        .then(function(){ deleted++; _histSetImportStatus('Eliminando... '+deleted+'/'+total, Math.round(deleted/total*100)); });
+    });
+    Promise.all(promises).then(function(){
+      _histSetImportStatus('✅ '+total+' registros eliminados de Firestore', 100);
+      H.all=[]; H.loaded=false; H.loading=false;
+      if(typeof safeToast!=='undefined') safeToast('🗑 Firestore limpiado — '+total+' registros eliminados');
+      setTimeout(function(){
+        if(prog) prog.style.display='none';
+        histRenderDashboard(); histApplyFilters();
+      }, 1200);
+    }).catch(function(e){
+      _histSetImportStatus('⚠️ Error: '+e.message, 0);
+    });
+  }).catch(function(e){
+    _histSetImportStatus('⚠️ Error al leer Firestore: '+e.message, 0);
+  });
+};
 
 /* ══ EXPORT CSV ══════════════════════════════════════ */
 window.histExportCSV = function(){
