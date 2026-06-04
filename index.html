@@ -1624,6 +1624,8 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 /* ═══ PAGES ═══ */
 .page{display:none;flex:1;overflow:hidden;min-height:0}
 .page.active{display:flex;flex-direction:column;height:100%}
+#page-historico.active{display:flex;flex-direction:column;overflow-y:auto;height:100%;}
+#page-historico #hist-root{flex:1;min-height:0;}
 .page-scroll{flex:1;overflow-y:auto}
 
 /* ═══ BITACORA PAGE ═══ */
@@ -4500,6 +4502,35 @@ html{-webkit-text-size-adjust:100%;}
   font-family:var(--disp);font-size:13px;color:rgba(255,255,255,.2);
   letter-spacing:2px;text-transform:uppercase;margin-top:16px;
 }
+
+/* ══ HISTÓRICO DE DESCARGAS ══ */
+.hist-kpi-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;transition:box-shadow .2s}
+.hist-kpi-card:hover{box-shadow:0 4px 20px rgba(26,63,204,.08)}
+.hist-kpi-ico{font-size:24px;margin-bottom:6px;line-height:1}
+.hist-kpi-val{font-family:var(--disp);font-size:26px;font-weight:900;line-height:1;margin-bottom:4px}
+.hist-kpi-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);margin-bottom:2px}
+.hist-kpi-sub{font-family:var(--mono);font-size:9px;color:var(--t3);opacity:.7}
+.hist-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;overflow:hidden}
+.hist-card-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:10px}
+.hist-card-title{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:1px}
+.hist-card-sub{font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:2px}
+.hist-legend-dot::before{content:'●';color:var(--c);margin-right:4px}
+.hist-legend-dot{font-family:var(--mono);font-size:9px;color:var(--t3)}
+.hist-th{padding:10px 14px;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;text-align:left;white-space:nowrap;user-select:none}
+.hist-th:hover{color:var(--sky)}
+.hist-sort-ico{font-size:9px;margin-left:3px;opacity:.5}
+.hist-tr{border-bottom:1px solid var(--b1);transition:background .1s;cursor:default}
+.hist-tr:hover{background:var(--s2)}
+.hist-td{padding:9px 14px;font-size:11px;color:var(--text)}
+.hist-td-mono{font-family:var(--mono);font-size:10px}
+.hist-status-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 8px;border-radius:20px;font-family:var(--mono);font-size:9px;font-weight:700;white-space:nowrap}
+.hist-status-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.hist-pag-btn{padding:5px 11px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);font-family:var(--mono);font-size:10px;cursor:pointer;color:var(--text);transition:all .15s}
+.hist-pag-btn:hover{border-color:var(--sky);color:var(--sky)}
+.hist-pag-btn.active{background:var(--sky);border-color:var(--sky);color:#fff}
+.hist-empty-cell{padding:0}
+.hist-src-badge{display:inline-block;padding:2px 7px;border-radius:6px;font-family:var(--mono);font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+@keyframes hist-bar-anim{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
 </style>
 
 
@@ -5094,6 +5125,10 @@ if('serviceWorker' in navigator){
   <div class="nav-item" data-page="soc" onclick="goPage('soc')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
     <div class="nl">SOC</div><div class="nav-tt">Tendencia SOC por Sitio</div>
+  </div>
+  <div class="nav-item" data-page="historico" onclick="goPage('historico')">
+    <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+    <div class="nl">Histórico</div><div class="nav-tt">Histórico de Descargas BESS</div>
   </div>
   <div class="nav-item" data-page="docs" onclick="goPage('docs')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
@@ -6929,7 +6964,293 @@ async function expDoZip(mode){
       </div>
     </div>
 
-  </main>
+  
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HISTÓRICO DE DESCARGAS — Skysense Energy · BESS Operations
+     Vista empresarial con dashboard analítico + visor filtrable
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-historico" style="overflow-y:auto">
+<div id="hist-root" style="max-width:1440px;margin:0 auto;padding:24px 28px 48px;width:100%;box-sizing:border-box;">
+
+  <!-- ── TOP BAR ─────────────────────────────────────── -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:16px">
+    <div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:6px">
+        Skysense Energy · Centro de Operaciones BESS
+      </div>
+      <h1 style="font-family:var(--disp);font-size:26px;font-weight:900;color:var(--text);letter-spacing:-.8px;margin:0 0 4px">
+        📈 Histórico de Descargas
+      </h1>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">
+        <span id="hist-meta-rng">Sep 2024 – Jun 2026</span>&ensp;·&ensp;
+        <span id="hist-meta-sites">73 sitios</span>&ensp;·&ensp;
+        <span id="hist-meta-clients">ASUR · OMA · Industria</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div id="hist-sync-badge" style="display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.2)">
+        <span style="width:6px;height:6px;border-radius:50%;background:#059669;animation:cib-pulse 2s infinite"></span>
+        <span style="font-family:var(--mono);font-size:9px;color:#059669;font-weight:700">EN VIVO</span>
+      </div>
+      <button onclick="histExportCSV()" id="hist-export-btn"
+        style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9px;border:1px solid var(--b2);background:var(--s1);color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer;font-weight:600;transition:all .15s"
+        onmouseover="this.style.borderColor='var(--sky)';this.style.color='var(--sky)'"
+        onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </button>
+      <button onclick="histShowImport()" id="hist-import-btn"
+        style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9px;border:1px solid rgba(74,120,245,.4);background:rgba(74,120,245,.1);color:var(--sky);font-family:var(--mono);font-size:10px;cursor:pointer;font-weight:700;transition:all .15s"
+        onmouseover="this.style.background='rgba(74,120,245,.2)'"
+        onmouseout="this.style.background='rgba(74,120,245,.1)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importar CSV
+      </button>
+      <input type="file" id="hist-csv-input" accept=".csv" style="display:none" onchange="histHandleCSV(this)">
+    </div>
+  </div>
+
+  <!-- ── KPI CARDS ────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px">
+    <div class="hist-kpi-card" id="hist-kpi-total">
+      <div class="hist-kpi-ico">📊</div>
+      <div class="hist-kpi-val" style="color:var(--sky)">23,960</div>
+      <div class="hist-kpi-lbl">Registros totales</div>
+      <div class="hist-kpi-sub">22 meses cubiertos</div>
+    </div>
+    <div class="hist-kpi-card" id="hist-kpi-ok">
+      <div class="hist-kpi-ico">✅</div>
+      <div class="hist-kpi-val" style="color:var(--green)">81.0%</div>
+      <div class="hist-kpi-lbl">Tasa OK global</div>
+      <div class="hist-kpi-sub">19,420 registros OK</div>
+    </div>
+    <div class="hist-kpi-card" id="hist-kpi-noop">
+      <div class="hist-kpi-ico">🔴</div>
+      <div class="hist-kpi-val" style="color:var(--red)">10.3%</div>
+      <div class="hist-kpi-lbl">No operativo</div>
+      <div class="hist-kpi-sub">2,465 registros</div>
+    </div>
+    <div class="hist-kpi-card" id="hist-kpi-desc">
+      <div class="hist-kpi-ico">📡</div>
+      <div class="hist-kpi-val" style="color:var(--t3)">6.0%</div>
+      <div class="hist-kpi-lbl">Sin comunicación</div>
+      <div class="hist-kpi-sub">1,441 registros</div>
+    </div>
+    <div class="hist-kpi-card" id="hist-kpi-sites">
+      <div class="hist-kpi-ico">🏭</div>
+      <div class="hist-kpi-val" style="color:var(--sky-ll)">73</div>
+      <div class="hist-kpi-lbl">Sitios monitoreados</div>
+      <div class="hist-kpi-sub">ASUR · OMA · Industria</div>
+    </div>
+  </div>
+
+  <!-- ── CHARTS ROW 1: Tendencia + Distribución ──────── -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+
+    <!-- Tendencia mensual -->
+    <div class="hist-card">
+      <div class="hist-card-hdr">
+        <div>
+          <div class="hist-card-title">Tendencia Mensual de Disponibilidad</div>
+          <div class="hist-card-sub">% OK vs incidencias · Sep 2024 – Jun 2026</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <span class="hist-legend-dot" style="--c:#059669">OK</span>
+          <span class="hist-legend-dot" style="--c:#dc2626">No Op.</span>
+          <span class="hist-legend-dot" style="--c:#6685ac">Desconect.</span>
+        </div>
+      </div>
+      <canvas id="hist-trend-chart" style="max-height:200px"></canvas>
+    </div>
+
+    <!-- Distribución de status (donut) -->
+    <div class="hist-card">
+      <div class="hist-card-hdr">
+        <div>
+          <div class="hist-card-title">Distribución de Status</div>
+          <div class="hist-card-sub">Total histórico</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="position:relative;flex-shrink:0">
+          <canvas id="hist-donut-chart" width="120" height="120"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-family:var(--disp);font-size:18px;font-weight:900;color:var(--green)">81%</div>
+            <div style="font-family:var(--mono);font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">OK</div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px" id="hist-donut-legend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHARTS ROW 2: SOC + Clientes + Top sitios ───── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+
+    <!-- SOC promedio mensual -->
+    <div class="hist-card">
+      <div class="hist-card-hdr">
+        <div class="hist-card-title">SOC Promedio Mensual</div>
+        <div class="hist-card-sub">% carga final de batería</div>
+      </div>
+      <canvas id="hist-soc-chart" style="max-height:150px"></canvas>
+    </div>
+
+    <!-- Por cliente -->
+    <div class="hist-card">
+      <div class="hist-card-hdr">
+        <div class="hist-card-title">Disponibilidad por Cliente</div>
+        <div class="hist-card-sub">% OK acumulado</div>
+      </div>
+      <div id="hist-client-bars" style="display:flex;flex-direction:column;gap:10px;padding-top:4px"></div>
+    </div>
+
+    <!-- Top sitios críticos -->
+    <div class="hist-card">
+      <div class="hist-card-hdr">
+        <div class="hist-card-title">Sitios Más Críticos</div>
+        <div class="hist-card-sub">Mayor acumulado de incidencias</div>
+      </div>
+      <div id="hist-top-sites" style="display:flex;flex-direction:column;gap:6px;padding-top:2px"></div>
+    </div>
+
+  </div>
+
+  <!-- ── VISOR DE REGISTROS ────────────────────────────── -->
+  <div class="hist-card" style="margin-bottom:16px">
+    <div class="hist-card-hdr" style="flex-wrap:wrap;gap:10px">
+      <div>
+        <div class="hist-card-title">Registros Históricos</div>
+        <div class="hist-card-sub" id="hist-rec-count">Cargando...</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <!-- Filtros -->
+        <select id="hist-f-mes" onchange="histApplyFilters()"
+          style="padding:6px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--bg);font-family:var(--mono);font-size:10px;color:var(--text);min-width:120px">
+          <option value="">Todos los meses</option>
+        </select>
+        <select id="hist-f-cliente" onchange="histApplyFilters()"
+          style="padding:6px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--bg);font-family:var(--mono);font-size:10px;color:var(--text)">
+          <option value="">Todos los clientes</option>
+          <option value="ASUR">ASUR</option>
+          <option value="OMA">OMA</option>
+          <option value="Industria">Industria</option>
+        </select>
+        <select id="hist-f-status" onchange="histApplyFilters()"
+          style="padding:6px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--bg);font-family:var(--mono);font-size:10px;color:var(--text)">
+          <option value="">Todos los status</option>
+          <option value="OK">✅ OK</option>
+          <option value="NO OPERATIVO">🔴 No Operativo</option>
+          <option value="DESCONECTADO">📡 Desconectado</option>
+          <option value="INCOMPLETO">⚠️ Incompleto</option>
+        </select>
+        <select id="hist-f-sitio" onchange="histApplyFilters()"
+          style="padding:6px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--bg);font-family:var(--mono);font-size:10px;color:var(--text);min-width:140px">
+          <option value="">Todos los sitios</option>
+        </select>
+        <div style="position:relative">
+          <input id="hist-f-buscar" type="text" placeholder="🔍  Buscar sitio..."
+            oninput="histApplyFilters()"
+            style="padding:6px 10px 6px 14px;border-radius:8px;border:1px solid var(--b2);background:var(--bg);font-family:var(--mono);font-size:10px;color:var(--text);width:160px;outline:none"
+            onfocus="this.style.borderColor='var(--sky)'"
+            onblur="this.style.borderColor='var(--b2)'">
+        </div>
+        <button onclick="histClearFilters()"
+          style="padding:6px 12px;border-radius:7px;border:1px solid var(--b2);background:transparent;font-family:var(--mono);font-size:10px;cursor:pointer;color:var(--t3);transition:all .15s"
+          onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'"
+          onmouseout="this.style.color='var(--t3)';this.style.borderColor='var(--b2)'">
+          ✕ Limpiar
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x:auto;margin-top:4px">
+      <table style="width:100%;border-collapse:collapse" id="hist-table">
+        <thead>
+          <tr style="background:var(--s2);border-bottom:2px solid var(--b1)">
+            <th class="hist-th" onclick="histSort('f')" style="cursor:pointer" title="Ordenar por fecha">
+              Fecha <span id="hist-sort-f" class="hist-sort-ico"></span>
+            </th>
+            <th class="hist-th" onclick="histSort('si')" style="cursor:pointer">
+              Sitio <span id="hist-sort-si" class="hist-sort-ico"></span>
+            </th>
+            <th class="hist-th">Cliente</th>
+            <th class="hist-th">Ciudad</th>
+            <th class="hist-th" onclick="histSort('st')" style="cursor:pointer">
+              Status <span id="hist-sort-st" class="hist-sort-ico"></span>
+            </th>
+            <th class="hist-th" style="text-align:right" onclick="histSort('sc')" style="cursor:pointer">
+              SOC <span id="hist-sort-sc" class="hist-sort-ico"></span>
+            </th>
+            <th class="hist-th">Comentarios / Eventos</th>
+            <th class="hist-th">Origen</th>
+          </tr>
+        </thead>
+        <tbody id="hist-tbody">
+          <tr><td colspan="8" class="hist-empty-cell">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px">
+              <div style="font-size:40px;opacity:.3">📊</div>
+              <div style="font-family:var(--mono);font-size:11px;color:var(--t3)">Cargando registros históricos...</div>
+              <div id="hist-load-bar" style="width:200px;height:3px;background:var(--s3);border-radius:2px;overflow:hidden">
+                <div style="height:100%;background:var(--sky);border-radius:2px;animation:hist-bar-anim 1.5s ease-in-out infinite"></div>
+              </div>
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div id="hist-pag" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--b1);flex-wrap:wrap;gap:8px">
+      <div id="hist-pag-info" style="font-family:var(--mono);font-size:10px;color:var(--t3)"></div>
+      <div id="hist-pag-btns" style="display:flex;gap:6px;align-items:center"></div>
+    </div>
+  </div>
+
+  <!-- ── IMPORT MODAL ──────────────────────────────────── -->
+  <div id="hist-import-modal" style="display:none;position:fixed;inset:0;background:rgba(10,20,60,.6);backdrop-filter:blur(6px);z-index:9200;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:28px 32px;max-width:520px;width:100%;box-shadow:0 24px 80px rgba(10,31,94,.25)">
+      <div style="font-family:var(--disp);font-size:18px;font-weight:900;color:var(--text);margin-bottom:6px">Importar Histórico CSV</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-bottom:20px;line-height:1.7">
+        Sube el archivo CSV con el histórico de descargas.<br>
+        Los registros se subirán a Firestore en lotes.<br>
+        <strong style="color:var(--orange)">⚠️ Solo necesario la primera vez.</strong>
+      </div>
+      <div id="hist-import-dropzone"
+        style="border:2px dashed var(--b2);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px"
+        onclick="document.getElementById('hist-csv-input').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--sky)';this.style.background='rgba(74,120,245,.05)'"
+        ondragleave="this.style.borderColor='var(--b2)';this.style.background=''"
+        ondrop="event.preventDefault();this.style.borderColor='var(--b2)';this.style.background='';histHandleCSV({files:event.dataTransfer.files})">
+        <div style="font-size:32px;margin-bottom:8px">📂</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--t2);font-weight:600">Arrastra tu CSV aquí</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:4px">o haz clic para seleccionar</div>
+      </div>
+      <div id="hist-import-progress" style="display:none;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--t2)" id="hist-import-status">Procesando...</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--sky)" id="hist-import-pct">0%</span>
+        </div>
+        <div style="height:6px;background:var(--s3);border-radius:3px;overflow:hidden">
+          <div id="hist-import-bar" style="height:100%;background:linear-gradient(90deg,var(--sky),var(--green));border-radius:3px;transition:width .3s;width:0%"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="histHideImport()"
+          style="padding:9px 20px;border-radius:9px;border:1px solid var(--b2);background:transparent;font-family:var(--mono);font-size:11px;cursor:pointer;color:var(--t2)">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+</main>
 </div><!-- /page-monitor -->
 
 
@@ -9918,7 +10239,7 @@ async function _afterDelete(msg){
 }
 
 // PAGE SWITCHING
-const PAGE_TITLES={soc:'Tendencia SOC',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos'};
+const PAGE_TITLES={soc:'Tendencia SOC',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas'};
 function updateTopbarTitle(id){
   var t=document.getElementById('tb-title');if(!t)return;
   var title=PAGE_TITLES[id]||id;
@@ -9937,6 +10258,7 @@ function goPage(id){
   if(id==='dash'){renderDash();renderDashTemplates();}
   if(id==='repop'){opInitSetup();}
   if(id==='soc'){socInit();}
+  if(id==='historico'){setTimeout(function(){if(window.histInit)window.histInit();},80);}
 }
 
 // DASHBOARD
@@ -14301,6 +14623,9 @@ function rvBuildSide(){
   _rv('rv-site-list',function(e){e.innerHTML=h;});
   var sc=document.getElementById('rv-site-list');
   if(sc){var cur=sc.querySelector('.rv-sitem.cur');if(cur)cur.scrollIntoView({block:'nearest'});}
+  /* Repintar asignaciones colaborativas si hay sesion activa */
+  if(window.COLLAB&&COLLAB.sessionId&&Object.keys(COLLAB._assignments).length)
+    setTimeout(_collabPaintAssignments, 0);
 }
 function rvJump(i){rvSync();rvW.idx=i;rvBuildSide();rvRenderS();}
 
@@ -15475,6 +15800,9 @@ function opBuildSide(){
   _op('op-site-list',function(e){e.innerHTML=h;});
   var sc=document.getElementById('op-site-list');
   if(sc){var cur=sc.querySelector('.op-sitem.cur');if(cur)cur.scrollIntoView({block:'nearest'});}
+  /* Repintar asignaciones colaborativas si hay sesion activa */
+  if(window.COLLAB&&COLLAB.sessionId&&Object.keys(COLLAB._assignments).length)
+    setTimeout(_collabPaintAssignments, 0);
 }
 function opJump(i){opSync();opW.idx=i;opBuildSide();opRenderS();}
 
@@ -16115,6 +16443,8 @@ function opSave() {
     window._fb.saveReporteOp(rep).then(function(fbId) {
       rep.fbId = fbId;
       console.log('[Op] Reporte Operativo guardado en Firebase:', fbId);
+      /* Auto-push al histórico */
+      if(window._histPushReporteOp) _histPushReporteOp(rep);
     }).catch(function(e) { console.warn('[Op] Firebase save error:', e); });
   }
   /* Notificación local + push a todos los dispositivos */
@@ -17237,6 +17567,7 @@ else _boot();
 
 })();
 </script>
+<
 <script>
 /* ── Pantalla de mantenimiento — listener Firebase ── */
 /* Estructura: sistema/mantenimiento { activo, titulo, mensaje, eta, allowContinue } */
@@ -17282,6 +17613,568 @@ else _boot();
     setTimeout(_startMaintListener, 600);
   });
 })();
+</script>
+<script>
+
+/* ══════════════════════════════════════════════════════════════
+   HISTÓRICO DE DESCARGAS — Skysense Energy · BESS Operations
+   Motor analítico completo con Firestore, dashboard y visor
+══════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+
+/* ── Datos pre-agregados (calculados del CSV original) ── */
+var AGG = {"monthly":[{"mes":"2024-09","ok":345,"no_op":25,"desc":69,"incomp":27,"total":466,"pct_ok":74.0,"pct_issues":26.0,"soc_avg":28.6},{"mes":"2024-10","ok":817,"no_op":52,"desc":64,"incomp":41,"total":974,"pct_ok":83.9,"pct_issues":16.1,"soc_avg":30.8},{"mes":"2024-11","ok":1052,"no_op":1,"desc":28,"incomp":3,"total":1084,"pct_ok":97.0,"pct_issues":3.0,"soc_avg":31.7},{"mes":"2024-12","ok":912,"no_op":136,"desc":44,"incomp":8,"total":1100,"pct_ok":82.9,"pct_issues":17.1,"soc_avg":37.6},{"mes":"2025-01","ok":1003,"no_op":38,"desc":101,"incomp":2,"total":1144,"pct_ok":87.7,"pct_issues":12.3,"soc_avg":39.5},{"mes":"2025-02","ok":1012,"no_op":0,"desc":0,"incomp":0,"total":1012,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":33.2},{"mes":"2025-03","ok":1100,"no_op":0,"desc":0,"incomp":0,"total":1100,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":29.8},{"mes":"2025-04","ok":1012,"no_op":0,"desc":0,"incomp":0,"total":1012,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":31.9},{"mes":"2025-05","ok":924,"no_op":0,"desc":0,"incomp":0,"total":924,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":31.8},{"mes":"2025-06","ok":1050,"no_op":0,"desc":0,"incomp":0,"total":1050,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":28.4},{"mes":"2025-07","ok":1150,"no_op":0,"desc":0,"incomp":0,"total":1150,"pct_ok":100.0,"pct_issues":0.0,"soc_avg":31.8},{"mes":"2025-08","ok":1001,"no_op":24,"desc":21,"incomp":4,"total":1050,"pct_ok":95.3,"pct_issues":4.7,"soc_avg":32.3},{"mes":"2025-09","ok":778,"no_op":150,"desc":91,"incomp":31,"total":1050,"pct_ok":74.1,"pct_issues":25.9,"soc_avg":34.4},{"mes":"2025-10","ok":889,"no_op":189,"desc":55,"incomp":54,"total":1187,"pct_ok":74.9,"pct_issues":25.1,"soc_avg":34.6},{"mes":"2025-11","ok":921,"no_op":227,"desc":37,"incomp":3,"total":1188,"pct_ok":77.5,"pct_issues":22.5,"soc_avg":30.3},{"mes":"2025-12","ok":931,"no_op":323,"desc":99,"incomp":3,"total":1356,"pct_ok":68.7,"pct_issues":31.3,"soc_avg":32.5},{"mes":"2026-01","ok":976,"no_op":232,"desc":199,"incomp":3,"total":1410,"pct_ok":69.2,"pct_issues":30.8,"soc_avg":31.5},{"mes":"2026-02","ok":937,"no_op":224,"desc":203,"incomp":10,"total":1374,"pct_ok":68.2,"pct_issues":31.8,"soc_avg":31.6},{"mes":"2026-03","ok":952,"no_op":334,"desc":129,"incomp":25,"total":1440,"pct_ok":66.1,"pct_issues":33.9,"soc_avg":32.4},{"mes":"2026-04","ok":945,"no_op":268,"desc":199,"incomp":40,"total":1452,"pct_ok":65.1,"pct_issues":34.9,"soc_avg":35.6},{"mes":"2026-05","ok":898,"no_op":212,"desc":74,"incomp":62,"total":1246,"pct_ok":72.1,"pct_issues":27.9,"soc_avg":33.2},{"mes":"2026-06","ok":120,"no_op":30,"desc":28,"incomp":14,"total":192,"pct_ok":62.5,"pct_issues":37.5,"soc_avg":30.6}],"sites":[{"sitio":"Chihuahua 2G","cliente":"OMA","ciudad":"Chihuahua","total":477,"ok":238,"no_op":186,"desc":50,"incomp":3,"issues":239,"pct_ok":50,"soc_avg":52.4},{"sitio":"Sala Bravo B1","cliente":"ASUR","ciudad":"Cancún","total":475,"ok":247,"no_op":179,"desc":49,"incomp":0,"issues":228,"pct_ok":52,"soc_avg":69.9},{"sitio":"Culiacán","cliente":"OMA","ciudad":"Culiacán","total":477,"ok":259,"no_op":211,"desc":2,"incomp":5,"issues":218,"pct_ok":54,"soc_avg":48.7},{"sitio":"T3 B3","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":269,"no_op":186,"desc":5,"incomp":16,"issues":207,"pct_ok":57,"soc_avg":52.4},{"sitio":"T3 B2","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":283,"no_op":148,"desc":10,"incomp":35,"issues":193,"pct_ok":59,"soc_avg":41.5},{"sitio":"Monterrey B4","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":290,"no_op":77,"desc":109,"incomp":0,"issues":186,"pct_ok":61,"soc_avg":26.7},{"sitio":"T2 B2","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":306,"no_op":162,"desc":2,"incomp":6,"issues":170,"pct_ok":64,"soc_avg":38.0},{"sitio":"Monterrey B1","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":316,"no_op":35,"desc":122,"incomp":3,"issues":160,"pct_ok":66,"soc_avg":28.8},{"sitio":"Monterrey B2","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":319,"no_op":35,"desc":122,"incomp":0,"issues":157,"pct_ok":67,"soc_avg":24.8},{"sitio":"T3 B1","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":321,"no_op":144,"desc":8,"incomp":3,"issues":155,"pct_ok":67,"soc_avg":41.3},{"sitio":"CD Juárez","cliente":"OMA","ciudad":"CD Juárez","total":477,"ok":328,"no_op":59,"desc":89,"incomp":1,"issues":149,"pct_ok":69,"soc_avg":72.7},{"sitio":"Monterrey B3","cliente":"OMA","ciudad":"Monterrey","total":476,"ok":328,"no_op":26,"desc":122,"incomp":0,"issues":148,"pct_ok":69,"soc_avg":28.9},{"sitio":"Sala Bravo B2","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":330,"no_op":91,"desc":53,"incomp":2,"issues":146,"pct_ok":69,"soc_avg":43.3},{"sitio":"Reynosa","cliente":"OMA","ciudad":"Reynosa","total":477,"ok":347,"no_op":83,"desc":47,"incomp":0,"issues":130,"pct_ok":73,"soc_avg":35.6},{"sitio":"Mérida B2","cliente":"ASUR","ciudad":"Mérida","total":476,"ok":348,"no_op":32,"desc":44,"incomp":52,"issues":128,"pct_ok":73,"soc_avg":55.8},{"sitio":"Acapulco","cliente":"OMA","ciudad":"Acapulco","total":477,"ok":356,"no_op":86,"desc":34,"incomp":1,"issues":121,"pct_ok":75,"soc_avg":30.7},{"sitio":"BHS","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":360,"no_op":111,"desc":5,"incomp":1,"issues":117,"pct_ok":75,"soc_avg":14.4},{"sitio":"Mérida B1","cliente":"ASUR","ciudad":"Mérida","total":476,"ok":371,"no_op":27,"desc":47,"incomp":31,"issues":105,"pct_ok":78,"soc_avg":45.5},{"sitio":"Hidro","cliente":"ASUR","ciudad":"Cancún","total":103,"ok":4,"no_op":97,"desc":2,"incomp":0,"issues":99,"pct_ok":4,"soc_avg":null},{"sitio":"T1","cliente":"ASUR","ciudad":"Cancún","total":103,"ok":5,"no_op":97,"desc":1,"incomp":0,"issues":98,"pct_ok":5,"soc_avg":null},{"sitio":"Telas Asturcón","cliente":"Industria","ciudad":"Puebla","total":421,"ok":344,"no_op":54,"desc":23,"incomp":0,"issues":77,"pct_ok":82,"soc_avg":29.8},{"sitio":"Minatitlán","cliente":"ASUR","ciudad":"Minatitlán","total":477,"ok":409,"no_op":3,"desc":63,"incomp":2,"issues":68,"pct_ok":86,"soc_avg":54.4},{"sitio":"Alysa","cliente":"Industria","ciudad":"Tizayuca","total":477,"ok":415,"no_op":24,"desc":22,"incomp":16,"issues":62,"pct_ok":87,"soc_avg":14.1},{"sitio":"Park Royal Sol","cliente":"Industria","ciudad":"Cancún","total":90,"ok":29,"no_op":61,"desc":0,"incomp":0,"issues":61,"pct_ok":32,"soc_avg":47.9},{"sitio":"Park Royal Luna","cliente":"Industria","ciudad":"Cancún","total":92,"ok":35,"no_op":55,"desc":0,"incomp":2,"issues":57,"pct_ok":38,"soc_avg":40.6},{"sitio":"PTAR","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":421,"no_op":2,"desc":53,"incomp":1,"issues":56,"pct_ok":88,"soc_avg":21.3},{"sitio":"HUX 02","cliente":"ASUR","ciudad":"Huatulco","total":477,"ok":425,"no_op":8,"desc":34,"incomp":10,"issues":52,"pct_ok":89,"soc_avg":31.0},{"sitio":"Durango","cliente":"OMA","ciudad":"Durango","total":477,"ok":428,"no_op":2,"desc":47,"incomp":0,"issues":49,"pct_ok":90,"soc_avg":67.9},{"sitio":"Veracruz","cliente":"ASUR","ciudad":"Veracruz","total":477,"ok":437,"no_op":5,"desc":3,"incomp":32,"issues":40,"pct_ok":92,"soc_avg":19.5},{"sitio":"IPASA 2","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":237,"no_op":14,"desc":23,"incomp":1,"issues":38,"pct_ok":86,"soc_avg":13.7},{"sitio":"FM boca del río","cliente":"Industria","ciudad":"Veracruz","total":218,"ok":181,"no_op":16,"desc":15,"incomp":6,"issues":37,"pct_ok":83,"soc_avg":65.7},{"sitio":"IPASA 3","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":239,"no_op":13,"desc":23,"incomp":0,"issues":36,"pct_ok":87,"soc_avg":13.6},{"sitio":"T2 B1","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":441,"no_op":3,"desc":3,"incomp":29,"issues":35,"pct_ok":93,"soc_avg":14.6},{"sitio":"IPASA 1","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":242,"no_op":9,"desc":23,"incomp":1,"issues":33,"pct_ok":88,"soc_avg":14.6},{"sitio":"IPASA 4","cliente":"Industria","ciudad":"Aguascalientes","total":275,"ok":243,"no_op":9,"desc":23,"incomp":0,"issues":32,"pct_ok":88,"soc_avg":14.2},{"sitio":"FBO","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":447,"no_op":2,"desc":8,"incomp":20,"issues":30,"pct_ok":94,"soc_avg":16.2},{"sitio":"Zihuatanejo","cliente":"OMA","ciudad":"Zihuatanejo","total":477,"ok":450,"no_op":17,"desc":7,"incomp":3,"issues":27,"pct_ok":94,"soc_avg":60.5},{"sitio":"Chihuahua","cliente":"OMA","ciudad":"Chihuahua","total":477,"ok":452,"no_op":11,"desc":7,"incomp":7,"issues":25,"pct_ok":95,"soc_avg":25.1},{"sitio":"Almacén General","cliente":"ASUR","ciudad":"Cancún","total":478,"ok":454,"no_op":3,"desc":21,"incomp":0,"issues":24,"pct_ok":95,"soc_avg":40.0},{"sitio":"Vitrogenera","cliente":"Industria","ciudad":"CDMX","total":477,"ok":456,"no_op":15,"desc":5,"incomp":1,"issues":21,"pct_ok":96,"soc_avg":47.1},{"sitio":"FM MERIDA","cliente":"Industria","ciudad":"MERIDA","total":21,"ok":0,"no_op":0,"desc":21,"incomp":0,"issues":21,"pct_ok":0,"soc_avg":null},{"sitio":"Tejidos y texturizados","cliente":"Industria","ciudad":"Naucalpan","total":189,"ok":172,"no_op":4,"desc":3,"incomp":10,"issues":17,"pct_ok":91,"soc_avg":21.9},{"sitio":"Torreón","cliente":"OMA","ciudad":"Torreón","total":477,"ok":462,"no_op":2,"desc":9,"incomp":4,"issues":15,"pct_ok":97,"soc_avg":69.1},{"sitio":"RegioPet 1","cliente":"Industria","ciudad":"Monterrey","total":473,"ok":458,"no_op":8,"desc":5,"incomp":2,"issues":15,"pct_ok":97,"soc_avg":17.2},{"sitio":"Vesta","cliente":"Industria","ciudad":"Monterrey","total":163,"ok":148,"no_op":1,"desc":12,"incomp":2,"issues":15,"pct_ok":91,"soc_avg":25.0},{"sitio":"Zacatecas","cliente":"OMA","ciudad":"Zacatecas","total":477,"ok":464,"no_op":4,"desc":8,"incomp":1,"issues":13,"pct_ok":97,"soc_avg":35.9},{"sitio":"RegioPet 2","cliente":"Industria","ciudad":"Monterrey","total":473,"ok":461,"no_op":5,"desc":5,"incomp":2,"issues":12,"pct_ok":97,"soc_avg":32.0},{"sitio":"DISEKO","cliente":"Industria","ciudad":"Aguascalientes","total":477,"ok":467,"no_op":4,"desc":3,"incomp":3,"issues":10,"pct_ok":98,"soc_avg":29.1},{"sitio":"RegioPet 3","cliente":"Industria","ciudad":"Monterrey","total":473,"ok":463,"no_op":5,"desc":5,"incomp":0,"issues":10,"pct_ok":98,"soc_avg":24.9},{"sitio":"Alpha","cliente":"ASUR","ciudad":"Cancún","total":479,"ok":470,"no_op":2,"desc":6,"incomp":1,"issues":9,"pct_ok":98,"soc_avg":39.2},{"sitio":"Regio PET","cliente":"Industria","ciudad":"Monterrey","total":12,"ok":3,"no_op":0,"desc":9,"incomp":0,"issues":9,"pct_ok":25,"soc_avg":19.0},{"sitio":"THOR B2","cliente":"Industria","ciudad":"San Luis Potosí","total":122,"ok":113,"no_op":0,"desc":4,"incomp":5,"issues":9,"pct_ok":93,"soc_avg":15.5},{"sitio":"HUX 01","cliente":"ASUR","ciudad":"Huatulco","total":477,"ok":469,"no_op":2,"desc":4,"incomp":2,"issues":8,"pct_ok":98,"soc_avg":17.5},{"sitio":"Bocar","cliente":"Industria","ciudad":"CDMX","total":451,"ok":443,"no_op":6,"desc":2,"incomp":0,"issues":8,"pct_ok":98,"soc_avg":29.1},{"sitio":"LG","cliente":"Industria","ciudad":"Monterrey","total":35,"ok":27,"no_op":7,"desc":0,"incomp":1,"issues":8,"pct_ok":77,"soc_avg":42.4},{"sitio":"T4 B2","cliente":"ASUR","ciudad":"Cancún","total":475,"ok":468,"no_op":2,"desc":2,"incomp":3,"issues":7,"pct_ok":99,"soc_avg":16.0},{"sitio":"Comedor","cliente":"ASUR","ciudad":"Cancún","total":477,"ok":471,"no_op":4,"desc":2,"incomp":0,"issues":6,"pct_ok":99,"soc_avg":27.6},{"sitio":"T4 B1","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":470,"no_op":2,"desc":2,"incomp":2,"issues":6,"pct_ok":99,"soc_avg":20.1},{"sitio":"T4 B3","cliente":"ASUR","ciudad":"Cancún","total":476,"ok":472,"no_op":2,"desc":2,"incomp":0,"issues":4,"pct_ok":99,"soc_avg":13.3},{"sitio":"Resideo","cliente":"Industria","ciudad":"Chihuahua","total":175,"ok":171,"no_op":0,"desc":4,"incomp":0,"issues":4,"pct_ok":98,"soc_avg":24.7},{"sitio":"THOR B1","cliente":"Industria","ciudad":"San Luis Potosí","total":122,"ok":118,"no_op":0,"desc":4,"incomp":0,"issues":4,"pct_ok":97,"soc_avg":14.7},{"sitio":"Park Royal Cozumel","cliente":"Industria","ciudad":"Cozumel","total":5,"ok":1,"no_op":4,"desc":0,"incomp":0,"issues":4,"pct_ok":20,"soc_avg":null},{"sitio":"TOTIS","cliente":"Industria","ciudad":"Tizayuca","total":275,"ok":272,"no_op":0,"desc":1,"incomp":2,"issues":3,"pct_ok":99,"soc_avg":21.3},{"sitio":"Monterrey","cliente":"OMA","ciudad":"Monterrey","total":4,"ok":2,"no_op":2,"desc":0,"incomp":0,"issues":2,"pct_ok":50,"soc_avg":24.0},{"sitio":"T3","cliente":"ASUR","ciudad":"Cancún","total":3,"ok":2,"no_op":1,"desc":0,"incomp":0,"issues":1,"pct_ok":67,"soc_avg":6.0},{"sitio":"Vestas","cliente":"Industria","ciudad":"","total":3,"ok":2,"no_op":0,"desc":1,"incomp":0,"issues":1,"pct_ok":67,"soc_avg":15.0},{"sitio":"ABADIMEX","cliente":"Industria","ciudad":"Naucalpan","total":9,"ok":8,"no_op":0,"desc":1,"incomp":0,"issues":1,"pct_ok":89,"soc_avg":41.5},{"sitio":"Sala Bravo","cliente":"ASUR","ciudad":"Cancún","total":2,"ok":2,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":5.0},{"sitio":"T2","cliente":"ASUR","ciudad":"Cancún","total":2,"ok":2,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":7.5},{"sitio":"T4","cliente":"ASUR","ciudad":"Cancún","total":3,"ok":3,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":11.0},{"sitio":"Mérida","cliente":"ASUR","ciudad":"Mérida","total":2,"ok":2,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":27.5},{"sitio":"Fantasías Miguel","cliente":"Industria","ciudad":"Veracruz","total":57,"ok":57,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":73.3},{"sitio":"Brom","cliente":"Industria","ciudad":"CDMX","total":171,"ok":171,"no_op":0,"desc":0,"incomp":0,"issues":0,"pct_ok":100,"soc_avg":47.9}],"totals":{"records":23961,"ok":19420,"no_op":2465,"desc":1441,"incomp":330,"pct_ok":81.0,"months":22,"sites":73},"clients":[{"cliente":"ASUR","total":10701,"ok":8709,"pct_ok":81.4,"no_op":1315,"desc":429,"incomp":248},{"cliente":"OMA","total":6678,"ok":5039,"pct_ok":75.5,"no_op":836,"desc":775,"incomp":28},{"cliente":"Industria","total":6581,"ok":5976,"pct_ok":90.8,"no_op":314,"desc":237,"incomp":54},{"cliente":"Sin cliente","total":1,"ok":1,"pct_ok":100.0,"no_op":0,"desc":0,"incomp":0}]};
+
+/* ── Estado global del visor ── */
+var H = {
+  all:[], filtered:[], sorted:[],
+  page:0, pageSize:100,
+  sortKey:'f', sortDir:-1,
+  loaded:false, loading:false,
+  unsubscribe:null,
+  chartTrend:null, chartDonut:null, chartSoc:null
+};
+
+/* ══ INIT ══════════════════════════════════════════════ */
+window.histInit = function(){
+  /* Wait for page to be visible in DOM before rendering */
+  requestAnimationFrame(function(){
+    histRenderDashboard();
+    if(!H.loaded && !H.loading) histLoad();
+  });
+};
+
+/* ══ FIREBASE LOAD ════════════════════════════════════ */
+function histLoad(){
+  H.loading = true;
+  if(!window._fbDB || !window._fbFS){
+    setTimeout(histLoad, 800); return;
+  }
+  var col = window._fbFS.collection(window._fbDB,'historico_descargas');
+  var q = window._fbFS.query(col, window._fbFS.orderBy('f','desc'));
+
+  if(H.unsubscribe) H.unsubscribe();
+  H.unsubscribe = window._fbOnSnapshot(q, function(snap){
+    H.all = snap.docs.map(function(d){ return d.data(); });
+    H.loaded = true; H.loading = false;
+    histPopulateSiteFilter();
+    histPopulateMonthFilter();
+    histApplyFilters();
+    /* Mostrar badge EN VIVO */
+    var badge = document.getElementById('hist-sync-badge');
+    if(badge) badge.style.display='flex';
+    console.log('[Hist] '+H.all.length+' registros cargados desde Firestore');
+  }, function(err){
+    H.loading = false;
+    console.warn('[Hist] Firestore error:', err);
+    _histShowEmpty('Error al conectar con Firestore. Verifica permisos.');
+  });
+}
+
+/* ══ DASHBOARD ════════════════════════════════════════ */
+function histRenderDashboard(){
+  var t = AGG.totals;
+
+  /* KPI Cards */
+  _histSetKPI('hist-kpi-total',
+    (t.records).toLocaleString('es-MX'), 'Registros totales', t.months+' meses cubiertos', 'var(--sky)');
+  _histSetKPI('hist-kpi-ok',
+    t.pct_ok+'%', 'Tasa OK global', (t.ok).toLocaleString('es-MX')+' registros OK', 'var(--green)');
+  _histSetKPI('hist-kpi-noop',
+    (t.no_op/t.records*100).toFixed(1)+'%', 'No Operativo',
+    (t.no_op).toLocaleString('es-MX')+' registros', 'var(--red)');
+  _histSetKPI('hist-kpi-desc',
+    (t.desc/t.records*100).toFixed(1)+'%', 'Sin comunicación',
+    (t.desc).toLocaleString('es-MX')+' registros', 'var(--t3)');
+  _histSetKPI('hist-kpi-sites',
+    t.sites.toString(), 'Sitios monitoreados', 'ASUR · OMA · Industria', 'var(--sky-ll)');
+
+  /* Charts + panels */
+  setTimeout(function(){
+    histRenderTrendChart();
+    histRenderDonutChart();
+    histRenderSocChart();
+    histRenderClientBars();
+    histRenderTopSites();
+  }, 100);
+}
+
+function _histSetKPI(id, val, lbl, sub, color){
+  var el = document.getElementById(id); if(!el) return;
+  el.querySelector('.hist-kpi-val').textContent = val;
+  el.querySelector('.hist-kpi-val').style.color = color;
+  el.querySelector('.hist-kpi-lbl').textContent = lbl;
+  el.querySelector('.hist-kpi-sub').textContent = sub;
+}
+
+/* ── Tendencia mensual ── */
+function histRenderTrendChart(){
+  var ctx = document.getElementById('hist-trend-chart'); if(!ctx) return;
+  if(typeof Chart === 'undefined'){ setTimeout(histRenderTrendChart,500); return; }
+  if(H.chartTrend){ H.chartTrend.destroy(); }
+
+  var monthly = AGG.monthly;
+  var labels = monthly.map(function(m){
+    var p=m.mes.split('-'); return ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(p[1])]+' '+p[0].slice(2);
+  });
+
+  H.chartTrend = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:labels,
+      datasets:[
+        {label:'% OK',data:monthly.map(function(m){return m.pct_ok;}),
+         borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',
+         tension:.4,fill:true,pointRadius:3,pointHoverRadius:5,borderWidth:2.5},
+        {label:'No Operativo',data:monthly.map(function(m){return m.total?+(m.no_op/m.total*100).toFixed(1):0;}),
+         borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.05)',
+         tension:.4,fill:true,pointRadius:2,borderWidth:1.5},
+        {label:'Desconectado',data:monthly.map(function(m){return m.total?+(m.desc/m.total*100).toFixed(1):0;}),
+         borderColor:'#6685ac',backgroundColor:'rgba(102,133,172,.04)',
+         tension:.4,fill:true,pointRadius:2,borderWidth:1.5},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'rgba(6,16,30,.92)',titleFont:{family:'DM Mono',size:10},bodyFont:{family:'DM Mono',size:10},
+        callbacks:{label:function(c){return ' '+c.dataset.label+': '+c.raw+'%';}}}},
+      scales:{
+        y:{min:0,max:100,ticks:{callback:function(v){return v+'%'},font:{family:'DM Mono',size:9},color:'#6685ac'},
+           grid:{color:'rgba(26,63,204,.05)'},border:{display:false}},
+        x:{ticks:{font:{family:'DM Mono',size:9},color:'#6685ac',maxRotation:45},
+           grid:{display:false},border:{display:false}}
+      }
+    }
+  });
+}
+
+/* ── Donut distribución ── */
+function histRenderDonutChart(){
+  var ctx = document.getElementById('hist-donut-chart'); if(!ctx) return;
+  if(typeof Chart === 'undefined'){ setTimeout(histRenderDonutChart,500); return; }
+  if(H.chartDonut){ H.chartDonut.destroy(); }
+
+  var t = AGG.totals;
+  var data=[t.ok, t.no_op, t.desc, t.incomp];
+  var labels=['OK','No Operativo','Desconectado','Incompleto'];
+  var colors=['#059669','#dc2626','#6685ac','#d97706'];
+
+  H.chartDonut = new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderWidth:0,hoverOffset:4}]},
+    options:{responsive:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{
+      backgroundColor:'rgba(6,16,30,.92)',bodyFont:{family:'DM Mono',size:10},
+      callbacks:{label:function(c){return ' '+c.label+': '+c.raw.toLocaleString('es-MX')+' ('+(c.raw/t.records*100).toFixed(1)+'%)';}}}}}
+  });
+
+  /* Legend */
+  var leg = document.getElementById('hist-donut-legend'); if(!leg) return;
+  leg.innerHTML = labels.map(function(l,i){
+    var pct=(data[i]/t.records*100).toFixed(1);
+    return '<div style="display:flex;align-items:center;gap:8px">'
+      +'<div style="width:10px;height:10px;border-radius:3px;background:'+colors[i]+';flex-shrink:0"></div>'
+      +'<div style="flex:1">'
+      +'<div style="font-family:var(--mono);font-size:9px;color:var(--text);font-weight:600">'+pct+'%</div>'
+      +'<div style="font-family:var(--mono);font-size:8px;color:var(--t3)">'+l+'</div>'
+      +'</div></div>';
+  }).join('');
+}
+
+/* ── SOC promedio bar ── */
+function histRenderSocChart(){
+  var ctx = document.getElementById('hist-soc-chart'); if(!ctx) return;
+  if(typeof Chart === 'undefined'){ setTimeout(histRenderSocChart,500); return; }
+  if(H.chartSoc){ H.chartSoc.destroy(); }
+
+  var monthly = AGG.monthly;
+  var labels = monthly.map(function(m){
+    var p=m.mes.split('-'); return ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(p[1])]+' '+''+p[0].slice(2);
+  });
+
+  H.chartSoc = new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:[{
+      label:'SOC %',
+      data:monthly.map(function(m){return m.soc_avg;}),
+      backgroundColor:monthly.map(function(m){
+        var v=m.soc_avg||0;
+        return v>=50?'rgba(5,150,105,.75)':v>=25?'rgba(217,119,6,.75)':'rgba(220,38,38,.75)';
+      }),
+      borderRadius:4,borderSkipped:false
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(6,16,30,.92)',bodyFont:{family:'DM Mono',size:10},
+        callbacks:{label:function(c){return ' SOC promedio: '+(c.raw!=null?c.raw+'%':'N/D');}}}},
+      scales:{y:{min:0,max:100,ticks:{callback:function(v){return v+'%'},font:{family:'DM Mono',size:9},color:'#6685ac'},
+                 grid:{color:'rgba(26,63,204,.05)'},border:{display:false}},
+              x:{ticks:{font:{family:'DM Mono',size:9},color:'#6685ac',maxRotation:45},
+                 grid:{display:false},border:{display:false}}}
+    }
+  });
+}
+
+/* ── Barras de clientes ── */
+function histRenderClientBars(){
+  var el = document.getElementById('hist-client-bars'); if(!el) return;
+  var clients = AGG.clients.filter(function(c){return c.cliente!='Sin cliente';});
+  var maxOk = Math.max.apply(null, clients.map(function(c){return c.pct_ok;}));
+
+  el.innerHTML = clients.map(function(c){
+    var color = c.pct_ok>=90?'var(--green)':c.pct_ok>=75?'var(--orange)':'var(--red)';
+    return '<div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
+      +'<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text)">'+c.cliente+'</span>'
+      +'<span style="font-family:var(--mono);font-size:9px;color:'+color+';font-weight:700">'+c.pct_ok+'%</span>'
+      +'</div>'
+      +'<div style="height:6px;background:var(--s3);border-radius:3px;overflow:hidden">'
+      +'<div style="height:100%;border-radius:3px;background:'+color+';width:'+c.pct_ok+'%;transition:width .6s ease"></div>'
+      +'</div>'
+      +'<div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:3px">'
+      +c.total.toLocaleString('es-MX')+' registros</div>'
+      +'</div>';
+  }).join('');
+}
+
+/* ── Top sitios críticos ── */
+function histRenderTopSites(){
+  var el = document.getElementById('hist-top-sites'); if(!el) return;
+  var sites = AGG.sites.slice(0,8);
+  var maxIssues = sites[0]?sites[0].issues:1;
+
+  el.innerHTML = sites.map(function(s,i){
+    var pct = Math.round(s.issues/maxIssues*100);
+    var rankColors = ['#dc2626','#dc2626','#dc2626','#d97706','#d97706','#6685ac','#6685ac','#6685ac'];
+    return '<div style="display:flex;align-items:center;gap:8px">'
+      +'<div style="font-family:var(--mono);font-size:9px;color:var(--t3);width:14px;text-align:right;flex-shrink:0">'+(i+1)+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+      +'<span style="font-size:10px;font-family:var(--mono);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px" title="'+s.sitio+'">'+s.sitio+'</span>'
+      +'<span style="font-family:var(--mono);font-size:9px;color:'+rankColors[i]+';font-weight:700;flex-shrink:0;margin-left:4px">'+s.issues+'</span>'
+      +'</div>'
+      +'<div style="height:3px;background:var(--s3);border-radius:2px">'
+      +'<div style="height:3px;border-radius:2px;background:'+rankColors[i]+';width:'+pct+'%"></div>'
+      +'</div>'
+      +'</div>'
+      +'<div style="font-family:var(--mono);font-size:8px;color:var(--green);flex-shrink:0">'+s.pct_ok+'% OK</div>'
+      +'</div>';
+  }).join('');
+}
+
+/* ══ FILTROS Y TABLA ══════════════════════════════════ */
+function histPopulateMonthFilter(){
+  var sel = document.getElementById('hist-f-mes'); if(!sel||sel.options.length>1) return;
+  var months=[...new Set(H.all.map(function(r){return r.m||r.mes||'';}))].filter(Boolean).sort().reverse();
+  months.forEach(function(m){
+    var o=document.createElement('option'); o.value=m;
+    var p=m.split('-');
+    var mn=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    o.textContent=mn[parseInt(p[1])]+' '+p[0];
+    sel.appendChild(o);
+  });
+}
+
+function histPopulateSiteFilter(){
+  var sel = document.getElementById('hist-f-sitio'); if(!sel||sel.options.length>1) return;
+  var sites=[...new Set(H.all.map(function(r){return r.si||r.sitio||'';}))].filter(function(s){return s&&s!='#N/D';}).sort();
+  sites.forEach(function(s){
+    var o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o);
+  });
+}
+
+window.histApplyFilters = function(){
+  var fMes    = (document.getElementById('hist-f-mes')||{}).value||'';
+  var fCl     = (document.getElementById('hist-f-cliente')||{}).value||'';
+  var fSt     = (document.getElementById('hist-f-status')||{}).value||'';
+  var fSi     = (document.getElementById('hist-f-sitio')||{}).value||'';
+  var fBus    = ((document.getElementById('hist-f-buscar')||{}).value||'').toLowerCase().trim();
+
+  H.filtered = H.all.filter(function(r){
+    var mes=r.m||r.mes||''; var cl=r.cl||r.cliente||'';
+    var st=r.st||r.status||''; var si=r.si||r.sitio||'';
+    if(fMes && mes!==fMes) return false;
+    if(fCl  && cl!==fCl)  return false;
+    if(fSt  && st!==fSt)  return false;
+    if(fSi  && si!==fSi)  return false;
+    if(fBus && si.toLowerCase().indexOf(fBus)<0) return false;
+    return true;
+  });
+
+  H.page=0;
+  histApplySort();
+};
+
+window.histClearFilters = function(){
+  ['hist-f-mes','hist-f-cliente','hist-f-status','hist-f-sitio'].forEach(function(id){
+    var e=document.getElementById(id); if(e) e.value='';
+  });
+  var b=document.getElementById('hist-f-buscar'); if(b) b.value='';
+  histApplyFilters();
+};
+
+window.histSort = function(key){
+  if(H.sortKey===key) H.sortDir*=-1; else{H.sortKey=key;H.sortDir=-1;}
+  /* Update sort icons */
+  ['f','si','st','sc'].forEach(function(k){
+    var ico=document.getElementById('hist-sort-'+k);
+    if(ico) ico.textContent = H.sortKey===k?(H.sortDir>0?'↑':'↓'):'';
+  });
+  histApplySort();
+};
+
+function histApplySort(){
+  var key=H.sortKey, dir=H.sortDir;
+  H.sorted = H.filtered.slice().sort(function(a,b){
+    var av=a[key]||'', bv=b[key]||'';
+    if(av<bv) return -1*dir; if(av>bv) return 1*dir; return 0;
+  });
+  histRenderTable();
+}
+
+/* ══ RENDER TABLE ════════════════════════════════════ */
+var STATUS_CFG = {
+  'OK':          {bg:'rgba(5,150,105,.1)',  color:'#059669', dot:'#059669'},
+  'NO OPERATIVO':{bg:'rgba(220,38,38,.1)',  color:'#dc2626', dot:'#dc2626'},
+  'DESCONECTADO':{bg:'rgba(102,133,172,.12)',color:'#6685ac',dot:'#6685ac'},
+  'INCOMPLETO':  {bg:'rgba(217,119,6,.1)',  color:'#d97706', dot:'#d97706'},
+};
+
+function histRenderTable(){
+  var data = H.sorted.length ? H.sorted : H.filtered;
+  var total = data.length;
+  var pages = Math.ceil(total/H.pageSize);
+  var start = H.page*H.pageSize;
+  var slice = data.slice(start, start+H.pageSize);
+
+  /* Count label */
+  var countEl = document.getElementById('hist-rec-count');
+  if(countEl){
+    var base = H.all.length.toLocaleString('es-MX')+' registros totales';
+    if(total < H.all.length) base = total.toLocaleString('es-MX')+' registros filtrados de '+H.all.length.toLocaleString('es-MX');
+    countEl.textContent = base;
+  }
+
+  if(!slice.length){
+    _histShowEmpty('Sin registros con los filtros seleccionados');
+    document.getElementById('hist-pag-info').textContent='';
+    document.getElementById('hist-pag-btns').innerHTML='';
+    return;
+  }
+
+  var rows = slice.map(function(r){
+    var si  = r.si||r.sitio||'';
+    var f   = r.f||r.fecha||'';
+    var cl  = r.cl||r.cliente||'';
+    var ci  = r.ci||r.ciudad||'';
+    var st  = r.st||r.status||'';
+    var sc  = r.sc!=null?r.sc:null;
+    var co  = r.co||r.comentarios||'';
+    var ev  = r.ev||r.eventos||'';
+    var src = r.src||r.origen||'';
+    var note = co||(ev?'Evento: '+ev:'');
+    var cfg = STATUS_CFG[st]||{bg:'transparent',color:'var(--t3)',dot:'var(--t3)'};
+    var srcBg = src==='historico'?'rgba(74,120,245,.1)':'rgba(5,150,105,.1)';
+    var srcColor = src==='historico'?'var(--sky)':'var(--green)';
+    var srcLabel = src==='historico'?'CSV':'App';
+
+    return '<tr class="hist-tr">'
+      +'<td class="hist-td hist-td-mono" style="color:var(--t2);white-space:nowrap">'+f+'</td>'
+      +'<td class="hist-td" style="font-weight:600;white-space:nowrap">'+si+'</td>'
+      +'<td class="hist-td hist-td-mono" style="color:var(--t3)">'+cl+'</td>'
+      +'<td class="hist-td hist-td-mono" style="color:var(--t3)">'+ci+'</td>'
+      +'<td class="hist-td">'
+        +'<span class="hist-status-pill" style="background:'+cfg.bg+';color:'+cfg.color+'">'
+          +'<span class="hist-status-dot" style="background:'+cfg.dot+'"></span>'+st
+        +'</span>'
+      +'</td>'
+      +'<td class="hist-td hist-td-mono" style="text-align:right;color:'
+        +(sc!=null?(sc>=50?'var(--green)':sc>=25?'var(--orange)':'var(--red)'):'var(--t3)')+'">'
+        +(sc!=null?sc+'%':'—')+'</td>'
+      +'<td class="hist-td" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)" title="'+note+'">'+note+'</td>'
+      +'<td class="hist-td"><span class="hist-src-badge" style="background:'+srcBg+';color:'+srcColor+'">'+srcLabel+'</span></td>'
+      +'</tr>';
+  }).join('');
+
+  var tbody = document.getElementById('hist-tbody');
+  if(tbody) tbody.innerHTML = rows;
+
+  /* Pagination */
+  var info = document.getElementById('hist-pag-info');
+  var btns = document.getElementById('hist-pag-btns');
+  if(info) info.textContent='Mostrando '+(start+1).toLocaleString('es-MX')+' – '+Math.min(start+H.pageSize,total).toLocaleString('es-MX')+' de '+total.toLocaleString('es-MX');
+
+  if(btns){
+    var pagHtml='';
+    if(H.page>0) pagHtml+='<button class="hist-pag-btn" onclick="histGoPage('+(H.page-1)+')">← Anterior</button>';
+    var from=Math.max(0,H.page-2), to=Math.min(pages-1,H.page+2);
+    for(var i=from;i<=to;i++) pagHtml+='<button class="hist-pag-btn'+(i===H.page?' active':'')+'" onclick="histGoPage('+i+')">'+(i+1)+'</button>';
+    if(H.page<pages-1) pagHtml+='<button class="hist-pag-btn" onclick="histGoPage('+(H.page+1)+')">Siguiente →</button>';
+    if(pages>1) pagHtml+='<span style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-left:4px">'+pages+' páginas</span>';
+    btns.innerHTML=pagHtml;
+  }
+}
+
+function _histShowEmpty(msg){
+  var tbody=document.getElementById('hist-tbody');
+  if(tbody) tbody.innerHTML='<tr><td colspan="8" class="hist-empty-cell">'
+    +'<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px">'
+    +'<div style="font-size:40px;opacity:.25">📊</div>'
+    +'<div style="font-family:var(--mono);font-size:11px;color:var(--t3)">'+msg+'</div>'
+    +'</div></td></tr>';
+}
+
+window.histGoPage = function(p){
+  H.page=p; histRenderTable();
+  var pg=document.getElementById('page-historico');
+  if(pg) pg.scrollTo({top:0,behavior:'smooth'});
+};
+
+/* ══ IMPORT ══════════════════════════════════════════ */
+window.histShowImport = function(){
+  var m=document.getElementById('hist-import-modal');
+  if(m) m.style.display='flex';
+};
+window.histHideImport = function(){
+  var m=document.getElementById('hist-import-modal');
+  if(m) m.style.display='none';
+  document.getElementById('hist-csv-input').value='';
+};
+
+window.histHandleCSV = function(inp){
+  var file=(inp.files||inp)[0]||inp.files&&inp.files[0]; if(!file) return;
+  var prog=document.getElementById('hist-import-progress');
+  if(prog) prog.style.display='block';
+  _histSetImportStatus('Leyendo archivo...', 0);
+
+  var reader=new FileReader();
+  reader.onload=function(e){
+    _histSetImportStatus('Procesando registros...', 5);
+    setTimeout(function(){ _histParseAndPush(e.target.result); }, 50);
+  };
+  reader.readAsText(file,'utf-8');
+};
+
+function _histParseAndPush(text){
+  var lines=text.split('\n').filter(function(l){return l.trim();});
+  var header=lines[0].split(',').map(function(h){return h.trim().replace(/"/g,'');});
+  var idx={
+    fecha:header.indexOf('FECHA'), sitio:header.indexOf('SITIO'),
+    cliente:header.indexOf('CLIENTE'), ciudad:header.indexOf('CIUDAD'),
+    status:header.indexOf('Status Descarga'), soc:header.indexOf('SOC final'),
+    eventos:header.indexOf('EVENTOS'), comentarios:header.indexOf('COMENTARIOS')
+  };
+  var statusMap={
+    'OK':'OK','OK ⚠️':'OK','Parcial':'INCOMPLETO','INCOMPLETO':'INCOMPLETO',
+    'Sin comunicación':'DESCONECTADO','Sin comunicación ':'DESCONECTADO','DESCONECTADO':'DESCONECTADO',
+    'Fuera de operación':'NO OPERATIVO','NO OPERATIVO':'NO OPERATIVO',
+    'Pérdida total':'NO OPERATIVO','Perdida Total':'NO OPERATIVO',
+    'Sin información':'DESCONECTADO','Sin Información':'DESCONECTADO','DESCARGA NULA':'NO OPERATIVO'
+  };
+
+  var records=[];
+  for(var i=1;i<lines.length;i++){
+    var cols=lines[i].split(',').map(function(c){return c.trim().replace(/^"|"$/g,'');});
+    if(!cols[idx.fecha]||!cols[idx.sitio]||cols[idx.sitio]==='#N/D') continue;
+    var parts=(cols[idx.fecha]||'').split('/');
+    var fi=parts.length===3?parts[2]+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0'):cols[idx.fecha];
+    if(!fi||fi.length<8) continue;
+    var rawSoc=parseFloat((cols[idx.soc]||'').replace('%',''));
+    if(rawSoc>100) rawSoc=Math.round(rawSoc/100*10)/10;
+    var cl=(cols[idx.cliente]||'').trim(); if(cl==='#N/D') cl='';
+    var ci=(cols[idx.ciudad]||'').trim(); if(['#N/D','nan','0','1','2'].indexOf(ci)>=0) ci='';
+    records.push({
+      f:fi, m:fi.slice(0,7),
+      si:(cols[idx.sitio]||'').trim(),
+      cl:cl, ci:ci,
+      st:statusMap[(cols[idx.status]||'').trim()]||(cols[idx.status]||'').trim()||'',
+      sc:isNaN(rawSoc)||rawSoc<=0?null:Math.round(rawSoc*10)/10,
+      ev:(cols[idx.eventos]||'').trim(),
+      co:(cols[idx.comentarios]||'').trim(),
+      src:'historico'
+    });
+  }
+
+  _histSetImportStatus('Subiendo '+records.length+' registros a Firestore...', 10);
+  _histBatchPush(records, 0, records.length);
+}
+
+function _histBatchPush(records, offset, total){
+  if(!window._fbDB||!window._fbFS){
+    _histSetImportStatus('Firebase no disponible. Intenta más tarde.', 0); return;
+  }
+  var batchSize=400;
+  var batch=records.slice(offset, offset+batchSize);
+  if(!batch.length){
+    _histSetImportStatus('✅ '+total+' registros importados correctamente', 100);
+    document.getElementById('hist-import-modal').style.display='none';
+    if(typeof safeToast!=='undefined') safeToast('✅ Histórico importado — '+total.toLocaleString('es-MX')+' registros en Firestore');
+    H.loaded=false; histLoad();
+    return;
+  }
+  var col=window._fbFS.collection(window._fbDB,'historico_descargas');
+  Promise.all(batch.map(function(r){ return window._fbFS.addDoc(col,r); }))
+    .then(function(){
+      var done=offset+batch.length;
+      var pct=Math.round(done/total*100);
+      _histSetImportStatus('Subiendo... '+done.toLocaleString('es-MX')+'/'+total.toLocaleString('es-MX'), pct);
+      setTimeout(function(){ _histBatchPush(records,done,total); }, 200);
+    })
+    .catch(function(e){
+      console.error('[Hist] Import error:',e);
+      _histSetImportStatus('⚠️ Error: '+e.message, 0);
+    });
+}
+
+function _histSetImportStatus(msg, pct){
+  var s=document.getElementById('hist-import-status'); if(s) s.textContent=msg;
+  var b=document.getElementById('hist-import-bar'); if(b) b.style.width=pct+'%';
+  var p=document.getElementById('hist-import-pct'); if(p) p.textContent=pct+'%';
+}
+
+/* ══ EXPORT CSV ══════════════════════════════════════ */
+window.histExportCSV = function(){
+  var data = H.filtered.length ? H.filtered : H.all;
+  if(!data.length){ if(typeof safeToast!=='undefined') safeToast('⚠️ Sin datos para exportar'); return; }
+  var header='Fecha,Sitio,Cliente,Ciudad,Status,SOC,Comentarios,Eventos,Origen\n';
+  var rows=data.map(function(r){
+    return [r.f||'',r.si||'',r.cl||'',r.ci||'',r.st||'',r.sc!=null?r.sc:'',r.co||'',r.ev||'',r.src||''].map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');
+  }).join('\n');
+  var blob=new Blob([header+rows],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='historico_BESS_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  if(typeof safeToast!=='undefined') safeToast('📥 CSV exportado — '+data.length.toLocaleString('es-MX')+' registros');
+};
+
+/* ══ AUTO-PUSH DE REPORTES OPERATIVOS ════════════════ */
+window._histPushReporteOp = function(rep){
+  if(!window._fbDB||!window._fbFS||!rep||!rep.srs) return;
+  var col=window._fbFS.collection(window._fbDB,'historico_descargas');
+  var fecha=new Date(rep.date||rep.createdAt||Date.now());
+  var fi=fecha.toISOString().slice(0,10);
+  var mes=fi.slice(0,7);
+  var who=rep.op||localStorage.getItem('bess_uname')||'';
+  var pushed=0;
+  rep.srs.forEach(function(s,i){
+    if(!s||(!s.status&&!s.skip)) return;
+    window._fbFS.addDoc(col,{
+      f:fi, m:mes,
+      si:(window.OP_SITES&&window.OP_SITES[i])||('Sitio '+(i+1)),
+      cl:'', ci:'',
+      st:s.status||'', sc:null,
+      ev:s.evento||'', co:s.obs||s.comentarios||s.cmt||'',
+      src:'reporte_op', repId:rep.id||''
+    }).catch(function(){});
+    pushed++;
+  });
+  if(pushed) console.log('[Hist] '+pushed+' registros de reporte operativo → historico_descargas');
+};
+
+/* ══ HOOK EN goPage ══════════════════════════════════ */
+/* goPage hook handled directly in goPage */
+
+})(); /* end IIFE */
+
 </script>
 </body>
 </html>
