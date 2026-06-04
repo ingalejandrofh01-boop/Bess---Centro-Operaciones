@@ -1,23 +1,23 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//  BESS Ops — Service Worker
-//  DEPLOY_TS se actualiza automaticamente en cada build
+//  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
- 
-const DEPLOY_TS  = '1780470914_bess';          // reemplazado en build
+
+const DEPLOY_TS  = '1780470914_bess';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
- 
+
 // ── Install ────────────────────────────────────────────────────────────────
 self.addEventListener('install', event => {
-  self.skipWaiting();  // activar inmediatamente, sin esperar pestañas
+  // NO skipWaiting automático — evita el ciclo activate→postMessage→reload→activate
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(c => c.addAll([SHELL_FILE, './']))
       .catch(() => {})
+      .then(() => self.skipWaiting()) // skipWaiting DESPUÉS de cachear, no antes
   );
 });
- 
-// ── Activate: borrar cachés viejas y tomar control ────────────────────────
+
+// ── Activate ───────────────────────────────────────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -25,36 +25,32 @@ self.addEventListener('activate', event => {
         keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: 'window' }))
-      .then(clients => clients.forEach(c =>
-        c.postMessage({ type: 'SW_UPDATED', version: CACHE_NAME })
-      ))
+    // NO enviar SW_UPDATED postMessage — causaba loop de recargas en móvil
   );
 });
- 
+
 // ── Fetch ──────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (!['http:', 'https:'].includes(url.protocol)) return;
- 
-  // Firebase y APIs externas → NO interceptar, dejar pasar directo
+
+  // Solo cachear GET
+  if (event.request.method !== 'GET') return;
+
+  // Firebase y APIs externas → pasar directo, sin interceptar
   const NET_ONLY = [
     'firebaseio.com','firestore.googleapis.com','googleapis.com',
     'firebase.com','gstatic.com','cdnjs.cloudflare.com','unpkg.com',
-    'google.com','googleapis.com',
   ];
-  if (NET_ONLY.some(d => url.hostname.includes(d))) {
-    // NO llamar event.respondWith — el browser maneja la peticion directamente
-    return;
-  }
- 
-  // HTML → Network first (siempre intenta obtener la versión más nueva)
+  if (NET_ONLY.some(d => url.hostname.includes(d))) return;
+
+  // HTML → Network first (siempre intenta la versión más nueva)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request, { cache: 'no-cache' })
         .then(resp => {
           if (resp && resp.status === 200) {
-            const clone = resp.clone(); // clonar ANTES de retornar
+            const clone = resp.clone();
             caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
           }
           return resp;
@@ -65,17 +61,14 @@ self.addEventListener('fetch', event => {
     );
     return;
   }
- 
-  // Resto → Cache first con fallback a red
-  // Solo cachear GET — Cache API rechaza HEAD y otros métodos
-  if (event.request.method !== 'GET') return;
 
+  // Resto → Cache first con fallback a red
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(resp => {
         if (resp && resp.status === 200 && ['basic','cors'].includes(resp.type)) {
-          const clone = resp.clone(); // clonar ANTES de retornar
+          const clone = resp.clone();
           caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
         }
         return resp;
@@ -83,7 +76,7 @@ self.addEventListener('fetch', event => {
     })
   );
 });
- 
+
 // ── Push Notifications ─────────────────────────────────────────────────────
 self.addEventListener('push', event => {
   let data = { title: 'Centro de Operaciones BESS', body: 'Nueva notificacion', icon: '' };
@@ -95,7 +88,7 @@ self.addEventListener('push', event => {
     })
   );
 });
- 
+
 // ── Notification click ─────────────────────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();

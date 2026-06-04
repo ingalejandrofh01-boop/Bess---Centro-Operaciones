@@ -4537,21 +4537,9 @@ html{-webkit-text-size-adjust:100%;}
 <script>
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
+  /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
   var APP_VERSION = '1780459543';
-  var stored = localStorage.getItem('bess_app_version');
-  if(stored && stored !== APP_VERSION){
-    /* Version nueva detectada — limpiar caches y recargar */
-    localStorage.setItem('bess_app_version', APP_VERSION);
-    if('caches' in window){
-      caches.keys().then(function(keys){
-        keys.forEach(function(k){ caches.delete(k); });
-      }).then(function(){ window.location.reload(true); });
-    } else {
-      window.location.reload(true);
-    }
-    return;
-  }
-  localStorage.setItem('bess_app_version', APP_VERSION);
+  try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
 <script>
@@ -4604,11 +4592,11 @@ if('serviceWorker' in navigator){
     })
     .catch(e => console.warn('[PWA] SW error:', e));
 
-  // Recibir mensaje del SW cuando se active una nueva version
+  // SW_UPDATED recibido — solo notificar, NO recargar (evita loop infinito en móvil)
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data && e.data.type === 'SW_UPDATED') {
-      console.log('[PWA] SW actualizado a', e.data.version, '— recargando');
-      window.location.reload();
+      console.log('[PWA] SW actualizado a', e.data.version, '— listo');
+      // No recargar automáticamente — el usuario puede refrescar manualmente si quiere
     }
   });
 }
