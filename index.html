@@ -4026,7 +4026,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 .cal-rep-card .card-meta{font-family:var(--mono);font-size:8.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-rep-card .card-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px}
 .cal-rep-card .card-del{position:absolute;top:4px;right:5px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(220,38,38,.2);background:transparent;color:var(--red);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
-.cal-rep-card:hover .card-del{opacity:1}
+.cal-rep-card:hover .card-del{opacity:1}.cal-rep-card:hover .card-view-btn{opacity:1!important}
 /* empty day */
 .cal-day-empty{padding:10px 6px;font-family:var(--mono);font-size:8.5px;color:rgba(148,163,184,.45);text-align:center}
 /* keep old .cal-rep-item for modals */
@@ -4947,6 +4947,10 @@ if('serviceWorker' in navigator){
     <span class="mt-icon">▶</span>
     <span>Pres.</span>
   </button>
+  <button class="mob-tab" id="mbt-soc" onclick="mobTabTo('soc')" touch-action="manipulation">
+    <span class="mt-icon">📈</span>
+    <span>SOC</span>
+  </button>
   <button class="mob-tab" id="mbt-docs" onclick="mobTabTo('docs')" touch-action="manipulation">
     <span class="mt-icon">📄</span>
     <span>Docs</span>
@@ -4988,6 +4992,10 @@ if('serviceWorker' in navigator){
   <div class="nav-item" data-page="monitor" onclick="goPage('monitor')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="6 8 10 12 14 9 18 13"/></svg></div>
     <div class="nl">Monitor BESS</div><div class="nav-tt">Monitor BESS — Voltaje, SOC & Temperatura</div>
+  </div>
+  <div class="nav-item" data-page="soc" onclick="goPage('soc')">
+    <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+    <div class="nl">SOC</div><div class="nav-tt">Tendencia SOC por Sitio</div>
   </div>
   <div class="nav-item" data-page="docs" onclick="goPage('docs')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
@@ -6568,7 +6576,7 @@ async function expDoZip(mode){
     <div class="op-paper" id="op-paper-content">
       <div class="op-paper-hdr">
         <div id="op-paper-title" style="color:#fff;font-family:var(--disp);font-size:14px;font-weight:900;letter-spacing:.5px">REPORTE OPERATIVO BESS</div>
-        <div style="display:flex;align-items:center;gap:10px"><svg width="20" height="20" viewBox="0 0 100 100" fill="none"><path d="M50 5 L65 35 L50 50 L35 35 Z" fill="white"/><path d="M95 50 L65 65 L50 50 L65 35 Z" fill="white"/><path d="M50 95 L35 65 L50 50 L65 65 Z" fill="white"/><path d="M5 50 L35 35 L50 50 L35 65 Z" fill="white"/></svg><span style="color:#fff;font-family:var(--disp);font-size:14px;font-weight:900;letter-spacing:1px">skysense</span></div>
+        <div style="display:flex;align-items:center"><img src="data:image/png;base64,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" style="height:26px;display:block" alt="skysense"/></div>
       </div>
       <div class="op-legend-row">
         <div style="display:flex;gap:14px;flex-wrap:wrap;flex:1">
@@ -6634,6 +6642,84 @@ async function expDoZip(mode){
   </div>
 </div>
 
+
+
+<!-- ══════ PAGE: TENDENCIA SOC ══════ -->
+<div class="page" id="page-soc">
+  <div class="page-scroll" style="padding:20px 24px;max-width:1400px;margin:0 auto;width:100%">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+      <div>
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--t3);text-transform:uppercase;margin-bottom:4px">Histórico</div>
+        <div style="font-family:var(--disp);font-size:22px;font-weight:900;letter-spacing:-.5px;color:var(--text)">Tendencia SOC por Sitio</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:3px">SOC registrado en reportes operativos y de validación</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="soc-site-sel" onchange="socRender()" style="background:var(--s1);border:1px solid var(--b1);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:6px;outline:none;cursor:pointer">
+          <option value="">— Todos los sitios —</option>
+        </select>
+        <select id="soc-month-sel" onchange="socRender()" style="background:var(--s1);border:1px solid var(--b1);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:6px;outline:none;cursor:pointer">
+          <option value="">— Todos los meses —</option>
+        </select>
+        <select id="soc-source-sel" onchange="socRender()" style="background:var(--s1);border:1px solid var(--b1);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:6px;outline:none;cursor:pointer">
+          <option value="">Todos (Op + Val)</option>
+          <option value="op">Solo Operativo</option>
+          <option value="val">Solo Validación</option>
+        </select>
+        <button onclick="socExportCSV()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(5,150,105,.1);border:1.5px solid rgba(5,150,105,.3);border-radius:7px;color:#059669;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">📊 CSV</button>
+        <button onclick="socClearMonth()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(220,38,38,.08);border:1.5px solid rgba(220,38,38,.25);border-radius:7px;color:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">🗑 Borrar mes</button>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div id="soc-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px"></div>
+
+    <!-- Chart -->
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--t3);text-transform:uppercase">Evolución SOC %</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;color:var(--t2)"><span style="width:10px;height:10px;border-radius:50%;background:#1a3fcc;display:inline-block"></span>Operativo</span>
+          <span style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;color:var(--t2)"><span style="width:10px;height:10px;border-radius:50%;background:#059669;display:inline-block"></span>Validación</span>
+        </div>
+      </div>
+      <div style="position:relative;height:300px">
+        <canvas id="soc-chart"></canvas>
+        <div id="soc-empty" style="display:none;position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+          <div style="font-size:40px;opacity:.2">📈</div>
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--t3);text-transform:uppercase">Sin datos de SOC</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Guarda reportes operativos o de validación con SOC registrado</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#06112e,#0a1f5e);padding:12px 18px;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.7);text-transform:uppercase">Registros de SOC</div>
+        <div id="soc-count" style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.4)">0 registros</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px" id="soc-table">
+          <thead>
+            <tr style="background:var(--s2)">
+              <th style="padding:9px 12px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Sitio</th>
+              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">SOC %</th>
+              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Tipo</th>
+              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Período</th>
+              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Operador</th>
+              <th style="padding:9px 12px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1)">Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="soc-tbody"></tbody>
+        </table>
+        <div id="soc-table-empty" style="display:none;padding:40px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:1px">Sin registros para los filtros seleccionados</div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <!-- ══════ PAGE: MONITOR BESS ══════ -->
 <div class="page" id="page-monitor">
@@ -9714,7 +9800,7 @@ async function _afterDelete(msg){
 }
 
 // PAGE SWITCHING
-const PAGE_TITLES={dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos'};
+const PAGE_TITLES={soc:'Tendencia SOC',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos'};
 function updateTopbarTitle(id){
   var t=document.getElementById('tb-title');if(!t)return;
   var title=PAGE_TITLES[id]||id;
@@ -9732,6 +9818,7 @@ function goPage(id){
   if(id==='arch'){renderArchTree();if(typeof archSite!=='undefined'&&archSite)renderArchContent();}
   if(id==='dash'){renderDash();renderDashTemplates();}
   if(id==='repop'){opInitSetup();}
+  if(id==='soc'){socInit();}
 }
 
 // DASHBOARD
@@ -11401,6 +11488,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // CC init — also calls runIntro() internally
   try { ccInit(); } catch(e){}
+  // Solicitar permiso de notificaciones OS (para push nativo en móvil)
+  setTimeout(function(){
+    if('Notification' in window && Notification.permission === 'default'){
+      Notification.requestPermission().then(function(p){
+        if(p==='granted') console.log('[BESS] Notificaciones OS activadas ✓');
+      });
+    }
+  }, 5000);
   // Failsafe absoluto: si después de 10s el shell sigue sin mostrar, forzarlo
   setTimeout(function(){
     var shell = document.getElementById('shell');
@@ -14332,6 +14427,8 @@ function rvSave(){
   });
   setTimeout(function(){
     rvLoad();opLoad();ucalRender();
+    // Refresh SOC chart if visible
+    if(document.getElementById('page-soc') && document.getElementById('page-soc').classList.contains('active')) socLoad();
     setTimeout(function(){
       var todayEl=document.querySelector('#ucal-content .cal-day-label.today');
       if(todayEl)todayEl.scrollIntoView({behavior:'smooth',block:'center'});
@@ -14506,6 +14603,61 @@ function rvRenderCal(){
 
   cc.innerHTML=header+(weeks||'<div style="text-align:center;padding:40px 0;color:var(--t3)">Sin reportes visibles</div>');
 }
+
+window.opShowDet = function(id){
+  opLoad();
+  var r = opReps.find(function(x){ return x.id===id||x.fbId===id; });
+  if(!r){ console.warn('opShowDet: id no encontrado', id); return; }
+  // Rebuild sum modal with saved data and open it
+  opW = {
+    op: r.op||'', period: r.period||'', date: r.date||r.createdAt||new Date().toISOString(),
+    srs: r.srs||[], idx:0, step:'sites'
+  };
+  opBuildSum();
+  // Open sum modal in read-only view (hide save buttons)
+  _op('op-sum-modal', function(e){
+    e.classList.add('open');
+    // Add a close (X) button for read-only view
+    var existing=e.querySelector('#opdet-close-btn');
+    if(!existing){
+      var closeBtn=document.createElement('button');
+      closeBtn.id='opdet-close-btn';
+      closeBtn.innerHTML='✕ Cerrar';
+      closeBtn.style.cssText='padding:8px 18px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.35);border-radius:7px;color:var(--red);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;flex-shrink:0';
+      // Add Export PNG button next to close
+      var pngBtn=document.createElement('button');
+      pngBtn.id='opdet-png-btn';
+      pngBtn.innerHTML='📷 Exportar PNG';
+      pngBtn.style.cssText='padding:8px 18px;background:linear-gradient(135deg,#7c3aed,#6d28d9);border:none;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;flex-shrink:0';
+      pngBtn.onclick=function(){ opExportPNG(); };
+      closeBtn.onclick=function(){
+        e.classList.remove('open');
+        var fab=document.getElementById('fab-nueva'); if(fab) fab.style.display='';
+        var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='';
+        ['op-save-btn','op-save-btn2'].forEach(function(bid){var btn=document.getElementById(bid);if(btn)btn.style.display='';});
+        var bar=document.getElementById('opdet-action-bar'); if(bar) bar.remove();
+      };
+      // Create a sticky action bar at top of modal
+      var existingBar = e.querySelector('#opdet-action-bar');
+      if(existingBar) existingBar.remove();
+      var bar = document.createElement('div');
+      bar.id = 'opdet-action-bar';
+      bar.style.cssText = 'position:sticky;top:0;z-index:500;background:var(--bg);border-bottom:1px solid var(--b1);padding:10px 20px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap';
+      bar.appendChild(pngBtn);
+      bar.appendChild(closeBtn);
+      e.insertBefore(bar, e.firstChild);
+    }
+    // Hide save buttons (read-only mode)
+    ['op-save-btn','op-save-btn2'].forEach(function(bid){
+      var btn=document.getElementById(bid);
+      if(btn){ btn.style.display='none'; }
+    });
+  });
+  // Close wizard if open
+  _op('op-wizard-modal', function(e){ e.classList.remove('open'); });
+  var fab=document.getElementById('fab-nueva'); if(fab) fab.style.display='none';
+  var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='none';
+};
 
 window.rvShowDet = function(id){
   // Search in-memory first (Firebase IDs), then fallback to localStorage
@@ -14826,7 +14978,9 @@ function ucalRender(){
                   (st.err>0?rvBdg(st.err+'e','err'):'')+
                   (st.alm>0?rvBdg(st.alm+'a','alm'):'')+
                   (st.ok>0?rvBdg(st.ok+'\u2713','ok'):'')+
-                '</div></div>';
+                '</div>'+
+                '<button onclick="event.stopPropagation();window.rvShowDet(\''+r.id+'\')" title="Ver reporte" style="position:absolute;top:4px;right:28px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(5,150,105,.3);background:rgba(5,150,105,.08);color:#059669;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s" class="card-view-btn">\uD83D\uDC41</button>'+
+                '</div>';
             }else if(item.kind==='monitor'){
               return '<div class="cal-rep-card kind-monitor" onclick="mbShowCalDet(\''+r.id+'\')" style="border-left-color:#0ea875;">'+
                 '<button class="card-del" onclick="event.stopPropagation();rvDelMon(\''+r.id+'\',event)">\u00d7</button>'+
@@ -14845,10 +14999,12 @@ function ucalRender(){
                 '<div class="card-title" style="color:#1a3fcc">'+r.period+'</div>'+
                 '<div class="card-meta">'+r.op+' \u00b7 '+opFt(r.createdAt)+'</div>'+
                 '<div class="card-tags">'+
-                  rvBdg(kpis.op+'\u2713','ok')+
+                  rvBdg(kpis.ok+'\u2713','ok')+
                   (kpis.par>0?rvBdg(kpis.par+'p','alm'):'')+
                   (kpis.crit>0?rvBdg(kpis.crit+'!','err'):'')+
-                '</div></div>';
+                '</div>'+
+                '<button onclick="event.stopPropagation();window.opShowDet(\''+r.id+'\')" title="Ver reporte" style="position:absolute;top:4px;right:28px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(26,63,204,.3);background:rgba(26,63,204,.08);color:#1a3fcc;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s" class="card-view-btn">\uD83D\uDC41</button>'+
+                '</div>';
             }
           }).join('');
 
@@ -14939,7 +15095,7 @@ function opCalcKpis(srs){
   var op=filled.filter(function(s){return s.oper===1&&s.status==='OK';}).length;
   var par=filled.filter(function(s){return s.status==='INCOMPLETO'||s.oper===2;}).length;
   var crit=filled.filter(function(s){return s.status==='NO OPERATIVO'||s.status==='DESCONECTADO';}).length;
-  return{n:filled.length,op:op,par:par,crit:crit,pct:filled.length>0?Math.round(op/filled.length*100):0};
+  var total=srs.length; return{n:filled.length,op:op,ok:op,par:par,crit:crit,total:total,pct:filled.length>0?Math.round(op/filled.length*100):0};
 }
 function opSColour(sr){
   if(!sr||sr.skip||!sr.status)return'var(--t3)';
@@ -15290,6 +15446,317 @@ function opSetCond(v){
 ══════════════════════════════════════════════════════════════ */
 
 /* ── Reporte de Validación ── */
+
+/* ══════════════════════════════════════════════════════════════
+   PUSH NOTIFICATIONS OS — Nativas en móvil/escritorio
+   Usa la Notifications API + Service Worker para entregarlas
+   incluso con la app en segundo plano.
+══════════════════════════════════════════════════════════════ */
+function _sendPushOS(title, body, tag) {
+  // Pedir permiso si aún no se tiene
+  if (!('Notification' in window)) return;
+  var send = function() {
+    try {
+      // Intentar via Service Worker (funciona en 2° plano en móvil)
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(function(reg) {
+          reg.showNotification(title, {
+            body: body,
+            tag: tag || 'bess-report',
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230a1f5e"/><text y=".9em" font-size="70" text-anchor="middle" x="50">⚡</text></svg>',
+            badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230a1f5e"/><text y=".9em" font-size="70" text-anchor="middle" x="50">⚡</text></svg>',
+            vibrate: [200, 100, 200],
+            renotify: true,
+          });
+        }).catch(function() {
+          // Fallback: notificación directa
+          new Notification(title, { body: body, tag: tag });
+        });
+      } else {
+        new Notification(title, { body: body, tag: tag });
+      }
+    } catch(e) {}
+  };
+  if (Notification.permission === 'granted') {
+    send();
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(function(p) {
+      if (p === 'granted') send();
+    });
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SOC TRACKER — Gráfica histórica de SOC por sitio
+   Extrae el SOC de reportes operativos y de validación
+   guardados en Firebase/localStorage.
+══════════════════════════════════════════════════════════════ */
+var _socChart = null;
+var _socData  = [];   // [{site, soc, type, period, op, date, monthKey}]
+
+function socInit() {
+  _socBuildSelectors();
+  socLoad();
+}
+
+function socLoad() {
+  _socData = [];
+  opLoad(); rvLoad();
+  // Extraer SOC de reportes operativos
+  opReps.forEach(function(rep) {
+    if (!rep.srs || rep.kind === 'monitor') return;
+    var fecha = rep.date || rep.createdAt || '';
+    var mk = fecha ? fecha.slice(0,7) : '';
+    rep.srs.forEach(function(sr, i) {
+      var soc = parseFloat(sr.soc);
+      if (!isNaN(soc) && soc > 0 && soc <= 100) {
+        _socData.push({
+          site: OP_SITES[i] || ('Sitio '+(i+1)),
+          soc: soc,
+          type: 'op',
+          period: rep.period || '',
+          op: rep.op || '',
+          date: fecha,
+          monthKey: mk
+        });
+      }
+    });
+  });
+  // Extraer SOC de reportes de validación
+  rvReps.forEach(function(rep) {
+    if (!rep.srs) return;
+    var fecha = rep.date || rep.createdAt || '';
+    var mk = fecha ? fecha.slice(0,7) : '';
+    rep.srs.forEach(function(sr, i) {
+      var soc = parseFloat(sr.soc);
+      if (!isNaN(soc) && soc > 0 && soc <= 100) {
+        _socData.push({
+          site: (window.RV_SITES && window.RV_SITES[i]) || ('Sitio '+(i+1)),
+          soc: soc,
+          type: 'val',
+          period: (RV_TYPES[rep.type]||{}).label || rep.type || '',
+          op: rep.op || '',
+          date: fecha,
+          monthKey: mk
+        });
+      }
+    });
+  });
+  _socBuildSelectors();
+  socRender();
+}
+
+function _socBuildSelectors() {
+  // Sites
+  var siteSel = document.getElementById('soc-site-sel');
+  if (!siteSel) return;
+  var sites = [...new Set(_socData.map(function(d){return d.site;}))].sort();
+  var curSite = siteSel.value;
+  siteSel.innerHTML = '<option value="">— Todos los sitios —</option>' +
+    sites.map(function(s){return '<option value="'+esc(s)+'"'+(s===curSite?' selected':'')+'>'+esc(s)+'</option>';}).join('');
+
+  // Months
+  var mthSel = document.getElementById('soc-month-sel');
+  var months = [...new Set(_socData.map(function(d){return d.monthKey;}))].filter(Boolean).sort().reverse();
+  var curMth = mthSel ? mthSel.value : '';
+  var MNF2=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  if (mthSel) {
+    mthSel.innerHTML = '<option value="">— Todos los meses —</option>' +
+      months.map(function(mk){
+        var p=mk.split('-'); var lbl=p.length===2?MNF2[parseInt(p[1])-1]+' '+p[0]:mk;
+        return '<option value="'+mk+'"'+(mk===curMth?' selected':'')+'>'+lbl+'</option>';
+      }).join('');
+  }
+}
+
+function socRender() {
+  var site   = (document.getElementById('soc-site-sel')||{}).value || '';
+  var month  = (document.getElementById('soc-month-sel')||{}).value || '';
+  var source = (document.getElementById('soc-source-sel')||{}).value || '';
+
+  var filtered = _socData.filter(function(d) {
+    if (site   && d.site !== site) return false;
+    if (month  && d.monthKey !== month) return false;
+    if (source && d.type !== source) return false;
+    return true;
+  });
+
+  // Sort by date
+  filtered.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+
+  // ── KPIs ──
+  var kpiEl = document.getElementById('soc-kpis');
+  if (kpiEl) {
+    var socs = filtered.map(function(d){return d.soc;});
+    var avg = socs.length ? (socs.reduce(function(a,b){return a+b;},0)/socs.length).toFixed(1) : '—';
+    var max = socs.length ? Math.max.apply(null,socs).toFixed(1) : '—';
+    var min = socs.length ? Math.min.apply(null,socs).toFixed(1) : '—';
+    var trend = socs.length >= 2 ? (socs[socs.length-1] - socs[0] > 0 ? '↑ Subiendo' : socs[socs.length-1] - socs[0] < 0 ? '↓ Bajando' : '→ Estable') : '—';
+    var trendColor = socs.length >= 2 ? (socs[socs.length-1] > socs[0] ? '#22c55e' : socs[socs.length-1] < socs[0] ? '#ef4444' : 'var(--t2)') : 'var(--t3)';
+    kpiEl.innerHTML = [
+      ['SOC Promedio', avg+'%', 'var(--sky)'],
+      ['SOC Máximo',  max+'%', '#22c55e'],
+      ['SOC Mínimo',  min+'%', '#ef4444'],
+      ['Tendencia',   trend,   trendColor]
+    ].map(function(k){
+      return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;text-align:center">'+
+        '<div style="font-family:var(--disp);font-size:26px;font-weight:900;color:'+k[2]+';line-height:1">'+k[1]+'</div>'+
+        '<div style="font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-top:4px">'+k[0]+'</div></div>';
+    }).join('');
+  }
+
+  // ── Chart ──
+  var canvas = document.getElementById('soc-chart');
+  var emptyEl = document.getElementById('soc-empty');
+  if (!canvas) return;
+
+  if (!filtered.length) {
+    canvas.style.display = 'none';
+    if (emptyEl) { emptyEl.style.display='flex'; emptyEl.style.position='absolute'; }
+  } else {
+    canvas.style.display = 'block';
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    var opPts  = filtered.filter(function(d){return d.type==='op';});
+    var valPts = filtered.filter(function(d){return d.type==='val';});
+    var labels = [...new Set(filtered.map(function(d){
+      if (!d.date) return d.monthKey||'';
+      try { var dt=new Date(d.date); return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}); } catch(e){return d.date;}
+    }))];
+
+    if (_socChart) { _socChart.destroy(); _socChart = null; }
+    var ctx = canvas.getContext('2d');
+    _socChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: filtered.map(function(d){
+          try { var dt=new Date(d.date); return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}); } catch(e){return d.date||d.monthKey||'';}
+        }),
+        datasets: [
+          {
+            label: 'Operativo',
+            data: filtered.map(function(d){ return d.type==='op' ? d.soc : null; }),
+            borderColor: '#1a3fcc',
+            backgroundColor: 'rgba(26,63,204,.1)',
+            pointBackgroundColor: '#1a3fcc',
+            pointRadius: 5, pointHoverRadius: 7,
+            borderWidth: 2, tension: 0.35, fill: true, spanGaps: false
+          },
+          {
+            label: 'Validación',
+            data: filtered.map(function(d){ return d.type==='val' ? d.soc : null; }),
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5,150,105,.1)',
+            pointBackgroundColor: '#059669',
+            pointRadius: 5, pointHoverRadius: 7,
+            borderWidth: 2, tension: 0.35, fill: true, spanGaps: false
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { font: { family: 'DM Mono', size: 11 }, color: '#6685ac' } },
+          tooltip: {
+            backgroundColor: 'rgba(6,17,46,.92)',
+            titleFont: { family: 'DM Mono', size: 10 },
+            bodyFont: { family: 'DM Mono', size: 11 },
+            callbacks: {
+              label: function(ctx) {
+                if (ctx.parsed.y === null) return null;
+                var d = filtered[ctx.dataIndex];
+                return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + '% · ' + (d.site||'') + (d.period ? ' · ' + d.period : '') + (d.op ? ' · ' + d.op : '');
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { font: { family: 'DM Mono', size: 9 }, color: '#6685ac', maxRotation: 45 }, grid: { color: 'rgba(26,63,204,.06)' } },
+          y: { min: 0, max: 100, ticks: { font: { family: 'DM Mono', size: 9 }, color: '#6685ac', callback: function(v){ return v+'%'; } }, grid: { color: 'rgba(26,63,204,.06)' } }
+        }
+      }
+    });
+  }
+
+  // ── Table ──
+  var tbody = document.getElementById('soc-tbody');
+  var tEmpty = document.getElementById('soc-table-empty');
+  var countEl = document.getElementById('soc-count');
+  if (countEl) countEl.textContent = filtered.length + ' registros';
+  if (!tbody) return;
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    if (tEmpty) tEmpty.style.display = 'block';
+    return;
+  }
+  if (tEmpty) tEmpty.style.display = 'none';
+  var revRows = filtered.slice().reverse();
+  tbody.innerHTML = revRows.map(function(d) {
+    var socColor = d.soc >= 80 ? '#22c55e' : d.soc >= 50 ? '#f59e0b' : '#ef4444';
+    var typeBadge = d.type === 'op'
+      ? '<span style="background:rgba(26,63,204,.1);color:#1a3fcc;border:1px solid rgba(26,63,204,.25);padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700">⚡ Op.</span>'
+      : '<span style="background:rgba(5,150,105,.1);color:#059669;border:1px solid rgba(5,150,105,.25);padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700">✓ Val.</span>';
+    var dateStr = '';
+    try { var dt=new Date(d.date); dateStr=dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){ dateStr=d.date||d.monthKey||'—'; }
+    return '<tr style="border-bottom:1px solid var(--s3)">'+
+      '<td style="padding:8px 12px;font-weight:600;color:var(--text)">'+esc(d.site)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:13px;font-weight:800;color:'+socColor+'">'+d.soc+'%</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+typeBadge+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t2)">'+esc(d.period||'—')+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t2)">'+esc(d.op||'—')+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t3)">'+dateStr+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+function socExportCSV() {
+  var site   = (document.getElementById('soc-site-sel')||{}).value || '';
+  var month  = (document.getElementById('soc-month-sel')||{}).value || '';
+  var source = (document.getElementById('soc-source-sel')||{}).value || '';
+  var data = _socData.filter(function(d) {
+    if (site   && d.site !== site) return false;
+    if (month  && d.monthKey !== month) return false;
+    if (source && d.type !== source) return false;
+    return true;
+  }).sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+
+  var rows = [['Sitio','SOC %','Tipo','Período','Operador','Fecha','Mes']];
+  data.forEach(function(d){
+    rows.push([d.site, d.soc, d.type==='op'?'Operativo':'Validación', d.period, d.op, d.date, d.monthKey]);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+(c||'').toString().replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'BESS_SOC_'+(month||'todo')+'_'+(site||'todos').replace(/\s+/g,'_')+'.csv';
+  a.click();
+  showToast('✅ CSV descargado');
+}
+
+function socClearMonth() {
+  var month = (document.getElementById('soc-month-sel')||{}).value;
+  if (!month) { showToast('⚠ Selecciona un mes para borrar'); return; }
+  var MNF2=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var p = month.split('-'); var lbl = p.length===2 ? MNF2[parseInt(p[1])-1]+' '+p[0] : month;
+  if (!confirm('¿Borrar todos los registros SOC del mes '+lbl+'?\nEsto elimina los REPORTES COMPLETOS del mes (op y val).\nNo se puede deshacer.')) return;
+  // Delete op reports of that month
+  var opToDelete = opReps.filter(function(r){ return (r.date||r.createdAt||'').slice(0,7)===month; });
+  var valToDelete = rvReps.filter(function(r){ return (r.date||r.createdAt||'').slice(0,7)===month; });
+  var total = opToDelete.length + valToDelete.length;
+  if (!total) { showToast('Sin reportes para ese mes'); return; }
+  opReps = opReps.filter(function(r){ return (r.date||r.createdAt||'').slice(0,7)!==month; });
+  rvReps = rvReps.filter(function(r){ return (r.date||r.createdAt||'').slice(0,7)!==month; });
+  opPersist(); rvPersist();
+  // Delete from Firebase
+  if (window._fb) {
+    opToDelete.forEach(function(r){ if(r.fbId && window._fb.deleteReporteOp) window._fb.deleteReporteOp(r.fbId).catch(function(){}); });
+    valToDelete.forEach(function(r){ if(r.fbId && window._fb.deleteReporteVal) window._fb.deleteReporteVal(r.fbId).catch(function(){}); });
+  }
+  showToast('🗑 '+total+' reportes de '+lbl+' eliminados');
+  socLoad();
+}
+
 function rvPushNotif(rep) {
   var rt = RV_TYPES[rep.type] || RV_TYPES.matutino;
   var who = rep.op || localStorage.getItem('bess_uname') || 'Operador';
@@ -15299,6 +15766,8 @@ function rvPushNotif(rep) {
   var body  = rt.ico + ' ' + rt.label + ' · ' + fecha + ' · por ' + who;
   /* Notificación local inmediata (dispositivo que guarda) */
   addNotif('report', title, body, null);
+  /* Notificación OS nativa — funciona con la app en 2° plano en móvil */
+  _sendPushOS(title, body, 'repval');
   /* Push a Firestore → llega a todos los demás dispositivos via listener */
   if (window._fb && window._fb.pushNotif) {
     window._fb.pushNotif({
@@ -15351,6 +15820,8 @@ function opSave() {
   var body  = '⚡ ' + period + ' · ' + fecha + ' · por ' + who
     + ' · ' + kpis.ok + '/' + kpis.total + ' sitios OK';
   addNotif('report', title, body, null);
+  /* Notificación OS nativa — funciona con la app en 2° plano en móvil */
+  _sendPushOS(title, body, 'repop');
   if (window._fb && window._fb.pushNotif) {
     window._fb.pushNotif({
       tipo: 'reporte_op',
