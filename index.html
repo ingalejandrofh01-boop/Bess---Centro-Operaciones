@@ -15142,6 +15142,38 @@ var OP_SITES=["Almacén General", "Alpha", "BHS", "Comedor", "FBO", "PTAR", "Sal
 var opW=null, opReps=[], OP_SK='op:bess:v1';
 function opLoad(){try{var d=localStorage.getItem(OP_SK);if(d)opReps=JSON.parse(d);}catch(e){}}
 function opPersist(){try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}}
+/* ── Firebase live sync: reportes val ── */
+var _rvFbUnsubscribe=null;
+function rvStartFbSync(){
+  if(!window._fb||!window._fb.listenReportesVal)return;
+  if(_rvFbUnsubscribe)return;
+  _rvFbUnsubscribe=window._fb.listenReportesVal(function(docs){
+    rvReps=docs;
+    try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}catch(e){}
+    var calPg=document.getElementById('page-calval');
+    if(calPg&&calPg.classList.contains('active'))ucalRender();
+  });
+  console.log('[FB] Escuchando reportes_val...');
+}
+
+/* ── Firebase live sync: reportes op ── */
+var _opFbUnsubscribe=null;
+function opStartFbSync(){
+  if(!window._fb||!window._fb.listenReportesOp)return;
+  if(_opFbUnsubscribe)return;
+  _opFbUnsubscribe=window._fb.listenReportesOp(function(docs){
+    opReps=docs;
+    try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}
+    var calPg=document.getElementById('page-calval');
+    if(calPg&&calPg.classList.contains('active'))ucalRender();
+  });
+  console.log('[FB] Escuchando reportes_op...');
+}
+
+window.addEventListener('firebase-ready',function(){
+  setTimeout(function(){rvStartFbSync();opStartFbSync();},500);
+});
+
 function opMkS(){return{oper:null,status:'',soc:'',com:null,sev:'',evento:'',obs:'',skip:false};}
 function opFd(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}
 function opFdl(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
@@ -15874,7 +15906,7 @@ function rvPushNotif(rep) {
   var title = '📋 Reporte de Validación guardado';
   var body  = rt.ico + ' ' + rt.label + ' · ' + fecha + ' · por ' + who;
   /* Notificación local inmediata (dispositivo que guarda) */
-  addNotif('report', title, body, null);
+  addNotif('report', title, body, function(){ goPage('calval'); });
   /* Notificación OS nativa — funciona con la app en 2° plano en móvil */
   _sendPushOS(title, body, 'repval');
   /* Push a Firestore → llega a todos los demás dispositivos via listener */
@@ -15928,7 +15960,7 @@ function opSave() {
   var title = '📊 Reporte Operativo guardado';
   var body  = '⚡ ' + period + ' · ' + fecha + ' · por ' + who
     + ' · ' + kpis.ok + '/' + kpis.total + ' sitios OK';
-  addNotif('report', title, body, null);
+  addNotif('report', title, body, function(){ goPage('calval'); });
   /* Notificación OS nativa — funciona con la app en 2° plano en móvil */
   _sendPushOS(title, body, 'repop');
   if (window._fb && window._fb.pushNotif) {
@@ -15985,7 +16017,8 @@ function opSave() {
         if (n.tipo !== 'reporte_val' && n.tipo !== 'reporte_op') return;
         if (n.leida) return;
         /* Mostrar en este dispositivo */
-        addNotif('report', n.title || '📋 Nuevo Reporte', n.body || '', null);
+        var _repType = n.tipo === 'reporte_val' ? 'calval' : 'calval';
+        addNotif('report', n.title || '📋 Nuevo Reporte', n.body || '', function(){ goPage(_repType); });
         /* Marcar como leída en Firestore para no mostrarla dos veces */
         if (window._fb.markNotifRead) {
           window._fb.markNotifRead(n.id).catch(function() {});
@@ -16005,6 +16038,9 @@ function opSave() {
 </script>
 <!-- Motor de Colaboracion v6 - Division y Merge Automatico -->
 <script>
+(function(){
+'use strict';
+
 var BOOT_TS = Date.now();
 var COLLAB = {
   sessionId:null, reportType:null, isHost:false,
@@ -16040,7 +16076,7 @@ function waitFB(cb){
 ══════════════════════════════════════════════════════════════ */
 window.collabStartSession = function(reportType, reportLabel, totalSites){
   var sid='cs_'+Date.now()+'_'+myId().slice(0,6);
-  COLLAB.sessionId=sid; COLLAB.reportType=reportType; COLLAB.isHost=true;
+  COLLAB.sessionId=sid; COLLAB.reportType=reportType; COLLAB.isHost=true; COLLAB._sessionLabel=reportLabel||'';
   COLLAB._participants=[{id:myId(),name:myName(),color:myColor(),role:myRole()}];
   COLLAB._myFrom=0; COLLAB._myTo=totalSites-1;
   _collabUpdateBar(reportType);
@@ -16316,41 +16352,84 @@ window.collabSaveMyFragment = function(reportType){
 window.collabMergeAndFinalize = function(){
   if(!COLLAB.isHost) return;
   var reportType=COLLAB.reportType;
-  var localSrs=reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
-  if(!localSrs){ safeToast('\u26A0\uFE0F Wizard no activo'); return; }
+  var frags=COLLAB._fragments;
+  var fragCount=Object.keys(frags).length;
+  console.log('[Collab] Merge de',fragCount,'fragmentos, reportType:',reportType);
 
-  console.log('[Collab] Iniciando merge de',Object.keys(COLLAB._fragments).length,'fragmentos');
+  if(!fragCount){ safeToast('\u26A0\uFE0F Sin fragmentos para merge'); return; }
 
-  /* Merge: cada fragmento llena sus sitios asignados */
-  var merged = localSrs.map(function(s){ return s; }); // copia local
+  /* Determinar tamano del array desde los fragmentos */
+  var totalSites=0;
+  Object.values(frags).forEach(function(f){
+    if(f&&f.srs) totalSites=Math.max(totalSites,f.srs.length);
+  });
+  if(!totalSites){
+    /* Fallback: usar srs del wizard si existe */
+    var wz=reportType==='val'?(window.rvW&&window.rvW.srs):(window.opW&&window.opW.srs);
+    if(wz) totalSites=wz.length;
+  }
+  if(!totalSites){ safeToast('\u26A0\uFE0F No se pudo determinar los sitios'); return; }
 
-  Object.values(COLLAB._fragments).forEach(function(frag){
+  /* Crear array merged vacio */
+  var merged=[];
+  for(var k=0;k<totalSites;k++) merged.push(null);
+
+  /* Aplicar cada fragmento en su rango — el dueno del rango tiene prioridad */
+  Object.values(frags).forEach(function(frag){
     if(!frag||!frag.srs) return;
+    var from=typeof frag.from==='number'?frag.from:0;
+    var to=typeof frag.to==='number'?frag.to:frag.srs.length-1;
     frag.srs.forEach(function(s,i){
-      if(!s) return; // fuera del rango de ese colaborador
-      /* Merge: preferir datos con estado definido */
-      var current=merged[i];
-      var hasData = s.bat||s.status||s.skip;
-      var currentHasData = current&&(current.bat||current.status||current.skip);
-      if(hasData&&!currentHasData) merged[i]=s;
+      if(!s) return;
+      var inRange=i>=from&&i<=to;
+      if(inRange){
+        /* Rango asignado: datos del dueno siempre ganan */
+        merged[i]=JSON.parse(JSON.stringify(s));
+      } else if(!merged[i]){
+        /* Fuera de rango: solo si nadie mas lo lleno */
+        merged[i]=JSON.parse(JSON.stringify(s));
+      }
     });
   });
 
-  /* Aplicar merge al wizard local */
-  if(reportType==='val'&&window.rvW) window.rvW.srs=merged;
-  if(reportType==='op'&&window.opW) window.opW.srs=merged;
+  /* Reemplazar nulls restantes con objeto vacio del tipo correcto */
+  var mkEmpty=reportType==='val'?(window.rvMkS?rvMkS:function(){return{};}):(window.opMkS?opMkS:function(){return{};});
+  for(var j=0;j<merged.length;j++){
+    if(!merged[j]) merged[j]=mkEmpty();
+  }
 
-  var doneCount=merged.filter(function(s){return s&&(s.bat||s.status||s.skip);}).length;
-  safeToast('\uD83D\uDD00 Merge completo — '+doneCount+' sitios consolidados. Guardando...');
+  /* Inyectar merged en el wizard del host (lo abre si estaba cerrado) */
+  if(reportType==='val'){
+    var rvType=window.rvW?window.rvW.type:(COLLAB._sessionLabel||'matutino');
+    var rvDate=window.rvW?window.rvW.date:new Date().toISOString();
+    if(!window.rvW){
+      window.rvW={type:rvType,date:rvDate,op:localStorage.getItem('bess_uname')||'Operador',step:'sites',idx:0,srs:merged};
+    } else {
+      window.rvW.srs=merged;
+    }
+  } else {
+    var opPeriod=window.opW?window.opW.period:(COLLAB._sessionLabel||'Hora Punta Vespertina');
+    var opDate=window.opW?window.opW.date:new Date().toISOString();
+    if(!window.opW){
+      window.opW={period:opPeriod,date:opDate,op:localStorage.getItem('bess_uname')||'Operador',step:'sites',idx:0,srs:merged};
+    } else {
+      window.opW.srs=merged;
+    }
+  }
 
-  /* Cerrar sesion colaborativa */
+  var filled=merged.filter(function(s){return s&&(s.bat||s.status||s.skip);}).length;
+  safeToast('\uD83D\uDD00 Merge: '+filled+'/'+totalSites+' sitios combinados. Guardando...');
+  console.log('[Collab] Merge OK:',filled,'sitios con datos de',fragCount,'colaboradores');
+  console.log('[Collab] Muestra sitios merged[0..4]:',merged.slice(0,4).map(function(s){return s?{bat:s.bat,status:s.status}:'null';}));
+
+  /* Cerrar sesion colaborativa ANTES de guardar */
   window.collabEndSession();
 
-  /* Ejecutar el guardado normal */
+  /* Guardar el reporte unificado */
   setTimeout(function(){
     if(reportType==='val'&&window.rvSave) rvSave();
     else if(reportType==='op'&&window.opSave) opSave();
-  }, 300);
+  }, 400);
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -16368,12 +16447,18 @@ function _collabListenFragments(sid, reportType){
     var done=Object.values(COLLAB._fragments).filter(function(f){return f.done;}).length;
     console.log('[Collab] Fragmentos:',done,'/',total,'listos');
 
-    /* Actualizar panel de division */
+    /* Actualizar panel Y barra de estado */
     _collabRenderDivisionPanel();
+    _collabUpdateBar(reportType);
 
-    /* Si todos terminaron, notificar al host */
-    if(total>0&&done>=total&&COLLAB.isHost){
-      safeToast('\uD83C\uDF89 Todos terminaron — puedes hacer Merge y Guardar');
+    /* Auto-merge cuando todos terminaron */
+    if(total>0&&done>=total){
+      if(COLLAB.isHost){
+        safeToast('\uD83C\uDF89 Todos listos — haciendo Merge...');
+        setTimeout(collabMergeAndFinalize, 800);
+      } else {
+        safeToast('\u2705 Todos listos — el host est\u00e1 haciendo el Merge');
+      }
     }
   });
 }
@@ -16610,7 +16695,7 @@ function _collabPaintParticipantsInSidebar(reportType){
 /* ══════════════════════════════════════════════════════════════
    Barra de estado
 ══════════════════════════════════════════════════════════════ */
-function _collabUpdateBar(reportType){
+window._collabUpdateBar = function _collabUpdateBar(reportType){
   var sfx=reportType==='op'?'-op':'';
   var bar=document.getElementById('collab-status-bar'+sfx); if(!bar) return;
   bar.classList.add('active');
@@ -16714,7 +16799,7 @@ function _collabShowUsersPopup(reportType){
 
   var popup=document.createElement('div');
   popup.id='collab-users-popup';
-  popup.style.cssText='position:fixed;top:62px;right:16px;z-index:999999;width:300px;'
+  popup.style.cssText='position:fixed;top:62px;right:16px;z-index:99999;width:300px;'
     +'background:linear-gradient(160deg,#0b1535 0%,#07102a 100%);'
     +'border:1px solid rgba(74,120,245,.4);border-radius:16px;'
     +'box-shadow:0 16px 56px rgba(0,0,0,.75);overflow:hidden;';
@@ -16860,16 +16945,18 @@ function _collabHookSave(){
   if(_rv&&!_rv.__cs){
     window.rvSave=function(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
-        /* Guest: guardar fragmento, no el reporte completo */
+        /* Guest: sincronizar ultimo sitio y guardar fragmento */
+        if(window.rvSync) rvSync();
         window.collabSaveMyFragment('val');
-        /* Cerrar wizard sin guardar reporte */
         _rv_closeOnly();
+        safeToast('\u2705 Tu parte guardada \u2014 esperando que el host haga Merge');
         return;
       }
       if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
-        /* Host con division: guardar su fragmento y esperar merge */
+        /* Host: sincronizar ultimo sitio, guardar fragmento, mantener wizard abierto */
+        if(window.rvSync) rvSync();
         window.collabSaveMyFragment('val');
-        _rv_closeOnly();
+        safeToast('\u2705 Tu parte guardada \u2014 esperando al equipo...');
         return;
       }
       /* Sin colaboracion o sesion de 1: guardado normal */
@@ -16883,13 +16970,16 @@ function _collabHookSave(){
   if(_op&&!_op.__cs){
     window.opSave=function(){
       if(COLLAB.sessionId&&!COLLAB.isHost){
+        if(window.opSync) opSync();
         window.collabSaveMyFragment('op');
         _op_closeOnly();
+        safeToast('\u2705 Tu parte guardada \u2014 esperando que el host haga Merge');
         return;
       }
       if(COLLAB.sessionId&&COLLAB.isHost&&Object.keys(COLLAB._assignments).length>0){
+        if(window.opSync) opSync();
         window.collabSaveMyFragment('op');
-        _op_closeOnly();
+        safeToast('\u2705 Tu parte guardada \u2014 esperando al equipo...');
         return;
       }
       _op.apply(this,arguments);
@@ -16932,8 +17022,17 @@ function _boot(){
   console.log('[Collab] v6 Division+Merge arrancado');
 }
 
+/* Exponer funciones de identidad globalmente */
+window.myId    = myId;
+window.myName  = myName;
+window.myColor = myColor;
+window.myRole  = myRole;
+window.myIni   = myIni;
+
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_boot);
 else _boot();
 
+})();
+</script>
 </body>
 </html>
