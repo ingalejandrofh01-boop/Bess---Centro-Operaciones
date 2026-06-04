@@ -4471,6 +4471,35 @@ html{-webkit-text-size-adjust:100%;}
 @keyframes slideUp{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 
 
+
+/* ── Pantalla de Mantenimiento ── */
+#maint-overlay{
+  position:fixed;inset:0;z-index:99999;
+  background:linear-gradient(135deg,#0a0f2e 0%,#0d1a3a 50%,#0a1428 100%);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:24px;padding:40px 20px;
+}
+#maint-overlay.active{display:flex;}
+.maint-icon{font-size:64px;animation:maint-pulse 2.5s ease-in-out infinite;}
+@keyframes maint-pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.7;transform:scale(.96);}}
+.maint-title{
+  font-family:var(--disp);font-size:28px;font-weight:900;
+  color:#fff;text-align:center;letter-spacing:-.5px;
+}
+.maint-sub{
+  font-family:var(--mono);font-size:12px;color:rgba(154,179,255,.6);
+  text-align:center;max-width:380px;line-height:1.7;letter-spacing:.3px;
+}
+.maint-badge{
+  padding:8px 20px;border-radius:20px;
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
+  color:rgba(251,191,36,.9);font-family:var(--mono);font-size:10px;
+  letter-spacing:1.5px;text-transform:uppercase;
+}
+.maint-logo{
+  font-family:var(--disp);font-size:13px;color:rgba(255,255,255,.2);
+  letter-spacing:2px;text-transform:uppercase;margin-top:16px;
+}
 </style>
 
 
@@ -4651,6 +4680,22 @@ if('serviceWorker' in navigator){
 </script>
 </head>
 <body>
+<!-- ── Pantalla de Mantenimiento ── -->
+<div id="maint-overlay">
+  <div class="maint-icon">🔧</div>
+  <div class="maint-title" id="maint-title">Sistema en Mantenimiento</div>
+  <div class="maint-badge">Fuera de Servicio Temporal</div>
+  <div class="maint-sub" id="maint-msg">
+    Estamos realizando mejoras en el sistema.<br>
+    Por favor intenta de nuevo en unos minutos.
+  </div>
+  <button id="maint-continue-btn" style="display:none;margin-top:8px;padding:10px 28px;border-radius:12px;border:1px solid rgba(74,120,245,.4);background:rgba(74,120,245,.15);color:#9ab3ff;font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.5px;"
+    onclick="document.getElementById('maint-overlay').classList.remove('active')">
+    Continuar de todas formas →
+  </button>
+  <div class="maint-logo">⚡ Skysense Energy · Centro de Operaciones BESS</div>
+</div>
+
 <!-- INTRO -->
 <div id="intro">
 <canvas id="intro-cv"></canvas>
@@ -6224,13 +6269,13 @@ async function expDoZip(mode){
     <div class="rv-sidebar">
       <div class="rv-sidebar-hdr" id="rv-sidebar-hdr">
         <span>Sitios</span>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span id="rv-side-count" style="color:var(--sky);font-size:10px">0 / 51</span>
-          <button id="rv-az-btn" onclick="rvToggleAZ()" title="Ordenar A-Z / Original"
-            style="padding:2px 7px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .15s">A-Z</button>
-        </div>
+        <span id="rv-side-count" style="color:var(--sky);font-size:10px;font-family:var(--mono)">0 / 51</span>
       </div>
       <div class="rv-sidebar-scroll">
+        <div style="display:flex;justify-content:flex-end;padding:4px 10px 2px">
+          <button id="rv-az-btn" onclick="rvToggleAZ()" title="Ordenar A-Z / Original"
+            style="padding:2px 8px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .15s">A-Z</button>
+        </div>
         <div id="rv-site-list"></div>
       </div>
     </div>
@@ -6547,7 +6592,7 @@ async function expDoZip(mode){
   </div>
   <div class="op-wiz-body">
     <div class="op-sidebar">
-      <div class="op-sidebar-hdr" id="op-sidebar-hdr"><span>Sitios</span><div style="display:flex;align-items:center;gap:6px"><span id="op-side-count" style="color:var(--sky);font-size:10px">0 / 62</span><button id="op-az-btn" onclick="opToggleAZ()" title="Ordenar A-Z / Original" style="padding:2px 7px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .15s">A-Z</button></div></div>
+      <div class="op-sidebar-hdr" id="op-sidebar-hdr"><span>Sitios</span><span id="op-side-count" style="color:var(--sky);font-size:10px;font-family:var(--mono)">0 / 62</span></div><div style="display:flex;justify-content:flex-end;padding:4px 10px 2px"><button id="op-az-btn" onclick="opToggleAZ()" title="Ordenar A-Z / Original" style="padding:2px 8px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .15s">A-Z</button></div>
       <div class="op-side-scroll"><div id="op-site-list"></div></div>
     </div>
     <div class="op-form" id="op-form-panel">
@@ -16309,48 +16354,54 @@ function _collabPaintAssignments(){
   var list=document.getElementById(listId); if(!list) return;
   var items=list.querySelectorAll(itemCls);
 
-  /* Limpiar tags anteriores */
+  /* Limpiar decoraciones anteriores */
   list.querySelectorAll('.csb-assign-tag').forEach(function(t){t.remove();});
-
-  /* Pintar por asignacion */
-  Object.entries(COLLAB._assignments).forEach(function(entry){
-    var uid=entry[0], assign=entry[1];
-    for(var i=assign.from; i<=assign.to; i++){
-      if(!items[i]) continue;
-      var item=items[i];
-      /* Borde de color del asignado */
-      item.style.borderLeft='3px solid '+assign.color;
-      item.style.paddingLeft='4px';
-      if(uid===myId()){
-        item.style.background='rgba('+_hexToRgb(assign.color)+',.08)';
-      }
-      /* Tag del nombre + rango en el primer item del rango */
-      if(i===assign.from){
-        var isMe=uid===myId();
-        var tag=document.createElement('span');
-        tag.className='csb-assign-tag';
-        tag.style.cssText='display:inline-flex;align-items:center;gap:3px;'
-          +'font-size:7px;font-family:var(--mono);background:'+assign.color
-          +';color:#fff;padding:1px 6px 1px 4px;border-radius:8px;margin-left:auto;flex-shrink:0;white-space:nowrap;'
-          +(isMe?'box-shadow:0 0 0 1.5px rgba(255,255,255,.5);':'opacity:.8;');
-        /* Punto indicador */
-        var dot=document.createElement('span');
-        dot.style.cssText='width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.7);flex-shrink:0;';
-        tag.appendChild(dot);
-        var txt=document.createTextNode(
-          (isMe?'Tú':'')
-          +(isMe?' · ':' ')
-          +(assign.name||'?').split(' ')[0]
-          +' S.'+(assign.from+1)+'–'+(assign.to+1)
-        );
-        tag.appendChild(txt);
-        item.style.display='flex'; item.style.alignItems='center';
-        item.appendChild(tag);
-      }
-    }
+  items.forEach(function(item){
+    item.style.borderLeft=''; item.style.paddingLeft='';
+    item.style.background=''; item.style.borderBottom='';
   });
 
-  /* También actualizar el panel de participantes en sidebar */
+  /* Pintar cada rango */
+  Object.entries(COLLAB._assignments).forEach(function(entry){
+    var uid=entry[0], a=entry[1];
+    var isMe=uid===myId();
+    var firstName=(a.name||'?').trim().split(' ')[0];
+
+    for(var i=a.from; i<=a.to; i++){
+      if(!items[i]) continue;
+      var item=items[i];
+      /* Borde izquierdo de color */
+      item.style.borderLeft='3px solid '+a.color;
+      if(isMe) item.style.background='rgba('+_hexToRgb(a.color)+',.07)';
+      /* Linea divisoria al final del rango */
+      if(i===a.to) item.style.borderBottom='1px solid rgba('+_hexToRgb(a.color)+',.25)';
+    }
+
+    /* Pill SOLO en el primer item del rango — dentro de un wrapper */
+    if(!items[a.from]) return;
+    var firstItem=items[a.from];
+    var pill=document.createElement('div');
+    pill.className='csb-assign-tag';
+    pill.style.cssText=
+      'position:absolute;right:6px;top:50%;transform:translateY(-50%);'
+      +'display:flex;align-items:center;gap:3px;'
+      +'padding:2px 7px 2px 5px;border-radius:20px;'
+      +'background:'+a.color+';color:#fff;'
+      +'font-size:7px;font-family:var(--mono);font-weight:700;'
+      +'white-space:nowrap;pointer-events:none;'
+      +'box-shadow:0 1px 4px rgba(0,0,0,.25);'
+      +(isMe?'outline:1.5px solid rgba(255,255,255,.45);':'opacity:.85;');
+    var dot2=document.createElement('span');
+    dot2.style.cssText='width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.75);flex-shrink:0;';
+    var lbl2=document.createElement('span');
+    lbl2.textContent=(isMe?'Tú':firstName)+' · S.'+(a.from+1)+'–'+(a.to+1);
+    pill.appendChild(dot2); pill.appendChild(lbl2);
+    /* Make item relative for absolute positioning */
+    firstItem.style.position='relative';
+    firstItem.style.paddingRight='90px'; /* room for pill */
+    firstItem.appendChild(pill);
+  });
+
   _collabPaintParticipantsInSidebar(reportType);
 }
 
@@ -16742,68 +16793,76 @@ function _collabPaintParticipantsInSidebar(reportType){
   /* Siempre mostrar el panel si hay sesion activa */
   if(!COLLAB.sessionId) return;
   var mini=document.createElement('div');
-  mini.className='csb-part-mini';
-  mini.style.cssText='display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:6px 0 4px;border-top:1px solid rgba(74,120,245,.2);';
-
-  /* Fila de avatares + conteo */
-  var rowTop=document.createElement('div');
-  rowTop.style.cssText='display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
-
+  var hasAssign=Object.keys(COLLAB._assignments).length>0;
   var nP=COLLAB._participants.length;
+
+  var mini=document.createElement('div');
+  mini.className='csb-part-mini';
+  mini.style.cssText='margin-top:8px;padding:8px 0 4px;border-top:1px solid rgba(74,120,245,.15);';
+
+  /* Estado general */
+  var statusRow=document.createElement('div');
+  statusRow.style.cssText='font-size:7.5px;font-family:var(--mono);color:rgba(100,150,255,.45);'
+    +'text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px;';
+  statusRow.textContent=!hasAssign
+    ?(nP<=1?'Esperando equipo':nP+' en sesión · sin dividir')
+    :'Colaboradores · '+nP+' activos';
+  mini.appendChild(statusRow);
+
+  /* Una fila por participante */
   COLLAB._participants.forEach(function(p){
     var isMe=p.id===myId();
-    var pts=(p.name||'?').trim().split(' ').filter(Boolean);
-    var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'OP';
     var assign=COLLAB._assignments[p.id];
     var frag=COLLAB._fragments&&COLLAB._fragments[p.id];
-    var tip=p.name+(isMe?' (tú)':'')+( assign?' · Sitios '+(assign.from+1)+'–'+(assign.to+1):'')+(frag&&frag.done?' ✓':'');
+    var done=frag&&frag.done;
+    var pts=(p.name||'?').trim().split(' ').filter(Boolean);
+    var ini=(pts.length>=2?pts[0][0]+pts[pts.length-1][0]:(p.name||'?').slice(0,2)).toUpperCase()||'??';
+    var firstName=pts[0]||'?';
+
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:6px;padding:3px 0;'
+      +(isMe?'':'opacity:.72;');
+
     var av=document.createElement('div');
-    av.title=tip;
-    av.style.cssText='width:22px;height:22px;border-radius:50%;background:'+p.color+';'
-      +'display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;'
-      +(isMe?'box-shadow:0 0 0 2px #4af5b8;':'')
-      +(frag&&frag.done?'opacity:0.6;':'');
+    av.style.cssText='width:20px;height:20px;border-radius:50%;background:'+p.color+';flex-shrink:0;'
+      +'display:flex;align-items:center;justify-content:center;'
+      +'font-size:7px;font-weight:800;color:#fff;letter-spacing:-.3px;'
+      +(isMe&&!done?'box-shadow:0 0 0 2px #4af5b8;':'')
+      +(done?'box-shadow:0 0 0 2px #22c55e;':'');
     av.textContent=ini;
-    rowTop.appendChild(av);
+
+    var info=document.createElement('div');
+    info.style.cssText='flex:1;min-width:0;';
+
+    var nameEl=document.createElement('div');
+    nameEl.style.cssText='font-size:9px;font-family:var(--mono);font-weight:600;'
+      +'color:'+(isMe?'#c8d8ff':'rgba(180,200,255,.65)')+';'
+      +'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;';
+    nameEl.textContent=isMe?'Tú · '+firstName:firstName;
+
+    var rangeEl=document.createElement('div');
+    rangeEl.style.cssText='font-size:7.5px;font-family:var(--mono);'
+      +'color:rgba(120,150,220,.45);margin-top:1px;line-height:1.2;';
+    rangeEl.textContent=assign?'S.'+(assign.from+1)+'–'+(assign.to+1)+' ('+((assign.to-assign.from)+1)+' sitios)':'sin asignar';
+
+    info.appendChild(nameEl); info.appendChild(rangeEl);
+
+    var st=document.createElement('div');
+    st.style.cssText='font-size:7px;font-family:var(--mono);flex-shrink:0;'
+      +'padding:2px 5px;border-radius:6px;line-height:1.4;';
+    if(done){
+      st.textContent='✓ listo';
+      st.style.background='rgba(34,197,94,.1)'; st.style.color='#4af5b8';
+      st.style.border='1px solid rgba(34,197,94,.2)';
+    } else if(assign){
+      st.textContent='editando';
+      st.style.background='rgba(74,120,245,.08)'; st.style.color='rgba(154,179,255,.55)';
+      st.style.border='1px solid rgba(74,120,245,.12)';
+    }
+
+    row.appendChild(av); row.appendChild(info); if(assign||done) row.appendChild(st);
+    mini.appendChild(row);
   });
-
-  var lbl=document.createElement('span');
-  lbl.style.cssText='font-size:8px;font-family:var(--mono);color:rgba(100,150,255,.55);margin-left:2px;';
-  var hasAssign=Object.keys(COLLAB._assignments).length>0;
-  if(nP<=1&&!hasAssign) lbl.textContent='Sesión abierta — esperando equipo';
-  else if(!hasAssign) lbl.textContent=nP+' en sesión · sin dividir';
-  else lbl.textContent=nP+' editando';
-  rowTop.appendChild(lbl);
-  mini.appendChild(rowTop);
-
-  /* Si ya hay asignaciones, mostrar chips de sitios por persona */
-  if(hasAssign){
-    var rowSites=document.createElement('div');
-    rowSites.style.cssText='display:flex;flex-direction:column;gap:2px;margin-top:2px;';
-    COLLAB._participants.forEach(function(p){
-      var isMe=p.id===myId();
-      var assign=COLLAB._assignments[p.id];
-      if(!assign) return;
-      var frag=COLLAB._fragments&&COLLAB._fragments[p.id];
-      var pts=(p.name||'?').trim().split(' ').filter(Boolean);
-      var firstName=pts[0]||'?';
-      var chip=document.createElement('div');
-      chip.style.cssText='display:flex;align-items:center;gap:5px;padding:2px 6px;border-radius:8px;'
-        +'background:'+(isMe?'rgba('+_hexToRgb(p.color)+',.18)':'rgba(255,255,255,.04)')+';'
-        +'border:1px solid '+(isMe?p.color:'rgba(255,255,255,.08)')+';';
-      var dot=document.createElement('span');
-      dot.style.cssText='width:7px;height:7px;border-radius:50%;background:'+p.color+';flex-shrink:0;';
-      var txt=document.createElement('span');
-      txt.style.cssText='font-size:8.5px;font-family:var(--mono);color:'+(isMe?'#e0eaff':'rgba(180,200,255,.5)')+';white-space:nowrap;flex:1;';
-      txt.textContent=(isMe?'Tú':'')+(isMe&&firstName?(' ('+firstName+')'):(firstName))+' · S.'+(assign.from+1)+'–'+(assign.to+1);
-      var badge=document.createElement('span');
-      badge.style.cssText='font-size:8px;font-family:var(--mono);color:'+(frag&&frag.done?'#4af5b8':'rgba(100,150,255,.4)')+';flex-shrink:0;';
-      badge.textContent=frag&&frag.done?'✓ Listo':'editando';
-      chip.appendChild(dot); chip.appendChild(txt); chip.appendChild(badge);
-      rowSites.appendChild(chip);
-    });
-    mini.appendChild(rowSites);
-  }
 
   hdr.appendChild(mini);
 }
@@ -17176,6 +17235,52 @@ window.myIni   = myIni;
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_boot);
 else _boot();
 
+})();
+</script>
+<script>
+/* ── Pantalla de mantenimiento — listener Firebase ── */
+/* Estructura: sistema/mantenimiento { activo, titulo, mensaje, eta, allowContinue } */
+(function(){
+  function _startMaintListener(){
+    if(!window._fbDB || !window._fbOnSnapshot || !window._fbDoc){
+      setTimeout(_startMaintListener, 600); return;
+    }
+    try{
+      window._fbOnSnapshot(
+        window._fbDoc(window._fbDB, 'sistema', 'mantenimiento'),
+        function(snap){
+          var d = snap.exists() ? snap.data() : {};
+          _applyMaintMode(d.activo === true, d);
+        },
+        function(err){ console.warn('[Maint] Listener error:', err); }
+      );
+      console.log('[Maint] Listener activo — sistema/mantenimiento');
+    }catch(e){ console.warn('[Maint] Error listener:', e); }
+  }
+
+  function _applyMaintMode(active, d){
+    var overlay = document.getElementById('maint-overlay');
+    if(!overlay) return;
+    if(active){
+      /* Titulo */
+      var t = document.getElementById('maint-title');
+      if(t) t.textContent = d.titulo || 'Sistema en Mantenimiento';
+      /* Mensaje */
+      var m = document.getElementById('maint-msg');
+      if(m) m.innerHTML = (d.mensaje || 'Estamos realizando mejoras.<br>Volvemos pronto.')
+        + (d.eta ? '<br><br><span style="color:rgba(251,191,36,.8);font-weight:600">⏱ ETA: '+d.eta+'</span>' : '');
+      /* Boton continuar (solo si allowContinue=true) */
+      var btn = document.getElementById('maint-continue-btn');
+      if(btn) btn.style.display = d.allowContinue ? '' : 'none';
+      overlay.classList.add('active');
+    } else {
+      overlay.classList.remove('active');
+    }
+  }
+
+  window.addEventListener('firebase-ready', function(){
+    setTimeout(_startMaintListener, 600);
+  });
 })();
 </script>
 </body>
