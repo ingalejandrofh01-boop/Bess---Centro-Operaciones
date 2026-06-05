@@ -5204,6 +5204,12 @@ if('serviceWorker' in navigator){
       <span id="fb-dot" style="width:6px;height:6px;border-radius:50%;background:var(--orange);display:inline-block;transition:background .4s"></span>
       <span id="fb-lbl">Firebase…</span>
     </div>
+    <!-- Botón recuperar datos desde Firebase -->
+    <button id="recover-fb-btn" onclick="window._manualRecoverFromFirestore()"
+      title="Recuperar reportes desde Firebase"
+      style="display:none;align-items:center;gap:5px;padding:4px 10px;background:rgba(0,200,120,.1);border:1px solid rgba(0,200,120,.3);border-radius:6px;color:#00c896;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.5px;white-space:nowrap">
+      ☁️ Recuperar
+    </button>
 
     <!-- NOTIFICATION BELL -->
     <div class="notif-wrap" id="notif-wrap">
@@ -15992,12 +15998,21 @@ function rvSave(){
   };
   rvReps.unshift(rep);
   rvPersist(); // localStorage fallback
-  // Save to Firebase
-  if(window._fb && window._fb.saveReporteVal){
+  // Save to Firebase — update localStorage with fbId on confirmation
+  if(window._fb && window._fb.saveReporteVal && !window._firestoreQuotaExhausted){
     window._fb.saveReporteVal(rep).then(function(fbId){
-      rep.fbId=fbId;
-      console.log('Reporte Val guardado en Firebase:',fbId);
-    }).catch(function(e){console.warn('Firebase save error:',e);});
+      rep.fbId = fbId;
+      /* Update rvReps with fbId and re-persist */
+      var idx = rvReps.findIndex(function(r){ return r.id === rep.id; });
+      if(idx >= 0) { rvReps[idx].fbId = fbId; rvPersist(); }
+      console.log('[Val] ✅ Reporte Validación guardado en Firebase:', fbId);
+    }).catch(function(e){
+      console.warn('[Val] Firebase save error:', e);
+      if(e && e.message && e.message.includes('resource-exhausted')) {
+        window._firestoreQuotaExhausted = true;
+        showToast('⚠️ Cuota Firestore agotada — reporte guardado solo en local');
+      }
+    });
   }
   // Push Firebase notification
   rvPushNotif(rep);
@@ -16745,9 +16760,106 @@ function opStartFbSync(){
   console.log('[FB] Escuchando reportes_op...');
 }
 
-window.addEventListener('firebase-ready',function(){
-  setTimeout(function(){rvStartFbSync();opStartFbSync();},500);
+/* ── MANUAL RECOVERY desde Firebase ── */
+window._manualRecoverFromFirestore = async function() {
+  var btn = document.getElementById('recover-fb-btn');
+  if(btn) { btn.textContent = '⏳ Recuperando…'; btn.disabled = true; }
+  try {
+    var recovered = 0;
+    if(window._fb && window._fb.getReportesOp) {
+      var opDocs = await window._fb.getReportesOp();
+      if(opDocs && opDocs.length > 0) {
+        /* Merge: añadir los que no están en local por id/fbId */
+        var existIds = new Set(opReps.map(function(r){ return r.id||r.fbId||''; }));
+        var newOnes  = opDocs.filter(function(r){ return !existIds.has(r.id||r.fbId||''); });
+        if(newOnes.length) { opReps = opDocs; opPersist(); recovered += newOnes.length; }
+        else { opReps = opDocs; opPersist(); } /* sync anyway */
+      }
+    }
+    if(window._fb && window._fb.getReportesVal) {
+      var rvDocs = await window._fb.getReportesVal();
+      if(rvDocs && rvDocs.length > 0) {
+        var existIdsV = new Set(rvReps.map(function(r){ return r.id||r.fbId||''; }));
+        var newOnesV  = rvDocs.filter(function(r){ return !existIdsV.has(r.id||r.fbId||''); });
+        if(newOnesV.length) { rvReps = rvDocs; rvPersist(); recovered += newOnesV.length; }
+        else { rvReps = rvDocs; rvPersist(); }
+      }
+    }
+    var total = opReps.length + rvReps.length;
+    showToast('☁️ Recuperación completa — '+total+' reportes en local ('+recovered+' nuevos)');
+    var calPg = document.getElementById('page-calval');
+    if(calPg && calPg.classList.contains('active')) setTimeout(ucalRender, 100);
+  } catch(e) {
+    showToast('⚠️ Error al recuperar: '+e.message);
+  }
+  if(btn) { btn.textContent = '☁️ Recuperar'; btn.disabled = false; }
+};
+
+/* Mostrar el botón de recuperación cuando Firebase está listo */
+window.addEventListener('firebase-ready', function(){
+  setTimeout(function(){
+    var btn = document.getElementById('recover-fb-btn');
+    if(btn) btn.style.display = 'flex';
+    rvStartFbSync();opStartFbSync();
+  },500);
+  setTimeout(function(){ _bootRecoverFromFirestore(); }, 800);
 });
+
+/* Recuperar reportes desde Firestore al iniciar si localStorage está vacío o incompleto */
+async function _bootRecoverFromFirestore() {
+  if(!window._fb) return;
+  var needsRecovery = opReps.length === 0 || rvReps.length === 0;
+  if(!needsRecovery) return;
+  try {
+    var recovered = 0;
+    if(opReps.length === 0 && window._fb.getReportesOp) {
+      var opDocs = await window._fb.getReportesOp();
+      if(opDocs && opDocs.length > 0) {
+        opReps = opDocs;
+        opPersist();
+        recovered += opDocs.length;
+      }
+    }
+    if(rvReps.length === 0 && window._fb.getReportesVal) {
+      var rvDocs = await window._fb.getReportesVal();
+      if(rvDocs && rvDocs.length > 0) {
+        rvReps = rvDocs;
+        try { localStorage.setItem(RV_SK, JSON.stringify(rvReps)); } catch(e) {}
+        recovered += rvDocs.length;
+      }
+    }
+    if(recovered > 0) {
+      showToast('☁️ '+recovered+' reporte'+(recovered>1?'s recuperados':'  recuperado')+' desde Firebase');
+      /* Re-render calendar if visible */
+      var calPg = document.getElementById('page-calval');
+      if(calPg && calPg.classList.contains('active')) { setTimeout(ucalRender, 200); }
+      /* Show persistent recovery banner */
+      _showRecoveryBanner(recovered);
+    }
+  } catch(e) {
+    console.warn('[Recovery] Error al recuperar desde Firestore:', e);
+  }
+}
+
+function _showRecoveryBanner(count) {
+  var existing = document.getElementById('recovery-banner');
+  if(existing) existing.remove();
+  var banner = document.createElement('div');
+  banner.id = 'recovery-banner';
+  banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;'
+    +'background:linear-gradient(135deg,#065f46,#047857);border:1px solid rgba(0,200,120,.4);'
+    +'border-radius:14px;padding:12px 20px;display:flex;align-items:center;gap:12px;'
+    +'box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:420px;width:90%;'
+    +'font-family:\'DM Mono\',monospace;font-size:10px;cursor:pointer;';
+  banner.innerHTML = '<span style="font-size:20px">☁️</span>'
+    +'<div style="flex:1"><div style="font-weight:800;color:#a7f3d0;letter-spacing:.5px">DATOS RECUPERADOS</div>'
+    +'<div style="color:rgba(167,243,208,.7);margin-top:2px">'+count+' reporte'+(count>1?'s':'')
+    +' restaurado'+(count>1?'s':'')+' desde Firebase · Los datos están seguros</div></div>'
+    +'<span style="color:rgba(167,243,208,.5);font-size:16px" onclick="this.parentElement.remove()">✕</span>';
+  banner.onclick = function(e) { if(e.target.tagName!=='SPAN') { goPage('calval'); banner.remove(); } };
+  document.body.appendChild(banner);
+  setTimeout(function(){ if(banner.parentNode) banner.remove(); }, 8000);
+}
 
 function opMkS(){return{oper:null,status:'',soc:'',com:null,sev:'',evento:'',obs:'',skip:false};}
 function opFd(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}
@@ -17563,12 +17675,30 @@ function opSave() {
   if(window._histPushReporteOp) {
     setTimeout(function(){ _histPushReporteOp(rep); }, 100);
   }
-  /* Guardar en Firebase */
-  if (window._fb && window._fb.saveReporteOp) {
+  /* Guardar en Firebase — y actualizar localStorage con fbId al confirmar */
+  if (window._fb && window._fb.saveReporteOp && !window._firestoreQuotaExhausted) {
     window._fb.saveReporteOp(rep).then(function(fbId) {
       rep.fbId = fbId;
-      console.log('[Op] Reporte Operativo guardado en Firebase:', fbId);
-    }).catch(function(e) { console.warn('[Op] Firebase save error:', e); });
+      /* Actualizar el registro en opReps con el fbId y re-persistir */
+      var idx = opReps.findIndex(function(r){ return r.id === rep.id; });
+      if(idx >= 0) { opReps[idx].fbId = fbId; opPersist(); }
+      console.log('[Op] ✅ Reporte Operativo guardado en Firebase:', fbId);
+      /* Indicador visual de cloud save */
+      var cloudIcon = document.createElement('span');
+      cloudIcon.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;'
+        +'background:#065f46;color:#a7f3d0;border:1px solid rgba(0,200,120,.4);'
+        +'border-radius:10px;padding:8px 14px;font-family:\'DM Mono\',monospace;font-size:10px;'
+        +'font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.3);pointer-events:none;';
+      cloudIcon.textContent = '☁️ Guardado en Firebase';
+      document.body.appendChild(cloudIcon);
+      setTimeout(function(){ if(cloudIcon.parentNode) cloudIcon.remove(); }, 3000);
+    }).catch(function(e) {
+      console.warn('[Op] Firebase save error:', e);
+      if(e && e.message && e.message.includes('resource-exhausted')) {
+        window._firestoreQuotaExhausted = true;
+        showToast('⚠️ Cuota Firestore agotada — reporte guardado solo en local');
+      }
+    });
   }
   /* Notificación local + push a todos los dispositivos */
   var title = '📊 Reporte Operativo guardado';
