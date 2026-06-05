@@ -6415,34 +6415,81 @@ async function expDoZip(mode){
         <button class="rv-btn-s" style="font-size:11px;margin-top:6px;color:var(--t3)" onclick="rvSkipSite()">Omitir &#8594;</button>
       </div>
 
-      <!-- Battery + Condición fusionados -->
+      <!-- ══ STATUS UNIFICADO — Validación ══ -->
       <div class="rv-sec" style="margin-bottom:14px">
-        <span class="rv-sec-ttl">Condición del Sitio</span>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-          <button class="rv-cond-btn" id="rv-cond-normal"   data-val=""             onclick="rvSetCondFull('')"           style="padding:6px 14px;border-radius:20px;border:1.5px solid var(--b2);background:var(--s1);color:var(--t2);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s;font-weight:600">✓ Normal</button>
-          <button class="rv-cond-btn" id="rv-cond-fuera"    data-val="FUERA_OP"     onclick="rvSetCondFull('FUERA_OP')"   style="padding:6px 14px;border-radius:20px;border:1.5px solid rgba(239,68,68,.4);background:var(--s1);color:var(--red);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s;font-weight:600">⛔ Fuera de Operación</button>
-          <button class="rv-cond-btn" id="rv-cond-libranza" data-val="LIBRANZA"     onclick="rvSetCondFull('LIBRANZA')"   style="padding:6px 14px;border-radius:20px;border:1.5px solid rgba(245,158,11,.4);background:var(--s1);color:var(--yellow);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s;font-weight:600">📋 Libranza</button>
-          <button class="rv-cond-btn" id="rv-cond-mant"     data-val="MANTENIMIENTO" onclick="rvSetCondFull('MANTENIMIENTO')" style="padding:6px 14px;border-radius:20px;border:1.5px solid rgba(100,149,237,.4);background:var(--s1);color:cornflowerblue;font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s;font-weight:600">⚙ Mantenimiento</button>
-        </div>
-        <div id="rv-cond-banner" style="display:none;margin-top:8px;padding:7px 12px;border-radius:8px;font-size:11px;font-family:var(--mono);font-weight:700;letter-spacing:.5px"></div>
-      </div>
+        <span class="rv-sec-ttl">Status del Sistema</span>
+        <div id="rv-bat-btns" style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px">
 
-      <div class="rv-sec">
-        <span class="rv-sec-ttl">Estado de Bater&#237;as</span>
-        <div class="rv-bat-grid" id="rv-bat-btns">
-          <button class="rv-bat-btn" data-val="ok"    onclick="rvSetBat('ok')">
-            <span style="font-size:16px;color:var(--green)">&#10003;</span>OK
+          <!-- Fila 1: estados operativos normales -->
+          <button class="rv-bat-btn" data-val="ok" data-cond=""
+            onclick="rvSetBatFull('ok','')"
+            style="border-color:rgba(5,150,105,.3)">
+            <span style="font-size:15px;color:var(--green)">✓</span> OK
           </button>
-          <button class="rv-bat-btn" data-val="error" onclick="rvSetBat('error')">
-            <span style="font-size:13px;color:var(--red)">&#10007;</span>Error de Comunicaci&#243;n
+          <button class="rv-bat-btn" data-val="ok" data-cond="CARGANDO"
+            onclick="rvSetBatFull('ok','CARGANDO')"
+            style="border-color:rgba(59,130,246,.3);color:#60a5fa">
+            <span style="font-size:14px">🔌</span> Cargando
           </button>
-          <button class="rv-bat-btn" data-val="alarm" onclick="rvSetBat('alarm')">
-            <span style="font-size:15px;color:var(--yellow)">&#9888;</span>Alarmado
+          <button class="rv-bat-btn" data-val="ok" data-cond="BALANCEANDO"
+            onclick="rvSetBatFull('ok','BALANCEANDO')"
+            style="border-color:rgba(139,92,246,.3);color:#a78bfa">
+            <span style="font-size:14px">⚖️</span> Balanceando
           </button>
-          <button class="rv-bat-btn" data-val="na"    onclick="rvSetBat('na')">
-            <span style="color:var(--t3)">&#8212;</span>N/A
+
+          <!-- Fila 2: estados con problema -->
+          <button class="rv-bat-btn" data-val="alarm" data-cond=""
+            onclick="rvSetBatFull('alarm','')">
+            <span style="font-size:14px;color:var(--yellow)">⚠</span> Alarmado
           </button>
+          <button class="rv-bat-btn" data-val="ok" data-cond="NO_DESCARGA"
+            onclick="rvSetBatFull('ok','NO_DESCARGA')"
+            style="border-color:rgba(245,158,11,.3);color:#f59e0b">
+            <span style="font-size:14px">⛔</span> No Descarga
+          </button>
+          <button class="rv-bat-btn" data-val="ok" data-cond="DESCARGADO"
+            onclick="rvSetBatFull('ok','DESCARGADO')"
+            style="border-color:rgba(239,68,68,.3);color:var(--red)">
+            <span style="font-size:14px">⚡</span> Descargado
+          </button>
+
+          <!-- Fila 3: sin comunicación / fuera -->
+          <button class="rv-bat-btn" data-val="error" data-cond=""
+            onclick="rvSetBatFull('error','')">
+            <span style="font-size:14px;color:var(--red)">✗</span> Error Com.
+          </button>
+          <button class="rv-bat-btn" data-val="na" data-cond="FUERA_OP"
+            onclick="rvSetBatFull('na','FUERA_OP')"
+            style="border-color:rgba(239,68,68,.3);color:var(--red)">
+            <span style="font-size:14px">⛔</span> Fuera de Op.
+          </button>
+          <button class="rv-bat-btn" data-val="na" data-cond="MANTENIMIENTO"
+            onclick="rvSetBatFull('na','MANTENIMIENTO')"
+            style="border-color:rgba(100,149,237,.3);color:cornflowerblue">
+            <span style="font-size:14px">⚙</span> Mantenimiento
+          </button>
+
+          <!-- Fila 4: libranza / N/A -->
+          <button class="rv-bat-btn" data-val="na" data-cond="LIBRANZA"
+            onclick="rvSetBatFull('na','LIBRANZA')"
+            style="border-color:rgba(245,158,11,.3);color:var(--yellow);grid-column:span 2">
+            <span style="font-size:14px">📋</span> Libranza
+          </button>
+          <button class="rv-bat-btn" data-val="na" data-cond=""
+            onclick="rvSetBatFull('na','')">
+            <span style="color:var(--t3)">—</span> N/A
+          </button>
+
         </div>
+        <!-- Banner contextual -->
+        <div id="rv-cond-banner" style="display:none;margin-top:8px;padding:7px 12px;border-radius:8px;font-size:11px;font-family:var(--mono);font-weight:700;letter-spacing:.5px"></div>
+        <!-- Campos ocultos de compatibilidad -->
+        <input type="hidden" id="rv-cond-normal"   data-val="">
+        <input type="hidden" id="rv-cond-fuera"    data-val="FUERA_OP">
+        <input type="hidden" id="rv-cond-libranza" data-val="LIBRANZA">
+        <input type="hidden" id="rv-cond-mant"     data-val="MANTENIMIENTO">
+
+        <!-- Extras que se muestran según el estado seleccionado -->
         <div id="rv-ok-ex" class="rv-extras" style="display:none">
           <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center">
             <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px">
@@ -8433,6 +8480,7 @@ async function expDoZip(mode){
   <button class="ene-tab" data-enetab="eficiencia" onclick="eneSetTab('eficiencia',this)">⚡ Eficiencia</button>
   <button class="ene-tab" data-enetab="sitios" onclick="eneSetTab('sitios',this)">🏭 Por Sitio</button>
   <button class="ene-tab" data-enetab="registros" onclick="eneSetTab('registros',this)">📋 Registros</button>
+  <button class="ene-tab" data-enetab="maestra" onclick="eneSetTab('maestra',this)">🗂 Lista Maestra</button>
 </div>
 
 <!-- ── Main scrollable content ── -->
@@ -8827,6 +8875,90 @@ async function expDoZip(mode){
   </div>
 
 </div><!-- /ene-root -->
+
+<!-- ══ PANEL: LISTA MAESTRA ══ -->
+<div id="ene-panel-maestra" style="display:none;flex:1;overflow-y:auto;min-height:0;">
+<div style="max-width:1440px;margin:0 auto;padding:24px 28px 48px;width:100%;box-sizing:border-box;">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Skysense Energy · Configuración</div>
+      <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);margin:0">🗂 Lista Maestra de Sitios BESS</h2>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t3);margin-top:4px;">
+        <span id="ml-count">0 sitios</span> · Edita aquí y se sincroniza con Firebase automáticamente
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="window._mlAddSite()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#00d296,#00a878);color:#fff;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer;box-shadow:0 3px 14px rgba(0,210,150,.3)">
+        + Agregar Sitio
+      </button>
+      <!-- Importar CSV Maestro -->
+      <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(0,210,150,.35);background:rgba(0,210,150,.08);color:#00d296;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap">
+        📥 Cargar CSV Maestro
+        <input type="file" accept=".csv" style="display:none" onchange="window._mlImportCSV(this)">
+      </label>
+      <button onclick="window._mlSyncCloud()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(74,120,245,.35);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer">
+        ☁️ Sincronizar Firebase
+      </button>
+      <button onclick="window._mlEnrichHistorico()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.06);color:#f59e0b;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer">
+        🔧 Enriquecer Histórico
+      </button>
+    </div>
+  </div>
+
+  <!-- Search + filter -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <input id="ml-search" type="text" placeholder="🔍 Buscar sitio, cliente o ciudad…"
+      oninput="window._mlRender()"
+      style="flex:1;min-width:200px;padding:9px 14px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none">
+    <select id="ml-filter-cliente" onchange="window._mlRender()"
+      style="padding:9px 14px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer">
+      <option value="">Todos los clientes</option>
+      <option value="ASUR">ASUR</option>
+      <option value="OMA">OMA</option>
+      <option value="Industria">Industria</option>
+    </select>
+  </div>
+
+  <!-- Table -->
+  <div style="overflow-x:auto;border-radius:12px;border:1px solid var(--b1);">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:var(--s2);">
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">SKU</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Sitio</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Cliente</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Ciudad</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Marca</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Plataforma</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">BESS ID</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Racks</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">kW Verano</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">kW Invierno</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="ml-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Edit modal -->
+  <div id="ml-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(6,12,30,.88);backdrop-filter:blur(12px);z-index:99990;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--s1);border:1px solid rgba(74,120,245,.3);border-radius:18px;padding:28px 30px;max-width:560px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto;">
+      <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:18px" id="ml-modal-title">✏️ Editar Sitio</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="ml-modal-fields">
+        <!-- Fields injected by JS -->
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+        <button onclick="document.getElementById('ml-edit-modal').style.display='none'" style="padding:10px 20px;border-radius:8px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer">Cancelar</button>
+        <button onclick="window._mlSaveSite()" style="padding:10px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#4a78f5,#3a5fd9);color:#fff;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /inner-wrapper -->
+</div><!-- /ene-panel-maestra -->
 
 <!-- ══ IMPORT MODAL ══ -->
 <div id="ene-import-modal" style="display:none;position:fixed;inset:0;background:rgba(10,20,60,.65);backdrop-filter:blur(8px);z-index:9300;align-items:center;justify-content:center;padding:20px;">
@@ -11257,6 +11389,11 @@ async function reloadAll(){
 
   /* ── PUSH LOCAL → FIRESTORE (reportes op y val sin fbId) ── */
   var _syncResults = {opPushed:0, valPushed:0, opFailed:0, valFailed:0};
+  /* ── Sync tabla maestra ── */
+  var masterCount = 0;
+  if(window._syncMasterSites) {
+    try { masterCount = await window._syncMasterSites(); } catch(e){}
+  }
   if(window._fb && !window._firestoreQuotaExhausted) {
     /* Cargar lo que ya está en Firestore para saber qué falta */
     try {
@@ -11338,6 +11475,7 @@ async function reloadAll(){
     var opTotal = (window.opReps||[]).length;
     var rvTotal = (window.rvReps||[]).length;
     chips.push({label:`📊 ${opTotal} op · ${rvTotal} val en cloud`, cls:''});
+    if(masterCount) chips.push({label:`🗂 ${masterCount} sitios en tabla maestra`, cls:''});
     if(_syncResults.opPushed+_syncResults.valPushed>0) {
       chips.push({label:`☁️ ${_syncResults.opPushed+_syncResults.valPushed} nuevo${_syncResults.opPushed+_syncResults.valPushed>1?'s':''} subido${_syncResults.opPushed+_syncResults.valPushed>1?'s':''}`, cls:'ok'});
     }
@@ -15820,11 +15958,19 @@ function rvRenderS(){
   _rv('rv-wiz-lbl',function(e){e.textContent=rt.ico+' '+rt.label+' · '+rvW.op;});
   _rv('rv-site-num',function(e){e.textContent='Sitio '+(i+1)+' de '+RV_SITES.length;});
   _rv('rv-site-nm',function(e){e.textContent=site;});
-  /* battery */
+  /* battery — usar bat + cond para highlight exacto */
+  var _savedBat  = sr.bat  || '';
+  var _savedCond = sr.cond || '';
   document.querySelectorAll('#rv-bat-btns .rv-bat-btn').forEach(function(b){
     b.classList.remove('b-ok','b-err','b-alm','b-na');
-    if(sr.bat===b.dataset.val){var m={ok:'b-ok',error:'b-err',alarm:'b-alm',na:'b-na'};b.classList.add(m[sr.bat]);}
+    b.style.background=''; b.style.borderColor=''; b.style.color='';
+    b.style.fontWeight=''; b.style.transform=''; b.style.boxShadow='';
   });
+  if(_savedBat) {
+    /* Restaurar highlight del botón correcto */
+    _rvHighlightUnified && _rvHighlightUnified(_savedBat, _savedCond);
+    _rvShowCondBanner && _rvShowCondBanner(_savedCond, _savedBat);
+  }
   _rv('rv-ok-ex',function(e){e.style.display=sr.bat==='ok'?'block':'none';});
   _rv('rv-alm-ex',function(e){e.style.display=sr.bat==='alarm'?'block':'none';});
   if(sr.bat==='ok'){
@@ -15889,35 +16035,17 @@ function rvUpdTemp(){
 function rvSetCond(v){
   if(!rvW) return;
   rvW.cond = v || null;
-  /* Update buttons */
-  document.querySelectorAll('.rv-cond-btn').forEach(function(b){
-    var active = (b.dataset.val === v) || (!v && b.dataset.val === '');
-    b.style.background = active ? (v===''?'rgba(26,63,204,.15)':v==='FUERA_OP'?'rgba(239,68,68,.15)':v==='LIBRANZA'?'rgba(245,158,11,.15)':'rgba(100,149,237,.15)') : 'var(--s1)';
-    b.style.borderColor = active ? (v===''?'var(--sky)':v==='FUERA_OP'?'var(--red)':v==='LIBRANZA'?'var(--yellow)':'cornflowerblue') : 'var(--b2)';
-    b.style.color = active ? (v===''?'var(--sky)':v==='FUERA_OP'?'var(--red)':v==='LIBRANZA'?'var(--yellow)':'cornflowerblue') : 'var(--t2)';
-    b.style.fontWeight = active ? '700' : '400';
-  });
-  /* Banner */
-  var banner = document.getElementById('rv-cond-banner');
-  if(banner){
-    if(!v){ banner.style.display='none'; }
-    else {
-      var cfg = {
-        'FUERA_OP':    {txt:'⛔ Sitio FUERA DE OPERACIÓN — registrando con contexto', bg:'rgba(239,68,68,.1)', color:'var(--red)'},
-        'LIBRANZA':    {txt:'📋 Sitio en LIBRANZA — registrando con contexto',        bg:'rgba(245,158,11,.1)', color:'var(--yellow)'},
-        'MANTENIMIENTO':{txt:'⚙ Sitio en MANTENIMIENTO — registrando con contexto',  bg:'rgba(100,149,237,.1)', color:'cornflowerblue'}
-      }[v] || {txt:v, bg:'var(--s1)', color:'var(--t2)'};
-      banner.textContent = cfg.txt;
-      banner.style.background = cfg.bg;
-      banner.style.color = cfg.color;
-      banner.style.border = '1px solid '+cfg.color;
-      banner.style.display = '';
-    }
-  }
+  /* También guardar en el registro del sitio */
+  if(rvW.srs && rvW.srs[rvW.idx]) rvW.srs[rvW.idx].cond = v || '';
+  /* rv-cond-btn ya no existen en el nuevo grid — solo actualizar hidden fields */
+  /* Banner lo maneja _rvShowCondBanner desde rvSetBatFull */
   rvSync();
 }
 function rvSetBat(v){
-  rvW.srs[rvW.idx].bat=v;rvRenderS();rvBuildSide();
+  rvW.srs[rvW.idx].bat=v;
+  /* NO llamar rvRenderS() aquí — solo actualizar side y collab
+     El highlight lo maneja rvSetBatFull con _rvHighlightUnified */
+  rvBuildSide();
   if(window.COLLAB&&window.COLLAB.sessionId&&window.collabPushSite) window.collabPushSite(rvW.idx,RV_SITES.length,rvW.srs[rvW.idx]);
 }
 function rvSetClk(v){
@@ -16027,13 +16155,24 @@ function rvRenderSum(){
   /* table */
   var bLbl={ok:'OK',error:'Error de comunicación',alarm:'Alarmado',na:'N/A'};
   var bTc={ok:'t-ok',error:'t-err',alarm:'t-alm',na:'t-na'};
+  /* Color map for extended statuses */
+  var _extColor={
+    'Cargando':'var(--sky)','Balanceando':'#a78bfa',
+    'No Descarga':'var(--yellow)','Descargado':'var(--red)',
+    'Fuera de Op.':'var(--red)','Mantenimiento':'cornflowerblue',
+    'Libranza':'var(--yellow)','Alarmado':'var(--yellow)',
+    'Error Com.':'var(--red)','N/A':'var(--t3)','OK':'var(--green)'
+  };
   _rv('rv-sum-tbody',function(e){
     e.innerHTML=RV_SITES.map(function(site,i){
       var sr=rvW.srs[i];if(sr.skip||!sr.bat)return'';
       var tn=parseFloat(sr.tmp);
       var rc=sr.bat==='error'?'r-err':sr.bat==='alarm'?'r-alm':tn>=38?'r-hot':'';
-      var bc='<span class="'+bTc[sr.bat]+'">'+bLbl[sr.bat]+'</span>';
-      if(sr.chg&&sr.soc)bc+='<br><small style="color:var(--sky)">Cargando '+sr.soc+'%</small>';
+      /* Usar batLabel si existe (estado extendido), sino usar bLbl genérico */
+      var label = sr.batLabel || bLbl[sr.bat] || sr.bat;
+      var color = _extColor[label] || (bTc[sr.bat]==='t-ok'?'var(--green)':'var(--t2)');
+      var bc='<span style="font-weight:700;color:'+color+'">'+label+'</span>';
+      if(sr.chg&&sr.soc)bc+='<br><small style="color:var(--sky)">SOC '+sr.soc+'%</small>';
       if(sr.lp)bc+='<br><small style="color:var(--yellow)">Baja potencia</small>';
       if(sr.rn)bc+='<br><small style="color:var(--yellow)">Acometida neg.</small>';
       if(sr.bat==='alarm'&&sr.racks)bc+='<br><small style="color:var(--yellow)">'+sr.racks+'</small>';
@@ -16374,13 +16513,22 @@ window.rvShowDet = function(id){
   var tc={matutino:'#f59e0b',vespertino:'#1a3fcc',entrega:'#059669'};
   var bLbl={ok:'OK',error:'Error de comunicación',alarm:'Alarmado',na:'N/A'};
   var bTc={ok:'t-ok',error:'t-err',alarm:'t-alm',na:'t-na'};
+  var _extColor2={
+    'Cargando':'var(--sky)','Balanceando':'#a78bfa',
+    'No Descarga':'var(--yellow)','Descargado':'var(--red)',
+    'Fuera de Op.':'var(--red)','Mantenimiento':'cornflowerblue',
+    'Libranza':'var(--yellow)','Alarmado':'var(--yellow)',
+    'Error Com.':'var(--red)','N/A':'var(--t3)','OK':'var(--green)'
+  };
   var st=rvStats(r.srs);
   var rows=RV_SITES.map(function(site,i){
     var sr=r.srs[i];if(!sr||sr.skip||!sr.bat)return'';
     var tn=parseFloat(sr.tmp);
     var rc=sr.bat==='error'?'r-err':sr.bat==='alarm'?'r-alm':tn>=38?'r-hot':'';
-    var bc='<span class="'+bTc[sr.bat]+'">'+bLbl[sr.bat]+'</span>';
-    if(sr.chg&&sr.soc)bc+='<br><small style="color:var(--sky)">Cargando '+sr.soc+'%</small>';
+    var label = sr.batLabel || bLbl[sr.bat] || sr.bat;
+    var color = _extColor2[label] || (bTc[sr.bat]==='t-ok'?'var(--green)':'var(--t2)');
+    var bc='<span style="font-weight:700;color:'+color+'">'+label+'</span>';
+    if(sr.chg&&sr.soc)bc+='<br><small style="color:var(--sky)">SOC '+sr.soc+'%</small>';
     if(sr.lp)bc+='<br><small style="color:var(--yellow)">Baja potencia</small>';
     if(sr.rn)bc+='<br><small style="color:var(--yellow)">Acometida neg.</small>';
     if(sr.bat==='alarm'&&sr.racks)bc+='<br><small style="color:var(--yellow)">'+sr.racks+'</small>';
@@ -20286,12 +20434,22 @@ window._histPushReporteOp = function(rep){
   var newRecords=[];
   rep.srs.forEach(function(s,i){
     if(!s||(!s.status&&!s.skip)) return;
-    var _socRaw=parseFloat((s.soc||s.socFin||'').toString().replace('%',''));
+    var _socRaw=parseFloat((s.soc||s.socFin||s.socFinal||'').toString().replace('%',''));
     var _scVal=(!isNaN(_socRaw)&&_socRaw>0&&_socRaw<=100)?Math.round(_socRaw*10)/10:null;
+    /* ── Buscar cliente y ciudad desde MASTER_SITES_DB ── */
+    var siteName = (window.OP_SITES&&window.OP_SITES[i]) || s.sitio || ('Sitio '+(i+1));
+    var master = typeof getMasterSiteData==='function' ? getMasterSiteData(siteName) : null;
+    /* También buscar en la tabla maestra de Firestore si está cargada */
+    if(!master && window._masterSitesCloud) {
+      var sLow = siteName.trim().toLowerCase();
+      master = window._masterSitesCloud.find(function(m){ return m.sitio.trim().toLowerCase()===sLow; });
+    }
     var record={
       f:fi, m:mes,
-      si:(window.OP_SITES&&window.OP_SITES[i])||('Sitio '+(i+1)),
-      cl:'', ci:'',
+      si: siteName,
+      cl: master ? master.cliente : (s.cliente||''),
+      ci: master ? master.ciudad  : (s.ciudad||''),
+      marca: master ? master.marca : '',
       st:s.status||'', sc:_scVal,
       ev:s.evento||'', co:s.obs||s.comentarios||s.cmt||'',
       src:'reporte_op', repId:rep.id||''
@@ -20304,12 +20462,10 @@ window._histPushReporteOp = function(rep){
 
   /* ── PUSH LOCAL INMEDIATO (sin Firebase) ── */
   if(typeof H!=='undefined' && H){
-    /* Evitar duplicados del mismo repId */
     var repId=rep.id||'';
     if(repId){
       H.all = H.all.filter(function(r){ return r.repId !== repId; });
     }
-    /* Agregar al inicio (más reciente primero) */
     H.all = newRecords.concat(H.all);
     H.loaded = true;
     if(typeof histPopulateSiteFilter==='function') histPopulateSiteFilter();
@@ -20329,10 +20485,147 @@ window._histPushReporteOp = function(rep){
   }
 };
 
-/* ══ HOOK EN goPage ══════════════════════════════════ */
-/* goPage hook handled directly in goPage */
+})(); /* end IIFE historico */
 
-})(); /* end IIFE */
+/* ══════════════════════════════════════════════════════════════
+   TABLA MAESTRA EN FIRESTORE — colección: master_sites
+   · Al arrancar: jala de Firestore y fusiona con la local
+   · Al hacer SYNC: sube los sitios locales que no están en cloud
+   · Para agregar un sitio nuevo: editar directamente en Firebase
+     Console → Firestore → master_sites → Add document
+   · window._masterSitesCloud = array fusionado (local + cloud)
+══════════════════════════════════════════════════════════════ */
+(function(){
+
+/* Cargar tabla maestra desde Firestore al arrancar */
+async function _loadMasterSitesCloud() {
+  if(!window._fbDB || !window._fbGetDocs || !window._fbCollection) return;
+  if(window._firestoreQuotaExhausted) return;
+  try {
+    var snap = await window._fbGetDocs(window._fbCollection(window._fbDB, 'master_sites'));
+    if(snap.empty) {
+      /* Primera vez: subir los sitios locales a Firestore */
+      await _pushMasterSitesToCloud();
+      return;
+    }
+    var cloud = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); });
+    /* Fusionar: cloud tiene prioridad sobre local para sitios existentes */
+    var merged = cloud.slice();
+    /* Agregar sitios locales que no están en cloud */
+    var cloudNames = cloud.map(function(s){ return s.sitio.trim().toLowerCase(); });
+    (window.MASTER_SITES_DB||[]).forEach(function(local){
+      if(!cloudNames.includes(local.sitio.trim().toLowerCase())) {
+        merged.push(local);
+      }
+    });
+    window._masterSitesCloud = merged;
+    /* Actualizar la lista de sitios del combo selector */
+    _refreshSitesList(merged);
+    console.log('[Master] '+merged.length+' sitios cargados ('+cloud.length+' de Firebase, '+(merged.length-cloud.length)+' solo local)');
+  } catch(e) {
+    if(e&&e.message&&e.message.includes('resource-exhausted')) {
+      window._firestoreQuotaExhausted = true;
+    }
+    console.warn('[Master] Error cargando tabla maestra:', e.message);
+    /* Fallback a tabla local */
+    window._masterSitesCloud = (window.MASTER_SITES_DB||[]).slice();
+  }
+}
+
+/* Subir tabla maestra local a Firestore (solo primera vez o al hacer SYNC) */
+async function _pushMasterSitesToCloud() {
+  if(!window._fbDB||!window._fbFS||window._firestoreQuotaExhausted) return;
+  var sites = window.MASTER_SITES_DB||[];
+  if(!sites.length) return;
+  var col = window._fbFS.collection(window._fbDB, 'master_sites');
+  var pushed = 0;
+  for(var i=0; i<sites.length; i++) {
+    try {
+      await window._fbFS.addDoc(col, Object.assign({}, sites[i], {_updatedAt: Date.now()}));
+      pushed++;
+    } catch(e) {
+      if(e&&e.message&&e.message.includes('resource-exhausted')) { window._firestoreQuotaExhausted=true; break; }
+    }
+  }
+  if(pushed) console.log('[Master] '+pushed+' sitios subidos a Firestore master_sites');
+}
+
+/* Actualizar getMasterSiteData para usar la lista fusionada */
+window._getMasterSiteDataMerged = function(siteName) {
+  if(!siteName) return null;
+  var s = siteName.trim().toLowerCase();
+  var list = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+  return list.find(function(m){ return m.sitio.trim().toLowerCase()===s; }) || null;
+};
+
+/* Actualizar el combo selector de sitios con los sitios de cloud */
+function _refreshSitesList(merged) {
+  /* Actualizar SITES array global si existe */
+  if(window.MASTER_SITES_DB) {
+    /* No reemplazar MASTER_SITES_DB — solo extender si hay nuevos */
+    var existNames = window.MASTER_SITES_DB.map(function(s){ return s.sitio.trim().toLowerCase(); });
+    merged.forEach(function(m) {
+      if(!existNames.includes(m.sitio.trim().toLowerCase())) {
+        window.MASTER_SITES_DB.push(m);
+        existNames.push(m.sitio.trim().toLowerCase());
+      }
+    });
+  }
+  /* Actualizar el combo de sitios en el reporte operativo */
+  var sel = document.getElementById('sel-site');
+  if(sel) {
+    var currentVal = sel.value;
+    var existing = Array.from(sel.options).map(function(o){ return o.value; });
+    merged.forEach(function(m) {
+      if(!existing.includes(m.sitio)) {
+        var opt = document.createElement('option');
+        opt.value = m.sitio;
+        opt.textContent = m.sitio;
+        /* Insert before 'custom' option */
+        var customOpt = Array.from(sel.options).find(function(o){ return o.value==='custom'; });
+        if(customOpt) sel.insertBefore(opt, customOpt);
+        else sel.appendChild(opt);
+        existing.push(m.sitio);
+      }
+    });
+    if(currentVal) sel.value = currentVal;
+  }
+}
+
+/* Exponer función para que SYNC la llame */
+window._syncMasterSites = async function() {
+  await _loadMasterSitesCloud();
+  /* También subir cualquier sitio local que no esté en cloud */
+  if(window._fbDB&&window._fbFS&&!window._firestoreQuotaExhausted) {
+    var cloud = window._masterSitesCloud||[];
+    var cloudNames = cloud.map(function(s){ return s.sitio.trim().toLowerCase(); });
+    var toUpload = (window.MASTER_SITES_DB||[]).filter(function(s){
+      return !cloudNames.includes(s.sitio.trim().toLowerCase());
+    });
+    if(toUpload.length) {
+      var col = window._fbFS.collection(window._fbDB,'master_sites');
+      for(var i=0;i<toUpload.length;i++){
+        try { await window._fbFS.addDoc(col, Object.assign({},toUpload[i],{_updatedAt:Date.now()})); }
+        catch(e){ if(e&&e.message&&e.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;break;} }
+      }
+      if(toUpload.length) console.log('[Master] '+toUpload.length+' sitios nuevos subidos a Firestore');
+    }
+  }
+  return (window._masterSitesCloud||[]).length;
+};
+
+/* Arrancar cuando Firebase esté listo */
+window.addEventListener('firebase-ready', function(){
+  setTimeout(_loadMasterSitesCloud, 1200);
+});
+document.addEventListener('DOMContentLoaded', function(){
+  /* Fallback local inmediato */
+  if(!window._masterSitesCloud) {
+    window._masterSitesCloud = (window.MASTER_SITES_DB||[]).slice();
+  }
+});
+
+})();
 
 </script>
 
@@ -22528,7 +22821,370 @@ window._pimSaveReport=function(){
 
 })();
 </script>
-<!-- ── end PATCH v5 PNG Import ── -->
+<!-- ═══════════════════════════════════════════════════════════════
+     PATCH v6 — Lista Maestra de Sitios (editor + Firebase sync)
+════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+/* ── Estado del editor ── */
+var _mlEditIdx = null; // índice en _mlList del sitio editando
+var _mlList    = [];   // copia de trabajo de MASTER_SITES_DB + cloud
+
+/* Campos del formulario */
+var ML_FIELDS = [
+  {key:'sku',        label:'SKU',           type:'number', col:1},
+  {key:'sitio',      label:'Sitio',         type:'text',   col:2},
+  {key:'cliente',    label:'Cliente',       type:'text',   col:1},
+  {key:'ciudad',     label:'Ciudad',        type:'text',   col:1},
+  {key:'marca',      label:'Marca batería', type:'text',   col:1},
+  {key:'plat',       label:'Plataforma',    type:'text',   col:1},
+  {key:'bessId',     label:'BESS ID',       type:'number', col:1},
+  {key:'numRacks',   label:'No. Racks',     type:'number', col:1},
+  {key:'powSummer',  label:'kW Verano',     type:'number', col:1},
+  {key:'powWinter',  label:'kW Invierno',   type:'number', col:1},
+];
+
+/* Colores por cliente */
+var CL_COLORS = {
+  ASUR:      {bg:'rgba(74,120,245,.12)',  color:'#7aa3ff'},
+  OMA:       {bg:'rgba(0,210,150,.1)',    color:'#00d296'},
+  Industria: {bg:'rgba(245,158,11,.1)',   color:'#f59e0b'},
+};
+
+/* Cargar lista al abrir el tab */
+window._mlLoad = function() {
+  _mlList = (window._masterSitesCloud || window.MASTER_SITES_DB || []).map(function(s,i){
+    return Object.assign({_idx:i}, s);
+  });
+  _mlRender();
+};
+
+/* Render tabla */
+window._mlRender = function() {
+  var tbody = document.getElementById('ml-tbody');
+  var count = document.getElementById('ml-count');
+  if(!tbody) return;
+  var q = (document.getElementById('ml-search')||{}).value||'';
+  var fc = (document.getElementById('ml-filter-cliente')||{}).value||'';
+  var filtered = _mlList.filter(function(s){
+    var matchQ = !q || [s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
+    var matchC = !fc || s.cliente===fc;
+    return matchQ && matchC;
+  });
+  if(count) count.textContent = _mlList.length+' sitios';
+  var STATUS_ROW = {
+    ASUR:      'background:rgba(74,120,245,.04)',
+    OMA:       'background:rgba(0,210,150,.03)',
+    Industria: 'background:rgba(245,158,11,.03)',
+  };
+  tbody.innerHTML = filtered.map(function(s, i){
+    var clColor = CL_COLORS[s.cliente]||{bg:'rgba(255,255,255,.04)',color:'var(--t2)'};
+    var rowStyle = STATUS_ROW[s.cliente]||'';
+    return '<tr style="border-bottom:1px solid var(--b1);transition:background .15s;'+rowStyle+'" '
+      +'onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\''+(STATUS_ROW[s.cliente]||'')+'\'">'
+      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--t3)">'+s.sku+'</td>'
+      +'<td style="padding:8px 12px;font-weight:700;color:var(--text)">'+s.sitio+'</td>'
+      +'<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:6px;font-family:\'DM Mono\',monospace;font-size:9px;font-weight:700;background:'+clColor.bg+';color:'+clColor.color+'">'+s.cliente+'</span></td>'
+      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--t2)">'+s.ciudad+'</td>'
+      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--t2)">'+s.marca+'</td>'
+      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--t3)">'+s.plat+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:10px">'+s.bessId+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--sky)">'+s.numRacks+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:10px;color:#00c896">'+s.powSummer+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:10px;color:#60a5fa">'+s.powWinter+'</td>'
+      +'<td style="padding:8px 12px;text-align:center">'
+        +'<button onclick="window._mlEdit('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer;margin-right:4px">✏️ Editar</button>'
+        +'<button onclick="window._mlDelete('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#f87171;font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer">✕</button>'
+      +'</td>'
+    +'</tr>';
+  }).join('');
+};
+
+/* Abrir modal de edición */
+window._mlEdit = function(filteredIdx) {
+  var q = (document.getElementById('ml-search')||{}).value||'';
+  var fc = (document.getElementById('ml-filter-cliente')||{}).value||'';
+  var filtered = _mlList.filter(function(s){
+    var matchQ = !q || [s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
+    var matchC = !fc || s.cliente===fc;
+    return matchQ && matchC;
+  });
+  var site = filtered[filteredIdx];
+  if(!site) return;
+  _mlEditIdx = _mlList.indexOf(site);
+  document.getElementById('ml-modal-title').textContent = '✏️ Editar: '+site.sitio;
+  _mlBuildForm(site);
+  document.getElementById('ml-edit-modal').style.display = 'flex';
+};
+
+/* Agregar nuevo sitio */
+window._mlAddSite = function() {
+  _mlEditIdx = -1; // -1 = nuevo
+  var newSite = {sku:_mlList.length+1,sitio:'',cliente:'ASUR',ciudad:'',marca:'',plat:'Sky Control',bessId:1,numRacks:1,powSummer:0,powWinter:0};
+  document.getElementById('ml-modal-title').textContent = '+ Nuevo Sitio';
+  _mlBuildForm(newSite);
+  document.getElementById('ml-edit-modal').style.display = 'flex';
+};
+
+function _mlBuildForm(site) {
+  var container = document.getElementById('ml-modal-fields');
+  container.innerHTML = ML_FIELDS.map(function(f){
+    var val = site[f.key]!=null ? site[f.key] : '';
+    if(f.key==='cliente') {
+      return '<div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
+        +'<select id="ml-f-'+f.key+'" style="padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px">'
+        +'<option value="ASUR"'+(val==='ASUR'?' selected':'')+'>ASUR</option>'
+        +'<option value="OMA"'+(val==='OMA'?' selected':'')+'>OMA</option>'
+        +'<option value="Industria"'+(val==='Industria'?' selected':'')+'>Industria</option>'
+        +'</select></div>';
+    }
+    return '<div style="display:flex;flex-direction:column;gap:5px'+(f.col===2?';grid-column:span 2':'')+'">'
+      +'<label style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
+      +'<input id="ml-f-'+f.key+'" type="'+f.type+'" value="'+val+'" '
+      +'style="padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none">'
+      +'</div>';
+  }).join('');
+}
+
+/* Guardar sitio (edición o nuevo) */
+window._mlSaveSite = function() {
+  var updated = {};
+  ML_FIELDS.forEach(function(f){
+    var el = document.getElementById('ml-f-'+f.key);
+    if(!el) return;
+    updated[f.key] = f.type==='number' ? parseFloat(el.value)||0 : el.value.trim();
+  });
+  if(!updated.sitio) { showToast&&showToast('⚠️ El nombre del sitio es requerido'); return; }
+
+  if(_mlEditIdx === -1) {
+    /* Nuevo sitio */
+    _mlList.push(updated);
+    if(window.MASTER_SITES_DB) window.MASTER_SITES_DB.push(updated);
+    if(window._masterSitesCloud) window._masterSitesCloud.push(updated);
+  } else {
+    /* Editar existente */
+    Object.assign(_mlList[_mlEditIdx], updated);
+    if(window.MASTER_SITES_DB && window.MASTER_SITES_DB[_mlEditIdx]) Object.assign(window.MASTER_SITES_DB[_mlEditIdx], updated);
+    if(window._masterSitesCloud && window._masterSitesCloud[_mlEditIdx]) Object.assign(window._masterSitesCloud[_mlEditIdx], updated);
+  }
+
+  document.getElementById('ml-edit-modal').style.display = 'none';
+  _mlRender();
+  showToast&&showToast('✅ Sitio guardado localmente · haz clic en ☁️ Sincronizar para subir a Firebase');
+
+  /* Auto-sync a Firebase */
+  _mlSaveToFirebase(updated);
+};
+
+/* Eliminar sitio */
+window._mlDelete = function(filteredIdx) {
+  var q = (document.getElementById('ml-search')||{}).value||'';
+  var fc = (document.getElementById('ml-filter-cliente')||{}).value||'';
+  var filtered = _mlList.filter(function(s){
+    var matchQ = !q || [s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
+    var matchC = !fc || s.cliente===fc;
+    return matchQ && matchC;
+  });
+  var site = filtered[filteredIdx];
+  if(!site || !confirm('¿Eliminar "'+site.sitio+'" de la lista maestra?')) return;
+  var realIdx = _mlList.indexOf(site);
+  _mlList.splice(realIdx, 1);
+  if(window.MASTER_SITES_DB) {
+    var di = window.MASTER_SITES_DB.findIndex(function(s){ return s.sitio===site.sitio&&s.bessId===site.bessId; });
+    if(di>=0) window.MASTER_SITES_DB.splice(di,1);
+  }
+  if(window._masterSitesCloud) {
+    var ci = window._masterSitesCloud.findIndex(function(s){ return s.sitio===site.sitio&&s.bessId===site.bessId; });
+    if(ci>=0) window._masterSitesCloud.splice(ci,1);
+  }
+  _mlRender();
+  showToast&&showToast('🗑 Sitio eliminado localmente · sincroniza para reflejar en Firebase');
+};
+
+/* Guardar un sitio específico en Firebase */
+async function _mlSaveToFirebase(site) {
+  if(!window._fbDB||!window._fbFS||window._firestoreQuotaExhausted) return;
+  try {
+    /* Check if already exists by sitio+bessId */
+    var {collection, query, where, getDocs, addDoc, updateDoc, doc} = window._fbFS;
+    if(!collection||!getDocs) return;
+    var col = collection(window._fbDB,'master_sites');
+    var q = query(col, where('sitio','==',site.sitio), where('bessId','==',site.bessId));
+    var snap = await getDocs(q);
+    if(snap.empty) {
+      await addDoc(col, Object.assign({},site,{_updatedAt:Date.now()}));
+    } else {
+      await updateDoc(doc(window._fbDB,'master_sites',snap.docs[0].id), Object.assign({},site,{_updatedAt:Date.now()}));
+    }
+    showToast&&showToast('☁️ '+site.sitio+' guardado en Firebase');
+  } catch(e) {
+    if(e&&e.message&&e.message.includes('resource-exhausted')) { window._firestoreQuotaExhausted=true; }
+    console.warn('[ML] Firebase save error:',e.message);
+  }
+}
+
+/* ── Importar CSV Maestro ── */
+window._mlImportCSV = function(input) {
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result;
+    var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+    if(!lines.length) { showToast&&showToast('⚠️ CSV vacío'); return; }
+    var sep = lines[0].includes(';') ? ';' : ',';
+    var headers = lines[0].split(sep).map(function(h){ return h.trim().replace(/^"|"$/g,'').toLowerCase(); });
+    var fieldMap = {
+      'sku':'sku','sitio':'sitio','cliente':'cliente','ciudad':'ciudad',
+      'marca':'marca','plataforma':'plat','plat':'plat',
+      'bess_id':'bessId','bessid':'bessId','id':'bessId',
+      'num_racks':'numRacks','numracks':'numRacks','racks':'numRacks','no. racks':'numRacks','no_racks':'numRacks',
+      'kw_verano':'powSummer','kwverano':'powSummer','kw verano':'powSummer','pow_summer':'powSummer',
+      'kw_invierno':'powWinter','kwinvierno':'powWinter','kw invierno':'powWinter','pow_winter':'powWinter',
+    };
+    var numericFields = ['sku','bessId','numRacks','powSummer','powWinter'];
+    var parsed = [];
+    for(var i=1; i<lines.length; i++) {
+      var cols = lines[i].split(sep).map(function(c){ return c.trim().replace(/^"|"$/g,''); });
+      if(!cols.length || !cols[0]) continue;
+      var obj = {};
+      headers.forEach(function(h, idx) {
+        var field = fieldMap[h] || fieldMap[h.replace(/[\s\-]/g,'_')] || null;
+        if(!field) return;
+        var val = cols[idx] || '';
+        obj[field] = numericFields.includes(field) ? (parseFloat(val)||0) : val;
+      });
+      if(obj.sitio) parsed.push(obj);
+    }
+    if(!parsed.length) { showToast&&showToast('⚠️ No se encontraron sitios en el CSV — revisa el formato'); return; }
+    var existNames = _mlList.map(function(s){ return s.sitio.trim().toLowerCase(); });
+    var added=0, updated=0;
+    parsed.forEach(function(p){
+      var idx = existNames.indexOf(p.sitio.trim().toLowerCase());
+      if(idx>=0) {
+        Object.assign(_mlList[idx], p);
+        if(window.MASTER_SITES_DB&&window.MASTER_SITES_DB[idx]) Object.assign(window.MASTER_SITES_DB[idx], p);
+        if(window._masterSitesCloud&&window._masterSitesCloud[idx]) Object.assign(window._masterSitesCloud[idx], p);
+        updated++;
+      } else {
+        _mlList.push(p);
+        if(window.MASTER_SITES_DB) window.MASTER_SITES_DB.push(p);
+        if(window._masterSitesCloud) window._masterSitesCloud.push(p);
+        existNames.push(p.sitio.trim().toLowerCase());
+        added++;
+      }
+    });
+    _mlRender();
+    showToast&&showToast('✅ CSV cargado · '+added+' nuevos · '+updated+' actualizados · sincronizando…');
+    setTimeout(function(){ if(window._mlSyncCloud) window._mlSyncCloud(); }, 600);
+  };
+  reader.readAsText(file);
+  input.value='';
+};
+
+/* ── Sincronizar con Firebase ── */
+window._mlSyncCloud = async function() {
+  if(window._firestoreQuotaExhausted) { showToast&&showToast('⚠️ Cuota Firestore agotada — intenta mañana'); return; }
+  showToast&&showToast('☁️ Sincronizando lista maestra…');
+  var count = await (window._syncMasterSites ? window._syncMasterSites() : Promise.resolve(0));
+  _mlLoad();
+  showToast&&showToast('✅ Lista maestra sincronizada · '+count+' sitios en Firebase');
+};
+
+/* ── Enriquecer histórico: parchear registros sin cliente/ciudad ── */
+window._mlEnrichHistorico = async function() {
+  if(typeof H==='undefined'||!H||!H.all||!H.all.length) {
+    showToast&&showToast('⚠️ No hay datos en el histórico'); return;
+  }
+  var enriched = 0;
+  H.all.forEach(function(r){
+    if(r.cl&&r.ci) return; // ya tiene datos
+    var master = typeof getMasterSiteData==='function' ? getMasterSiteData(r.si) : null;
+    if(!master && window._masterSitesCloud) {
+      var sLow=(r.si||'').trim().toLowerCase();
+      master=window._masterSitesCloud.find(function(m){return m.sitio.trim().toLowerCase()===sLow;});
+    }
+    if(master) {
+      r.cl = master.cliente||'';
+      r.ci = master.ciudad||'';
+      r.marca = master.marca||'';
+      enriched++;
+    }
+  });
+  /* Re-render historial */
+  if(typeof histApplyFilters==='function') histApplyFilters();
+  if(typeof histRenderDashboard==='function') histRenderDashboard();
+  /* Update Firestore records in background */
+  if(window._fbDB&&window._fbFS&&!window._firestoreQuotaExhausted&&enriched>0) {
+    showToast&&showToast('🔧 Enriqueciendo '+enriched+' registros en Firebase…');
+    var col = window._fbFS.collection(window._fbDB,'historico_descargas');
+    /* Get all records and update those without cl */
+    try {
+      var snap = await window._fbGetDocs(col);
+      var batch = window._fbFS.writeBatch ? window._fbFS.writeBatch(window._fbDB) : null;
+      var updates = 0;
+      snap.docs.forEach(function(d){
+        var data = d.data();
+        if(data.cl&&data.ci) return;
+        var master = null;
+        var sLow=(data.si||'').trim().toLowerCase();
+        if(window._masterSitesCloud) master=window._masterSitesCloud.find(function(m){return m.sitio.trim().toLowerCase()===sLow;});
+        if(!master) return;
+        var updateData = {cl:master.cliente||'',ci:master.ciudad||'',marca:master.marca||''};
+        if(batch) { batch.update(window._fbFS.doc(window._fbDB,'historico_descargas',d.id), updateData); updates++; }
+      });
+      if(batch&&updates>0) await batch.commit();
+      showToast&&showToast('✅ '+updates+' registros históricos enriquecidos en Firebase');
+    } catch(e) {
+      if(e&&e.message&&e.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;}
+      showToast&&showToast('⚠️ Error enriqueciendo Firebase: '+e.message);
+    }
+  } else if(enriched>0) {
+    showToast&&showToast('✅ '+enriched+' registros enriquecidos en local · SYNC para subir a Firebase');
+  } else {
+    showToast&&showToast('✅ Todos los registros ya tienen cliente y ciudad');
+  }
+};
+
+/* Hook en eneSetTab para cargar la lista al abrir */
+var _origEneSetTab = window.eneSetTab;
+document.addEventListener('DOMContentLoaded', function(){
+  var _orig = window.eneSetTab;
+  if(typeof _orig === 'function') {
+    window.eneSetTab = function(tab, btn) {
+      var mp = document.getElementById('ene-panel-maestra');
+      if(tab === 'maestra') {
+        /* Ocultar ene-root completo, mostrar panel maestra */
+        var root = document.getElementById('ene-root');
+        if(root) root.style.display = 'none';
+        if(mp) { mp.style.display = 'block'; mp.style.overflowY = 'auto'; }
+        /* Highlight tab button */
+        document.querySelectorAll('.ene-tab').forEach(function(b){ b.classList.remove('active'); });
+        if(btn) btn.classList.add('active');
+        _mlLoad();
+      } else {
+        /* Restaurar ene-root y ocultar maestra */
+        if(mp) mp.style.display = 'none';
+        var root = document.getElementById('ene-root');
+        if(root) root.style.display = '';
+        /* Llamar el tab original para que muestre el panel correcto */
+        _orig(tab, btn);
+      }
+    };
+  }
+  /* Init: cargar lista cuando Firebase esté listo */
+  window.addEventListener('firebase-ready', function(){
+    setTimeout(function(){
+      if(window._masterSitesCloud) _mlList = window._masterSitesCloud.slice();
+    }, 1500);
+  });
+});
+
+})();
+</script>
+<!-- ── end PATCH v6 Lista Maestra ── -->
 </body>
 </html>
 <script>
@@ -22655,9 +23311,175 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 /* ══════════════════════════════════════════════════════════════
-   VALIDACIÓN — rvSetCondFull(cond)
-   Al elegir condición especial, auto-selecciona el estado
-   de baterías apropiado y muestra el banner.
+   VALIDACIÓN — rvSetBatFull(bat, cond)
+   Grid unificado: un clic setea bat + cond + highlight + banner
+══════════════════════════════════════════════════════════════ */
+/* Mapa de bat+cond → label de status visible en el reporte */
+var _BAT_LABELS = {
+  'ok_':             'OK',
+  'ok_CARGANDO':     'Cargando',
+  'ok_BALANCEANDO':  'Balanceando',
+  'ok_NO_DESCARGA':  'No Descarga',
+  'ok_DESCARGADO':   'Descargado',
+  'alarm_':          'Alarmado',
+  'error_':          'Error Com.',
+  'na_FUERA_OP':     'Fuera de Op.',
+  'na_MANTENIMIENTO':'Mantenimiento',
+  'na_LIBRANZA':     'Libranza',
+  'na_':             'N/A',
+};
+
+/* Mensajes predeterminados para comentarios según status */
+var _BAT_CMT_DEFAULTS = {
+  'ok_CARGANDO':     'Sistema en proceso de carga de baterías',
+  'ok_BALANCEANDO':  'Sistema balanceando celdas',
+  'ok_NO_DESCARGA':  'Sistema no realizó descarga en este turno',
+  'ok_DESCARGADO':   'Sistema aún descargado — no cargó en la noche, requiere atención',
+  'na_FUERA_OP':     'Sitio fuera de operación',
+  'na_MANTENIMIENTO':'Sitio en mantenimiento',
+  'na_LIBRANZA':     'Sitio en libranza',
+  'alarm_':          'Sistema alarmado — verificar racks y temperatura',
+  'error_':          'Error de comunicación — sin datos de baterías',
+};
+
+window.rvSetBatFull = function(bat, cond) {
+  window._rvBatFullActive = true;
+  if(typeof rvSetBat === 'function') rvSetBat(bat);
+  if(typeof rvSetCond === 'function') rvSetCond(cond||'');
+  window._rvBatFullActive = false;
+  /* Guardar batLabel en el registro */
+  if(window.rvW && window.rvW.srs && window.rvW.srs[window.rvW.idx]) {
+    var key = bat+'_'+(cond||'');
+    window.rvW.srs[window.rvW.idx].batLabel = _BAT_LABELS[key] || bat;
+    window.rvW.srs[window.rvW.idx].cond = cond||'';
+    /* Auto-fill comentarios si está vacío o tenía un mensaje predeterminado anterior */
+    var cmtEl = document.getElementById('rv-cmt-inp');
+    var currentCmt = cmtEl ? cmtEl.value.trim() : '';
+    var defaultMsg = _BAT_CMT_DEFAULTS[key] || '';
+    /* Solo pre-llenar si el campo está vacío o contenía un mensaje predeterminado previo */
+    var isPrevDefault = Object.values(_BAT_CMT_DEFAULTS).includes(currentCmt);
+    if(defaultMsg && (currentCmt === '' || isPrevDefault)) {
+      if(cmtEl) { cmtEl.value = defaultMsg; cmtEl.style.borderColor='rgba(74,120,245,.4)'; setTimeout(function(){ cmtEl.style.borderColor=''; },1500); }
+      window.rvW.srs[window.rvW.idx].cmt = defaultMsg;
+    } else if(!defaultMsg && isPrevDefault) {
+      /* Si seleccionan OK limpio el mensaje predeterminado anterior */
+      if(cmtEl) cmtEl.value = '';
+      window.rvW.srs[window.rvW.idx].cmt = '';
+    }
+  }
+  _rvHighlightUnified(bat, cond||'');
+  _rvShowCondBanner(cond||'', bat);
+};
+
+var _BAT_FULL_COLORS = {
+  'ok_':            {bg:'rgba(5,150,105,.12)',   border:'var(--green)',     color:'#065f46'},
+  'ok_CARGANDO':    {bg:'rgba(59,130,246,.1)',   border:'#60a5fa',          color:'#1e40af'},
+  'ok_BALANCEANDO': {bg:'rgba(139,92,246,.1)',   border:'#a78bfa',          color:'#5b21b6'},
+  'ok_NO_DESCARGA': {bg:'rgba(245,158,11,.1)',   border:'var(--yellow)',    color:'#92400e'},
+  'ok_DESCARGADO':   {bg:'rgba(239,68,68,.08)',   border:'rgba(239,68,68,.4)',  color:'var(--red)'},
+  'alarm_':         {bg:'rgba(217,119,6,.1)',    border:'var(--yellow)',    color:'#92400e'},
+  'error_':         {bg:'rgba(220,38,38,.1)',    border:'var(--red)',       color:'#991b1b'},
+  'na_FUERA_OP':    {bg:'rgba(239,68,68,.08)',   border:'rgba(239,68,68,.5)',color:'var(--red)'},
+  'na_MANTENIMIENTO':{bg:'rgba(100,149,237,.1)', border:'cornflowerblue',   color:'#1e3a8a'},
+  'na_LIBRANZA':    {bg:'rgba(245,158,11,.1)',   border:'var(--yellow)',    color:'#92400e'},
+  'na_':            {bg:'rgba(148,163,184,.08)', border:'#94a3b8',          color:'#475569'},
+};
+
+function _rvHighlightUnified(bat, cond) {
+  /* Solo resaltar si bat tiene valor explícito — evitar highlight en carga inicial */
+  if(!bat) return;
+  document.querySelectorAll('#rv-bat-btns .rv-bat-btn').forEach(function(b){
+    var bBat  = b.dataset.val  || '';
+    var bCond = b.dataset.cond !== undefined ? b.dataset.cond : '';
+    /* Comparación EXACTA: bat Y cond deben coincidir */
+    var isActive = (bBat === bat) && (bCond === (cond||''));
+    var key = bat+'_'+(cond||'');
+    var colors = _BAT_FULL_COLORS[key] || _BAT_FULL_COLORS['na_'] || {};
+    if(isActive) {
+      b.style.background  = colors.bg  || 'rgba(26,63,204,.1)';
+      b.style.borderColor = colors.border || 'var(--sky)';
+      b.style.color       = colors.color  || 'var(--sky)';
+      b.style.fontWeight  = '700';
+      b.style.transform   = 'scale(1.02)';
+      b.style.boxShadow   = '0 0 0 2px '+(colors.border||'var(--sky)')+'33';
+    } else {
+      b.style.background  = '';
+      b.style.borderColor = '';
+      b.style.color       = '';
+      b.style.fontWeight  = '';
+      b.style.transform   = '';
+      b.style.boxShadow   = '';
+    }
+  });
+}
+
+var _COND_BANNERS = {
+  'FUERA_OP':     {bg:'rgba(239,68,68,.1)',    border:'rgba(239,68,68,.3)',    color:'var(--red)',      text:'⛔ Sitio fuera de operación — registrando con contexto'},
+  'LIBRANZA':     {bg:'rgba(245,158,11,.1)',   border:'rgba(245,158,11,.3)',   color:'#f59e0b',         text:'📋 Sitio en LIBRANZA — registrando con contexto'},
+  'MANTENIMIENTO':{bg:'rgba(100,149,237,.1)',  border:'rgba(100,149,237,.3)',  color:'cornflowerblue',  text:'⚙ Sitio en MANTENIMIENTO'},
+  'CARGANDO':     {bg:'rgba(59,130,246,.1)',   border:'rgba(59,130,246,.3)',   color:'#60a5fa',         text:'🔌 Sistema cargando baterías'},
+  'BALANCEANDO':  {bg:'rgba(139,92,246,.1)',   border:'rgba(139,92,246,.3)',   color:'#a78bfa',         text:'⚖️ Sistema balanceando celdas'},
+  'NO_DESCARGA':  {bg:'rgba(245,158,11,.08)',  border:'rgba(245,158,11,.25)',  color:'#f59e0b',         text:'⛔ Sistema no realizó descarga en este turno'},
+  'DESCARGADO':   {bg:'rgba(239,68,68,.08)',  border:'rgba(239,68,68,.25)',  color:'var(--red)',         text:'⚡ Sistema aún descargado — no cargó en la noche, requiere atención'},
+};
+
+function _rvShowCondBanner(cond, bat) {
+  var banner = document.getElementById('rv-cond-banner');
+  if(!banner) return;
+  if(!cond && bat==='ok') { banner.style.display='none'; return; }
+  var cfg = cond ? _COND_BANNERS[cond] : null;
+  if(!cfg && bat==='alarm') cfg={bg:'rgba(217,119,6,.1)',border:'rgba(245,158,11,.3)',color:'#f59e0b',text:'⚠ Sistema alarmado — verifica racks y temperatura'};
+  if(!cfg && bat==='error') cfg={bg:'rgba(220,38,38,.1)',border:'rgba(239,68,68,.3)',color:'var(--red)',text:'✗ Error de comunicación — sin datos de baterías'};
+  if(!cfg) { banner.style.display='none'; return; }
+  banner.style.display    = 'block';
+  banner.style.background = cfg.bg;
+  banner.style.border     = '1px solid '+cfg.border;
+  banner.style.color      = cfg.color;
+  banner.textContent      = cfg.text;
+}
+
+/* Patch rvSetBat to sync highlight on existing calls */
+document.addEventListener('DOMContentLoaded', function(){
+  var _origRvSetBat2 = window.rvSetBat;
+  if(typeof _origRvSetBat2 === 'function') {
+    window.rvSetBat = function(v) {
+      _origRvSetBat2(v);
+      /* Solo actualizar highlight si viene de rvSetBatFull (tiene _rvBatFullActive flag) */
+      if(window._rvBatFullActive) {
+        var sr = window.rvW && window.rvW.srs ? window.rvW.srs[window.rvW.idx] : null;
+        _rvHighlightUnified(v, sr ? (sr.cond||'') : '');
+        _rvShowCondBanner(sr ? (sr.cond||'') : '', v);
+      }
+    };
+  }
+  /* Re-highlight when navigating between sites */
+  var _origRvRS = window.rvRenderS || window.rvRenderSite;
+  if(typeof _origRvRS === 'function') {
+    var _rn = window.rvRenderS ? 'rvRenderS' : 'rvRenderSite';
+    window[_rn] = function() {
+      _origRvRS.apply(this, arguments);
+      setTimeout(function(){
+        var sr = window.rvW && window.rvW.srs ? window.rvW.srs[window.rvW.idx] : null;
+        if(sr && sr.bat) {
+          /* Solo resaltar si el sitio ya tiene un estado guardado */
+          _rvHighlightUnified(sr.bat, sr.cond||'');
+          _rvShowCondBanner(sr.cond||'', sr.bat);
+        } else {
+          /* Sitio nuevo — limpiar todos los botones */
+          document.querySelectorAll('#rv-bat-btns .rv-bat-btn').forEach(function(b){
+            b.style.background=''; b.style.borderColor=''; b.style.color='';
+            b.style.fontWeight=''; b.style.transform=''; b.style.boxShadow='';
+          });
+          var banner = document.getElementById('rv-cond-banner');
+          if(banner) banner.style.display='none';
+        }
+      }, 30);
+    };
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   VALIDACIÓN — rvSetCondFull(cond) — legacy, kept for compat
 ══════════════════════════════════════════════════════════════ */
 window.rvSetCondFull = function(cond) {
   // Llamar la función original de condición
