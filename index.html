@@ -44,6 +44,7 @@ try {
   window._fbCollection = collection;
   window._fbSetDoc = setDoc;
   window._fbDoc = doc;
+  window._fbGetDocs = getDocs;
   window._fbFS = { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, setDoc, where, writeBatch, limit, startAfter };
 } catch(initErr) {
   console.error('[BESS] Firebase init error:', initErr.message);
@@ -14772,21 +14773,38 @@ window.addEventListener('firebase-ready', function(){
         }
         clearInterval(waitFns);
 
-        // Real-time onSnapshot listener
-        try {
-          snap(col(db,'presence'), function(snapshot){
-            const now = Date.now();
+        /* ── Presence: polling cada 30s con getDocs en lugar de onSnapshot ──
+           onSnapshot quema 1 lectura por doc por cada cambio indefinidamente.
+           getDocs lee todos los docs una vez cada 30s = máx ~2,880 lecturas/día
+           para la colección presence entera, vs miles con onSnapshot. */
+        async function _pollPresence() {
+          const db  = window._fbDB;
+          const col = window._fbCollection;
+          const gd  = window._fbGetDocs;
+          if(!db||!col||!gd) return;
+          try {
+            const snap = await gd(col(db,'presence'));
+            const now  = Date.now();
             _onlineUsers = {};
-            snapshot.forEach(function(d){
+            snap.forEach(function(d){
               const u = d.data();
               if(now-(u.ts||0)<90000) _onlineUsers[u.id] = u;
             });
             _render();
-          });
-          console.log('[Presence] ✓ Real-time listener active');
-        } catch(err){
-          console.warn('[Presence] onSnapshot failed:', err.message);
+          } catch(e) {
+            if(e&&e.message&&e.message.includes('resource-exhausted')) {
+              window._firestoreQuotaExhausted = true;
+              console.warn('[Presence] Cuota agotada — presence desactivado hasta mañana');
+            } else {
+              console.warn('[Presence] poll error:', e.message);
+            }
+          }
         }
+
+        /* Primera lectura inmediata + polling cada 30s */
+        _pollPresence();
+        var _presenceInterval = setInterval(_pollPresence, 30000);
+        console.log('[Presence] ✓ Polling activo cada 30s (modo ahorro de cuota)');
       }, 200);
 
       // Keepalive every 30s
@@ -22125,6 +22143,19 @@ function _patchCalCards() {
         <textarea class="pim-json-area" id="pim-json-input"
           placeholder='{"period":"Hora Punta Vespertina","date":"2026-06-04","op":"Alejandro","srs":[...]}'
           oninput="window._pimValidateJson(this.value)"></textarea>
+        <!-- Selector manual de tipo -->
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,.35);letter-spacing:1px">TIPO DE REPORTE:</span>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.6)">
+            <input type="radio" name="pim-type" value="auto" checked onchange="window._pimTypeOverride='auto'" style="accent-color:#4a78f5"> Auto-detectar
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.6)">
+            <input type="radio" name="pim-type" value="op" onchange="window._pimTypeOverride='op'" style="accent-color:#4a78f5"> ⚡ Operativo
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.6)">
+            <input type="radio" name="pim-type" value="val" onchange="window._pimTypeOverride='val'" style="accent-color:#4a78f5"> ✓ Validación
+          </label>
+        </div>
         <div id="pim-json-status" style="font-family:'DM Mono',monospace;font-size:9px;margin-top:6px;color:rgba(255,255,255,.3)">
           Pega el JSON para ver una vista previa antes de guardar
         </div>
@@ -22350,41 +22381,137 @@ function _renderPimResult(data){
 window._pimSaveReport=function(){
   if(!_pimExtracted||!_pimExtracted.srs){showToast&&showToast('⚠️ Sin datos para guardar');return;}
   var d=_pimExtracted;
-  var srs=d.srs.map(function(sr){
-    return{oper:sr.oper!=null?sr.oper:(sr.status==='OK'?1:0),status:sr.status||'',cond:sr.cond||'',soc:sr.socInicial!=null?sr.socInicial:'',socInicial:sr.socInicial,socFinal:sr.socFinal,com:sr.com!=null?(sr.com?1:0):null,sev:sr.sev||'',evento:sr.evento||'',obs:sr.obs||'',skip:false};
-  });
-  if(d.handoffs&&d.handoffs.length){d.handoffs.forEach(function(hf){var idx=srs.findIndex(function(s,i){return(d.srs[i]&&d.srs[i].sitio||'').toLowerCase()===hf.sitio.toLowerCase();});if(idx>=0)srs[idx].handoff={active:true,type:hf.tipo||'VALIDACION',note:hf.nota||'',assignee:hf.responsable||''};});}
-  var dateStr=d.date||new Date().toISOString().slice(0,10);
-  var rep={id:'png_'+Date.now().toString(),op:d.op||localStorage.getItem('bess_uname')||'Operador',period:d.period||'Hora Punta',date:dateStr+'T12:00:00.000Z',createdAt:dateStr+'T12:00:00.000Z',srs:srs,kpis:d.kpis||{},_importedFromPng:true,_fmt:d._fmt||d.formato};
-  if(window.opReps){
-    var dup=window.opReps.find(function(r){return r.id===rep.id||(r.date&&r.date.slice(0,10)===dateStr&&r.period===rep.period&&r._importedFromPng);});
-    if(dup){showToast&&showToast('⚠️ Ya existe un reporte importado para esta fecha y turno');return;}
-    window.opReps.unshift(rep);
-    if(typeof window.opPersist==='function') window.opPersist();
+
+  /* ── Detectar si es validación o reporte operativo ──
+     Validación: tiene campo bat en los srs, o period contiene "Vespertino/Matutino/Entrega" sin "Hora Punta"
+     Operativo:  tiene campo status/oper, o period contiene "Hora Punta" */
+  var isVal = false;
+  if(d.srs && d.srs.length) {
+    var first = d.srs[0];
+    if(first.bat !== undefined) isVal = true;
   }
-  var savedCloud=false;
-  if(window._fb && window._fb.saveReporteOp) {
-    /* Intentar siempre — el SYNC reintentará si falla por quota */
-    window._fb.saveReporteOp(rep).then(function(fbId){
-      rep.fbId = fbId;
-      var idx = window.opReps.findIndex(function(r){ return r.id===rep.id; });
-      if(idx>=0){ window.opReps[idx].fbId=fbId; if(typeof window.opPersist==='function') window.opPersist(); }
-      showToast&&showToast('☁️ Reporte guardado en Firebase · '+fbId.slice(0,8)+'…');
-    }).catch(function(e){
-      console.warn('[PIM] Firebase save error:',e);
-      if(e&&e.message&&e.message.includes('resource-exhausted')) {
-        window._firestoreQuotaExhausted=true;
-        showToast&&showToast('⚠️ Cuota Firestore agotada — reporte guardado en local. Presiona ↻ SYNC mañana para subirlo');
+  var periodLow = (d.period||'').toLowerCase();
+  if(!isVal && (periodLow.includes('vespertino')||periodLow.includes('matutino')||periodLow.includes('entrega')) && !periodLow.includes('hora punta')) isVal = true;
+  if(d.formato==='EXCEL') isVal = false;
+  /* Override manual del selector */
+  if(window._pimTypeOverride==='op')  isVal = false;
+  if(window._pimTypeOverride==='val') isVal = true;
+
+  var dateStr = d.date||new Date().toISOString().slice(0,10);
+
+  if(isVal) {
+    /* ── GUARDAR COMO VALIDACIÓN ── */
+    /* Mapear srs al formato de validación (bat/tmp/chg/dsc/clk) */
+    var rvSrs = d.srs.map(function(sr){
+      /* Si ya tiene bat, usar directamente */
+      if(sr.bat !== undefined) return Object.assign({skip:false}, sr);
+      /* Convertir desde formato operativo/excel */
+      var bat = 'ok';
+      if(sr.status==='NO OPERATIVO'||sr.status==='DESCONECTADO'||sr.status==='PÉRDIDA TOTAL') bat='error';
+      else if(sr.status==='INCOMPLETO') bat='alarm';
+      else if(!sr.status) bat='na';
+      /* Extraer temperatura de obs si viene ahí (ej: "25°C · comentario") */
+      var tmp='', cmt=sr.obs||'';
+      var tMatch = cmt.match(/(\d+\.?\d*)°C/);
+      if(tMatch){ tmp=tMatch[1]; cmt=cmt.replace(tMatch[0],'').replace(/^[\s·]+|[\s·]+$/g,''); }
+      return {
+        bat: bat,
+        chg: sr.com!==false,
+        soc: sr.socFinal||'',
+        lp: false, rn: false,
+        clk: sr.com!==false ? 'ok' : null,
+        dsc: (sr.oper===1&&bat==='ok') ? true : null,
+        tmp: tmp,
+        racks: '',
+        cmt: cmt,
+        resp: '',
+        skip: false
+      };
+    });
+
+    /* Detectar tipo (matutino/vespertino/entrega) */
+    var rvType = 'vespertino';
+    if(periodLow.includes('matutino')) rvType='matutino';
+    else if(periodLow.includes('entrega')) rvType='entrega';
+
+    var stats = { ok:0, err:0, alm:0, hot:0, n:0 };
+    rvSrs.forEach(function(s){
+      if(!s.skip&&s.bat&&s.bat!=='na'){
+        stats.n++;
+        if(s.bat==='ok') stats.ok++;
+        if(s.bat==='error') stats.err++;
+        if(s.bat==='alarm') stats.alm++;
+        if(parseFloat(s.tmp||0)>=38) stats.hot++;
       }
     });
-    savedCloud=true;
+
+    var rep = {
+      id: 'png_'+Date.now().toString(),
+      type: rvType,
+      date: dateStr+'T12:00:00.000Z',
+      createdAt: dateStr+'T12:00:00.000Z',
+      op: d.op||localStorage.getItem('bess_uname')||'Operador',
+      srs: rvSrs,
+      stats: stats,
+      _importedFromPng: true,
+      _fmt: d._fmt||d.formato
+    };
+
+    /* Evitar duplicado */
+    if(window.rvReps) {
+      var dup=window.rvReps.find(function(r){return r.date&&r.date.slice(0,10)===dateStr&&r.type===rvType&&r._importedFromPng;});
+      if(dup){showToast&&showToast('⚠️ Ya existe un reporte de validación importado para esta fecha y turno');return;}
+      window.rvReps.unshift(rep);
+      if(typeof window.rvPersist==='function') window.rvPersist();
+    }
+
+    /* Firebase */
+    if(window._fb&&window._fb.saveReporteVal){
+      window._fb.saveReporteVal(rep).then(function(fbId){
+        rep.fbId=fbId;
+        var idx=window.rvReps.findIndex(function(r){return r.id===rep.id;});
+        if(idx>=0){window.rvReps[idx].fbId=fbId;if(typeof window.rvPersist==='function')window.rvPersist();}
+        showToast&&showToast('☁️ Validación guardada en Firebase · '+fbId.slice(0,8)+'…');
+      }).catch(function(e){
+        console.warn('[PIM] Firebase val:',e);
+        if(e&&e.message&&e.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;showToast&&showToast('⚠️ Cuota agotada — presiona ↻ SYNC mañana');}
+      });
+    }
+
+    window.closePngImportModal();
+    showToast&&showToast('✅ Validación importada · ☁️ Subiendo… · '+rvSrs.length+' sitios');
+    setTimeout(function(){if(typeof window.rvLoad==='function')window.rvLoad();if(typeof window.ucalRender==='function')window.ucalRender();if(typeof window.goPage==='function')window.goPage('calval');},200);
+
+  } else {
+    /* ── GUARDAR COMO REPORTE OPERATIVO ── */
+    var srs=d.srs.map(function(sr){
+      return{oper:sr.oper!=null?sr.oper:(sr.status==='OK'?1:0),status:sr.status||'',cond:sr.cond||'',soc:sr.socInicial!=null?sr.socInicial:'',socInicial:sr.socInicial,socFinal:sr.socFinal,com:sr.com!=null?(sr.com?1:0):null,sev:sr.sev||'',evento:sr.evento||'',obs:sr.obs||'',skip:false};
+    });
+    if(d.handoffs&&d.handoffs.length){d.handoffs.forEach(function(hf){var idx=srs.findIndex(function(s,i){return(d.srs[i]&&d.srs[i].sitio||'').toLowerCase()===hf.sitio.toLowerCase();});if(idx>=0)srs[idx].handoff={active:true,type:hf.tipo||'VALIDACION',note:hf.nota||'',assignee:hf.responsable||''};});}
+
+    var rep2={id:'png_'+Date.now().toString(),op:d.op||localStorage.getItem('bess_uname')||'Operador',period:d.period||'Hora Punta',date:dateStr+'T12:00:00.000Z',createdAt:dateStr+'T12:00:00.000Z',srs:srs,kpis:d.kpis||{},_importedFromPng:true,_fmt:d._fmt||d.formato};
+    if(window.opReps){
+      var dup2=window.opReps.find(function(r){return r.date&&r.date.slice(0,10)===dateStr&&r.period===rep2.period&&r._importedFromPng;});
+      if(dup2){showToast&&showToast('⚠️ Ya existe un reporte operativo importado para esta fecha y turno');return;}
+      window.opReps.unshift(rep2);
+      if(typeof window.opPersist==='function') window.opPersist();
+    }
+    if(window._fb&&window._fb.saveReporteOp){
+      window._fb.saveReporteOp(rep2).then(function(fbId){
+        rep2.fbId=fbId;
+        var idx=window.opReps.findIndex(function(r){return r.id===rep2.id;});
+        if(idx>=0){window.opReps[idx].fbId=fbId;if(typeof window.opPersist==='function')window.opPersist();}
+        showToast&&showToast('☁️ Operativo guardado en Firebase · '+fbId.slice(0,8)+'…');
+      }).catch(function(e){
+        console.warn('[PIM] Firebase op:',e);
+        if(e&&e.message&&e.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;showToast&&showToast('⚠️ Cuota agotada — presiona ↻ SYNC mañana');}
+      });
+    }
+    window.closePngImportModal();
+    showToast&&showToast('✅ Reporte operativo importado · ☁️ Subiendo… · '+srs.length+' sitios');
+    setTimeout(function(){if(typeof window.opLoad==='function')window.opLoad();if(typeof window.ucalRender==='function')window.ucalRender();if(typeof window.goPage==='function')window.goPage('calval');},200);
   }
-  window.closePngImportModal();
-  var msg = savedCloud
-    ? '✅ Reporte importado · ☁️ Subiendo a Firebase…'
-    : '✅ Reporte en local · Presiona ↻ SYNC para subir a Firebase';
-  showToast&&showToast(msg+' · '+rep.srs.length+' sitios');
-  setTimeout(function(){if(typeof window.opLoad==='function')window.opLoad();if(typeof window.ucalRender==='function')window.ucalRender();if(typeof window.goPage==='function')window.goPage('calval');},200);
+};
 };
 
 })();
