@@ -11243,6 +11243,50 @@ async function reloadAll(){
     if(ico) ico.style.animation='dspin 0.7s linear infinite';
   });
 
+  /* ── PUSH LOCAL → FIRESTORE (reportes op y val sin fbId) ── */
+  var _syncResults = {opPushed:0, valPushed:0, opFailed:0, valFailed:0};
+  if(window._fb && !window._firestoreQuotaExhausted) {
+    /* Cargar lo que ya está en Firestore para saber qué falta */
+    try {
+      /* Subir opReps que no tienen fbId */
+      var opLocal  = window.opReps || [];
+      var rvLocal  = window.rvReps || [];
+      var opSinFb  = opLocal.filter(function(r){ return !r.fbId; });
+      var rvSinFb  = rvLocal.filter(function(r){ return !r.fbId; });
+
+      for(var i=0; i<opSinFb.length; i++) {
+        try {
+          var fbId = await window._fb.saveReporteOp(opSinFb[i]);
+          opSinFb[i].fbId = fbId;
+          var idx = opLocal.findIndex(function(r){ return r.id===opSinFb[i].id; });
+          if(idx>=0) opLocal[idx].fbId = fbId;
+          _syncResults.opPushed++;
+        } catch(e2) {
+          _syncResults.opFailed++;
+          if(e2&&e2.message&&e2.message.includes('resource-exhausted')) { window._firestoreQuotaExhausted=true; break; }
+        }
+      }
+      if(typeof window.opPersist==='function') window.opPersist();
+
+      for(var j=0; j<rvSinFb.length; j++) {
+        try {
+          var fbIdV = await window._fb.saveReporteVal(rvSinFb[j]);
+          rvSinFb[j].fbId = fbIdV;
+          var idxV = rvLocal.findIndex(function(r){ return r.id===rvSinFb[j].id; });
+          if(idxV>=0) rvLocal[idxV].fbId = fbIdV;
+          _syncResults.valPushed++;
+        } catch(e3) {
+          _syncResults.valFailed++;
+          if(e3&&e3.message&&e3.message.includes('resource-exhausted')) { window._firestoreQuotaExhausted=true; break; }
+        }
+      }
+      try { localStorage.setItem(window.RV_SK||'rv:final:v1', JSON.stringify(rvLocal)); } catch(e){}
+
+    } catch(eSyncPush) {
+      console.warn('[SYNC] Error en push local→FB:', eSyncPush);
+    }
+  }
+
   try{
     const [records, docs] = await Promise.all([
       idbGetAll(),
@@ -11258,6 +11302,10 @@ async function reloadAll(){
     renderDash();
     renderDashEnhancements();
 
+    /* Re-render calendar if visible */
+    var calPg = document.getElementById('page-calval');
+    if(calPg && calPg.classList.contains('active') && typeof ucalRender==='function') ucalRender();
+
     // Calcular MB total
     const bytesRec = ccRecords.reduce((s,r)=>s+(r.dataUrl?r.dataUrl.length*0.75:0),0);
     const bytesDocs = docs.reduce((s,d)=>{
@@ -11269,17 +11317,29 @@ async function reloadAll(){
     const totalMB = ((bytesRec+bytesDocs)/1e6).toFixed(2);
     const now = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
+    /* Build sync summary chips */
+    var chips = [
+      {label:`📋 ${ccRecords.length} bitácora${ccRecords.length!==1?'s':''}`, cls:''},
+      {label:`📁 ${docs.length} documento${docs.length!==1?'s':''}`, cls:''},
+      {label:`💾 ${totalMB} MB`, cls:''},
+    ];
+    var opTotal = (window.opReps||[]).length;
+    var rvTotal = (window.rvReps||[]).length;
+    chips.push({label:`📊 ${opTotal} op · ${rvTotal} val en cloud`, cls:''});
+    if(_syncResults.opPushed+_syncResults.valPushed>0) {
+      chips.push({label:`☁️ ${_syncResults.opPushed+_syncResults.valPushed} nuevo${_syncResults.opPushed+_syncResults.valPushed>1?'s':''} subido${_syncResults.opPushed+_syncResults.valPushed>1?'s':''}`, cls:'ok'});
+    }
+    if(window._firestoreQuotaExhausted) {
+      chips.push({label:`⚠️ Cuota Firestore agotada`, cls:'err'});
+    }
+
     showBFN({
       type: 'save',
-      title: '🔄 Firebase sincronizado',
+      title: '🔄 Sincronización completa',
       meta: `Actualizado a las ${now}`,
       body: '',
-      chips: [
-        {label:`📋 ${ccRecords.length} bitácora${ccRecords.length!==1?'s':''}`, cls:''},
-        {label:`📁 ${docs.length} documento${docs.length!==1?'s':''}`, cls:''},
-        {label:`💾 ${totalMB} MB usados`, cls:''},
-      ],
-      autoDismiss: 4000,
+      chips: chips,
+      autoDismiss: 5000,
       actionLabel: 'OK'
     });
 
@@ -22273,12 +22333,27 @@ window._pimSaveReport=function(){
     if(typeof window.opPersist==='function') window.opPersist();
   }
   var savedCloud=false;
-  if(window._fb&&window._fb.saveReporteOp&&!window._firestoreQuotaExhausted){
-    window._fb.saveReporteOp(rep).then(function(fbId){rep.fbId=fbId;var idx=window.opReps.findIndex(function(r){return r.id===rep.id;});if(idx>=0){window.opReps[idx].fbId=fbId;if(typeof window.opPersist==='function')window.opPersist();}showToast&&showToast('☁️ Guardado en Firebase: '+fbId.slice(0,8)+'…');}).catch(function(e){console.warn('[PIM] Firebase:',e);});
+  if(window._fb && window._fb.saveReporteOp) {
+    /* Intentar siempre — el SYNC reintentará si falla por quota */
+    window._fb.saveReporteOp(rep).then(function(fbId){
+      rep.fbId = fbId;
+      var idx = window.opReps.findIndex(function(r){ return r.id===rep.id; });
+      if(idx>=0){ window.opReps[idx].fbId=fbId; if(typeof window.opPersist==='function') window.opPersist(); }
+      showToast&&showToast('☁️ Reporte guardado en Firebase · '+fbId.slice(0,8)+'…');
+    }).catch(function(e){
+      console.warn('[PIM] Firebase save error:',e);
+      if(e&&e.message&&e.message.includes('resource-exhausted')) {
+        window._firestoreQuotaExhausted=true;
+        showToast&&showToast('⚠️ Cuota Firestore agotada — reporte guardado en local. Presiona ↻ SYNC mañana para subirlo');
+      }
+    });
     savedCloud=true;
   }
   window.closePngImportModal();
-  showToast&&showToast('✅ Reporte importado · '+(savedCloud?'☁️ Firebase + ':'🗄 solo ')+'local · '+rep.srs.length+' sitios');
+  var msg = savedCloud
+    ? '✅ Reporte importado · ☁️ Subiendo a Firebase…'
+    : '✅ Reporte en local · Presiona ↻ SYNC para subir a Firebase';
+  showToast&&showToast(msg+' · '+rep.srs.length+' sitios');
   setTimeout(function(){if(typeof window.opLoad==='function')window.opLoad();if(typeof window.ucalRender==='function')window.ucalRender();if(typeof window.goPage==='function')window.goPage('calval');},200);
 };
 
