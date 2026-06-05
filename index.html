@@ -22417,7 +22417,7 @@ window._pimSaveReport=function(){
       return {
         bat: bat,
         chg: sr.com!==false,
-        soc: sr.socFinal||'',
+        soc: sr.socFinal!=null ? sr.socFinal : (sr.socInicial!=null ? sr.socInicial : ''),
         lp: false, rn: false,
         clk: sr.com!==false ? 'ok' : null,
         dsc: (sr.oper===1&&bat==='ok') ? true : null,
@@ -22485,7 +22485,20 @@ window._pimSaveReport=function(){
   } else {
     /* ── GUARDAR COMO REPORTE OPERATIVO ── */
     var srs=d.srs.map(function(sr){
-      return{oper:sr.oper!=null?sr.oper:(sr.status==='OK'?1:0),status:sr.status||'',cond:sr.cond||'',soc:sr.socInicial!=null?sr.socInicial:'',socInicial:sr.socInicial,socFinal:sr.socFinal,com:sr.com!=null?(sr.com?1:0):null,sev:sr.sev||'',evento:sr.evento||'',obs:sr.obs||'',skip:false};
+      return{
+        oper:    sr.oper!=null ? sr.oper : (sr.status==='OK'?1:0),
+        status:  sr.status||'',
+        cond:    sr.cond||'',
+        soc:     sr.socFinal!=null ? sr.socFinal : (sr.soc!=null ? sr.soc : ''),   /* SOC FINAL → soc */
+        socIni:  sr.socInicial!=null ? sr.socInicial : (sr.socIni!=null ? sr.socIni : ''), /* SOC INICIAL → socIni */
+        socInicial: sr.socInicial,
+        socFinal:   sr.socFinal,
+        com:     sr.com!=null ? (sr.com?1:0) : null,
+        sev:     sr.sev||'',
+        evento:  sr.evento||'',
+        obs:     sr.obs||'',
+        skip:    false
+      };
     });
     if(d.handoffs&&d.handoffs.length){d.handoffs.forEach(function(hf){var idx=srs.findIndex(function(s,i){return(d.srs[i]&&d.srs[i].sitio||'').toLowerCase()===hf.sitio.toLowerCase();});if(idx>=0)srs[idx].handoff={active:true,type:hf.tipo||'VALIDACION',note:hf.nota||'',assignee:hf.responsable||''};});}
 
@@ -23030,4 +23043,4 @@ window.addEventListener('firebase-ready', function(){
 })(); // end main patch IIFE
 </script>
 </body>
-</html>ml>
+</html>
