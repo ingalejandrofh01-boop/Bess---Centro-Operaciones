@@ -109,16 +109,19 @@ window._fb = {
   async deleteReporteVal(id) {
     await deleteDoc(doc(fbDB, 'reportes_val', id));
   },
+  /* listenReportesVal — reemplazado por getDocs para no quemar cuota Spark */
   listenReportesVal(cb) {
+    /* Usar getDocs en lugar de onSnapshot — evita lecturas continuas */
     const q = query(collection(fbDB, 'reportes_val'), orderBy('savedAt', 'desc'));
-    return onSnapshot(q, snap => {
+    getDocs(q).then(snap => {
       const docs = snap.docs.map(d => {
         const data = d.data();
         try { data.srs = JSON.parse(data.srs); } catch(e) { data.srs = []; }
         return { ...data, id: d.id };
       });
       cb(docs);
-    });
+    }).catch(e => console.warn('[FB] listenReportesVal getDocs error:', e));
+    return function(){ }; /* no-op unsubscribe */
   },
 
   /* ── REPORTES OPERATIVOS ── */
@@ -142,9 +145,10 @@ window._fb = {
   async deleteReporteOp(id) {
     await deleteDoc(doc(fbDB, 'reportes_op', id));
   },
+  /* listenReportesOp — reemplazado por getDocs */
   listenReportesOp(cb) {
     const q = query(collection(fbDB, 'reportes_op'), orderBy('savedAt', 'desc'));
-    return onSnapshot(q, snap => {
+    getDocs(q).then(snap => {
       const docs = snap.docs.map(d => {
         const data = d.data();
         if (data.srs != null) {
@@ -153,7 +157,8 @@ window._fb = {
         return { ...data, id: d.id };
       });
       cb(docs);
-    });
+    }).catch(e => console.warn('[FB] listenReportesOp getDocs error:', e));
+    return function(){ }; /* no-op unsubscribe */
   },
 
   /* ── NOTIFICACIONES ── */
@@ -167,11 +172,13 @@ window._fb = {
       leida: false
     });
   },
+  /* listenNotifs — getDocs para no quemar cuota */
   listenNotifs(cb) {
     const q = query(collection(fbDB, 'notificaciones'), orderBy('ts', 'desc'));
-    return onSnapshot(q, snap => {
+    getDocs(q).then(snap => {
       cb(snap.docs.map(d => ({ ...d.data(), id: d.id })));
-    });
+    }).catch(e => console.warn('[FB] listenNotifs error:', e));
+    return function(){};
   },
   async markNotifRead(id) {
     await setDoc(doc(fbDB, 'notificaciones', id), { leida: true }, { merge: true });
@@ -345,17 +352,21 @@ window._fb = {
       };
     } catch(e) { return { assignments: {}, operators: [] }; }
   },
+  /* mbListenBat — getDocs */
   mbListenBat(cb) {
     const q = query(collection(fbDB, 'mb_bat'), orderBy('savedAt', 'asc'));
-    return onSnapshot(q, snap => {
+    getDocs(q).then(snap => {
       cb(snap.docs.map(d => ({ ...d.data(), _id: d.id })));
-    });
+    }).catch(e => console.warn('[FB] mbListenBat error:', e));
+    return function(){};
   },
+  /* mbListenTemp — getDocs */
   mbListenTemp(cb) {
     const q = query(collection(fbDB, 'mb_temp'), orderBy('savedAt', 'asc'));
-    return onSnapshot(q, snap => {
+    getDocs(q).then(snap => {
       cb(snap.docs.map(d => ({ ...d.data(), _id: d.id })));
-    });
+    }).catch(e => console.warn('[FB] mbListenTemp error:', e));
+    return function(){};
   },
 
   /* ── DOCS STORAGE (Spark — base64 en Firestore) ── */
@@ -16798,32 +16809,51 @@ var OP_SITES=["Almacén General", "Alpha", "BHS", "Comedor", "FBO", "PTAR", "Sal
 var opW=null, opReps=[], OP_SK='op:bess:v1';
 function opLoad(){try{var d=localStorage.getItem(OP_SK);if(d)opReps=JSON.parse(d);}catch(e){}}
 function opPersist(){try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}}
-/* ── Firebase live sync: reportes val ── */
-var _rvFbUnsubscribe=null;
-function rvStartFbSync(){
-  if(!window._fb||!window._fb.listenReportesVal)return;
-  if(_rvFbUnsubscribe)return;
-  _rvFbUnsubscribe=window._fb.listenReportesVal(function(docs){
-    rvReps=docs;
-    try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}catch(e){}
-    var calPg=document.getElementById('page-calval');
-    if(calPg&&calPg.classList.contains('active'))ucalRender();
-  });
-  console.log('[FB] Escuchando reportes_val...');
+
+/* ══════════════════════════════════════════════════════════
+   Firebase sync: usa getDocs (lectura única) en lugar de
+   onSnapshot (tiempo real) para no agotar la cuota Spark.
+   Los datos se leen al arrancar y al presionar ↻ SYNC.
+══════════════════════════════════════════════════════════ */
+async function rvStartFbSync(){
+  if(!window._fb || !window._fb.getReportesVal) return;
+  try {
+    var docs = await window._fb.getReportesVal();
+    if(!docs || !docs.length) return;
+    /* Merge: solo reemplazar si Firestore tiene más que local */
+    if(docs.length >= rvReps.length) {
+      rvReps = docs;
+      try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}catch(e){}
+      var calPg=document.getElementById('page-calval');
+      if(calPg&&calPg.classList.contains('active')) setTimeout(ucalRender,100);
+      console.log('[FB] Validaciones cargadas:',docs.length);
+    }
+  } catch(e) {
+    if(e&&e.message&&e.message.includes('resource-exhausted')) {
+      window._firestoreQuotaExhausted = true;
+      console.warn('[FB] Cuota agotada — usando solo localStorage');
+    } else { console.warn('[FB] rvStartFbSync error:',e); }
+  }
 }
 
-/* ── Firebase live sync: reportes op ── */
-var _opFbUnsubscribe=null;
-function opStartFbSync(){
-  if(!window._fb||!window._fb.listenReportesOp)return;
-  if(_opFbUnsubscribe)return;
-  _opFbUnsubscribe=window._fb.listenReportesOp(function(docs){
-    opReps=docs;
-    try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}
-    var calPg=document.getElementById('page-calval');
-    if(calPg&&calPg.classList.contains('active'))ucalRender();
-  });
-  console.log('[FB] Escuchando reportes_op...');
+async function opStartFbSync(){
+  if(!window._fb || !window._fb.getReportesOp) return;
+  try {
+    var docs = await window._fb.getReportesOp();
+    if(!docs || !docs.length) return;
+    if(docs.length >= opReps.length) {
+      opReps = docs;
+      try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}
+      var calPg=document.getElementById('page-calval');
+      if(calPg&&calPg.classList.contains('active')) setTimeout(ucalRender,100);
+      console.log('[FB] Operativos cargados:',docs.length);
+    }
+  } catch(e) {
+    if(e&&e.message&&e.message.includes('resource-exhausted')) {
+      window._firestoreQuotaExhausted = true;
+      console.warn('[FB] Cuota agotada — usando solo localStorage');
+    } else { console.warn('[FB] opStartFbSync error:',e); }
+  }
 }
 
 /* ── MANUAL RECOVERY desde Firebase ── */
