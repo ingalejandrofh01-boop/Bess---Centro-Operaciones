@@ -5210,6 +5210,12 @@ if('serviceWorker' in navigator){
       style="display:none;align-items:center;gap:5px;padding:4px 10px;background:rgba(0,200,120,.1);border:1px solid rgba(0,200,120,.3);border-radius:6px;color:#00c896;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.5px;white-space:nowrap">
       ☁️ Recuperar
     </button>
+    <!-- Botón Importar PNG de reporte -->
+    <button onclick="window.openPngImportModal()"
+      title="Importar reporte desde imagen PNG"
+      style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(74,120,245,.1);border:1px solid rgba(74,120,245,.3);border-radius:6px;color:#7aa3ff;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.5px;white-space:nowrap">
+      🖼 Importar PNG
+    </button>
 
     <!-- NOTIFICATION BELL -->
     <div class="notif-wrap" id="notif-wrap">
@@ -21914,7 +21920,371 @@ function _patchCalCards() {
 
 })();
 </script>
-<!-- ── end PATCH v4 HANDOFF ── -->
+<!-- ═══════════════════════════════════════════════════════════════
+     PATCH v5 — Importar Reporte desde Imagen (2 modos)
+     Modo 1: Pegar JSON (generado por Claude externo) — funciona siempre
+     Modo 2: Subir imagen + analizar via API (solo cuando app está en servidor)
+════════════════════════════════════════════════════════════════ -->
+<style>
+#png-import-modal {
+  display:none;position:fixed;inset:0;z-index:99998;
+  background:rgba(6,12,30,.92);backdrop-filter:blur(16px);
+  align-items:center;justify-content:center;padding:20px;
+}
+#png-import-modal.open { display:flex; }
+.pim-panel {
+  background:linear-gradient(160deg,#07112f 0%,#0c1e55 100%);
+  border:1px solid rgba(74,120,245,.35);border-radius:20px;
+  max-width:680px;width:100%;max-height:90vh;display:flex;flex-direction:column;
+  box-shadow:0 32px 80px rgba(0,0,0,.7);overflow:hidden;
+  animation:pim-enter .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pim-enter{from{transform:scale(.9) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.pim-header { padding:18px 24px 14px;border-bottom:1px solid rgba(74,120,245,.15);flex-shrink:0; }
+.pim-title  { font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:#fff; }
+.pim-sub    { font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,.35);letter-spacing:1px;margin-top:3px; }
+.pim-tabs   { display:flex;gap:0;border-bottom:1px solid rgba(74,120,245,.15);flex-shrink:0; }
+.pim-tab    { flex:1;padding:10px;background:none;border:none;cursor:pointer;
+              font-family:'DM Mono',monospace;font-size:10px;font-weight:700;
+              color:rgba(255,255,255,.35);letter-spacing:.5px;transition:all .15s;
+              border-bottom:2px solid transparent; }
+.pim-tab.active { color:#7aa3ff;border-bottom-color:#4a78f5;background:rgba(74,120,245,.06); }
+.pim-body   { padding:18px 24px;overflow-y:auto;flex:1; }
+.pim-footer { padding:12px 24px 18px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:10px;flex-shrink:0; }
+/* Dropzone */
+.pim-dropzone {
+  border:2px dashed rgba(74,120,245,.4);border-radius:12px;
+  padding:28px 20px;text-align:center;cursor:pointer;
+  transition:all .2s;background:rgba(74,120,245,.04);position:relative;
+}
+.pim-dropzone:hover,.pim-dropzone.drag{border-color:rgba(74,120,245,.8);background:rgba(74,120,245,.09);}
+.pim-dropzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+/* JSON textarea */
+.pim-json-area {
+  width:100%;box-sizing:border-box;
+  background:rgba(0,0,0,.3);border:1px solid rgba(74,120,245,.25);
+  border-radius:10px;padding:12px 14px;
+  font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.8);
+  resize:vertical;min-height:140px;line-height:1.6;
+  outline:none;transition:border-color .15s;
+}
+.pim-json-area:focus{border-color:rgba(74,120,245,.6);}
+/* Progress */
+.pim-progress{display:none;background:rgba(255,255,255,.04);border-radius:8px;padding:12px 14px;margin-top:12px;}
+.pim-prog-bar-wrap{height:3px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin:8px 0;}
+.pim-prog-bar{height:100%;background:linear-gradient(90deg,#4a78f5,#00d296);border-radius:3px;transition:width .4s;width:0%;}
+.pim-prog-label{font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.5px;}
+/* Result */
+.pim-result{display:none;margin-top:12px;border:1px solid rgba(0,210,150,.2);border-radius:10px;padding:12px 14px;background:rgba(0,210,150,.03);max-height:280px;overflow-y:auto;}
+.pim-result-title{font-family:'DM Mono',monospace;font-size:9px;font-weight:800;letter-spacing:2px;color:#00d296;text-transform:uppercase;margin-bottom:8px;}
+.pim-site-row{display:grid;grid-template-columns:20px 1fr 90px 55px 40px;gap:3px 6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.03);align-items:center;font-family:'DM Mono',monospace;font-size:8px;}
+.pim-site-row:last-child{border-bottom:none;}
+/* Buttons */
+.pim-btn-save{flex:1;padding:11px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#4a78f5,#3a5fd9);color:#fff;font-family:'DM Mono',monospace;font-size:11px;font-weight:800;letter-spacing:1px;transition:all .2s;box-shadow:0 4px 18px rgba(74,120,245,.35);}
+.pim-btn-save:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(74,120,245,.5);}
+.pim-btn-save:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.pim-btn-cancel{padding:11px 18px;border-radius:10px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);font-family:'DM Mono',monospace;font-size:10px;}
+/* How-to box */
+.pim-howto{background:rgba(74,120,245,.06);border:1px solid rgba(74,120,245,.15);border-radius:10px;padding:14px;margin-bottom:14px;}
+.pim-howto-step{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;}
+.pim-howto-step:last-child{margin-bottom:0;}
+.pim-howto-num{width:22px;height:22px;border-radius:50%;background:rgba(74,120,245,.25);border:1px solid rgba(74,120,245,.4);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:9px;font-weight:800;color:#7aa3ff;flex-shrink:0;}
+.pim-howto-txt{font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.55);line-height:1.6;}
+.pim-howto-txt b{color:#a5c0ff;}
+/* Image preview */
+.pim-preview{display:none;border-radius:8px;overflow:hidden;border:1px solid rgba(74,120,245,.2);margin-top:12px;max-height:200px;width:100%;object-fit:contain;background:#000;}
+/* Format badge */
+.pim-fmt-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:8px;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.5px;margin-left:8px;}
+</style>
+
+<!-- PNG IMPORT MODAL -->
+<div id="png-import-modal">
+  <div class="pim-panel">
+    <div class="pim-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="pim-title">📥 Importar Reporte desde Imagen</div>
+        <div class="pim-sub">Dos formas · detecta automáticamente formato Skysense y Excel/Sheets</div>
+      </div>
+      <button onclick="window.closePngImportModal()" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:20px;cursor:pointer;padding:4px;flex-shrink:0">✕</button>
+    </div>
+    <!-- Tabs -->
+    <div class="pim-tabs">
+      <button class="pim-tab active" id="pim-tab-json" onclick="window._pimSetTab('json')">📋 Pegar JSON</button>
+      <button class="pim-tab" id="pim-tab-img"  onclick="window._pimSetTab('img')">🖼 Subir Imagen</button>
+    </div>
+    <div class="pim-body">
+
+      <!-- TAB 1: Pegar JSON -->
+      <div id="pim-pane-json">
+        <div class="pim-howto">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;font-weight:800;letter-spacing:2px;color:#7aa3ff;margin-bottom:10px">CÓMO USAR · 3 PASOS</div>
+          <div class="pim-howto-step">
+            <div class="pim-howto-num">1</div>
+            <div class="pim-howto-txt">Abre <b>claude.ai</b> en otra pestaña y sube el PNG de tu reporte</div>
+          </div>
+          <div class="pim-howto-step">
+            <div class="pim-howto-num">2</div>
+            <div class="pim-howto-txt">Escribe: <b>"Extrae los datos de este reporte BESS en JSON para importar a Skysense"</b></div>
+          </div>
+          <div class="pim-howto-step">
+            <div class="pim-howto-num">3</div>
+            <div class="pim-howto-txt">Copia el JSON que te devuelva y pégalo aquí abajo</div>
+          </div>
+        </div>
+        <label style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,.4);letter-spacing:1px;display:block;margin-bottom:6px">PEGAR JSON DEL REPORTE</label>
+        <textarea class="pim-json-area" id="pim-json-input"
+          placeholder='{"period":"Hora Punta Vespertina","date":"2026-06-04","op":"Alejandro","srs":[...]}'
+          oninput="window._pimValidateJson(this.value)"></textarea>
+        <div id="pim-json-status" style="font-family:'DM Mono',monospace;font-size:9px;margin-top:6px;color:rgba(255,255,255,.3)">
+          Pega el JSON para ver una vista previa antes de guardar
+        </div>
+      </div>
+
+      <!-- TAB 2: Subir imagen (solo funciona en servidor) -->
+      <div id="pim-pane-img" style="display:none">
+        <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start">
+          <span style="font-size:18px;flex-shrink:0">⚠️</span>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(245,158,11,.8);line-height:1.6">
+            <b style="color:#f59e0b">Requiere servidor</b> — Este modo usa la API de Claude directamente y no funciona cuando la app se abre como archivo local (<code>file://</code>).<br>
+            <span style="opacity:.7">Funciona cuando la app está en GitHub Pages, localhost o cualquier servidor.</span>
+          </div>
+        </div>
+        <div class="pim-dropzone" id="pim-dropzone"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="event.preventDefault();this.classList.remove('drag');window._pimHandleFile(event.dataTransfer.files[0])">
+          <input type="file" accept="image/*,.png,.jpg,.jpeg" onchange="window._pimHandleFile(this.files[0])">
+          <div style="font-size:32px;margin-bottom:8px">🖼</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.5)">Arrastra el PNG aquí o <b style="color:#7aa3ff">haz clic para seleccionar</b></div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,.25);margin-top:5px">📊 Excel/Sheets · 🖥 Skysense BESS — formato detectado automáticamente</div>
+        </div>
+        <img id="pim-preview" class="pim-preview" alt="">
+        <div class="pim-progress" id="pim-progress">
+          <div class="pim-prog-label" id="pim-prog-label">🤖 Claude Vision analizando…</div>
+          <div class="pim-prog-bar-wrap"><div class="pim-prog-bar" id="pim-prog-bar"></div></div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,.3)" id="pim-prog-sub"></div>
+        </div>
+      </div>
+
+      <!-- Result preview (shared between tabs) -->
+      <div class="pim-result" id="pim-result">
+        <div class="pim-result-title" id="pim-result-title">✅ Datos extraídos</div>
+        <div id="pim-result-body"></div>
+      </div>
+    </div>
+    <div class="pim-footer">
+      <button class="pim-btn-cancel" onclick="window.closePngImportModal()">Cancelar</button>
+      <button class="pim-btn-save" id="pim-save-btn" disabled onclick="window._pimSaveReport()">
+        💾 Guardar Reporte en la App
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var _pimExtracted = null;
+var _pimTab = 'json';
+
+window.openPngImportModal = function() {
+  var m = document.getElementById('png-import-modal');
+  if(m) { m.classList.add('open'); _pimReset(); }
+};
+window.closePngImportModal = function() {
+  var m = document.getElementById('png-import-modal');
+  if(m) m.classList.remove('open');
+};
+window._pimSetTab = function(t) {
+  _pimTab = t;
+  ['json','img'].forEach(function(id){
+    var tab  = document.getElementById('pim-tab-'+id);
+    var pane = document.getElementById('pim-pane-'+id);
+    var active = id===t;
+    if(tab)  { tab.classList.toggle('active', active); }
+    if(pane) { pane.style.display = active ? 'block' : 'none'; }
+  });
+};
+
+function _el(id){ return document.getElementById(id)||{}; }
+function _pimReset(){
+  _pimExtracted = null;
+  _el('pim-preview').style.display = 'none';
+  _el('pim-progress').style.display = 'none';
+  _el('pim-result').style.display = 'none';
+  _el('pim-save-btn').disabled = true;
+  _el('pim-prog-bar').style.width = '0%';
+  var ji = _el('pim-json-input'); if(ji.value!==undefined) ji.value='';
+  var js = _el('pim-json-status'); if(js.textContent!==undefined) js.textContent='Pega el JSON para ver una vista previa antes de guardar';
+  js.style && (js.style.color='rgba(255,255,255,.3)');
+  _pimSetTab('json');
+}
+function _prog(pct, label, sub){
+  _el('pim-prog-bar').style.width = pct+'%';
+  if(label) _el('pim-prog-label').textContent = label;
+  if(sub)   _el('pim-prog-sub').textContent = sub;
+}
+
+/* ── TAB 1: JSON paste & validate ── */
+window._pimValidateJson = function(val) {
+  var status = _el('pim-json-status');
+  if(!val || !val.trim()) {
+    status.textContent = 'Pega el JSON para ver una vista previa antes de guardar';
+    status.style.color = 'rgba(255,255,255,.3)';
+    _el('pim-result').style.display = 'none';
+    _el('pim-save-btn').disabled = true;
+    _pimExtracted = null;
+    return;
+  }
+  try {
+    var clean = val.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+    /* Find JSON block */
+    var match = clean.match(/\{[\s\S]+\}/);
+    var parsed = JSON.parse(match ? match[0] : clean);
+    if(!parsed.srs || !parsed.srs.length) throw new Error('Sin campo "srs" o vacío');
+    /* Auto-calc kpis if missing */
+    if(!parsed.kpis || !parsed.kpis.operativos) {
+      parsed.kpis = {
+        operativos:  parsed.srs.filter(function(s){ return s.status==='OK'; }).length,
+        incidencias: parsed.srs.filter(function(s){ return s.status==='INCOMPLETO'; }).length,
+        criticos:    parsed.srs.filter(function(s){ return ['NO OPERATIVO','PÉRDIDA TOTAL','DESCONECTADO'].includes(s.status); }).length
+      };
+    }
+    _pimExtracted = parsed;
+    status.textContent = '✅ JSON válido · '+parsed.srs.length+' sitios detectados';
+    status.style.color = '#00c896';
+    _renderPimResult(parsed);
+  } catch(e) {
+    status.textContent = '⚠️ JSON inválido: '+e.message.slice(0,60);
+    status.style.color = '#ef4444';
+    _el('pim-result').style.display = 'none';
+    _el('pim-save-btn').disabled = true;
+    _pimExtracted = null;
+  }
+};
+
+/* ── TAB 2: Image upload (server only) ── */
+window._pimHandleFile = async function(file) {
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = _el('pim-preview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+  _el('pim-progress').style.display = 'block';
+  _el('pim-result').style.display = 'none';
+  _el('pim-save-btn').disabled = true;
+  _prog(10, '🤖 Claude Vision analizando el reporte…', 'Leyendo imagen…');
+  var base64 = await _fileToBase64(file);
+  var mediaType = file.type || 'image/png';
+  _prog(25, '📡 Enviando a Claude Vision…', 'Procesando imagen…');
+  try {
+    var result = await _callClaudeVision(base64, mediaType);
+    _prog(85, '✅ Datos extraídos', 'Construyendo reporte…');
+    _pimExtracted = result;
+    setTimeout(function(){
+      _prog(100,'✅ Listo para guardar','');
+      _el('pim-progress').style.display = 'none';
+      _renderPimResult(result);
+    }, 400);
+  } catch(e) {
+    _prog(100,'⚠️ Error: '+e.message.slice(0,60),'');
+    _el('pim-prog-bar').style.background = 'linear-gradient(90deg,#ef4444,#dc2626)';
+    console.error('[PIM]',e);
+  }
+};
+
+async function _fileToBase64(file){
+  return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(e){res(e.target.result.split(',')[1]);}; r.onerror=rej; r.readAsDataURL(file); });
+}
+
+async function _callClaudeVision(base64, mediaType) {
+  var DETECT_PROMPT = 'Mira esta imagen y responde SOLO con una palabra: "SKYSENSE" si es reporte de la app Skysense BESS con fondo oscuro, o "EXCEL" si es tabla Excel/Sheets con colores de celdas. Solo esa palabra.';
+  _prog(30,'🔍 Detectando formato…','');
+  var dr = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mediaType,data:base64}},{type:'text',text:DETECT_PROMPT}]}]})});
+  var dd = await dr.json();
+  var fmt = (((dd.content||[])[0]||{}).text||'').trim().toUpperCase().includes('EXCEL')?'EXCEL':'SKYSENSE';
+  _prog(50,'📋 Formato '+fmt+' — extrayendo datos…','');
+  var PROMPT = fmt==='EXCEL' ? `Extrae TODOS los datos de esta tabla de reporte de descarga BESS (formato Excel/Sheets). Devuelve SOLO JSON válido.\n{"formato":"EXCEL","period":"Hora Punta","date":"2026-06-03","op":"","kpis":{},"handoffs":[],"srs":[{"sitio":"Almacén General","cliente":"ASUR","ciudad":"Cancún","bessId":1,"sku":1,"oper":1,"status":"OK","cond":"","socInicial":null,"socFinal":51,"com":true,"sev":"","evento":"","obs":"comentario aquí"}]}\nColores: Verde=OK, Rojo/Rosa=NO OPERATIVO+FUERA_OP, Amarillo/Naranja=INCOMPLETO, Gris=DESCONECTADO. socFinal del número en columna SOC, null si tiene "?". obs=texto de Comentarios. Extrae TODOS los sitios sin omitir ninguno.` : `Extrae TODOS los datos de este reporte operativo Skysense BESS. Devuelve SOLO JSON válido.\n{"formato":"SKYSENSE","period":"Hora Punta Vespertina","date":"2026-06-04","op":"Alejandro","kpis":{"operativos":43,"incidencias":1,"criticos":18},"handoffs":[{"sitio":"Veracruz","tipo":"INSPECCION","nota":"...","responsable":"..."}],"srs":[{"sitio":"Almacén General","sku":1,"oper":1,"status":"OK","cond":"","socInicial":96,"socFinal":50,"com":true,"sev":"","evento":"","obs":""}]}\noper:1=✓verde,0=✗roja. status:OK/NO OPERATIVO/DESCONECTADO/PÉRDIDA TOTAL/INCOMPLETO. cond:LIBRANZA/FUERA_OP/"". Extrae handoffs del bloque HANDOFF si existe.`;
+  var rr = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:8000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mediaType,data:base64}},{type:'text',text:PROMPT}]}]})});
+  if(!rr.ok){var e2=await rr.json().catch(function(){return{};});throw new Error((e2.error&&e2.error.message)||'Error API '+rr.status);}
+  var rd=await rr.json();
+  var txt=(rd.content||[]).map(function(c){return c.text||'';}).join('');
+  var clean=txt.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+  var m=clean.match(/\{[\s\S]+\}/);
+  var parsed=JSON.parse(m?m[0]:clean);
+  if(parsed&&parsed.srs){parsed.kpis={operativos:parsed.srs.filter(function(s){return s.status==='OK';}).length,incidencias:parsed.srs.filter(function(s){return s.status==='INCOMPLETO';}).length,criticos:parsed.srs.filter(function(s){return['NO OPERATIVO','PÉRDIDA TOTAL','DESCONECTADO'].includes(s.status);}).length};}
+  parsed._fmt=fmt;
+  return parsed;
+}
+
+/* ── Render preview ── */
+function _renderPimResult(data){
+  var res=_el('pim-result'),body=_el('pim-result-body'),title=_el('pim-result-title');
+  if(!data||!data.srs){title.textContent='⚠️ No se pudieron extraer datos';return;}
+  var srs=data.srs||[],kpis=data.kpis||{};
+  var ok=kpis.operativos||srs.filter(function(s){return s.status==='OK';}).length;
+  var crit=kpis.criticos||srs.filter(function(s){return['NO OPERATIVO','PÉRDIDA TOTAL','DESCONECTADO'].includes(s.status);}).length;
+  var inc=kpis.incidencias||srs.filter(function(s){return s.status==='INCOMPLETO';}).length;
+  var hf=(data.handoffs||[]).length;
+  var fmt=data._fmt||data.formato||'SKYSENSE';
+  var fmtBadge=fmt==='EXCEL'
+    ?'<span class="pim-fmt-badge" style="background:rgba(0,200,100,.15);border:1px solid rgba(0,200,100,.3);color:#00c878">📊 EXCEL</span>'
+    :'<span class="pim-fmt-badge" style="background:rgba(74,120,245,.15);border:1px solid rgba(74,120,245,.3);color:#7aa3ff">🖥 SKYSENSE</span>';
+  title.innerHTML='✅ '+srs.length+' sitios · '+ok+' OK · '+crit+' críticos · '+inc+' incidencias'+(hf?' · 🔥 '+hf+' handoffs':'')+fmtBadge;
+  var SC={'OK':'#00c896','NO OPERATIVO':'#ef4444','DESCONECTADO':'#94a3b8','PÉRDIDA TOTAL':'#7f1d1d','INCOMPLETO':'#f59e0b','MANTENIMIENTO':'cornflowerblue'};
+  var showCiudad=fmt==='EXCEL';
+  body.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:rgba(255,255,255,.3);margin-bottom:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px"><span>'+(data.period||'Hora Punta')+' · '+(data.date||'')+(data.op?' · '+data.op:'')+'</span><span>'+ok+' ✓ · '+crit+' ✗ · '+inc+' △</span></div>'
+    +'<div style="display:grid;grid-template-columns:20px 1fr 90px 55px;gap:3px 6px;font-family:\'DM Mono\',monospace;font-size:8px;color:rgba(255,255,255,.2);padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:4px"><span>#</span><span>SITIO</span><span>STATUS</span><span>SOC</span></div>'
+    +srs.map(function(sr){
+      var col=SC[sr.status]||'#94a3b8';
+      var cd=sr.cond==='LIBRANZA'?' <span style="color:#f59e0b;font-size:7px">LIB</span>':sr.cond==='FUERA_OP'?' <span style="color:#ef4444;font-size:7px">F.OP</span>':'';
+      var siteLabel=sr.sitio+(showCiudad&&sr.ciudad?' <span style="opacity:.35">·'+sr.ciudad+'</span>':'');
+      return '<div style="display:grid;grid-template-columns:20px 1fr 90px 55px;gap:3px 6px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.02);align-items:center;font-family:\'DM Mono\',monospace;font-size:8px">'
+        +'<span style="color:rgba(255,255,255,.2)">'+sr.sku+'</span>'
+        +'<span style="color:rgba(255,255,255,.75)">'+siteLabel+cd+'</span>'
+        +'<span style="color:'+col+';font-weight:700">'+sr.status+'</span>'
+        +'<span style="color:rgba(255,255,255,.4)">'+(sr.socFinal!=null?sr.socFinal+'%':sr.socInicial!=null?sr.socInicial+'%':'—')+'</span>'
+      +'</div>';
+    }).join('');
+  var wo=srs.filter(function(s){return s.obs&&s.obs.trim();}).length;
+  if(wo) body.innerHTML+='<div style="margin-top:6px;font-family:\'DM Mono\',monospace;font-size:9px;color:rgba(255,255,255,.25)">📝 '+wo+' sitios con comentarios importados</div>';
+  res.style.display='block';
+  _el('pim-save-btn').disabled=false;
+}
+
+/* ── Save report to app ── */
+window._pimSaveReport=function(){
+  if(!_pimExtracted||!_pimExtracted.srs){showToast&&showToast('⚠️ Sin datos para guardar');return;}
+  var d=_pimExtracted;
+  var srs=d.srs.map(function(sr){
+    return{oper:sr.oper!=null?sr.oper:(sr.status==='OK'?1:0),status:sr.status||'',cond:sr.cond||'',soc:sr.socInicial!=null?sr.socInicial:'',socInicial:sr.socInicial,socFinal:sr.socFinal,com:sr.com!=null?(sr.com?1:0):null,sev:sr.sev||'',evento:sr.evento||'',obs:sr.obs||'',skip:false};
+  });
+  if(d.handoffs&&d.handoffs.length){d.handoffs.forEach(function(hf){var idx=srs.findIndex(function(s,i){return(d.srs[i]&&d.srs[i].sitio||'').toLowerCase()===hf.sitio.toLowerCase();});if(idx>=0)srs[idx].handoff={active:true,type:hf.tipo||'VALIDACION',note:hf.nota||'',assignee:hf.responsable||''};});}
+  var dateStr=d.date||new Date().toISOString().slice(0,10);
+  var rep={id:'png_'+Date.now().toString(),op:d.op||localStorage.getItem('bess_uname')||'Operador',period:d.period||'Hora Punta',date:dateStr+'T12:00:00.000Z',createdAt:dateStr+'T12:00:00.000Z',srs:srs,kpis:d.kpis||{},_importedFromPng:true,_fmt:d._fmt||d.formato};
+  if(window.opReps){
+    var dup=window.opReps.find(function(r){return r.id===rep.id||(r.date&&r.date.slice(0,10)===dateStr&&r.period===rep.period&&r._importedFromPng);});
+    if(dup){showToast&&showToast('⚠️ Ya existe un reporte importado para esta fecha y turno');return;}
+    window.opReps.unshift(rep);
+    if(typeof window.opPersist==='function') window.opPersist();
+  }
+  var savedCloud=false;
+  if(window._fb&&window._fb.saveReporteOp&&!window._firestoreQuotaExhausted){
+    window._fb.saveReporteOp(rep).then(function(fbId){rep.fbId=fbId;var idx=window.opReps.findIndex(function(r){return r.id===rep.id;});if(idx>=0){window.opReps[idx].fbId=fbId;if(typeof window.opPersist==='function')window.opPersist();}showToast&&showToast('☁️ Guardado en Firebase: '+fbId.slice(0,8)+'…');}).catch(function(e){console.warn('[PIM] Firebase:',e);});
+    savedCloud=true;
+  }
+  window.closePngImportModal();
+  showToast&&showToast('✅ Reporte importado · '+(savedCloud?'☁️ Firebase + ':'🗄 solo ')+'local · '+rep.srs.length+' sitios');
+  setTimeout(function(){if(typeof window.opLoad==='function')window.opLoad();if(typeof window.ucalRender==='function')window.ucalRender();if(typeof window.goPage==='function')window.goPage('calval');},200);
+};
+
+})();
+</script>
+<!-- ── end PATCH v5 PNG Import ── -->
 </body>
 </html>
 <script>
