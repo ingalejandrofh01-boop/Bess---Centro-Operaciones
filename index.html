@@ -6449,8 +6449,8 @@ async function expDoZip(mode){
           </button>
           <button class="rv-bat-btn" data-val="ok" data-cond="DESCARGADO"
             onclick="rvSetBatFull('ok','DESCARGADO')"
-            style="border-color:rgba(239,68,68,.3);color:var(--red)">
-            <span style="font-size:14px">⚡</span> Descargado
+            style="border-color:rgba(16,185,129,.3);color:#10b981">
+            <span style="font-size:14px">✅</span> Descargado
           </button>
 
           <!-- Fila 3: sin comunicación / fuera -->
@@ -8480,6 +8480,7 @@ async function expDoZip(mode){
   <button class="ene-tab" data-enetab="eficiencia" onclick="eneSetTab('eficiencia',this)">⚡ Eficiencia</button>
   <button class="ene-tab" data-enetab="sitios" onclick="eneSetTab('sitios',this)">🏭 Por Sitio</button>
   <button class="ene-tab" data-enetab="registros" onclick="eneSetTab('registros',this)">📋 Registros</button>
+  <button class="ene-tab" data-enetab="bd" onclick="eneSetTab('bd',this)">🗄 BD Energética</button>
   <button class="ene-tab" data-enetab="maestra" onclick="eneSetTab('maestra',this)">🗂 Lista Maestra</button>
 </div>
 
@@ -8876,9 +8877,64 @@ async function expDoZip(mode){
 
 </div><!-- /ene-root -->
 
+<!-- ══ PANEL: BD ENERGÉTICA ══ -->
+<div class="ene-panel-bd" id="ene-panel-bd" style="display:none;padding:0 0 48px">
+  <div style="position:sticky;top:0;z-index:50;background:var(--s1);border-bottom:1px solid var(--b1);padding:10px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:900;color:var(--text);flex-shrink:0;white-space:nowrap">🗄 BD Energética</div>
+    <select id="bd-f-cliente" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer">
+      <option value="">Todos los clientes</option>
+      <option value="ASUR">ASUR</option><option value="OMA">OMA</option><option value="Industria">Industria</option>
+    </select>
+    <select id="bd-f-sitio" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer;max-width:150px">
+      <option value="">Todos los sitios</option>
+    </select>
+    <select id="bd-f-marca" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer">
+      <option value="">Todas las marcas</option>
+    </select>
+    <input id="bd-f-fecha-ini" type="date" title="Desde" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px">
+    <input id="bd-f-fecha-fin" type="date" title="Hasta" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px">
+    <button onclick="window._bdClearFilters()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer">✕</button>
+    <div style="flex:1"></div>
+    <label style="display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
+      📥 Importar BD<input type="file" accept=".csv" style="display:none" onchange="window._bdLoadCSVFile(this)">
+    </label>
+    <button onclick="window._bdExportCSV()" style="padding:5px 12px;border-radius:6px;border:1px solid rgba(0,210,150,.3);background:rgba(0,210,150,.08);color:#00d296;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0">↓ CSV</button>
+    <div id="bd-count" style="font-family:var(--mono);font-size:10px;color:var(--t3);white-space:nowrap;flex-shrink:0">— registros</div>
+  </div>
+  <div id="bd-kpis" style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:14px 20px"></div>
+  <div style="padding:0 20px;overflow-x:auto">
+    <table id="bd-table" style="width:100%;border-collapse:collapse;font-size:10px;min-width:1300px">
+      <thead>
+        <tr style="background:var(--s2)">
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('fecha')">FECHA ⇅</th>
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">SITIO</th>
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">CLIENTE</th>
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">CIUDAD</th>
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">MARCA</th>
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">PLATAFORMA</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socIni')">SOC INI % ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socFin')">SOC FIN % ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">POT. CARGA kW</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">HRS CARGA</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('powDesc')">POT. DESC. kW ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">HRS DESC. PUNTA</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">ALM/RACK kWh</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('energiaBESS')">ENERGÍA BESS kWh ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socDesc')">SOC DESC. % ⇅</th>
+        </tr>
+      </thead>
+      <tbody id="bd-tbody"></tbody>
+    </table>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 20px">
+    <button onclick="window._bdPage(-1)" style="padding:5px 14px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer">← Anterior</button>
+    <span id="bd-page-info" style="font-family:var(--mono);font-size:10px;color:var(--t3)">—</span>
+    <button onclick="window._bdPage(1)" style="padding:5px 14px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer">Siguiente →</button>
+  </div>
+</div><!-- /ene-panel-bd -->
+
 <!-- ══ PANEL: LISTA MAESTRA ══ -->
-<div id="ene-panel-maestra" style="display:none;flex:1;overflow-y:auto;min-height:0;">
-<div style="max-width:1440px;margin:0 auto;padding:24px 28px 48px;width:100%;box-sizing:border-box;">
+<div id="ene-panel-maestra" style="display:none;padding:24px 28px 80px;width:100%;box-sizing:border-box;overflow-y:auto;height:100%;">
 
   <!-- Header -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
@@ -8889,20 +8945,16 @@ async function expDoZip(mode){
         <span id="ml-count">0 sitios</span> · Edita aquí y se sincroniza con Firebase automáticamente
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button onclick="window._mlAddSite()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#00d296,#00a878);color:#fff;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer;box-shadow:0 3px 14px rgba(0,210,150,.3)">
         + Agregar Sitio
       </button>
-      <!-- Importar CSV Maestro -->
-      <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(0,210,150,.35);background:rgba(0,210,150,.08);color:#00d296;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap">
+      <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(0,210,150,.4);background:rgba(0,210,150,.08);color:#00d296;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap">
         📥 Cargar CSV Maestro
         <input type="file" accept=".csv" style="display:none" onchange="window._mlImportCSV(this)">
       </label>
       <button onclick="window._mlSyncCloud()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(74,120,245,.35);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer">
         ☁️ Sincronizar Firebase
-      </button>
-      <button onclick="window._mlEnrichHistorico()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.06);color:#f59e0b;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;cursor:pointer">
-        🔧 Enriquecer Histórico
       </button>
     </div>
   </div>
@@ -8923,20 +8975,24 @@ async function expDoZip(mode){
 
   <!-- Table -->
   <div style="overflow-x:auto;border-radius:12px;border:1px solid var(--b1);">
-    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1400px">
       <thead>
         <tr style="background:var(--s2);">
           <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">SKU</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Sitio</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Cliente</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Ciudad</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Marca</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Plataforma</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">BESS ID</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Racks</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">kW Verano</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">kW Invierno</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">Acciones</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Sitio</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Cliente</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Ciudad</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Marca</th>
+          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Plataforma</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">BESS ID</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Racks</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kW Carga</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Hrs Carga</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kWh Total</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kW Verano</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kW Invierno</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Energía BESS kWh</th>
+          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Acciones</th>
         </tr>
       </thead>
       <tbody id="ml-tbody"></tbody>
@@ -8957,7 +9013,6 @@ async function expDoZip(mode){
     </div>
   </div>
 
-</div><!-- /inner-wrapper -->
 </div><!-- /ene-panel-maestra -->
 
 <!-- ══ IMPORT MODAL ══ -->
@@ -16158,7 +16213,7 @@ function rvRenderSum(){
   /* Color map for extended statuses */
   var _extColor={
     'Cargando':'var(--sky)','Balanceando':'#a78bfa',
-    'No Descarga':'var(--yellow)','Descargado':'var(--red)',
+    'No Descarga':'var(--yellow)','Descargado':'var(--green)',
     'Fuera de Op.':'var(--red)','Mantenimiento':'cornflowerblue',
     'Libranza':'var(--yellow)','Alarmado':'var(--yellow)',
     'Error Com.':'var(--red)','N/A':'var(--t3)','OK':'var(--green)'
@@ -16515,7 +16570,7 @@ window.rvShowDet = function(id){
   var bTc={ok:'t-ok',error:'t-err',alarm:'t-alm',na:'t-na'};
   var _extColor2={
     'Cargando':'var(--sky)','Balanceando':'#a78bfa',
-    'No Descarga':'var(--yellow)','Descargado':'var(--red)',
+    'No Descarga':'var(--yellow)','Descargado':'var(--green)',
     'Fuera de Op.':'var(--red)','Mantenimiento':'cornflowerblue',
     'Libranza':'var(--yellow)','Alarmado':'var(--yellow)',
     'Error Com.':'var(--red)','N/A':'var(--t3)','OK':'var(--green)'
@@ -17933,6 +17988,28 @@ function opSave() {
   /* Guardar en localStorage */
   opReps.unshift(rep);
   opPersist();
+  /* Auto-enriquecer el histórico con datos de la tabla maestra */
+  setTimeout(function(){
+    var histData = (window._histH && window._histH.all) ? window._histH.all : [];
+    var masterList = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+    if(!histData.length || !masterList.length) return;
+    var mm = {};
+    masterList.forEach(function(m){ if(m&&m.sitio) mm[m.sitio.trim().toLowerCase()]=m; });
+    var enriched = 0;
+    histData.forEach(function(r){
+      var k=(r.si||'').trim().toLowerCase(); if(!k) return;
+      var m=mm[k]; if(!m) return;
+      if(!r.cl&&m.cliente){r.cl=m.cliente;enriched++;}
+      if(!r.ci&&m.ciudad) r.ci=m.ciudad;
+      if(!r.marca&&m.marca) r.marca=m.marca;
+    });
+    if(enriched>0) {
+      ['histApplyFilters','histRenderDashboard'].forEach(function(fn){
+        if(typeof window[fn]==='function'){try{window[fn]();}catch(e){}}
+      });
+      console.log('[Op] Auto-enriquecidos '+enriched+' registros del histórico');
+    }
+  }, 300);
   /* Auto-push al histórico LOCAL (siempre, sin esperar Firebase) */
   if(window._histPushReporteOp) {
     setTimeout(function(){ _histPushReporteOp(rep); }, 100);
@@ -20504,30 +20581,26 @@ async function _loadMasterSitesCloud() {
   try {
     var snap = await window._fbGetDocs(window._fbCollection(window._fbDB, 'master_sites'));
     if(snap.empty) {
-      /* Primera vez: subir los sitios locales a Firestore */
       await _pushMasterSitesToCloud();
       return;
     }
-    var cloud = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); });
-    /* Fusionar: cloud tiene prioridad sobre local para sitios existentes */
+    var cloud = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); })
+      .filter(function(s){ return s && s.sitio; }); /* Guard: skip docs without sitio */
     var merged = cloud.slice();
-    /* Agregar sitios locales que no están en cloud */
     var cloudNames = cloud.map(function(s){ return s.sitio.trim().toLowerCase(); });
     (window.MASTER_SITES_DB||[]).forEach(function(local){
+      if(!local||!local.sitio) return;
       if(!cloudNames.includes(local.sitio.trim().toLowerCase())) {
         merged.push(local);
       }
     });
     window._masterSitesCloud = merged;
-    /* Actualizar la lista de sitios del combo selector */
-    _refreshSitesList(merged);
-    console.log('[Master] '+merged.length+' sitios cargados ('+cloud.length+' de Firebase, '+(merged.length-cloud.length)+' solo local)');
+    console.log('[Master] '+merged.length+' sitios cargados ('+cloud.length+' de Firebase)');
   } catch(e) {
     if(e&&e.message&&e.message.includes('resource-exhausted')) {
       window._firestoreQuotaExhausted = true;
     }
     console.warn('[Master] Error cargando tabla maestra:', e.message);
-    /* Fallback a tabla local */
     window._masterSitesCloud = (window.MASTER_SITES_DB||[]).slice();
   }
 }
@@ -22822,363 +22895,348 @@ window._pimSaveReport=function(){
 })();
 </script>
 <!-- ═══════════════════════════════════════════════════════════════
-     PATCH v6 — Lista Maestra de Sitios (editor + Firebase sync)
+     PATCH v6 — Lista Maestra (limpio, completo)
 ════════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
 'use strict';
 
-/* ── Estado del editor ── */
-var _mlEditIdx = null; // índice en _mlList del sitio editando
-var _mlList    = [];   // copia de trabajo de MASTER_SITES_DB + cloud
+/* ══ STORAGE ══ */
+var _ML_SK = 'bess:master_sites:v1';
 
-/* Campos del formulario */
+function _mlPersist() {
+  try { localStorage.setItem(_ML_SK, JSON.stringify(_mlList)); } catch(e) {}
+}
+
+function _mlLoadFromStorage() {
+  try {
+    var s = localStorage.getItem(_ML_SK);
+    if(!s) return null;
+    var p = JSON.parse(s);
+    if(!p||!p.length) return null;
+    /* Merge con campos nuevos de MASTER_SITES_DB hardcodeada */
+    var names = p.map(function(x){ return x.sitio&&x.sitio.trim().toLowerCase(); });
+    (window.MASTER_SITES_DB||[]).forEach(function(local){
+      if(!local||!local.sitio) return;
+      var idx = names.indexOf(local.sitio.trim().toLowerCase());
+      if(idx>=0){ Object.keys(local).forEach(function(k){ if(p[idx][k]==null) p[idx][k]=local[k]; }); }
+      else { p.push(local); names.push(local.sitio.trim().toLowerCase()); }
+    });
+    return p;
+  } catch(e) { return null; }
+}
+
+/* ══ ESTADO ══ */
+var _mlEditIdx = null;
+var _mlList    = [];
+
+/* ══ CAMPOS ══ */
 var ML_FIELDS = [
-  {key:'sku',        label:'SKU',           type:'number', col:1},
-  {key:'sitio',      label:'Sitio',         type:'text',   col:2},
-  {key:'cliente',    label:'Cliente',       type:'text',   col:1},
-  {key:'ciudad',     label:'Ciudad',        type:'text',   col:1},
-  {key:'marca',      label:'Marca batería', type:'text',   col:1},
-  {key:'plat',       label:'Plataforma',    type:'text',   col:1},
-  {key:'bessId',     label:'BESS ID',       type:'number', col:1},
-  {key:'numRacks',   label:'No. Racks',     type:'number', col:1},
-  {key:'powSummer',  label:'kW Verano',     type:'number', col:1},
-  {key:'powWinter',  label:'kW Invierno',   type:'number', col:1},
+  {key:'sku',         label:'SKU',              type:'number', col:1},
+  {key:'sitio',       label:'Sitio',            type:'text',   col:2},
+  {key:'cliente',     label:'Cliente',          type:'text',   col:1},
+  {key:'ciudad',      label:'Ciudad',           type:'text',   col:1},
+  {key:'marca',       label:'Marca batería',    type:'text',   col:1},
+  {key:'plat',        label:'Plataforma',       type:'text',   col:1},
+  {key:'bessId',      label:'BESS ID',          type:'number', col:1},
+  {key:'numRacks',    label:'No. Racks',        type:'number', col:1},
+  {key:'powCarga',    label:'kW Carga (fijo)',  type:'number', col:1},
+  {key:'horasCarga',  label:'Hrs de Carga',     type:'number', col:1},
+  {key:'kwhTotal',    label:'kWh Total',        type:'number', col:1},
+  {key:'powSummer',   label:'kW Verano',        type:'number', col:1},
+  {key:'powWinter',   label:'kW Invierno',      type:'number', col:1},
+  {key:'energiaBESS', label:'Energía BESS kWh', type:'number', col:1},
 ];
 
-/* Colores por cliente */
 var CL_COLORS = {
-  ASUR:      {bg:'rgba(74,120,245,.12)',  color:'#7aa3ff'},
-  OMA:       {bg:'rgba(0,210,150,.1)',    color:'#00d296'},
-  Industria: {bg:'rgba(245,158,11,.1)',   color:'#f59e0b'},
+  ASUR:      {bg:'rgba(74,120,245,.12)', color:'#7aa3ff'},
+  OMA:       {bg:'rgba(0,210,150,.1)',   color:'#00d296'},
+  Industria: {bg:'rgba(245,158,11,.1)',  color:'#f59e0b'},
 };
 
-/* Cargar lista al abrir el tab */
+/* ══ CARGAR ══ */
 window._mlLoad = function() {
-  _mlList = (window._masterSitesCloud || window.MASTER_SITES_DB || []).map(function(s,i){
-    return Object.assign({_idx:i}, s);
-  });
+  var stored = _mlLoadFromStorage();
+  if(stored&&stored.length){ _mlList=stored; window._masterSitesCloud=stored; }
+  else { _mlList=(window._masterSitesCloud||window.MASTER_SITES_DB||[]).slice(); }
   _mlRender();
 };
 
-/* Render tabla */
+/* ══ RENDER ══ */
 window._mlRender = function() {
-  var tbody = document.getElementById('ml-tbody');
-  var count = document.getElementById('ml-count');
+  var tbody=document.getElementById('ml-tbody'),count=document.getElementById('ml-count');
   if(!tbody) return;
-  var q = (document.getElementById('ml-search')||{}).value||'';
-  var fc = (document.getElementById('ml-filter-cliente')||{}).value||'';
-  var filtered = _mlList.filter(function(s){
-    var matchQ = !q || [s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
-    var matchC = !fc || s.cliente===fc;
-    return matchQ && matchC;
+  var q=(document.getElementById('ml-search')||{}).value||'';
+  var fc=(document.getElementById('ml-filter-cliente')||{}).value||'';
+  var filtered=_mlList.filter(function(s){
+    var mq=!q||[s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
+    var mc=!fc||s.cliente===fc;
+    return mq&&mc;
   });
-  if(count) count.textContent = _mlList.length+' sitios';
-  var STATUS_ROW = {
-    ASUR:      'background:rgba(74,120,245,.04)',
-    OMA:       'background:rgba(0,210,150,.03)',
-    Industria: 'background:rgba(245,158,11,.03)',
-  };
-  tbody.innerHTML = filtered.map(function(s, i){
-    var clColor = CL_COLORS[s.cliente]||{bg:'rgba(255,255,255,.04)',color:'var(--t2)'};
-    var rowStyle = STATUS_ROW[s.cliente]||'';
-    return '<tr style="border-bottom:1px solid var(--b1);transition:background .15s;'+rowStyle+'" '
-      +'onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\''+(STATUS_ROW[s.cliente]||'')+'\'">'
-      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--t3)">'+s.sku+'</td>'
+  if(count) count.textContent=_mlList.length+' sitios';
+  var RB={ASUR:'rgba(74,120,245,.03)',OMA:'rgba(0,210,150,.02)',Industria:'rgba(245,158,11,.02)'};
+  tbody.innerHTML=filtered.map(function(s,i){
+    var clC=CL_COLORS[s.cliente]||{bg:'rgba(255,255,255,.05)',color:'var(--t2)'};
+    var rb=RB[s.cliente]||'';
+    var _rb=rb||'';
+    var _rb=rb||'';
+    return '<tr style="border-bottom:1px solid rgba(255,255,255,.04);background:'+_rb+'" onmouseover="this.style.background=\'rgba(74,120,245,.08)\'" onmouseout="this.style.background=\''+_rb+'\'">'
       +'<td style="padding:8px 12px;font-weight:700;color:var(--text)">'+s.sitio+'</td>'
-      +'<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:6px;font-family:\'DM Mono\',monospace;font-size:9px;font-weight:700;background:'+clColor.bg+';color:'+clColor.color+'">'+s.cliente+'</span></td>'
-      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--t2)">'+s.ciudad+'</td>'
-      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--t2)">'+s.marca+'</td>'
-      +'<td style="padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--t3)">'+s.plat+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:10px">'+s.bessId+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--sky)">'+s.numRacks+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:10px;color:#00c896">'+s.powSummer+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:\'DM Mono\',monospace;font-size:10px;color:#60a5fa">'+s.powWinter+'</td>'
+      +'<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:700;background:'+clC.bg+';color:'+clC.color+'">'+s.cliente+'</span></td>'
+      +'<td style="padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--t2)">'+s.ciudad+'</td>'
+      +'<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t2)">'+s.marca+'</td>'
+      +'<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t3)">'+s.plat+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+s.bessId+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--sky)">'+s.numRacks+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#60a5fa">'+(s.powCarga!=null?s.powCarga:'—')+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#a78bfa">'+(s.horasCarga!=null?s.horasCarga:'—')+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:#f59e0b">'+(s.kwhTotal!=null?s.kwhTotal:'—')+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#00c896">'+s.powSummer+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#60a5fa">'+s.powWinter+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:#00d296">'+(s.energiaBESS!=null?s.energiaBESS:'—')+'</td>'
       +'<td style="padding:8px 12px;text-align:center">'
-        +'<button onclick="window._mlEdit('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer;margin-right:4px">✏️ Editar</button>'
-        +'<button onclick="window._mlDelete('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#f87171;font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer">✕</button>'
+        +'<button onclick="window._mlEdit('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:var(--mono);font-size:9px;cursor:pointer;margin-right:4px">✏️</button>'
+        +'<button onclick="window._mlDelete('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#f87171;font-family:var(--mono);font-size:9px;cursor:pointer">✕</button>'
       +'</td>'
     +'</tr>';
   }).join('');
 };
 
-/* Abrir modal de edición */
-window._mlEdit = function(filteredIdx) {
-  var q = (document.getElementById('ml-search')||{}).value||'';
-  var fc = (document.getElementById('ml-filter-cliente')||{}).value||'';
-  var filtered = _mlList.filter(function(s){
-    var matchQ = !q || [s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
-    var matchC = !fc || s.cliente===fc;
-    return matchQ && matchC;
+/* ══ EDITAR ══ */
+window._mlEdit = function(i) {
+  var filtered=_mlList.filter(function(s){
+    var q=(document.getElementById('ml-search')||{}).value||'';
+    var fc=(document.getElementById('ml-filter-cliente')||{}).value||'';
+    return (!q||[s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase()))&&(!fc||s.cliente===fc);
   });
-  var site = filtered[filteredIdx];
+  var site=filtered[i];
   if(!site) return;
-  _mlEditIdx = _mlList.indexOf(site);
-  document.getElementById('ml-modal-title').textContent = '✏️ Editar: '+site.sitio;
+  _mlEditIdx=_mlList.indexOf(site);
+  document.getElementById('ml-modal-title').textContent='✏️ Editar: '+site.sitio;
   _mlBuildForm(site);
-  document.getElementById('ml-edit-modal').style.display = 'flex';
+  document.getElementById('ml-edit-modal').style.display='flex';
 };
 
-/* Agregar nuevo sitio */
 window._mlAddSite = function() {
-  _mlEditIdx = -1; // -1 = nuevo
-  var newSite = {sku:_mlList.length+1,sitio:'',cliente:'ASUR',ciudad:'',marca:'',plat:'Sky Control',bessId:1,numRacks:1,powSummer:0,powWinter:0};
-  document.getElementById('ml-modal-title').textContent = '+ Nuevo Sitio';
-  _mlBuildForm(newSite);
-  document.getElementById('ml-edit-modal').style.display = 'flex';
+  _mlEditIdx=-1;
+  var ns={sku:_mlList.length+1,sitio:'',cliente:'ASUR',ciudad:'',marca:'',plat:'Sky Control',bessId:1,numRacks:1,powCarga:0,horasCarga:0,kwhTotal:0,energiaBESS:0,powSummer:0,powWinter:0};
+  document.getElementById('ml-modal-title').textContent='+ Nuevo Sitio';
+  _mlBuildForm(ns);
+  document.getElementById('ml-edit-modal').style.display='flex';
 };
 
 function _mlBuildForm(site) {
-  var container = document.getElementById('ml-modal-fields');
-  container.innerHTML = ML_FIELDS.map(function(f){
-    var val = site[f.key]!=null ? site[f.key] : '';
-    if(f.key==='cliente') {
-      return '<div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
-        +'<select id="ml-f-'+f.key+'" style="padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px">'
+  var c=document.getElementById('ml-modal-fields');
+  c.innerHTML=ML_FIELDS.map(function(f){
+    var val=site[f.key]!=null?site[f.key]:'';
+    if(f.key==='cliente'){
+      return '<div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
+        +'<select id="ml-f-'+f.key+'" style="padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">'
         +'<option value="ASUR"'+(val==='ASUR'?' selected':'')+'>ASUR</option>'
         +'<option value="OMA"'+(val==='OMA'?' selected':'')+'>OMA</option>'
         +'<option value="Industria"'+(val==='Industria'?' selected':'')+'>Industria</option>'
         +'</select></div>';
     }
-    return '<div style="display:flex;flex-direction:column;gap:5px'+(f.col===2?';grid-column:span 2':'')+'">'
-      +'<label style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
-      +'<input id="ml-f-'+f.key+'" type="'+f.type+'" value="'+val+'" '
-      +'style="padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none">'
+    var span=f.col===2?';grid-column:span 2':'';
+    return '<div style="display:flex;flex-direction:column;gap:5px'+span+'"><label style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
+      +'<input id="ml-f-'+f.key+'" type="'+f.type+'" value="'+val+'" style="padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;outline:none">'
       +'</div>';
   }).join('');
 }
 
-/* Guardar sitio (edición o nuevo) */
 window._mlSaveSite = function() {
-  var updated = {};
+  var updated={};
   ML_FIELDS.forEach(function(f){
-    var el = document.getElementById('ml-f-'+f.key);
+    var el=document.getElementById('ml-f-'+f.key);
     if(!el) return;
-    updated[f.key] = f.type==='number' ? parseFloat(el.value)||0 : el.value.trim();
+    updated[f.key]=f.type==='number'?(parseFloat(el.value)||0):el.value.trim();
   });
-  if(!updated.sitio) { showToast&&showToast('⚠️ El nombre del sitio es requerido'); return; }
-
-  if(_mlEditIdx === -1) {
-    /* Nuevo sitio */
+  if(!updated.sitio){if(typeof showToast==='function')showToast('⚠️ El nombre del sitio es requerido');return;}
+  /* Calculate energiaBESS if not set */
+  if(!updated.energiaBESS&&updated.kwhTotal&&updated.numRacks) updated.energiaBESS=updated.kwhTotal*updated.numRacks;
+  if(_mlEditIdx===-1){
     _mlList.push(updated);
     if(window.MASTER_SITES_DB) window.MASTER_SITES_DB.push(updated);
-    if(window._masterSitesCloud) window._masterSitesCloud.push(updated);
-  } else {
-    /* Editar existente */
-    Object.assign(_mlList[_mlEditIdx], updated);
-    if(window.MASTER_SITES_DB && window.MASTER_SITES_DB[_mlEditIdx]) Object.assign(window.MASTER_SITES_DB[_mlEditIdx], updated);
-    if(window._masterSitesCloud && window._masterSitesCloud[_mlEditIdx]) Object.assign(window._masterSitesCloud[_mlEditIdx], updated);
+  } else if(_mlEditIdx>=0){
+    Object.assign(_mlList[_mlEditIdx],updated);
+    if(window.MASTER_SITES_DB&&window.MASTER_SITES_DB[_mlEditIdx]) Object.assign(window.MASTER_SITES_DB[_mlEditIdx],updated);
   }
-
-  document.getElementById('ml-edit-modal').style.display = 'none';
-  _mlRender();
-  showToast&&showToast('✅ Sitio guardado localmente · haz clic en ☁️ Sincronizar para subir a Firebase');
-
-  /* Auto-sync a Firebase */
-  _mlSaveToFirebase(updated);
+  window._masterSitesCloud=_mlList;
+  document.getElementById('ml-edit-modal').style.display='none';
+  _mlRender(); _mlPersist();
+  if(typeof showToast==='function') showToast('✅ Sitio guardado');
 };
 
-/* Eliminar sitio */
-window._mlDelete = function(filteredIdx) {
-  var q = (document.getElementById('ml-search')||{}).value||'';
-  var fc = (document.getElementById('ml-filter-cliente')||{}).value||'';
-  var filtered = _mlList.filter(function(s){
-    var matchQ = !q || [s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
-    var matchC = !fc || s.cliente===fc;
-    return matchQ && matchC;
+window._mlDelete = function(i) {
+  var filtered=_mlList.filter(function(s){
+    var q=(document.getElementById('ml-search')||{}).value||'';
+    var fc=(document.getElementById('ml-filter-cliente')||{}).value||'';
+    return (!q||[s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase()))&&(!fc||s.cliente===fc);
   });
-  var site = filtered[filteredIdx];
-  if(!site || !confirm('¿Eliminar "'+site.sitio+'" de la lista maestra?')) return;
-  var realIdx = _mlList.indexOf(site);
-  _mlList.splice(realIdx, 1);
-  if(window.MASTER_SITES_DB) {
-    var di = window.MASTER_SITES_DB.findIndex(function(s){ return s.sitio===site.sitio&&s.bessId===site.bessId; });
-    if(di>=0) window.MASTER_SITES_DB.splice(di,1);
-  }
-  if(window._masterSitesCloud) {
-    var ci = window._masterSitesCloud.findIndex(function(s){ return s.sitio===site.sitio&&s.bessId===site.bessId; });
-    if(ci>=0) window._masterSitesCloud.splice(ci,1);
-  }
-  _mlRender();
-  showToast&&showToast('🗑 Sitio eliminado localmente · sincroniza para reflejar en Firebase');
+  var site=filtered[i];
+  if(!site||!confirm('¿Eliminar "'+site.sitio+'" de la lista maestra?')) return;
+  var idx=_mlList.indexOf(site);
+  _mlList.splice(idx,1);
+  if(window.MASTER_SITES_DB){var di=window.MASTER_SITES_DB.indexOf(site);if(di>=0)window.MASTER_SITES_DB.splice(di,1);}
+  window._masterSitesCloud=_mlList;
+  _mlRender(); _mlPersist();
+  if(typeof showToast==='function') showToast('🗑 Sitio eliminado');
 };
 
-/* Guardar un sitio específico en Firebase */
-async function _mlSaveToFirebase(site) {
-  if(!window._fbDB||!window._fbFS||window._firestoreQuotaExhausted) return;
-  try {
-    /* Check if already exists by sitio+bessId */
-    var {collection, query, where, getDocs, addDoc, updateDoc, doc} = window._fbFS;
-    if(!collection||!getDocs) return;
-    var col = collection(window._fbDB,'master_sites');
-    var q = query(col, where('sitio','==',site.sitio), where('bessId','==',site.bessId));
-    var snap = await getDocs(q);
-    if(snap.empty) {
-      await addDoc(col, Object.assign({},site,{_updatedAt:Date.now()}));
-    } else {
-      await updateDoc(doc(window._fbDB,'master_sites',snap.docs[0].id), Object.assign({},site,{_updatedAt:Date.now()}));
-    }
-    showToast&&showToast('☁️ '+site.sitio+' guardado en Firebase');
-  } catch(e) {
-    if(e&&e.message&&e.message.includes('resource-exhausted')) { window._firestoreQuotaExhausted=true; }
-    console.warn('[ML] Firebase save error:',e.message);
-  }
-}
-
-/* ── Importar CSV Maestro ── */
+/* ══ IMPORTAR CSV ══ */
 window._mlImportCSV = function(input) {
-  var file = input.files[0];
+  var file=input&&input.files&&input.files[0];
   if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var text = e.target.result;
-    var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-    if(!lines.length) { showToast&&showToast('⚠️ CSV vacío'); return; }
-    var sep = lines[0].includes(';') ? ';' : ',';
-    var headers = lines[0].split(sep).map(function(h){ return h.trim().replace(/^"|"$/g,'').toLowerCase(); });
-    var fieldMap = {
-      'sku':'sku','sitio':'sitio','cliente':'cliente','ciudad':'ciudad',
-      'marca':'marca','plataforma':'plat','plat':'plat',
-      'bess_id':'bessId','bessid':'bessId','id':'bessId',
-      'num_racks':'numRacks','numracks':'numRacks','racks':'numRacks','no. racks':'numRacks','no_racks':'numRacks',
-      'kw_verano':'powSummer','kwverano':'powSummer','kw verano':'powSummer','pow_summer':'powSummer',
-      'kw_invierno':'powWinter','kwinvierno':'powWinter','kw invierno':'powWinter','pow_winter':'powWinter',
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var text=e.target.result;
+    var lines=text.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    if(!lines.length){if(typeof showToast==='function')showToast('⚠️ CSV vacío');return;}
+    var sep=lines[0].includes(';')?';':',';
+    var headers=lines[0].split(sep).map(function(h){return h.trim().replace(/^"|"$/g,'').toLowerCase();});
+    var FM={
+      'sitio':'sitio','cliente':'cliente','ciudad':'ciudad','marca':'marca','plataforma':'plat','plat':'plat',
+      'bess_id':'bessId','bessid':'bessId','num_racks':'numRacks','numracks':'numRacks','racks':'numRacks',
+      'kw_carga':'powCarga','kwcarga':'powCarga','kw carga':'powCarga',
+      'hrs_carga':'horasCarga','hrscarga':'horasCarga','horas_carga':'horasCarga',
+      'kwh_total':'kwhTotal','kwhtotal':'kwhTotal','kwh total':'kwhTotal',
+      'kw_verano':'powSummer','kwverano':'powSummer','kw verano':'powSummer',
+      'kw_invierno':'powWinter','kwinvierno':'powWinter','kw invierno':'powWinter',
+      'energia_bess_kwh':'energiaBESS','energia bess kwh':'energiaBESS','energiabess':'energiaBESS',
     };
-    var numericFields = ['sku','bessId','numRacks','powSummer','powWinter'];
-    var parsed = [];
-    for(var i=1; i<lines.length; i++) {
-      var cols = lines[i].split(sep).map(function(c){ return c.trim().replace(/^"|"$/g,''); });
-      if(!cols.length || !cols[0]) continue;
-      var obj = {};
-      headers.forEach(function(h, idx) {
-        var field = fieldMap[h] || fieldMap[h.replace(/[\s\-]/g,'_')] || null;
+    var NF=['sku','bessId','numRacks','powSummer','powWinter','powCarga','horasCarga','kwhTotal','energiaBESS'];
+    var parsed=[];
+    for(var i=1;i<lines.length;i++){
+      var cols=lines[i].split(sep).map(function(c){return c.trim().replace(/^"|"$/g,'');});
+      if(!cols[0]&&!cols[1]) continue;
+      var obj={};
+      headers.forEach(function(h,idx){
+        var field=FM[h]||FM[h.replace(/[\s\-]/g,'_')]||null;
         if(!field) return;
-        var val = cols[idx] || '';
-        obj[field] = numericFields.includes(field) ? (parseFloat(val)||0) : val;
+        obj[field]=NF.indexOf(field)>=0?(parseFloat(cols[idx])||0):(cols[idx]||'');
       });
       if(obj.sitio) parsed.push(obj);
     }
-    if(!parsed.length) { showToast&&showToast('⚠️ No se encontraron sitios en el CSV — revisa el formato'); return; }
-    var existNames = _mlList.map(function(s){ return s.sitio.trim().toLowerCase(); });
-    var added=0, updated=0;
+    if(!parsed.length){if(typeof showToast==='function')showToast('⚠️ No se encontraron sitios — verifica columna "Sitio"');return;}
+    var existNames=_mlList.map(function(s){return s.sitio.trim().toLowerCase();});
+    var added=0,updated=0;
     parsed.forEach(function(p){
-      var idx = existNames.indexOf(p.sitio.trim().toLowerCase());
-      if(idx>=0) {
-        Object.assign(_mlList[idx], p);
-        if(window.MASTER_SITES_DB&&window.MASTER_SITES_DB[idx]) Object.assign(window.MASTER_SITES_DB[idx], p);
-        if(window._masterSitesCloud&&window._masterSitesCloud[idx]) Object.assign(window._masterSitesCloud[idx], p);
-        updated++;
-      } else {
-        _mlList.push(p);
-        if(window.MASTER_SITES_DB) window.MASTER_SITES_DB.push(p);
-        if(window._masterSitesCloud) window._masterSitesCloud.push(p);
-        existNames.push(p.sitio.trim().toLowerCase());
-        added++;
-      }
+      var idx=existNames.indexOf(p.sitio.trim().toLowerCase());
+      if(idx>=0){Object.assign(_mlList[idx],p);updated++;}
+      else{_mlList.push(p);existNames.push(p.sitio.trim().toLowerCase());added++;}
     });
-    _mlRender();
-    showToast&&showToast('✅ CSV cargado · '+added+' nuevos · '+updated+' actualizados · sincronizando…');
-    setTimeout(function(){ if(window._mlSyncCloud) window._mlSyncCloud(); }, 600);
+    window._masterSitesCloud=_mlList;
+    if(window.MASTER_SITES_DB){window.MASTER_SITES_DB.length=0;_mlList.forEach(function(x){window.MASTER_SITES_DB.push(x);});}
+    _mlRender(); _mlPersist();
+    if(typeof showToast==='function') showToast('✅ CSV cargado · '+added+' nuevos · '+updated+' actualizados');
+    setTimeout(function(){if(window._mlSyncCloud)window._mlSyncCloud();},800);
   };
   reader.readAsText(file);
-  input.value='';
+  if(input) input.value='';
 };
 
-/* ── Sincronizar con Firebase ── */
+/* ══ FIREBASE SYNC ══ */
 window._mlSyncCloud = async function() {
-  if(window._firestoreQuotaExhausted) { showToast&&showToast('⚠️ Cuota Firestore agotada — intenta mañana'); return; }
-  showToast&&showToast('☁️ Sincronizando lista maestra…');
-  var count = await (window._syncMasterSites ? window._syncMasterSites() : Promise.resolve(0));
-  _mlLoad();
-  showToast&&showToast('✅ Lista maestra sincronizada · '+count+' sitios en Firebase');
+  var btn=document.querySelector('[onclick*="_mlSyncCloud"]');
+  if(btn){btn.style.opacity='.5';btn.textContent='⏳ Sincronizando…';btn.disabled=true;}
+  var restore=function(){if(btn){btn.style.opacity='';btn.textContent='☁️ Sincronizar Firebase';btn.disabled=false;}};
+  if(window._firestoreQuotaExhausted){if(typeof showToast==='function')showToast('⚠️ Cuota agotada — se renueva a medianoche');restore();return;}
+  if(!window._fbDB){if(typeof showToast==='function')showToast('⚠️ Firebase no conectado aún');restore();return;}
+  try{
+    var col=window._fbCollection(window._fbDB,'master_sites');
+    var snap=await window._fbGetDocs(col);
+    var existing={};
+    snap.docs.forEach(function(d){if(d.data().sitio)existing[d.data().sitio+'_'+(d.data().bessId||1)]=d.id;});
+    var pushed=0;
+    for(var i=0;i<_mlList.length;i++){
+      var s=_mlList[i];var key=s.sitio+'_'+(s.bessId||1);
+      var data=Object.assign({},s,{_updatedAt:Date.now()});
+      try{
+        if(existing[key]){await window._fbFS.updateDoc(window._fbFS.doc(window._fbDB,'master_sites',existing[key]),data);}
+        else{await window._fbFS.addDoc(col,data);}
+        pushed++;
+      }catch(e2){if(e2&&e2.message&&e2.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;break;}}
+    }
+    restore();
+    if(typeof showToast==='function') showToast('✅ Lista maestra sincronizada · '+pushed+' sitios');
+  }catch(e){restore();if(typeof showToast==='function')showToast('⚠️ '+e.message);}
 };
 
-/* ── Enriquecer histórico: parchear registros sin cliente/ciudad ── */
-window._mlEnrichHistorico = async function() {
-  if(typeof H==='undefined'||!H||!H.all||!H.all.length) {
-    showToast&&showToast('⚠️ No hay datos en el histórico'); return;
-  }
-  var enriched = 0;
-  H.all.forEach(function(r){
-    if(r.cl&&r.ci) return; // ya tiene datos
-    var master = typeof getMasterSiteData==='function' ? getMasterSiteData(r.si) : null;
-    if(!master && window._masterSitesCloud) {
-      var sLow=(r.si||'').trim().toLowerCase();
-      master=window._masterSitesCloud.find(function(m){return m.sitio.trim().toLowerCase()===sLow;});
-    }
-    if(master) {
-      r.cl = master.cliente||'';
-      r.ci = master.ciudad||'';
-      r.marca = master.marca||'';
-      enriched++;
-    }
+/* ══ ENRIQUECER HISTÓRICO ══ */
+window._mlEnrichHistorico = function() {
+  var btn=document.querySelector('[onclick*="_mlEnrichHistorico"]');
+  if(btn){btn.style.opacity='.5';btn.textContent='⏳ Enriqueciendo…';btn.disabled=true;}
+  var restore=function(){if(btn){btn.style.opacity='';btn.textContent='🔧 Enriquecer Histórico';btn.disabled=false;}};
+  var histData=(window._histH&&window._histH.all)?window._histH.all:[];
+  if(!histData.length){restore();if(typeof showToast==='function')showToast('⚠️ Sin datos en el Histórico');return;}
+  var mm={};_mlList.forEach(function(m){if(m&&m.sitio)mm[m.sitio.trim().toLowerCase()]=m;});
+  var enriched=0;
+  histData.forEach(function(r){
+    var k=(r.si||'').trim().toLowerCase();if(!k) return;
+    var m=mm[k];if(!m) return;
+    if(!r.cl&&m.cliente){r.cl=m.cliente;enriched++;}
+    if(!r.ci&&m.ciudad) r.ci=m.ciudad;
+    if(!r.marca&&m.marca) r.marca=m.marca;
   });
-  /* Re-render historial */
-  if(typeof histApplyFilters==='function') histApplyFilters();
-  if(typeof histRenderDashboard==='function') histRenderDashboard();
-  /* Update Firestore records in background */
-  if(window._fbDB&&window._fbFS&&!window._firestoreQuotaExhausted&&enriched>0) {
-    showToast&&showToast('🔧 Enriqueciendo '+enriched+' registros en Firebase…');
-    var col = window._fbFS.collection(window._fbDB,'historico_descargas');
-    /* Get all records and update those without cl */
-    try {
-      var snap = await window._fbGetDocs(col);
-      var batch = window._fbFS.writeBatch ? window._fbFS.writeBatch(window._fbDB) : null;
-      var updates = 0;
-      snap.docs.forEach(function(d){
-        var data = d.data();
-        if(data.cl&&data.ci) return;
-        var master = null;
-        var sLow=(data.si||'').trim().toLowerCase();
-        if(window._masterSitesCloud) master=window._masterSitesCloud.find(function(m){return m.sitio.trim().toLowerCase()===sLow;});
-        if(!master) return;
-        var updateData = {cl:master.cliente||'',ci:master.ciudad||'',marca:master.marca||''};
-        if(batch) { batch.update(window._fbFS.doc(window._fbDB,'historico_descargas',d.id), updateData); updates++; }
-      });
-      if(batch&&updates>0) await batch.commit();
-      showToast&&showToast('✅ '+updates+' registros históricos enriquecidos en Firebase');
-    } catch(e) {
-      if(e&&e.message&&e.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;}
-      showToast&&showToast('⚠️ Error enriqueciendo Firebase: '+e.message);
-    }
-  } else if(enriched>0) {
-    showToast&&showToast('✅ '+enriched+' registros enriquecidos en local · SYNC para subir a Firebase');
-  } else {
-    showToast&&showToast('✅ Todos los registros ya tienen cliente y ciudad');
-  }
+  ['histApplyFilters','histRenderDashboard'].forEach(function(fn){if(typeof window[fn]==='function'){try{window[fn]();}catch(e){}}});
+  restore();
+  if(typeof showToast==='function') showToast(enriched?'✅ '+enriched+' registros enriquecidos':'✅ Todos los registros ya tienen cliente y ciudad');
 };
 
-/* Hook en eneSetTab para cargar la lista al abrir */
-var _origEneSetTab = window.eneSetTab;
+/* ══ ENESETAB PATCH (único) ══ */
 document.addEventListener('DOMContentLoaded', function(){
-  var _orig = window.eneSetTab;
-  if(typeof _orig === 'function') {
-    window.eneSetTab = function(tab, btn) {
-      var mp = document.getElementById('ene-panel-maestra');
-      if(tab === 'maestra') {
-        /* Ocultar ene-root completo, mostrar panel maestra */
-        var root = document.getElementById('ene-root');
-        if(root) root.style.display = 'none';
-        if(mp) { mp.style.display = 'block'; mp.style.overflowY = 'auto'; }
-        /* Highlight tab button */
-        document.querySelectorAll('.ene-tab').forEach(function(b){ b.classList.remove('active'); });
-        if(btn) btn.classList.add('active');
-        _mlLoad();
-      } else {
-        /* Restaurar ene-root y ocultar maestra */
-        if(mp) mp.style.display = 'none';
-        var root = document.getElementById('ene-root');
-        if(root) root.style.display = '';
-        /* Llamar el tab original para que muestre el panel correcto */
-        _orig(tab, btn);
-      }
-    };
-  }
-  /* Init: cargar lista cuando Firebase esté listo */
-  window.addEventListener('firebase-ready', function(){
+  /* Cargar desde localStorage al arrancar */
+  var stored=_mlLoadFromStorage();
+  if(stored&&stored.length){_mlList=stored;window._masterSitesCloud=stored;}
+  else{_mlList=(window.MASTER_SITES_DB||[]).slice();window._masterSitesCloud=_mlList.slice();if(_mlList.length)_mlPersist();}
+
+  if(window._eneSetTabPatched) return;
+  window._eneSetTabPatched=true;
+
+  var _orig=window.eneSetTab;
+  if(typeof _orig!=='function') return;
+
+  window.eneSetTab=function(tab,btn){
+    var mp=document.getElementById('ene-panel-maestra');
+    var bdp=document.getElementById('ene-panel-bd');
+    var es=document.getElementById('ene-empty-state');
+    var root=document.getElementById('ene-root');
+    if(mp) mp.style.display='none';
+    if(bdp) bdp.style.display='none';
+
+    if(tab==='maestra'){
+      document.querySelectorAll('.ene-panel').forEach(function(p){p.classList.remove('active');});
+      if(es) es.style.display='none';
+      document.querySelectorAll('.ene-tab').forEach(function(b){b.classList.remove('active');});
+      if(btn) btn.classList.add('active');
+      /* Show maestra — it has its own overflow-y:auto */
+      if(mp) { mp.style.display='flex'; mp.style.flexDirection='column'; }
+      /* Make ene-root fill remaining space but not clip maestra */
+      if(root){ root.style.overflow='hidden'; root.style.padding='0'; root.style.maxWidth='none'; }
+      setTimeout(_mlLoad,50);
+
+    } else if(tab==='bd'){
+      document.querySelectorAll('.ene-panel').forEach(function(p){p.classList.remove('active');});
+      if(es) es.style.display='none';
+      document.querySelectorAll('.ene-tab').forEach(function(b){b.classList.remove('active');});
+      if(btn) btn.classList.add('active');
+      if(bdp) bdp.style.display='block';
+      if(root){root.style.overflowY='auto';root.style.maxWidth='none';root.style.padding='0';}
+      if(window._BD&&(!window._BD.loaded||!window._BD.all.length)){if(window._bdInit)window._bdInit();}
+      else if(window._bdRender)window._bdRender();
+
+    } else {
+      if(root){root.style.overflowY='';root.style.maxWidth='';root.style.padding='';}
+      if(es){var ENE=window.ENE;es.style.display=(ENE&&ENE.loaded&&ENE.all&&ENE.all.length)?'none':'flex';}
+      _orig(tab,btn);
+    }
+  };
+
+  window.addEventListener('firebase-ready',function(){
     setTimeout(function(){
-      if(window._masterSitesCloud) _mlList = window._masterSitesCloud.slice();
-    }, 1500);
+      if(window._masterSitesCloud&&window._masterSitesCloud.length>0) return;
+      if(window._loadMasterSitesCloud) window._loadMasterSitesCloud();
+    },1200);
   });
 });
 
@@ -23329,43 +23387,17 @@ var _BAT_LABELS = {
   'na_':             'N/A',
 };
 
-/* Mensajes predeterminados para comentarios según status */
-var _BAT_CMT_DEFAULTS = {
-  'ok_CARGANDO':     'Sistema en proceso de carga de baterías',
-  'ok_BALANCEANDO':  'Sistema balanceando celdas',
-  'ok_NO_DESCARGA':  'Sistema no realizó descarga en este turno',
-  'ok_DESCARGADO':   'Sistema aún descargado — no cargó en la noche, requiere atención',
-  'na_FUERA_OP':     'Sitio fuera de operación',
-  'na_MANTENIMIENTO':'Sitio en mantenimiento',
-  'na_LIBRANZA':     'Sitio en libranza',
-  'alarm_':          'Sistema alarmado — verificar racks y temperatura',
-  'error_':          'Error de comunicación — sin datos de baterías',
-};
-
 window.rvSetBatFull = function(bat, cond) {
   window._rvBatFullActive = true;
+  /* Guardar bat base para compatibilidad con el sistema original */
   if(typeof rvSetBat === 'function') rvSetBat(bat);
   if(typeof rvSetCond === 'function') rvSetCond(cond||'');
   window._rvBatFullActive = false;
-  /* Guardar batLabel en el registro */
+  /* Guardar también el label legible en el registro del sitio */
   if(window.rvW && window.rvW.srs && window.rvW.srs[window.rvW.idx]) {
     var key = bat+'_'+(cond||'');
     window.rvW.srs[window.rvW.idx].batLabel = _BAT_LABELS[key] || bat;
     window.rvW.srs[window.rvW.idx].cond = cond||'';
-    /* Auto-fill comentarios si está vacío o tenía un mensaje predeterminado anterior */
-    var cmtEl = document.getElementById('rv-cmt-inp');
-    var currentCmt = cmtEl ? cmtEl.value.trim() : '';
-    var defaultMsg = _BAT_CMT_DEFAULTS[key] || '';
-    /* Solo pre-llenar si el campo está vacío o contenía un mensaje predeterminado previo */
-    var isPrevDefault = Object.values(_BAT_CMT_DEFAULTS).includes(currentCmt);
-    if(defaultMsg && (currentCmt === '' || isPrevDefault)) {
-      if(cmtEl) { cmtEl.value = defaultMsg; cmtEl.style.borderColor='rgba(74,120,245,.4)'; setTimeout(function(){ cmtEl.style.borderColor=''; },1500); }
-      window.rvW.srs[window.rvW.idx].cmt = defaultMsg;
-    } else if(!defaultMsg && isPrevDefault) {
-      /* Si seleccionan OK limpio el mensaje predeterminado anterior */
-      if(cmtEl) cmtEl.value = '';
-      window.rvW.srs[window.rvW.idx].cmt = '';
-    }
   }
   _rvHighlightUnified(bat, cond||'');
   _rvShowCondBanner(cond||'', bat);
@@ -23376,7 +23408,7 @@ var _BAT_FULL_COLORS = {
   'ok_CARGANDO':    {bg:'rgba(59,130,246,.1)',   border:'#60a5fa',          color:'#1e40af'},
   'ok_BALANCEANDO': {bg:'rgba(139,92,246,.1)',   border:'#a78bfa',          color:'#5b21b6'},
   'ok_NO_DESCARGA': {bg:'rgba(245,158,11,.1)',   border:'var(--yellow)',    color:'#92400e'},
-  'ok_DESCARGADO':   {bg:'rgba(239,68,68,.08)',   border:'rgba(239,68,68,.4)',  color:'var(--red)'},
+  'ok_DESCARGADO':  {bg:'rgba(16,185,129,.1)',   border:'#10b981',          color:'#065f46'},
   'alarm_':         {bg:'rgba(217,119,6,.1)',    border:'var(--yellow)',    color:'#92400e'},
   'error_':         {bg:'rgba(220,38,38,.1)',    border:'var(--red)',       color:'#991b1b'},
   'na_FUERA_OP':    {bg:'rgba(239,68,68,.08)',   border:'rgba(239,68,68,.5)',color:'var(--red)'},
@@ -23420,7 +23452,7 @@ var _COND_BANNERS = {
   'CARGANDO':     {bg:'rgba(59,130,246,.1)',   border:'rgba(59,130,246,.3)',   color:'#60a5fa',         text:'🔌 Sistema cargando baterías'},
   'BALANCEANDO':  {bg:'rgba(139,92,246,.1)',   border:'rgba(139,92,246,.3)',   color:'#a78bfa',         text:'⚖️ Sistema balanceando celdas'},
   'NO_DESCARGA':  {bg:'rgba(245,158,11,.08)',  border:'rgba(245,158,11,.25)',  color:'#f59e0b',         text:'⛔ Sistema no realizó descarga en este turno'},
-  'DESCARGADO':   {bg:'rgba(239,68,68,.08)',  border:'rgba(239,68,68,.25)',  color:'var(--red)',         text:'⚡ Sistema aún descargado — no cargó en la noche, requiere atención'},
+  'DESCARGADO':   {bg:'rgba(16,185,129,.08)',  border:'rgba(16,185,129,.25)',  color:'#10b981',         text:'✅ Descarga completada correctamente'},
 };
 
 function _rvShowCondBanner(cond, bat) {
