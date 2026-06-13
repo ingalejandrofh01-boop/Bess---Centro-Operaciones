@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1780524974">
+<meta name="app-version" content="1781317355771">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -4624,52 +4624,109 @@ html{-webkit-text-size-adjust:100%;}
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="msapplication-tap-highlight" content="no">
 <script>
-/* ══ localStorage Polyfill — funciona aunque Edge/Safari bloqueen storage en file:// ══
-   Usa cookie como backup en celular cuando Tracking Prevention bloquea localStorage. */
+/* ══ localStorage Polyfill v2 — robusto contra Edge Tracking Prevention ══
+   Problema anterior: _safeLS() pasaba el test síncrono pero Edge revocaba
+   el acceso de forma asíncrona, rompiendo silenciosamente todas las lecturas/escrituras.
+   Solución: siempre envolver localStorage en un proxy que captura errores en CADA
+   operación individual y cae al almacén en memoria ante cualquier falla. */
 (function(){
   var _mem = {};
-  function _safeLS(){
-    try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return localStorage; }
-    catch(e){ return null; }
-  }
-  var _ls = _safeLS();
-  if(_ls) return;
-  console.warn('[BESS] localStorage bloqueado — usando memoria + cookies como fallback');
-  (document.cookie||'').split(';').forEach(function(c){
-    var p = c.trim().split('=');
-    if(p.length===2 && p[0].startsWith('b_')){
-      _mem[decodeURIComponent(p[0].slice(2))] = decodeURIComponent(p[1]);
-    }
-  });
-  var _fake = {
-    getItem: function(k){ return Object.prototype.hasOwnProperty.call(_mem,k) ? _mem[k] : null; },
-    setItem: function(k,v){
-      _mem[k] = String(v);
-      try {
-        var exp = new Date(Date.now()+90*24*3600*1000).toUTCString();
-        if(k.startsWith('bess_u') || k==='bess_uid'){
-          document.cookie = 'b_'+encodeURIComponent(k)+'='+encodeURIComponent(String(v))+
-            ';expires='+exp+';path=/;SameSite=Lax';
+  var _usingFallback = false;
+
+  /* Intentar leer cookies de sesiones anteriores */
+  function _loadFromCookies(){
+    try {
+      (document.cookie||'').split(';').forEach(function(c){
+        var p = c.trim().split('=');
+        if(p.length===2 && p[0].startsWith('b_')){
+          _mem[decodeURIComponent(p[0].slice(2))] = decodeURIComponent(p[1]);
         }
-      } catch(e){}
+      });
+    } catch(e){}
+  }
+
+  /* Persistir clave en cookie (solo claves de identidad de usuario) */
+  function _saveCookie(k, v){
+    try {
+      if(location.protocol === 'file:') return; /* cookies no funcionan en file:// */
+      var exp = new Date(Date.now()+90*24*3600*1000).toUTCString();
+      if(k.startsWith('bess_u') || k==='bess_uid'){
+        document.cookie = 'b_'+encodeURIComponent(k)+'='+encodeURIComponent(String(v))+
+          ';expires='+exp+';path=/;SameSite=Lax';
+      }
+    } catch(e){}
+  }
+
+  function _deleteCookie(k){
+    try {
+      if(location.protocol === 'file:') return;
+      document.cookie='b_'+encodeURIComponent(k)+'=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+    } catch(e){}
+  }
+
+  /* Proxy siempre activo: intenta localStorage real, cae a _mem si falla */
+  var _proxy = {
+    getItem: function(k){
+      try { return window._realLS ? window._realLS.getItem(k) : _mem[k]||null; }
+      catch(e){ _activateFallback(); return Object.prototype.hasOwnProperty.call(_mem,k)?_mem[k]:null; }
+    },
+    setItem: function(k,v){
+      try {
+        if(window._realLS){ window._realLS.setItem(k,String(v)); }
+        else { throw new Error('no realLS'); }
+      } catch(e){
+        _activateFallback();
+        _mem[k]=String(v);
+        _saveCookie(k,v);
+      }
     },
     removeItem: function(k){
-      delete _mem[k];
-      try { document.cookie='b_'+encodeURIComponent(k)+'=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/'; } catch(e){}
+      try { if(window._realLS) window._realLS.removeItem(k); } catch(e){ _activateFallback(); }
+      delete _mem[k]; _deleteCookie(k);
     },
-    clear: function(){ _mem={}; },
-    key: function(i){ return Object.keys(_mem)[i]||null; },
-    get length(){ return Object.keys(_mem).length; }
+    clear: function(){
+      try { if(window._realLS) window._realLS.clear(); } catch(e){ _activateFallback(); }
+      _mem={};
+    },
+    key: function(i){
+      try { return window._realLS ? window._realLS.key(i) : Object.keys(_mem)[i]||null; }
+      catch(e){ _activateFallback(); return Object.keys(_mem)[i]||null; }
+    },
+    get length(){
+      try { return window._realLS ? window._realLS.length : Object.keys(_mem).length; }
+      catch(e){ _activateFallback(); return Object.keys(_mem).length; }
+    }
   };
-  try { Object.defineProperty(window,'localStorage',{get:function(){return _fake;},configurable:true}); }
-  catch(e){ window.localStorage = _fake; }
+
+  function _activateFallback(){
+    if(_usingFallback) return;
+    _usingFallback = true;
+    window._realLS = null;
+    _loadFromCookies();
+    console.warn('[BESS] localStorage bloqueado (Edge Tracking Prevention) — usando memoria + cookies como fallback');
+  }
+
+  /* Guardar referencia al localStorage real antes de que Edge lo bloquee */
+  try {
+    window._realLS = window.localStorage;
+    /* Test rápido */
+    window._realLS.setItem('__bess_t','1');
+    window._realLS.removeItem('__bess_t');
+  } catch(e){
+    window._realLS = null;
+    _activateFallback();
+  }
+
+  /* Reemplazar window.localStorage con el proxy en todos los casos */
+  try { Object.defineProperty(window,'localStorage',{get:function(){return _proxy;},configurable:true}); }
+  catch(e){ window.localStorage = _proxy; }
 })();
 </script>
 <script>
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1780459543';
+  var APP_VERSION = '1780524974';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -5328,9 +5385,24 @@ if('serviceWorker' in navigator){
           <span>⚡ Comparativa de sitios — mes actual</span>
           <button onclick="renderCompareTable()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;color:rgba(255,255,255,.7);font-family:var(--mono);font-size:8px;padding:3px 8px;cursor:pointer;letter-spacing:1px">↺</button>
         </div>
-        <table class="compare-table"><thead><tr>
-          <th>Sitio</th><th>Eventos</th><th>Días</th><th>Estado</th><th>Temp.</th>
-        </tr></thead><tbody id="compare-tbody"></tbody></table>
+        <table class="compare-table"><thead>
+        <tr>
+          <th id="ml-th-sku" onclick="window._mlSort('sku')" style="position:sticky;top:0;z-index:20;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);left:0px;text-align:left;color:var(--t3);">SKU <span id="ml-arr-sku"></span></th>
+          <th id="ml-th-sitio" onclick="window._mlSort('sitio')" style="position:sticky;top:0;z-index:20;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);left:50px;text-align:left;color:var(--t3);">Sitio <span id="ml-arr-sitio"></span></th>
+          <th id="ml-th-cliente" onclick="window._mlSort('cliente')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Cliente <span id="ml-arr-cliente"></span></th>
+          <th id="ml-th-ciudad" onclick="window._mlSort('ciudad')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Ciudad <span id="ml-arr-ciudad"></span></th>
+          <th id="ml-th-marca" onclick="window._mlSort('marca')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Marca <span id="ml-arr-marca"></span></th>
+          <th id="ml-th-plat" onclick="window._mlSort('plat')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Plataforma <span id="ml-arr-plat"></span></th>
+          <th id="ml-th-numRacks" onclick="window._mlSort('numRacks')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Racks <span id="ml-arr-numRacks"></span></th>
+          <th id="ml-th-powCarga" onclick="window._mlSort('powCarga')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Carga <span id="ml-arr-powCarga"></span></th>
+          <th id="ml-th-horasCarga" onclick="window._mlSort('horasCarga')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Hrs Carga <span id="ml-arr-horasCarga"></span></th>
+          <th id="ml-th-kwhTotal" onclick="window._mlSort('kwhTotal')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kWh Total <span id="ml-arr-kwhTotal"></span></th>
+          <th id="ml-th-powSummer" onclick="window._mlSort('powSummer')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Verano <span id="ml-arr-powSummer"></span></th>
+          <th id="ml-th-powWinter" onclick="window._mlSort('powWinter')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Invierno <span id="ml-arr-powWinter"></span></th>
+          <th id="ml-th-energiaBESS" onclick="window._mlSort('energiaBESS')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Energía BESS kWh <span id="ml-arr-energiaBESS"></span></th>
+          <th style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);cursor:default;">Acciones</th>
+        </tr>
+      </thead><tbody id="compare-tbody"></tbody></table>
       </div>
       <!-- REPORTE PDF BTN -->
       <div style="margin-bottom:10px">
@@ -8875,10 +8947,9 @@ async function expDoZip(mode){
     </button>
   </div>
 
-</div><!-- /ene-root -->
 
 <!-- ══ PANEL: BD ENERGÉTICA ══ -->
-<div class="ene-panel-bd" id="ene-panel-bd" style="display:none;padding:0 0 48px">
+<div class="ene-panel-bd" id="ene-panel-bd" style="display:none;padding:0 0 48px;margin:-24px -28px;width:calc(100% + 56px);box-sizing:border-box">
   <div style="position:sticky;top:0;z-index:50;background:var(--s1);border-bottom:1px solid var(--b1);padding:10px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:900;color:var(--text);flex-shrink:0;white-space:nowrap">🗄 BD Energética</div>
     <select id="bd-f-cliente" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer">
@@ -8906,21 +8977,21 @@ async function expDoZip(mode){
     <table id="bd-table" style="width:100%;border-collapse:collapse;font-size:10px;min-width:1300px">
       <thead>
         <tr style="background:var(--s2)">
-          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('fecha')">FECHA ⇅</th>
-          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">SITIO</th>
+<th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('fecha')">FECHA  ⇅</th>
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('sitio')">SITIO  ⇅</th>
           <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">CLIENTE</th>
           <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">CIUDAD</th>
-          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">MARCA</th>
-          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">PLATAFORMA</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socIni')">SOC INI % ⇅</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socFin')">SOC FIN % ⇅</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">POT. CARGA kW</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">HRS CARGA</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('powDesc')">POT. DESC. kW ⇅</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">HRS DESC. PUNTA</th>
+          <th style="padding:8px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('marca')">MARCA  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socIni')">SOC INI %  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socFin')">SOC FIN %  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socDelta')">Δ SOC %  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('hCarga')">HRS CARGA  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('powCarga')">POT. CARGA kW  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('powDesc')">POT. DESC. kW  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">POT. DESC/RACK kW</th>
           <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);white-space:nowrap">ALM/RACK kWh</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('energiaBESS')">ENERGÍA BESS kWh ⇅</th>
-          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socDesc')">SOC DESC. % ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('energiaBESS')">ENERGÍA BESS kWh  ⇅</th>
+          <th style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--b1);cursor:pointer;white-space:nowrap" onclick="window._bdSort('socDesc')">SOC DESC. %  ⇅</th>
         </tr>
       </thead>
       <tbody id="bd-tbody"></tbody>
@@ -8933,8 +9004,9 @@ async function expDoZip(mode){
   </div>
 </div><!-- /ene-panel-bd -->
 
+</div><!-- /ene-root -->
 <!-- ══ PANEL: LISTA MAESTRA ══ -->
-<div id="ene-panel-maestra" style="display:none;padding:24px 28px 80px;width:100%;box-sizing:border-box;overflow-y:auto;height:100%;">
+<div id="ene-panel-maestra" style="display:none;padding:24px 28px 80px;width:100%;box-sizing:border-box;overflow-y:auto;height:100%;overflow-x:hidden;">
 
   <!-- Header -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
@@ -8977,22 +9049,21 @@ async function expDoZip(mode){
   <div style="overflow-x:auto;border-radius:12px;border:1px solid var(--b1);">
     <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1400px">
       <thead>
-        <tr style="background:var(--s2);">
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">SKU</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Sitio</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Cliente</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Ciudad</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Marca</th>
-          <th style="padding:10px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Plataforma</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">BESS ID</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Racks</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kW Carga</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Hrs Carga</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kWh Total</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kW Verano</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">kW Invierno</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Energía BESS kWh</th>
-          <th style="padding:10px 12px;text-align:center;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;white-space:nowrap">Acciones</th>
+        <tr>
+          <th id="ml-th-sku" onclick="window._mlSort('sku')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">SKU <span id="ml-arr-sku"></span></th>
+          <th id="ml-th-sitio" onclick="window._mlSort('sitio')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Sitio <span id="ml-arr-sitio"></span></th>
+          <th id="ml-th-cliente" onclick="window._mlSort('cliente')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Cliente <span id="ml-arr-cliente"></span></th>
+          <th id="ml-th-ciudad" onclick="window._mlSort('ciudad')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Ciudad <span id="ml-arr-ciudad"></span></th>
+          <th id="ml-th-marca" onclick="window._mlSort('marca')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Marca <span id="ml-arr-marca"></span></th>
+          <th id="ml-th-plat" onclick="window._mlSort('plat')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Plataforma <span id="ml-arr-plat"></span></th>
+          <th id="ml-th-numRacks" onclick="window._mlSort('numRacks')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Racks <span id="ml-arr-numRacks"></span></th>
+          <th id="ml-th-powCarga" onclick="window._mlSort('powCarga')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Carga <span id="ml-arr-powCarga"></span></th>
+          <th id="ml-th-horasCarga" onclick="window._mlSort('horasCarga')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Hrs Carga <span id="ml-arr-horasCarga"></span></th>
+          <th id="ml-th-kwhTotal" onclick="window._mlSort('kwhTotal')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kWh Total <span id="ml-arr-kwhTotal"></span></th>
+          <th id="ml-th-powSummer" onclick="window._mlSort('powSummer')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Verano <span id="ml-arr-powSummer"></span></th>
+          <th id="ml-th-powWinter" onclick="window._mlSort('powWinter')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Invierno <span id="ml-arr-powWinter"></span></th>
+          <th id="ml-th-energiaBESS" onclick="window._mlSort('energiaBESS')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Energía BESS kWh <span id="ml-arr-energiaBESS"></span></th>
+          <th style="position:sticky;top:0;z-index:10;padding:13px 14px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.2px;color:var(--t3);text-transform:uppercase;white-space:nowrap;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);">Acciones</th>
         </tr>
       </thead>
       <tbody id="ml-tbody"></tbody>
@@ -9745,46 +9816,42 @@ const SITE_CODES = {
   'Bocar':                  'INDO-CMX02-BT05004',
   'Brom':                   'INDO-CMX28-BT05058',
   'DISEKO':                 'INDO-AGS01-BT05002',
-  'FM boca del río':        'FTMO-VER04-HB00326',
+  'FM Boca del Río':        'FTMO-VER04-HB00326',
   'IPASA':                'INDO-AGS05-BT05080',
   'RegioPet 1':             'INDO-NLE01-BT05005',
   'RegioPet 2':             'INDO-NLE01-BT05005',
   'RegioPet 3':             'INDO-NLE01-BT05005',
   'Resideo':                'INDO-CUU03-BT05060',
   'Telas Asturcón':         'INDO-SLP01-BT05110',
-  'Tejidos y texturizados': 'INDO-EDO37-HB05098',
+  'Tejidos y Texturizados': 'INDO-EDO37-HB05098',
   'Thor':                'INDO-SLP01-BT05110',
   'TOTIS':                  'INDO-HGO06-HB05057',
   'Vesta':                  'INDO-NLE02-BT05109',
   'Vitrogenera':            'INDO-CMX01-HB05003',
   // ── Sin código aún ─────────────────────────────
   'LG':                     '',
-  'FM MERIDA':              '',
+  'FM Mérida':              '',
 };
 
-const SITES = [
-  // ASUR - Cancún
-  'Almacén General','Alpha','BHS','Comedor','FBO','PTAR',
-  'Sala Bravo B1','Sala Bravo B2',
-  'T1','T2 B1','T2 B2','T3 B1','T3 B2','T3 B3','T4 B1','T4 B2','T4 B3',
-  'Hidro',
-  // ASUR - Huatulco / Minatitlán / Veracruz / Mérida
-  'HUX 01','HUX 02','Minatitlán','Veracruz','Mérida B1','Mérida B2',
-  // OMA
-  'Acapulco','CD Juárez','Chihuahua 2G','Chihuahua','Culiacán','Durango',
-  'Monterrey B1','Monterrey B2','Monterrey B3','Monterrey B4',
-  'Torreón','Zacatecas','Zihuatanejo','Reynosa',
-  // Industria
-  'DISEKO','Alysa','Vitrogenera',
-  'RegioPet 1','RegioPet 2','RegioPet 3',
-  'Bocar','Telas Asturcón',
-  'IPASA 1','IPASA 2','IPASA 3','IPASA 4',
-  'TOTIS','FM boca del río','Tejidos y texturizados',
-  'Resideo','Brom','Vesta',
-  'THOR B1','THOR B2',
-  'Park Royal Luna','Park Royal Sol',
-  'LG','FM MERIDA','ABADIMEX','Park Royal Cozumel'
-];
+/* SITES — derivado dinámicamente de MASTER_SITES_DB (fuente única de verdad).
+   Se regenera tras cada actualización de la lista maestra.
+   Para agregar un sitio nuevo: agregarlo SOLO en MASTER_SITES_DB con el sku siguiente.
+   OP_SITES y RV_SITES se sincronizan automáticamente. */
+function _normSiteKey(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _buildSitesFromMaster() {
+  var db = window.MASTER_SITES_DB || [];
+  var sorted = db.slice().sort(function(a,b){ return (a.sku||0)-(b.sku||0); });
+  var names = sorted.map(function(m){ return m.sitio; });
+  /* Deduplicar: sin acentos, sin mayúsculas */
+  var seen = {};
+  return names.filter(function(n){
+    var key = _normSiteKey(n);
+    if(seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+}
+const SITES = _buildSitesFromMaster();
 
 /* ═══════════════════════════════════════════════════════════════════
    TABLA MAESTRA DE SITIOS BESS — 64 sistemas
@@ -9792,71 +9859,72 @@ const SITES = [
            powSummer (kW), powWinter (kW), numRacks
    Potencia POR RACK = powSeason / numRacks  (fórmula temporada)
 ═══════════════════════════════════════════════════════════════════ */
-const MASTER_SITES_DB = [
-  {sku:1,  sitio:'Almacén General', cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:88,    powWinter:45,    numRacks:2},
-  {sku:2,  sitio:'Alpha',           cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:231,   powWinter:115.5, numRacks:5},
-  {sku:3,  sitio:'BHS',             cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:263,   powWinter:131,   numRacks:6},
-  {sku:4,  sitio:'Comedor',         cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:88,    powWinter:44,    numRacks:2},
-  {sku:5,  sitio:'FBO',             cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:132,   powWinter:66,    numRacks:3},
-  {sku:6,  sitio:'PTAR',            cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:88,    powWinter:44,    numRacks:2},
-  {sku:7,  sitio:'Sala Bravo B1',   cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'ON',          bessId:1, powSummer:521,   powWinter:260.5, numRacks:5},
-  {sku:8,  sitio:'Sala Bravo B2',   cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'ON',          bessId:2, powSummer:521,   powWinter:260.5, numRacks:5},
-  {sku:9,  sitio:'T1',              cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:62.5,  powWinter:31.25, numRacks:2},
-  {sku:10, sitio:'T2 B1',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'Sky Control', bessId:1, powSummer:870,   powWinter:430,   numRacks:6},
-  {sku:11, sitio:'T2 B2',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'Sky Control', bessId:2, powSummer:910,   powWinter:455,   numRacks:7},
-  {sku:12, sitio:'T3 B1',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'ON',          bessId:1, powSummer:570.8, powWinter:470,   numRacks:7},
-  {sku:13, sitio:'T3 B2',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'ON',          bessId:2, powSummer:486.8, powWinter:350,   numRacks:7},
-  {sku:14, sitio:'T3 B3',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'ON',          bessId:3, powSummer:473.2, powWinter:400,   numRacks:6},
-  {sku:15, sitio:'T4 B1',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'Sky Control', bessId:1, powSummer:967,   powWinter:468,   numRacks:7},
-  {sku:16, sitio:'T4 B2',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'Sky Control', bessId:2, powSummer:890,   powWinter:468,   numRacks:6},
-  {sku:17, sitio:'T4 B3',           cliente:'ASUR', ciudad:'Cancún',       marca:'CATL',      plat:'Sky Control', bessId:3, powSummer:890,   powWinter:468,   numRacks:6},
-  {sku:18, sitio:'Hidro',           cliente:'ASUR', ciudad:'Cancún',       marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:125,   powWinter:62.5,  numRacks:2},
-  {sku:19, sitio:'HUX 01',          cliente:'ASUR', ciudad:'Huatulco',     marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:130,   powWinter:65,    numRacks:3},
-  {sku:20, sitio:'HUX 02',          cliente:'ASUR', ciudad:'Huatulco',     marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:270,   powWinter:135,   numRacks:6},
-  {sku:21, sitio:'Minatitlán',      cliente:'ASUR', ciudad:'Minatitlán',   marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:263,   powWinter:131,   numRacks:6},
-  {sku:22, sitio:'Veracruz',        cliente:'ASUR', ciudad:'Veracruz',     marca:'CATL',      plat:'Sky Control', bessId:1, powSummer:880,   powWinter:440,   numRacks:8},
-  {sku:23, sitio:'Mérida B1',       cliente:'ASUR', ciudad:'Mérida',       marca:'Narada',    plat:'ON',          bessId:1, powSummer:1000,  powWinter:280,   numRacks:8},
-  {sku:24, sitio:'Mérida B2',       cliente:'ASUR', ciudad:'Mérida',       marca:'Narada',    plat:'ON',          bessId:2, powSummer:1000,  powWinter:280,   numRacks:8},
-  {sku:25, sitio:'Acapulco',        cliente:'OMA',  ciudad:'Acapulco',     marca:'Narada',    plat:'ON',          bessId:1, powSummer:530,   powWinter:380,   numRacks:8},
-  {sku:26, sitio:'CD Juárez',       cliente:'OMA',  ciudad:'CD Juárez',    marca:'Pylontech', plat:'ON',          bessId:1, powSummer:350,   powWinter:210,   numRacks:10},
-  {sku:27, sitio:'Chihuahua 2G',    cliente:'OMA',  ciudad:'Chihuahua',    marca:'Narada',    plat:'ON',          bessId:1, powSummer:400,   powWinter:200,   numRacks:7},
-  {sku:28, sitio:'Chihuahua',       cliente:'OMA',  ciudad:'Chihuahua',    marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:175,   powWinter:150,   numRacks:8},
-  {sku:29, sitio:'Culiacán',        cliente:'OMA',  ciudad:'Culiacán',     marca:'Narada',    plat:'ON',          bessId:1, powSummer:300,   powWinter:100,   numRacks:20},
-  {sku:30, sitio:'Durango',         cliente:'OMA',  ciudad:'Durango',      marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:420,   powWinter:420,   numRacks:9},
-  {sku:31, sitio:'Monterrey B1',    cliente:'OMA',  ciudad:'Monterrey',    marca:'Narada',    plat:'ON',          bessId:1, powSummer:2250,  powWinter:240,   numRacks:9},
-  {sku:32, sitio:'Monterrey B2',    cliente:'OMA',  ciudad:'Monterrey',    marca:'Narada',    plat:'ON',          bessId:2, powSummer:2250,  powWinter:345,   numRacks:9},
-  {sku:33, sitio:'Monterrey B3',    cliente:'OMA',  ciudad:'Monterrey',    marca:'Narada',    plat:'ON',          bessId:3, powSummer:2250,  powWinter:227,   numRacks:9},
-  {sku:34, sitio:'Monterrey B4',    cliente:'OMA',  ciudad:'Monterrey',    marca:'Narada',    plat:'ON',          bessId:4, powSummer:2250,  powWinter:300,   numRacks:20},
-  {sku:35, sitio:'Torreón',         cliente:'OMA',  ciudad:'Torreón',      marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:420,   powWinter:420,   numRacks:10},
-  {sku:36, sitio:'Zacatecas',       cliente:'OMA',  ciudad:'Zacatecas',    marca:'Pylontech', plat:'Sky Control', bessId:1, powSummer:150,   powWinter:100,   numRacks:7},
-  {sku:37, sitio:'Zihuatanejo',     cliente:'OMA',  ciudad:'Zihuatanejo',  marca:'CATL',      plat:'Sky Control', bessId:1, powSummer:732,   powWinter:732,   numRacks:6},
-  {sku:38, sitio:'Reynosa',         cliente:'OMA',  ciudad:'Reynosa',      marca:'CATL',      plat:'ON',          bessId:1, powSummer:500,   powWinter:400,   numRacks:4},
-  {sku:39, sitio:'DISEKO',          cliente:'Industria', ciudad:'Aguascalientes', marca:'Hoypower',  plat:'Sky Control', bessId:1, powSummer:470,  powWinter:270,  numRacks:3},
-  {sku:40, sitio:'Alysa',           cliente:'Industria', ciudad:'Tizayuca',       marca:'Hoypower',  plat:'Sky Control', bessId:1, powSummer:450,  powWinter:225,  numRacks:4},
-  {sku:41, sitio:'Vitrogenera',     cliente:'Industria', ciudad:'CDMX',           marca:'Hoypower',  plat:'Sky Control', bessId:1, powSummer:600,  powWinter:576,  numRacks:4},
-  {sku:42, sitio:'RegioPet 1',      cliente:'Industria', ciudad:'Monterrey',      marca:'Hoypower',  plat:'Sky Control', bessId:1, powSummer:600,  powWinter:304,  numRacks:2},
-  {sku:43, sitio:'RegioPet 2',      cliente:'Industria', ciudad:'Monterrey',      marca:'Hoypower',  plat:'Sky Control', bessId:2, powSummer:290,  powWinter:148,  numRacks:3},
-  {sku:44, sitio:'RegioPet 3',      cliente:'Industria', ciudad:'Monterrey',      marca:'Hoypower',  plat:'Sky Control', bessId:3, powSummer:452,  powWinter:226,  numRacks:1},
-  {sku:45, sitio:'Bocar',           cliente:'Industria', ciudad:'CDMX',           marca:'HoyUltra',  plat:'Sky Control', bessId:1, powSummer:95,   powWinter:47.5, numRacks:3},
-  {sku:46, sitio:'Telas Asturcón',  cliente:'Industria', ciudad:'Puebla',         marca:'Hoypower',  plat:'Sky Control', bessId:1, powSummer:307,  powWinter:154,  numRacks:1},
-  {sku:47, sitio:'IPASA 1',         cliente:'Industria', ciudad:'Aguascalientes', marca:'HoyUltra',  plat:'Sky Control', bessId:1, powSummer:85,   powWinter:47.5, numRacks:3},
-  {sku:48, sitio:'IPASA 2',         cliente:'Industria', ciudad:'Aguascalientes', marca:'HoyUltra',  plat:'Sky Control', bessId:2, powSummer:85,   powWinter:47.5, numRacks:1},
-  {sku:49, sitio:'IPASA 3',         cliente:'Industria', ciudad:'Aguascalientes', marca:'HoyUltra',  plat:'Sky Control', bessId:3, powSummer:85,   powWinter:47.5, numRacks:1},
-  {sku:50, sitio:'IPASA 4',         cliente:'Industria', ciudad:'Aguascalientes', marca:'HoyUltra',  plat:'Sky Control', bessId:4, powSummer:85,   powWinter:47.5, numRacks:1},
-  {sku:51, sitio:'TOTIS',           cliente:'Industria', ciudad:'Tizayuca',       marca:'Hoypower',  plat:'Sky Control', bessId:1, powSummer:750,  powWinter:450,  numRacks:1},
-  {sku:52, sitio:'FM boca del río', cliente:'Industria', ciudad:'Veracruz',       marca:'HoyUltra',  plat:'Sky Control', bessId:1, powSummer:90,   powWinter:47.5, numRacks:6},
-  {sku:53, sitio:'Tejidos y texturizados', cliente:'Industria', ciudad:'Naucalpan', marca:'Hoycore', plat:'Sky Control', bessId:1, powSummer:450,  powWinter:225,  numRacks:2},
-  {sku:54, sitio:'Resideo',         cliente:'Industria', ciudad:'Chihuahua',      marca:'Hoycore',   plat:'Sky Control', bessId:1, powSummer:1050, powWinter:525,  numRacks:3},
-  {sku:55, sitio:'Brom',            cliente:'Industria', ciudad:'CDMX',           marca:'Hoycore',   plat:'Sky Control', bessId:1, powSummer:750,  powWinter:374,  numRacks:7},
-  {sku:56, sitio:'Vesta',           cliente:'Industria', ciudad:'Monterrey',      marca:'Hoycore',   plat:'Sky Control', bessId:1, powSummer:450,  powWinter:225,  numRacks:5},
-  {sku:57, sitio:'THOR B1',         cliente:'Industria', ciudad:'San Luis Potosí', marca:'Hoycore',  plat:'Sky Control', bessId:1, powSummer:900,  powWinter:450,  numRacks:3},
-  {sku:58, sitio:'THOR B2',         cliente:'Industria', ciudad:'San Luis Potosí', marca:'Hoycore',  plat:'Sky Control', bessId:2, powSummer:900,  powWinter:450,  numRacks:6},
-  {sku:59, sitio:'Park Royal Luna', cliente:'Industria', ciudad:'Cancún',         marca:'Hoycore',   plat:'Sky Control', bessId:1, powSummer:740,  powWinter:350,  numRacks:6},
-  {sku:60, sitio:'Park Royal Sol',  cliente:'Industria', ciudad:'Cancún',         marca:'Hoycore',   plat:'Sky Control', bessId:1, powSummer:294,  powWinter:140,  numRacks:5},
-  {sku:61, sitio:'LG',              cliente:'Industria', ciudad:'Monterrey',      marca:'BYD',       plat:'Sel',         bessId:1, powSummer:15000,powWinter:7500, numRacks:2},
-  {sku:62, sitio:'FM MERIDA',       cliente:'Industria', ciudad:'MERIDA',         marca:'Hoy Ultra', plat:'Sky Control', bessId:1, powSummer:90,   powWinter:47.5, numRacks:9},
-  {sku:63, sitio:'ABADIMEX',        cliente:'Industria', ciudad:'Naucalpan',      marca:'Huawei',    plat:'Huawei',      bessId:1, powSummer:870,  powWinter:435,  numRacks:5},
-  {sku:64, sitio:'Park Royal Cozumel', cliente:'Industria', ciudad:'Cozumel',     marca:'Hoycore',   plat:'Sky Control', bessId:1, powSummer:740,  powWinter:350,  numRacks:5},
+window.MASTER_SITES_DB = [
+  {sku:1,  sitio:'Almacén General',        cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:37,   horasCarga:5.89,  kwhTotal:109, powSummer:88,    powWinter:45,    energiaBESS:218},
+  {sku:2,  sitio:'Alpha',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:5,  powCarga:56,   horasCarga:9.73,  kwhTotal:109, powSummer:231,   powWinter:115.5, energiaBESS:545},
+  {sku:3,  sitio:'BHS',                    cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:6,  powCarga:94,   horasCarga:6.96,  kwhTotal:109, powSummer:263,   powWinter:131,   energiaBESS:654},
+  {sku:4,  sitio:'Comedor',                cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:22,   horasCarga:9.91,  kwhTotal:109, powSummer:88,    powWinter:44,    energiaBESS:218},
+  {sku:5,  sitio:'FBO',                    cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:3,  powCarga:25,   horasCarga:8.72,  kwhTotal:109, powSummer:132,   powWinter:66,    energiaBESS:218},
+  {sku:6,  sitio:'PTAR',                   cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:30,   horasCarga:7.27,  kwhTotal:109, powSummer:88,    powWinter:44,    energiaBESS:218},
+  {sku:7,  sitio:'Sala Bravo B1',          cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'ON',          bessId:1, numRacks:5,  powCarga:225,  horasCarga:3.31,  kwhTotal:372, powSummer:521,   powWinter:260.5, energiaBESS:744},
+  {sku:8,  sitio:'Sala Bravo B2',          cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'ON',          bessId:2, numRacks:5,  powCarga:350,  horasCarga:5.31,  kwhTotal:372, powSummer:521,   powWinter:260.5, energiaBESS:1860},
+  {sku:9,  sitio:'T1',                     cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:0,    horasCarga:null,  kwhTotal:109, powSummer:62.5,  powWinter:31.25, energiaBESS:218},
+  {sku:10, sitio:'T2 B1',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'Sky Control', bessId:1, numRacks:6,  powCarga:326,  horasCarga:5.71,  kwhTotal:372, powSummer:870,   powWinter:430,   energiaBESS:1860},
+  {sku:11, sitio:'T2 B2',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'Sky Control', bessId:2, numRacks:7,  powCarga:240,  horasCarga:7.75,  kwhTotal:372, powSummer:910,   powWinter:455,   energiaBESS:1860},
+  {sku:12, sitio:'T3 B1',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'ON',          bessId:1, numRacks:7,  powCarga:350,  horasCarga:7.44,  kwhTotal:372, powSummer:570.8, powWinter:470,   energiaBESS:2604},
+  {sku:13, sitio:'T3 B2',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'ON',          bessId:2, numRacks:7,  powCarga:350,  horasCarga:7.44,  kwhTotal:372, powSummer:486.8, powWinter:350,   energiaBESS:2604},
+  {sku:14, sitio:'T3 B3',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'ON',          bessId:3, numRacks:6,  powCarga:300,  horasCarga:7.44,  kwhTotal:372, powSummer:473.2, powWinter:400,   energiaBESS:2232},
+  {sku:15, sitio:'T4 B1',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'Sky Control', bessId:1, numRacks:7,  powCarga:143,  horasCarga:18.21, kwhTotal:372, powSummer:967,   powWinter:468,   energiaBESS:2604},
+  {sku:16, sitio:'T4 B2',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'Sky Control', bessId:2, numRacks:6,  powCarga:143,  horasCarga:15.61, kwhTotal:372, powSummer:890,   powWinter:468,   energiaBESS:2232},
+  {sku:17, sitio:'T4 B3',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'Sky Control', bessId:3, numRacks:6,  powCarga:143,  horasCarga:15.61, kwhTotal:372, powSummer:890,   powWinter:468,   energiaBESS:2232},
+  {sku:18, sitio:'Hidro',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:0,    horasCarga:null,  kwhTotal:109, powSummer:125,   powWinter:62.5,  energiaBESS:218},
+  {sku:19, sitio:'HUX 01',                 cliente:'ASUR',      ciudad:'Huatulco',        marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:3,  powCarga:57,   horasCarga:5.74,  kwhTotal:109, powSummer:130,   powWinter:65,    energiaBESS:327},
+  {sku:20, sitio:'HUX 02',                 cliente:'ASUR',      ciudad:'Huatulco',        marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:7.27,  kwhTotal:109, powSummer:270,   powWinter:135,   energiaBESS:654},
+  {sku:21, sitio:'Minatitlán',             cliente:'ASUR',      ciudad:'Minatitlán',      marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:7.27,  kwhTotal:109, powSummer:263,   powWinter:131,   energiaBESS:654},
+  {sku:22, sitio:'Veracruz',               cliente:'ASUR',      ciudad:'Veracruz',        marca:'CATL',      plat:'Sky Control', bessId:1, numRacks:6,  powCarga:157,  horasCarga:11.85, kwhTotal:372, powSummer:880,   powWinter:440,   energiaBESS:1860},
+  {sku:23, sitio:'Mérida B1',              cliente:'ASUR',      ciudad:'Mérida',          marca:'Narada',    plat:'ON',          bessId:1, numRacks:8,  powCarga:200,  horasCarga:10,    kwhTotal:250, powSummer:1000,  powWinter:280,   energiaBESS:2000},
+  {sku:24, sitio:'Mérida B2',              cliente:'ASUR',      ciudad:'Mérida',          marca:'Narada',    plat:'ON',          bessId:2, numRacks:8,  powCarga:200,  horasCarga:10,    kwhTotal:250, powSummer:1000,  powWinter:280,   energiaBESS:2000},
+  {sku:25, sitio:'Acapulco',               cliente:'OMA',       ciudad:'Acapulco',        marca:'Narada',    plat:'ON',          bessId:1, numRacks:8,  powCarga:400,  horasCarga:5.76,  kwhTotal:288, powSummer:530,   powWinter:380,   energiaBESS:2304},
+  {sku:26, sitio:'CD Juárez',              cliente:'OMA',       ciudad:'CD Juárez',       marca:'Pylontech', plat:'ON',          bessId:1, numRacks:8,  powCarga:300,  horasCarga:6.67,  kwhTotal:250, powSummer:350,   powWinter:210,   energiaBESS:2000},
+  {sku:27, sitio:'Chihuahua 2G',           cliente:'OMA',       ciudad:'Chihuahua',       marca:'Narada',    plat:'ON',          bessId:1, numRacks:10, powCarga:0,    horasCarga:null,  kwhTotal:800, powSummer:400,   powWinter:200,   energiaBESS:8000},
+  {sku:28, sitio:'Chihuahua',              cliente:'OMA',       ciudad:'Chihuahua',       marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:7,  powCarga:125,  horasCarga:5.23,  kwhTotal:109, powSummer:175,   powWinter:150,   energiaBESS:654},
+  {sku:29, sitio:'Culiacán',               cliente:'OMA',       ciudad:'Culiacán',        marca:'Narada',    plat:'ON',          bessId:1, numRacks:8,  powCarga:450,  horasCarga:2.67,  kwhTotal:150, powSummer:300,   powWinter:100,   energiaBESS:1200},
+  {sku:30, sitio:'Durango',                cliente:'OMA',       ciudad:'Durango',         marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:20, powCarga:300,  horasCarga:7.27,  kwhTotal:109, powSummer:420,   powWinter:420,   energiaBESS:2180},
+  {sku:31, sitio:'Monterrey B1',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:1, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:240,   energiaBESS:2592},
+  {sku:32, sitio:'Monterrey B2',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:2, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:345,   energiaBESS:2592},
+  {sku:33, sitio:'Monterrey B3',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:3, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:227,   energiaBESS:2592},
+  {sku:34, sitio:'Monterrey B4',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:4, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:300,   energiaBESS:2592},
+  {sku:35, sitio:'Torreón',                cliente:'OMA',       ciudad:'Torreón',         marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:20, powCarga:300,  horasCarga:7.27,  kwhTotal:109, powSummer:420,   powWinter:420,   energiaBESS:2180},
+  {sku:36, sitio:'Zacatecas',              cliente:'OMA',       ciudad:'Zacatecas',       marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:10, powCarga:100,  horasCarga:7.63,  kwhTotal:109, powSummer:150,   powWinter:100,   energiaBESS:763},
+  {sku:37, sitio:'Zihuatanejo',            cliente:'OMA',       ciudad:'Zihuatanejo',     marca:'CATL',      plat:'Sky Control', bessId:1, numRacks:7,  powCarga:230,  horasCarga:11.32, kwhTotal:372, powSummer:732,   powWinter:732,   energiaBESS:2604},
+  {sku:38, sitio:'Reynosa',                cliente:'OMA',       ciudad:'Reynosa',         marca:'CATL',      plat:'ON',          bessId:1, numRacks:6,  powCarga:385,  horasCarga:5.8,   kwhTotal:372, powSummer:500,   powWinter:400,   energiaBESS:2232},
+  {sku:39, sitio:'DISEKO',                 cliente:'Industria', ciudad:'Aguascalientes',  marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:4,  powCarga:240,  horasCarga:5.73,  kwhTotal:344, powSummer:470,   powWinter:270,   energiaBESS:1376},
+  {sku:40, sitio:'Alysa',                  cliente:'Industria', ciudad:'Tizayuca',        marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:3,  powCarga:135,  horasCarga:7.64,  kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1032},
+  {sku:41, sitio:'Vitrogenera',            cliente:'Industria', ciudad:'CDMX',            marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:4,  powCarga:120,  horasCarga:11.47, kwhTotal:344, powSummer:600,   powWinter:576,   energiaBESS:1376},
+  {sku:42, sitio:'RegioPet 1',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:4,  powCarga:99,   horasCarga:13.9,  kwhTotal:344, powSummer:600,   powWinter:304,   energiaBESS:1376},
+  {sku:43, sitio:'RegioPet 2',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:2, numRacks:2,  powCarga:103,  horasCarga:6.68,  kwhTotal:344, powSummer:290,   powWinter:148,   energiaBESS:688},
+  {sku:44, sitio:'RegioPet 3',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:3, numRacks:3,  powCarga:84,   horasCarga:12.29, kwhTotal:344, powSummer:452,   powWinter:226,   energiaBESS:1032},
+  {sku:45, sitio:'Bocar',                  cliente:'Industria', ciudad:'CDMX',            marca:'HoyUltra',  plat:'Sky Control', bessId:1, numRacks:1,  powCarga:30,   horasCarga:7.17,  kwhTotal:215, powSummer:95,    powWinter:47.5,  energiaBESS:215},
+  {sku:46, sitio:'Telas Asturcón',         cliente:'Industria', ciudad:'Puebla',          marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:3,  powCarga:123,  horasCarga:8.39,  kwhTotal:344, powSummer:307,   powWinter:154,   energiaBESS:1032},
+  {sku:47, sitio:'IPASA 1',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:1, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
+  {sku:48, sitio:'IPASA 2',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:2, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
+  {sku:49, sitio:'IPASA 3',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:3, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
+  {sku:50, sitio:'IPASA 4',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:4, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
+  {sku:51, sitio:'TOTIS',                  cliente:'Industria', ciudad:'Tizayuca',        marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:22.93, kwhTotal:344, powSummer:750,   powWinter:450,   energiaBESS:2064},
+  {sku:52, sitio:'FM Boca del Río',        cliente:'Industria', ciudad:'Veracruz',        marca:'HoyUltra',  plat:'Sky Control', bessId:1, numRacks:2,  powCarga:50,   horasCarga:8.6,   kwhTotal:215, powSummer:90,    powWinter:47.5,  energiaBESS:430},
+  {sku:53, sitio:'Tejidos y Texturizados', cliente:'Industria', ciudad:'Naucalpan',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:3,  powCarga:52,   horasCarga:19.85, kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1032},
+  {sku:54, sitio:'Resideo',                cliente:'Industria', ciudad:'Chihuahua',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:7,  powCarga:380,  horasCarga:6.34,  kwhTotal:344, powSummer:1050,  powWinter:525,   energiaBESS:2408},
+  {sku:55, sitio:'Brom',                   cliente:'Industria', ciudad:'CDMX',            marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:193,  horasCarga:8.91,  kwhTotal:344, powSummer:750,   powWinter:374,   energiaBESS:1720},
+  {sku:56, sitio:'Vesta',                  cliente:'Industria', ciudad:'Monterrey',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:3,  powCarga:225,  horasCarga:4.59,  kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1032},
+  {sku:57, sitio:'THOR B1',                cliente:'Industria', ciudad:'San Luis Potosí', marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:6,  powCarga:200,  horasCarga:10.32, kwhTotal:344, powSummer:900,   powWinter:450,   energiaBESS:2064},
+  {sku:58, sitio:'THOR B2',                cliente:'Industria', ciudad:'San Luis Potosí', marca:'Hoycore',   plat:'Sky Control', bessId:2, numRacks:6,  powCarga:200,  horasCarga:10.32, kwhTotal:344, powSummer:900,   powWinter:450,   energiaBESS:2064},
+  {sku:59, sitio:'Park Royal Luna',        cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
+  {sku:60, sitio:'Park Royal Sol',         cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:2,  powCarga:60,   horasCarga:11.47, kwhTotal:344, powSummer:294,   powWinter:140,   energiaBESS:688},
+  {sku:61, sitio:'LG',                     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sel',         bessId:1, numRacks:60, powCarga:1500, horasCarga:15,    kwhTotal:500, powSummer:15000, powWinter:7500,  energiaBESS:22500},
+  {sku:62, sitio:'FM Mérida',              cliente:'Industria', ciudad:'Mérida',          marca:'Hoy Ultra', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:30,   horasCarga:14.33, kwhTotal:215, powSummer:90,    powWinter:47.5,  energiaBESS:430},
+  {sku:63, sitio:'ABADIMEX',               cliente:'Industria', ciudad:'Naucalpan',       marca:'Huawei',    plat:'Huawei',      bessId:1, numRacks:9,  powCarga:0,    horasCarga:null,  kwhTotal:215, powSummer:870,   powWinter:435,   energiaBESS:1935},
+  {sku:64, sitio:'Park Royal Cozumel',     cliente:'Industria', ciudad:'Cozumel',         marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:12.9,  kwhTotal:215, powSummer:740,   powWinter:350,   energiaBESS:1935},
+  {sku:65, sitio:'Vidanta',                cliente:'Industria', ciudad:'BC',              marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:4,  powCarga:120,  horasCarga:null,  kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1376},
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -9891,7 +9959,7 @@ function getBessSeasonForDate(date) {
 function getMasterSiteData(siteName) {
   if (!siteName) return null;
   var s = siteName.trim().toLowerCase();
-  return MASTER_SITES_DB.find(function(m){ return m.sitio.trim().toLowerCase() === s; }) || null;
+  return (window.MASTER_SITES_DB||[]).find(function(m){ return m.sitio.trim().toLowerCase() === s; }) || null;
 }
 
 function getMasterPowerForDate(siteName, dateStr) {
@@ -9962,19 +10030,24 @@ let _siteComboAllItems = [];  // [{value, label, group}]
 let _siteComboFocusIdx = -1;
 
 function buildSiteSelector() {
-  // Build item list for combo
+  // Build item list for combo — siempre re-leer SITES desde MASTER_SITES_DB actualizado
+  const freshSites = _buildSitesFromMaster ? _buildSitesFromMaster() : SITES;
   _siteComboAllItems = [];
   _siteComboAllItems.push({value:'', label:'— Seleccionar sitio —', group:null, placeholder:true});
-  // Group items from SITES
-  const groups = {};
-  SITES.forEach(s => {
-    _siteComboAllItems.push({value:s, label:s, group:null});
+  // Track seen values to prevent duplicates (ignora acentos y mayúsculas)
+  const _seenValues = new Set();
+  freshSites.forEach(s => {
+    if(!_seenValues.has(_normSiteKey(s))){
+      _seenValues.add(_normSiteKey(s));
+      _siteComboAllItems.push({value:s, label:s, group:null});
+    }
   });
   // Template-only sites
   const tplSites = new Set();
   Object.values(templates).forEach(t => { if (t.siteName) tplSites.add(t.siteName); });
   tplSites.forEach(s => {
-    if (!SITES.includes(s)) {
+    if (!_seenValues.has(_normSiteKey(s))) {
+      _seenValues.add(_normSiteKey(s));
       _siteComboAllItems.push({value:s, label:'⭐ '+s, group:null});
     }
   });
@@ -9982,7 +10055,10 @@ function buildSiteSelector() {
   let _userSites = [];
   try { _userSites = JSON.parse(localStorage.getItem('bess_user_sites')||'[]'); } catch(e){}
   _userSites.forEach(s => {
-    if(!SITES.includes(s)) _siteComboAllItems.push({value:s, label:'📍 '+s, group:null, userSite:true});
+    if(!_seenValues.has(_normSiteKey(s))){
+      _seenValues.add(_normSiteKey(s));
+      _siteComboAllItems.push({value:s, label:'📍 '+s, group:null, userSite:true});
+    }
   });
   _siteComboAllItems.push({value:'__add_new__', label:'＋ Agregar sitio nuevo…', group:null, addNew:true});
   _siteComboAllItems.push({value:'custom', label:'✏ Escribir sitio temporal…', group:null, custom:true});
@@ -10059,7 +10135,9 @@ function _addNewSite(name){
   if(!name) return;
   let saved = [];
   try { saved = JSON.parse(localStorage.getItem('bess_user_sites')||'[]'); } catch(e){}
-  if(!saved.includes(name) && !SITES.includes(name)){
+  const freshSites = _buildSitesFromMaster ? _buildSitesFromMaster() : SITES;
+  const freshLow = freshSites.map(s=>s.trim().toLowerCase());
+  if(!saved.map(s=>s.trim().toLowerCase()).includes(name.trim().toLowerCase()) && !freshLow.includes(name.trim().toLowerCase())){
     saved.push(name);
     localStorage.setItem('bess_user_sites', JSON.stringify(saved));
     showToast('✓ Sitio "'+name+'" guardado');
@@ -15819,7 +15897,27 @@ document.addEventListener('click', function(e){
 })();
 
 /* ==== SKYSENSE VALIDACION MODULE FINAL ==== */
-var RV_SITES=["Almacén General", "Alpha", "BHS", "Comedor", "FBO", "PTAR", "Sala Bravo B1", "Sala Bravo B2", "T1", "T2 B1", "T2 B2", "T3 B1", "T3 B2", "T3 B3", "T4 B1", "T4 B2", "T4 B3", "Hidro", "HUX 01", "HUX 02", "Minatitlán", "Veracruz", "Mérida B1", "Mérida B2", "Acapulco", "CD Juárez", "Chihuahua 2G", "Chihuahua", "Culiacán", "Durango", "Monterrey B1", "Monterrey B2", "Monterrey B3", "Monterrey B4", "Torreón", "Zacatecas", "Zihuatanejo", "Reynosa", "DISEKO", "Alysa", "Vitrogenera", "RegioPet 1", "RegioPet 2", "RegioPet 3", "Bocar", "IPASA 1", "IPASA 2", "IPASA 3", "IPASA 4", "TOTIS", "FM Boca del Río", "Tejidos y Texturizados", "Resideo", "Brom", "Vesta", "THOR B1", "THOR B2", "Park Royal Luna", "Park Royal Sol", "LG", "FM Mérida", "ABADIMEX"];
+/* Helper: obtiene lista de sitios ordenada por SKU y sin duplicados (ignora acentos y mayúsculas) */
+function _sitesFromDB(src){
+  var sorted = (src||[]).slice().sort(function(a,b){return (a.sku||0)-(b.sku||0);});
+  var seen={};
+  return sorted.map(function(m){return m.sitio;}).filter(function(n){
+    var k=_normSiteKey(n); if(seen[k]) return false; seen[k]=true; return true;
+  });
+}
+/* RV_SITES — sincronizado automáticamente con MASTER_SITES_DB (orden SKU, sin duplicados) */
+var RV_SITES = (function(){
+  var src = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+  return _sitesFromDB(src);
+})();
+/* Rebuild RV_SITES cuando la lista maestra se actualice */
+window._rebuildRvSites = function(){
+  var src = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+  if(!src.length) return;
+  var names = _sitesFromDB(src);
+  window.RV_SITES.length = 0;
+  names.forEach(function(n){ window.RV_SITES.push(n); });
+};
 var RV_TYPES={
   matutino: {label:'Matutino',      ico:'☀',  color:'#f59e0b', bg:'rgba(245,158,11,.1)'},
   vespertino:{label:'Vespertino',   ico:'☽', color:'var(--sky)', bg:'rgba(26,63,204,.08)'},
@@ -15907,6 +16005,20 @@ function rvStartSites(){
     var _filled=_draft.srs.filter(function(s){return s.skip||s.bat;}).length;
     if(_filled>0&&confirm('Tienes un borrador con '+_filled+' sitios llenados. ¿Deseas continuarlo?')){
       rvW=_draft; rvW.step='sites'; rvW.idx=0;
+      /* Reconciliar srs con RV_SITES actual */
+      (function(){
+        var currentSites = window.RV_SITES || [];
+        var oldSrs = rvW.srs || [];
+        if(oldSrs.length === currentSites.length) return;
+        var nameMap = {};
+        var oldNames = (rvW._siteNames || []);
+        oldSrs.forEach(function(sr, i){ if(oldNames[i]) nameMap[oldNames[i].trim().toLowerCase()] = sr; });
+        rvW.srs = currentSites.map(function(siteName){
+          var key = siteName.trim().toLowerCase();
+          return nameMap[key] || (window.rvMkS ? rvMkS() : {});
+        });
+        rvW._siteNames = currentSites.slice();
+      })();
       _rv('rv-sum-modal',function(e){e.classList.remove('open');});
       _rv('rv-wizard-modal',function(e){e.classList.add('open');});
       var _fab2=document.getElementById('fab-nueva');if(_fab2)_fab2.style.display='none';
@@ -15952,6 +16064,7 @@ function rvCancelWiz(){
   if(window.rvW&&rvW.srs){
     var filled=rvW.srs.filter(function(s){return s.skip||s.bat;}).length;
     if(filled>0){
+      rvW._siteNames = (window.RV_SITES||[]).slice();
       try{localStorage.setItem('rv:draft:v1',JSON.stringify(rvW));}catch(e){}
     } else {
       try{localStorage.removeItem('rv:draft:v1');}catch(e){}
@@ -17026,7 +17139,19 @@ window.rvDelMon = function(id, ev){
 
 
 
-var OP_SITES=["Almacén General", "Alpha", "BHS", "Comedor", "FBO", "PTAR", "Sala Bravo B1", "Sala Bravo B2", "T1", "T2 B1", "T2 B2", "T3 B1", "T3 B2", "T3 B3", "T4 B1", "T4 B2", "T4 B3", "Hidro", "HUX 01", "HUX 02", "Minatitlán", "Veracruz", "Mérida B1", "Mérida B2", "Acapulco", "CD Juárez", "Chihuahua 2G", "Chihuahua", "Culiacán", "Durango", "Monterrey B1", "Monterrey B2", "Monterrey B3", "Monterrey B4", "Torreón", "Zacatecas", "Zihuatanejo", "Reynosa", "DISEKO", "Alysa", "Vitrogenera", "RegioPet 1", "RegioPet 2", "RegioPet 3", "Bocar", "IPASA 1", "IPASA 2", "IPASA 3", "IPASA 4", "TOTIS", "FM Boca del Río", "Tejidos y Texturizados", "Resideo", "Brom", "Vesta", "THOR B1", "THOR B2", "Park Royal Luna", "Park Royal Sol", "LG", "FM Mérida", "ABADIMEX"];
+/* OP_SITES — sincronizado automáticamente con MASTER_SITES_DB (orden SKU, sin duplicados) */
+var OP_SITES = (function(){
+  var src = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+  return _sitesFromDB(src);
+})();
+/* Rebuild OP_SITES cuando la lista maestra se actualice */
+window._rebuildOpSites = function(){
+  var src = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+  if(!src.length) return;
+  var names = _sitesFromDB(src);
+  window.OP_SITES.length = 0;
+  names.forEach(function(n){ window.OP_SITES.push(n); });
+};
 var opW=null, opReps=[], OP_SK='op:bess:v1';
 function opLoad(){try{var d=localStorage.getItem(OP_SK);if(d)opReps=JSON.parse(d);}catch(e){}}
 function opPersist(){try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}}
@@ -17255,6 +17380,26 @@ function opStartSites(){
     var _filledOp=_draftOp.srs.filter(function(s){return s.skip||s.status;}).length;
     if(_filledOp>0&&confirm('Tienes un borrador con '+_filledOp+' sitios llenados. ¿Deseas continuarlo?')){
       opW=_draftOp; opW.step='sites'; opW.idx=0;
+      /* Reconciliar srs con OP_SITES actual: ajustar tamaño y reasignar por nombre si cambió */
+      (function(){
+        var currentSites = window.OP_SITES || [];
+        var oldSrs = opW.srs || [];
+        /* Si el tamaño coincide exactamente, no hacer nada */
+        if(oldSrs.length === currentSites.length) return;
+        /* Construir mapa nombre→datos del borrador */
+        var nameMap = {};
+        var oldNames = (opW._siteNames || []);
+        oldSrs.forEach(function(sr, i){
+          if(oldNames[i]) nameMap[oldNames[i].trim().toLowerCase()] = sr;
+        });
+        /* Reconstruir srs con el tamaño correcto */
+        var newSrs = currentSites.map(function(siteName){
+          var key = siteName.trim().toLowerCase();
+          return nameMap[key] || (window.opMkS ? opMkS() : {});
+        });
+        opW.srs = newSrs;
+        opW._siteNames = currentSites.slice();
+      })();
       _op('op-sum-modal',function(e){e.classList.remove('open');});
       _op('op-wizard-modal',function(e){e.classList.add('open');});
       var _fabOp=document.getElementById('fab-nueva');if(_fabOp)_fabOp.style.display='none';
@@ -17296,10 +17441,11 @@ function opCancelWiz(){
     ? '¿Cancelar reporte? Esto terminará la sesión colaborativa para todos los participantes.'
     : '¿Cancelar reporte? El progreso se guardará como borrador.';
   if(!confirm(msg)) return;
-  /* Guardar borrador */
+  /* Guardar borrador — incluir snapshot de nombres de sitios para reconciliación futura */
   if(window.opW&&opW.srs){
     var filled=opW.srs.filter(function(s){return s.skip||s.status;}).length;
     if(filled>0){
+      opW._siteNames = (window.OP_SITES||[]).slice();
       try{localStorage.setItem('op:draft:v1',JSON.stringify(opW));}catch(e){}
     } else {
       try{localStorage.removeItem('op:draft:v1');}catch(e){}
@@ -18432,18 +18578,22 @@ window.collabSaveMyFragment = function(reportType){
     return true; /* interceptado — no usar guardado normal */
   }
 
-  /* Guardar fragmento completo de sitios */
-  var fragmentSrs = localSrs.map(function(s,i){
-    if(i<myAssign.from||i>myAssign.to) return null; // fuera de mi rango
-    return s;
-  });
+  /* FIX MERGE: Guardar sitios como mapa {index -> data} en lugar de array sparse.
+     Firebase no preserva arrays con nulls — los trunca o los elimina, causando
+     pérdida de índices y merge incorrecto. Con un mapa los índices son explícitos. */
+  var siteMap = {};
+  for(var _i = myAssign.from; _i <= myAssign.to; _i++){
+    if(localSrs[_i] != null) siteMap[String(_i)] = localSrs[_i];
+  }
 
+  /* totalSites: guardar el tamaño total del array para que el host pueda reconstruirlo */
   var fragment = {
     userId:myId(), userName:myName(), userColor:myColor(),
     reportType:reportType,
     from: myAssign.from,
     to:   myAssign.to,
-    srs:  fragmentSrs,
+    totalSites: localSrs.length,  /* FIX: guardar total para merge correcto */
+    siteMap: siteMap,             /* FIX: mapa índice->dato, sin nulls */
     done: true,
     savedAt: Date.now()
   };
@@ -18476,10 +18626,14 @@ window.collabMergeAndFinalize = function(){
 
   if(!fragCount){ safeToast('\u26A0\uFE0F Sin fragmentos para merge'); return; }
 
-  /* Determinar tamano del array desde los fragmentos */
+  /* FIX MERGE: Determinar totalSites desde campo explícito guardado en el fragmento.
+     Firebase trunca arrays con nulls al final, haciendo que srs.length sea incorrecto.
+     Ahora usamos el campo totalSites (nuevo) y el campo to como fallback. */
   var totalSites=0;
   Object.values(frags).forEach(function(f){
-    if(f&&f.srs) totalSites=Math.max(totalSites,f.srs.length);
+    if(f&&typeof f.totalSites==='number') totalSites=Math.max(totalSites,f.totalSites);
+    if(f&&f.srs&&Array.isArray(f.srs))    totalSites=Math.max(totalSites,f.srs.length);
+    if(f&&typeof f.to==='number')          totalSites=Math.max(totalSites,f.to+1);
   });
   if(!totalSites){
     /* Fallback: usar srs del wizard si existe */
@@ -18492,22 +18646,43 @@ window.collabMergeAndFinalize = function(){
   var merged=[];
   for(var k=0;k<totalSites;k++) merged.push(null);
 
-  /* Aplicar cada fragmento en su rango — el dueno del rango tiene prioridad */
+  /* FIX MERGE: Soportar nuevo formato siteMap {indice->dato} y viejo formato srs[].
+     siteMap es un objeto JS puro sin nulls — Firebase lo preserva íntegro.
+     El dueño del rango asignado siempre gana; fuera del rango solo rellena huecos. */
   Object.values(frags).forEach(function(frag){
-    if(!frag||!frag.srs) return;
+    if(!frag) return;
     var from=typeof frag.from==='number'?frag.from:0;
-    var to=typeof frag.to==='number'?frag.to:frag.srs.length-1;
-    frag.srs.forEach(function(s,i){
-      if(!s) return;
-      var inRange=i>=from&&i<=to;
-      if(inRange){
-        /* Rango asignado: datos del dueno siempre ganan */
-        merged[i]=JSON.parse(JSON.stringify(s));
-      } else if(!merged[i]){
-        /* Fuera de rango: solo si nadie mas lo lleno */
-        merged[i]=JSON.parse(JSON.stringify(s));
-      }
-    });
+    var to=typeof frag.to==='number'?frag.to:totalSites-1;
+
+    /* — Nuevo formato: siteMap {indice -> dato} — */
+    if(frag.siteMap&&typeof frag.siteMap==='object'&&!Array.isArray(frag.siteMap)){
+      Object.keys(frag.siteMap).forEach(function(key){
+        var i=parseInt(key,10);
+        if(isNaN(i)||i<0||i>=totalSites) return;
+        var s=frag.siteMap[key];
+        if(!s) return;
+        var inRange=i>=from&&i<=to;
+        if(inRange){
+          merged[i]=JSON.parse(JSON.stringify(s));
+        } else if(!merged[i]){
+          merged[i]=JSON.parse(JSON.stringify(s));
+        }
+      });
+      return;
+    }
+
+    /* — Formato viejo: srs array (compatibilidad hacia atras) — */
+    if(frag.srs&&Array.isArray(frag.srs)){
+      frag.srs.forEach(function(s,i){
+        if(!s) return;
+        var inRange=i>=from&&i<=to;
+        if(inRange){
+          merged[i]=JSON.parse(JSON.stringify(s));
+        } else if(!merged[i]){
+          merged[i]=JSON.parse(JSON.stringify(s));
+        }
+      });
+    }
   });
 
   /* Reemplazar nulls restantes con objeto vacio del tipo correcto */
@@ -20574,6 +20749,9 @@ window._histPushReporteOp = function(rep){
 ══════════════════════════════════════════════════════════════ */
 (function(){
 
+/* Normalizar string para comparación: sin acentos, sin espacios extra, minúsculas */
+function _normKey(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+
 /* Cargar tabla maestra desde Firestore al arrancar */
 async function _loadMasterSitesCloud() {
   if(!window._fbDB || !window._fbGetDocs || !window._fbCollection) return;
@@ -20584,17 +20762,53 @@ async function _loadMasterSitesCloud() {
       await _pushMasterSitesToCloud();
       return;
     }
-    var cloud = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); })
+    var cloudRaw = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); })
       .filter(function(s){ return s && s.sitio; }); /* Guard: skip docs without sitio */
+
+    /* Construir mapa de nombres canónicos desde MASTER_SITES_DB local (fuente de verdad) */
+    var localByNormKey = {};
+    (window.MASTER_SITES_DB||[]).forEach(function(local){
+      if(local&&local.sitio) localByNormKey[_normKey(local.sitio)] = local.sitio;
+    });
+
+    /* Normalizar nombres cloud al canónico local ANTES de deduplicar */
+    cloudRaw = cloudRaw.map(function(s){
+      var nk = _normKey(s.sitio);
+      if(localByNormKey[nk] && s.sitio !== localByNormKey[nk]) {
+        return Object.assign({}, s, {sitio: localByNormKey[nk]});
+      }
+      return s;
+    });
+
+    /* Deduplicar cloud usando clave normalizada (sin acentos) */
+    var cloudDeduped = [];
+    var cloudSeenKeys = {};
+    cloudRaw.forEach(function(s){
+      var key = _normKey(s.sitio);
+      if(cloudSeenKeys[key] !== undefined) {
+        /* Ya existe: reemplazar solo si el nuevo tiene sku y el anterior no */
+        var prev = cloudDeduped[cloudSeenKeys[key]];
+        if(s.sku && !prev.sku) cloudDeduped[cloudSeenKeys[key]] = s;
+      } else {
+        cloudSeenKeys[key] = cloudDeduped.length;
+        cloudDeduped.push(s);
+      }
+    });
+
+    var cloud = cloudDeduped;
     var merged = cloud.slice();
-    var cloudNames = cloud.map(function(s){ return s.sitio.trim().toLowerCase(); });
+    var cloudNormKeys = cloud.map(function(s){ return _normKey(s.sitio); });
     (window.MASTER_SITES_DB||[]).forEach(function(local){
       if(!local||!local.sitio) return;
-      if(!cloudNames.includes(local.sitio.trim().toLowerCase())) {
+      if(!cloudNormKeys.includes(_normKey(local.sitio))) {
         merged.push(local);
       }
     });
     window._masterSitesCloud = merged;
+    /* Reconstruir OP_SITES y RV_SITES desde la lista maestra actualizada */
+    if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
+    if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
+    if(typeof buildSiteSelector === 'function') buildSiteSelector();
     console.log('[Master] '+merged.length+' sitios cargados ('+cloud.length+' de Firebase)');
   } catch(e) {
     if(e&&e.message&&e.message.includes('resource-exhausted')) {
@@ -20623,46 +20837,77 @@ async function _pushMasterSitesToCloud() {
   if(pushed) console.log('[Master] '+pushed+' sitios subidos a Firestore master_sites');
 }
 
-/* Actualizar getMasterSiteData para usar la lista fusionada */
+/* Auto-limpiar documentos duplicados o con nombre erróneo en Firestore master_sites.
+   Detecta docs cuyo nombre normalizado no coincide con el canónico de MASTER_SITES_DB
+   (ej: "FM MERIDA" en Firestore cuando el canónico es "FM Mérida") y los elimina. */
+async function _cleanupDuplicateCloudSites() {
+  if(!window._fbDB||!window._fbFS||window._firestoreQuotaExhausted) return;
+  try {
+    var fbFS = window._fbFS;
+    var fbDB = window._fbDB;
+    var snap = await window._fbGetDocs(fbFS.collection(fbDB,'master_sites'));
+    if(snap.empty) return;
+    /* Construir mapa de canónicos locales */
+    var localByNorm = {};
+    (window.MASTER_SITES_DB||[]).forEach(function(local){
+      if(local&&local.sitio) localByNorm[_normKey(local.sitio)] = local.sitio;
+    });
+    /* Encontrar docs cuyo nombre difiere del canónico o son duplicados */
+    var seenNorm = {};
+    var toDelete = [];
+    snap.docs.forEach(function(d){
+      var sitio = (d.data()||{}).sitio;
+      if(!sitio){ toDelete.push(d.ref); return; }
+      var nk = _normKey(sitio);
+      var canonical = localByNorm[nk];
+      if(seenNorm[nk]){
+        /* Duplicado — borrar este */
+        toDelete.push(d.ref);
+      } else {
+        seenNorm[nk] = true;
+        if(canonical && sitio !== canonical){
+          /* Nombre incorrecto — borrar y dejar que SYNC lo vuelva a subir con nombre correcto */
+          toDelete.push(d.ref);
+          delete seenNorm[nk]; /* Permitir que el correcto se suba */
+        }
+      }
+    });
+    if(toDelete.length){
+      console.log('[Master] Limpiando '+toDelete.length+' doc(s) duplicados/incorrectos en Firestore…');
+      for(var i=0;i<toDelete.length;i++){
+        try{ await fbFS.deleteDoc ? fbFS.deleteDoc(toDelete[i]) : window._fbFS.deleteDoc(toDelete[i]); }catch(e2){}
+      }
+      console.log('[Master] Limpieza completada. Recargando lista maestra…');
+      await _loadMasterSitesCloud();
+    }
+  } catch(e){ console.warn('[Master] Error en limpieza cloud:', e.message); }
+}
+
+/* Actualizar getMasterSiteData para usar la lista fusionada con búsqueda sin acentos */
 window._getMasterSiteDataMerged = function(siteName) {
   if(!siteName) return null;
-  var s = siteName.trim().toLowerCase();
+  var nk = _normKey(siteName);
   var list = window._masterSitesCloud || window.MASTER_SITES_DB || [];
-  return list.find(function(m){ return m.sitio.trim().toLowerCase()===s; }) || null;
+  return list.find(function(m){ return _normKey(m.sitio)===nk; }) || null;
 };
 
 /* Actualizar el combo selector de sitios con los sitios de cloud */
 function _refreshSitesList(merged) {
-  /* Actualizar SITES array global si existe */
+  /* Actualizar SITES array global si existe — solo extender con nuevos sitios */
   if(window.MASTER_SITES_DB) {
-    /* No reemplazar MASTER_SITES_DB — solo extender si hay nuevos */
-    var existNames = window.MASTER_SITES_DB.map(function(s){ return s.sitio.trim().toLowerCase(); });
+    var existNorms = window.MASTER_SITES_DB.map(function(s){ return _normKey(s.sitio); });
     merged.forEach(function(m) {
-      if(!existNames.includes(m.sitio.trim().toLowerCase())) {
+      if(!existNorms.includes(_normKey(m.sitio))) {
         window.MASTER_SITES_DB.push(m);
-        existNames.push(m.sitio.trim().toLowerCase());
+        existNorms.push(_normKey(m.sitio));
       }
     });
   }
-  /* Actualizar el combo de sitios en el reporte operativo */
-  var sel = document.getElementById('sel-site');
-  if(sel) {
-    var currentVal = sel.value;
-    var existing = Array.from(sel.options).map(function(o){ return o.value; });
-    merged.forEach(function(m) {
-      if(!existing.includes(m.sitio)) {
-        var opt = document.createElement('option');
-        opt.value = m.sitio;
-        opt.textContent = m.sitio;
-        /* Insert before 'custom' option */
-        var customOpt = Array.from(sel.options).find(function(o){ return o.value==='custom'; });
-        if(customOpt) sel.insertBefore(opt, customOpt);
-        else sel.appendChild(opt);
-        existing.push(m.sitio);
-      }
-    });
-    if(currentVal) sel.value = currentVal;
-  }
+  /* Reconstruir listas derivadas para que reflejen los cambios */
+  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
+  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
+  /* Reconstruir combo selector de sitios */
+  if(typeof buildSiteSelector === 'function') buildSiteSelector();
 }
 
 /* Exponer función para que SYNC la llame */
@@ -20689,13 +20934,21 @@ window._syncMasterSites = async function() {
 
 /* Arrancar cuando Firebase esté listo */
 window.addEventListener('firebase-ready', function(){
-  setTimeout(_loadMasterSitesCloud, 1200);
+  /* Primero cargar, luego limpiar duplicados en background */
+  setTimeout(async function(){
+    await _loadMasterSitesCloud();
+    /* Limpiar documentos duplicados/incorrectos en Firestore (ej: "FM MERIDA" vs "FM Mérida") */
+    setTimeout(_cleanupDuplicateCloudSites, 2000);
+  }, 1200);
 });
 document.addEventListener('DOMContentLoaded', function(){
   /* Fallback local inmediato */
   if(!window._masterSitesCloud) {
     window._masterSitesCloud = (window.MASTER_SITES_DB||[]).slice();
   }
+  /* Sincronizar OP_SITES y RV_SITES con MASTER_SITES_DB al arrancar */
+  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
+  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
 });
 
 })();
@@ -20720,6 +20973,7 @@ var ENE = {
   periodMode:'', periodVal:'',
   agg:{}
 };
+window.ENE = ENE; /* Exponer a window para que BD Energética pueda leerlo */
 
 var _MN = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 var _MNL = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -20757,24 +21011,32 @@ window.eneSetTab = function(tab, btn){
 /* ── Parse date: "lunes, 2 de octubre de 2023" → "2023-10-02" ── */
 function _eneParseDate(s){
   if(!s) return null;
-  s = s.toString().trim().toLowerCase();
+  s = s.toString().trim().toLowerCase().replace(/^"(.*)"$/, '$1');
+  // Quitar día de semana si viene antes de la coma: "jueves, 4 de junio de 2026" → "4 de junio de 2026"
+  s = s.replace(/^[a-záéíóúüñ]+,\s*/, '');
+  // "4 de junio de 2026"
   var m = s.match(/(\d+)\s+de\s+(\w+)\s+de\s+(\d{4})/);
   if(m){
     var mo = MONTHS_ES[m[2]];
     if(mo) return m[3]+'-'+String(mo).padStart(2,'0')+'-'+String(parseInt(m[1])).padStart(2,'0');
   }
-  // ISO fallback
+  // ISO: 2026-06-04
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   // DD/MM/YYYY
   var p = s.split('/');
   if(p.length===3 && p[2].length===4) return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
+  // DD-MM-YYYY
+  var p2 = s.split('-');
+  if(p2.length===3 && p2[0].length<=2 && p2[2].length===4) return p2[2]+'-'+p2[1].padStart(2,'0')+'-'+p2[0].padStart(2,'0');
   return null;
 }
 
 function _eneNum(v){
-  v = String(v||'').trim().replace('%','').replace(/\s/g,'');
-  if(!v || v==='-' || v==='—') return null;
-  var n = parseFloat(v.replace(',','.'));
+  v = String(v||'').trim();
+  // Limpiar errores de Excel y valores nulos
+  if(!v || v==='-' || v==='—' || v==='?' || v.startsWith('#')) return null;
+  v = v.replace(/%/g,'').replace(/\$/g,'').replace(/,/g,'.').replace(/\s/g,'');
+  var n = parseFloat(v);
   return isNaN(n) ? null : n;
 }
 
@@ -20837,15 +21099,32 @@ function _eneParseCSV(text){
   for(var i=0;i<allLines.length;i++){ if(allLines[i].trim()) lines.push(allLines[i]); }
   allLines = null;
 
-  // Find header row (contains "FECHA")
-  var headerIdx = -1;
-  for(var hi=0;hi<Math.min(lines.length,5);hi++){
-    if(lines[hi].toUpperCase().indexOf('FECHA')>=0){ headerIdx=hi; break; }
+  // Auto-detect separator: semicolon or comma
+  var sep = ',';
+  for(var si=0;si<Math.min(lines.length,5);si++){
+    if(lines[si].indexOf(';')>=0){ sep=';'; break; }
   }
-  if(headerIdx<0){ _eneSetImportStatus('⚠️ No se encontró la columna FECHA',0); return; }
+
+  // Find header row — buscar FECHA, DATE, o primera fila con múltiples columnas
+  var FECHA_VARIANTS = ['FECHA','DATE','DÍA','DIA','PERIODO','PERIOD'];
+  var headerIdx = -1;
+  for(var hi=0;hi<Math.min(lines.length,10);hi++){
+    var upper = lines[hi].toUpperCase();
+    for(var fv=0;fv<FECHA_VARIANTS.length;fv++){
+      if(upper.indexOf(FECHA_VARIANTS[fv])>=0){ headerIdx=hi; break; }
+    }
+    if(headerIdx>=0) break;
+  }
+  // Fallback: usar la primera línea que tenga más de 3 columnas
+  if(headerIdx<0){
+    for(var fi=0;fi<Math.min(lines.length,5);fi++){
+      if(lines[fi].split(sep).length>3){ headerIdx=fi; break; }
+    }
+  }
+  if(headerIdx<0){ _eneSetImportStatus('⚠️ No se pudo detectar el encabezado. Asegúrate que tu CSV tenga una fila con los nombres de columnas (FECHA, SITIO, SOC, etc.)',0); return; }
 
   // Parse header with auto-detect
-  var rawHeader = lines[headerIdx].split(',').map(function(h){ return h.trim().replace(/"/g,'').replace(/\n/g,' '); });
+  var rawHeader = lines[headerIdx].split(sep).map(function(h){ return h.trim().replace(/"/g,'').replace(/\n/g,' '); });
   function _col(names){
     for(var ni=0;ni<names.length;ni++){
       var idx=rawHeader.findIndex(function(h){ return h.toLowerCase().includes(names[ni].toLowerCase()); });
@@ -20855,28 +21134,28 @@ function _eneParseCSV(text){
   }
 
   var COL = {
-    fecha:    _col(['FECHA']),
-    sitio:    _col(['SITIO']),
-    sku:      _col(['SKU']),
-    marca:    _col(['MARCA','BATERÍA']),
-    soc_i:    _col(['SOC INICIAL','SOC INI']),
-    soc_f:    _col(['SOC FINAL','SOC FIN']),
-    h_carga:  _col(['HORAS DE CARGA','HORAS CARGA']),
-    p_carga:  _col(['POTENCIA DE CARGA','P CARGA']),
-    p_desc:   _col(['POTENCIA DE DESCARGA (KW)','POTENCIA DESCARGA']),
-    p_desc_r: _col(['POTENCIA DE DESCARGA POR RACK']),
-    alm_rack: _col(['ALMACENAMIENTO POR RACK']),
-    e_alm:    _col(['ENERGÍA ALMACENADA','ENERGIA ALMACENADA']),
-    racks_i:  _col(['RACKS INICIALES']),
-    racks_f:  _col(['RACKKS FINALES','RACKS FINALES']),
-    t_desc:   _col(['TIEMPO DESCARGA','T DESCARGA']),
-    t_falla:  _col(['TIEMPO FALLA']),
-    ahorro:   _col(['AHORRO ESPERADO']),
-    e_teorica:_col(['ENERGÍA TEÓRICA','ENERGIA TEORICA']),
-    t_no_op:  _col(['TIEMPO NO OPERATIVO']),
-    e_desc:   _col(['ENERGÍA DESCARGADA','ENERGIA DESCARGADA']),
-    e_perdida:_col(['PERDIDA ENERGÉTICA','PERDIDA ENERGETICA','PÉRDIDA']),
-    soc_desc: _col(['SOC DESCARGADO']),
+    fecha:    _col(['FECHA','DATE','DÍA','DIA','PERIODO','PERIOD','FECHA/HORA']),
+    sitio:    _col(['SITIO','SITE','NOMBRE SITIO']),
+    sku:      _col(['SKU','ID','NUM']),
+    marca:    _col(['MARCA','BATERÍA','MARCA BATERÍA','MARCA\nBATERÍA','MARCA \nBATERÍA']),
+    soc_i:    _col(['SOC INICIAL','SOC INI','SOC_INICIAL','SOC I']),
+    soc_f:    _col(['SOC FINAL','SOC FIN','SOC_FINAL','SOC F']),
+    h_carga:  _col(['HORAS DE CARGA','HORAS CARGA','HRS CARGA','H CARGA']),
+    p_carga:  _col(['POTENCIA DE CARGA','POTENCIA CARGA','P CARGA','KW CARGA','KW DE CARGA']),
+    p_desc:   _col(['POTENCIA DE DESCARGA (KW)','POTENCIA DE DESCARGA','POTENCIA DESCARGA','P DESCARGA']),
+    p_desc_r: _col(['POTENCIA DE DESCARGA POR RACK','P DESC RACK']),
+    alm_rack: _col(['ALMACENAMIENTO POR RACK','ALM RACK','KWH RACK']),
+    e_alm:    _col(['ENERGÍA ALMACENADA BESS','ENERGÍA ALMACENADA','ENERGIA ALMACENADA','E ALMACENADA','KWH ALMACENADO']),
+    racks_i:  _col(['RACKS INICIALES','RACKS INI','RACKS']),
+    racks_f:  _col(['RACKKS FINALES','RACKS FINALES','RACKS FIN']),
+    t_desc:   _col(['TIEMPO DESCARGA','T DESCARGA','TIEMPO DE DESCARGA']),
+    t_falla:  _col(['TIEMPO FALLA','T FALLA','FALLA']),
+    ahorro:   _col(['AHORRO ESPERADO','AHORRO','AHORRO (KWH)']),
+    e_teorica:_col(['ENERGÍA TEÓRICA DESCARGABLE','ENERGÍA TEÓRICA','ENERGIA TEORICA','E TEORICA']),
+    t_no_op:  _col(['TIEMPO NO OPERATIVO','T NO OP','NO OPERATIVO']),
+    e_desc:   _col(['ENERGÍA DESCARGADA ESTIMADA OPERATIVA','ENERGÍA DESCARGADA','ENERGIA DESCARGADA','E DESCARGADA']),
+    e_perdida:_col(['PERDIDA ENERGÉTICA ESTIMADA','PERDIDA ENERGÉTICA','PERDIDA ENERGETICA','PÉRDIDA','PERDIDA']),
+    soc_desc: _col(['SOC DESCARGADO','SOC DESC']),
   };
 
   var dataLines = lines.slice(headerIdx+1);
@@ -20884,9 +21163,21 @@ function _eneParseCSV(text){
   var records = [];
   var CHUNK = 500;
 
-  // CSV split with quoted fields
-  var reCSV = /("(?:[^"]|"")*"|[^,]*)/g;
+  // CSV split with quoted fields — uses auto-detected separator
   function splitLine(line){
+    if(sep===';'){
+      // Simple semicolon split (handles quoted fields too)
+      var result=[], cur='', inQ=false;
+      for(var ci=0;ci<line.length;ci++){
+        var ch=line[ci];
+        if(ch==='"'){ inQ=!inQ; }
+        else if(ch===sep && !inQ){ result.push(cur.trim().replace(/^"|"$/g,'')); cur=''; }
+        else { cur+=ch; }
+      }
+      result.push(cur.trim().replace(/^"|"$/g,''));
+      return result;
+    }
+    var reCSV = /("(?:[^"]|"")*"|[^,]*)/g;
     var cols=[], m, val;
     reCSV.lastIndex=0;
     while((m=reCSV.exec(line))!==null){
@@ -20899,12 +21190,16 @@ function _eneParseCSV(text){
     return cols;
   }
 
+  var lastFecha = null; // carry-forward para fechas en celdas fusionadas
   function processChunk(start){
     var end = Math.min(start+CHUNK, dataLines.length);
     for(var i=start;i<end;i++){
       var cols = splitLine(dataLines[i]);
       var fecha = _eneParseDate(cols[COL.fecha]);
       var sitio = COL.sitio>=0 ? (cols[COL.sitio]||'').trim() : '';
+      // Usar última fecha conocida si la celda está vacía (CSV con fecha fusionada)
+      if(!fecha && lastFecha) fecha = lastFecha;
+      if(fecha) lastFecha = fecha;
       if(!fecha || !sitio) continue;
 
       var soc_i = _eneNum(COL.soc_i>=0?cols[COL.soc_i]:'');
@@ -20915,28 +21210,25 @@ function _eneParseCSV(text){
       var ahorro = _eneNum(COL.ahorro>=0?cols[COL.ahorro]:'');
       var e_perdida = _eneNum(COL.e_perdida>=0?cols[COL.e_perdida]:'');
 
+      /* Solo columnas 0-11 + SOC DESCARGADO. soc_delta = SOC INICIAL - SOC FINAL */
+      var soc_delta = (soc_i != null && soc_f != null) ? Math.round((soc_i - soc_f) * 10) / 10 : null;
       records.push({
-        f: fecha, m: fecha.slice(0,7), y: fecha.slice(0,4),
-        si: sitio,
-        sku: COL.sku>=0?(cols[COL.sku]||'').trim():'',
-        marca: _eneMarca(COL.marca>=0?cols[COL.marca]:''),
-        soc_i: soc_i, soc_f: soc_f,
-        h_carga:  _eneNum(COL.h_carga>=0?cols[COL.h_carga]:''),
-        p_carga:  _eneNum(COL.p_carga>=0?cols[COL.p_carga]:''),
-        p_desc:   _eneNum(COL.p_desc>=0?cols[COL.p_desc]:''),
-        p_desc_r: _eneNum(COL.p_desc_r>=0?cols[COL.p_desc_r]:''),
-        alm_rack: _eneNum(COL.alm_rack>=0?cols[COL.alm_rack]:''),
-        e_alm:    _eneNum(COL.e_alm>=0?cols[COL.e_alm]:''),
-        racks_i:  _eneNum(COL.racks_i>=0?cols[COL.racks_i]:''),
-        racks_f:  _eneNum(COL.racks_f>=0?cols[COL.racks_f]:''),
-        t_desc:   _eneNum(COL.t_desc>=0?cols[COL.t_desc]:''),
-        t_falla:  _eneNum(COL.t_falla>=0?cols[COL.t_falla]:''),
-        ahorro_esp: ahorro,
-        e_teorica:_eneNum(COL.e_teorica>=0?cols[COL.e_teorica]:''),
-        t_no_op:  _eneNum(COL.t_no_op>=0?cols[COL.t_no_op]:''),
-        e_desc:   _eneNum(COL.e_desc>=0?cols[COL.e_desc]:''),
-        e_perdida: e_perdida,
-        soc_desc: _eneNum(COL.soc_desc>=0?cols[COL.soc_desc]:''),
+        f:        fecha,
+        m:        fecha.slice(0,7),
+        y:        fecha.slice(0,4),
+        si:       sitio,                                                      /* [1] SITIO */
+        sku:      COL.sku>=0?(cols[COL.sku]||'').trim():'',                  /* [2] SKU */
+        marca:    _eneMarca(COL.marca>=0?cols[COL.marca]:''),                /* [3] MARCA */
+        soc_i:    soc_i,                                                      /* [4] SOC INICIAL */
+        soc_f:    soc_f,                                                      /* [5] SOC FINAL */
+        soc_delta: soc_delta,                                                 /* CALCULADO: SOC INI - SOC FIN */
+        h_carga:  _eneNum(COL.h_carga>=0?cols[COL.h_carga]:''),             /* [6] HORAS DE CARGA */
+        p_carga:  _eneNum(COL.p_carga>=0?cols[COL.p_carga]:''),             /* [7] POTENCIA DE CARGA kW */
+        p_desc:   _eneNum(COL.p_desc>=0?cols[COL.p_desc]:''),               /* [8] POTENCIA DE DESCARGA kW */
+        p_desc_r: _eneNum(COL.p_desc_r>=0?cols[COL.p_desc_r]:''),           /* [9] POT. DESC. POR RACK kW */
+        alm_rack: _eneNum(COL.alm_rack>=0?cols[COL.alm_rack]:''),           /* [10] ALMACENAMIENTO POR RACK kW */
+        e_alm:    _eneNum(COL.e_alm>=0?cols[COL.e_alm]:''),                 /* [11] ENERGÍA ALMACENADA BESS kWh */
+        soc_desc: _eneNum(COL.soc_desc>=0?cols[COL.soc_desc]:''),           /* [21] SOC DESCARGADO */
       });
     }
     var pct = Math.round((end/total)*80);
@@ -20950,7 +21242,12 @@ function _eneParseCSV(text){
   setTimeout(function(){ processChunk(0); }, 20);
 }
 
+
 function _eneFinishImport(records){
+  _eneFinishImport_local(records);
+}
+
+function _eneFinishImport_local(records){
   _eneSetImportStatus('Ordenando '+records.length.toLocaleString('es-MX')+' registros...', 83);
   setTimeout(function(){
     records.sort(function(a,b){ return a.f>b.f?-1:a.f<b.f?1:0; });
@@ -20972,11 +21269,18 @@ function _eneFinishImport(records){
           if(bc) bc.textContent=records.length.toLocaleString('es-MX')+' registros';
           _eneHideEmpty();
           if(typeof safeToast!=='undefined') safeToast('⚡ '+records.length.toLocaleString('es-MX')+' registros energéticos cargados');
+          /* ── Notificar a BD Energética que hay datos nuevos ── */
+          window.ENE = ENE; /* asegurar referencia actualizada */
+          if(typeof window._bdPopulateFilters==='function') window._bdPopulateFilters(ENE.all);
+          if(typeof window._bdApplyFilters==='function') window._bdApplyFilters();
         }, 700);
       }, 30);
     }, 20);
   }, 20);
 }
+
+/* Exponer para que módulos externos puedan interceptar post-import */
+window._eneFinishImport = _eneFinishImport;
 
 /* ── Compute aggregates ── */
 function _eneRecomputeAgg(){
@@ -21768,23 +22072,13 @@ function _eneRenderTable(){
 
   var MARCA_COLORS={'Pylontech':'#3b82f6','CATL':'#00d296','Narada':'#f59e0b','Hoypower/Ultra':'#8b5cf6','BYD':'#ef4444','Huawei':'#06b6d4'};
   tbody.innerHTML=slice.map(function(r){
-    var delta=(r.soc_i!==null&&r.soc_f!==null)?r.soc_i-r.soc_f:null;
+    if(!r) return '';
+    var delta=(r.soc_i!=null&&r.soc_f!=null)?r.soc_i-r.soc_f:null;
     var mc=MARCA_COLORS[r.marca]||'#6685ac';
-    var deltaStr=delta!==null?'<span style="color:#00d296;font-family:\'DM Mono\',monospace;font-size:9px;font-weight:700;">'+delta.toFixed(0)+'%</span>':'<span style="color:var(--t3);">—</span>';
-    return '<tr class="ene-tr">'
-      +'<td class="ene-td ene-td-mono" style="white-space:nowrap;color:var(--t2);">'+r.f+'</td>'
-      +'<td class="ene-td" style="font-weight:600;white-space:nowrap;">'+r.si+'</td>'
-      +'<td class="ene-td"><span style="padding:2px 8px;border-radius:10px;background:'+mc+'22;color:'+mc+';font-family:\'DM Mono\',monospace;font-size:8px;font-weight:700;">'+r.marca+'</span></td>'
-      +'<td class="ene-td" style="text-align:center;">'+socBar(r.soc_i,'#3b82f6')+'</td>'
-      +'<td class="ene-td" style="text-align:center;">'+socBar(r.soc_f,'#8b5cf6')+'</td>'
-      +'<td class="ene-td" style="text-align:center;">'+deltaStr+'</td>'
-      +'<td class="ene-td ene-td-mono" style="text-align:right;color:#00d296;">'+(r.ahorro_esp!==null?r.ahorro_esp.toLocaleString('es-MX',{maximumFractionDigits:0}):'—')+'</td>'
-      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+(r.p_carga!==null?r.p_carga:'—')+'</td>'
-      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+(r.p_desc!==null?r.p_desc:'—')+'</td>'
-      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+(r.e_alm!==null?r.e_alm.toLocaleString('es-MX',{maximumFractionDigits:0}):'—')+'</td>'
-      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+(r.t_desc!==null?r.t_desc:' —')+'</td>'
-      +'<td class="ene-td ene-td-mono" style="text-align:right;color:#ef4444;">'+(r.e_perdida!==null?r.e_perdida.toFixed(0):'—')+'</td>'
-      +'</tr>';
+    var deltaStr=delta!=null?'<span style="color:#00d296;font-family:\'DM Mono\',monospace;font-size:9px;font-weight:700;">'+delta.toFixed(0)+'%</span>':'<span style="color:var(--t3);">—</span>';
+    function safeNum(v,d){ return (v!=null&&!isNaN(v))?Number(v).toLocaleString('es-MX',{maximumFractionDigits:d||0}):'—'; }
+    function safeFixed(v,d){ return (v!=null&&!isNaN(v))?Number(v).toFixed(d||0):'—'; }
+    return '<tr class="ene-tr">'      +'<td class="ene-td ene-td-mono" style="white-space:nowrap;color:var(--t2);">'+(r.f||'—')+'</td>'      +'<td class="ene-td" style="font-weight:600;white-space:nowrap;">'+(r.si||'—')+'</td>'      +'<td class="ene-td"><span style="padding:2px 8px;border-radius:10px;background:'+mc+'22;color:'+mc+';font-family:\'DM Mono\',monospace;font-size:8px;font-weight:700;">'+(r.marca||'—')+'</span></td>'      +'<td class="ene-td" style="text-align:center;">'+socBar(r.soc_i,'#3b82f6')+'</td>'      +'<td class="ene-td" style="text-align:center;">'+socBar(r.soc_f,'#8b5cf6')+'</td>'      +'<td class="ene-td" style="text-align:center;">'+deltaStr+'</td>'      +'<td class="ene-td ene-td-mono" style="text-align:right;color:#00d296;">'+safeNum(r.ahorro_esp)+'</td>'      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+safeNum(r.p_carga)+'</td>'      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+safeNum(r.p_desc)+'</td>'      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+safeNum(r.e_alm)+'</td>'      +'<td class="ene-td ene-td-mono" style="text-align:right;">'+safeNum(r.t_desc)+'</td>'      +'<td class="ene-td ene-td-mono" style="text-align:right;color:#ef4444;">'+safeFixed(r.e_perdida)+'</td>'      +'</tr>';
   }).join('');
 
   // Pagination
@@ -22902,10 +23196,11 @@ window._pimSaveReport=function(){
 'use strict';
 
 /* ══ STORAGE ══ */
-var _ML_SK = 'bess:master_sites:v1';
+var _ML_SK = 'bess:master_sites:v3';  // v3: datos corregidos numRacks+energiaBESS+powCarga
 
 function _mlPersist() {
-  try { localStorage.setItem(_ML_SK, JSON.stringify(_mlList)); } catch(e) {}
+  /* Deshabilitado — MASTER_SITES_DB es la fuente de verdad, no localStorage */
+  try { ['v1','v2','v3','v4'].forEach(function(v){ localStorage.removeItem('bess:master_sites:'+v); }); } catch(e) {}
 }
 
 function _mlLoadFromStorage() {
@@ -22914,21 +23209,61 @@ function _mlLoadFromStorage() {
     if(!s) return null;
     var p = JSON.parse(s);
     if(!p||!p.length) return null;
-    /* Merge con campos nuevos de MASTER_SITES_DB hardcodeada */
+    /* Merge: MASTER_SITES_DB siempre gana en campos de catálogo (racks, potencias, energía) */
+    var CATALOG_FIELDS = ['numRacks','powCarga','horasCarga','kwhTotal','powSummer','powWinter','energiaBESS','sku','marca','plat','ciudad'];
     var names = p.map(function(x){ return x.sitio&&x.sitio.trim().toLowerCase(); });
     (window.MASTER_SITES_DB||[]).forEach(function(local){
       if(!local||!local.sitio) return;
       var idx = names.indexOf(local.sitio.trim().toLowerCase());
-      if(idx>=0){ Object.keys(local).forEach(function(k){ if(p[idx][k]==null) p[idx][k]=local[k]; }); }
-      else { p.push(local); names.push(local.sitio.trim().toLowerCase()); }
+      if(idx>=0){
+        Object.keys(local).forEach(function(k){
+          // Campos de catálogo: siempre usar el valor de la DB hardcodeada
+          if(CATALOG_FIELDS.indexOf(k)>=0) { p[idx][k]=local[k]; }
+          // Otros campos (observaciones, etc.): solo rellenar si es null/undefined
+          else if(p[idx][k]==null) { p[idx][k]=local[k]; }
+        });
+      } else {
+        p.push(local);
+        names.push(local.sitio.trim().toLowerCase());
+      }
     });
     return p;
   } catch(e) { return null; }
 }
 
 /* ══ ESTADO ══ */
-var _mlEditIdx = null;
-var _mlList    = [];
+var _mlEditIdx  = null;
+var _mlList     = [];
+var _mlSortKey  = 'sku';   // default: ordenar por SKU
+var _mlSortDir  = 1;       // 1=asc, -1=desc
+
+/* Actualiza los indicadores de flecha en los headers */
+function _mlUpdateArrows() {
+  var keys = ['sku','sitio','cliente','ciudad','marca','plat','numRacks','powCarga','horasCarga','kwhTotal','powSummer','powWinter','energiaBESS'];
+  keys.forEach(function(k) {
+    var el = document.getElementById('ml-arr-'+k);
+    var th = document.getElementById('ml-th-'+k);
+    if (!el) return;
+    if (k === _mlSortKey) {
+      el.textContent = _mlSortDir === 1 ? ' ↑' : ' ↓';
+      if (th) th.style.color = '#7aa3ff';
+    } else {
+      el.textContent = ' ⇅';
+      if (th) th.style.color = 'var(--t3)';
+    }
+  });
+}
+
+/* Ordenar al hacer click en un header */
+window._mlSort = function(key) {
+  if (_mlSortKey === key) {
+    _mlSortDir = -_mlSortDir;
+  } else {
+    _mlSortKey = key;
+    _mlSortDir = 1;
+  }
+  _mlRender();
+};
 
 /* ══ CAMPOS ══ */
 var ML_FIELDS = [
@@ -22938,7 +23273,6 @@ var ML_FIELDS = [
   {key:'ciudad',      label:'Ciudad',           type:'text',   col:1},
   {key:'marca',       label:'Marca batería',    type:'text',   col:1},
   {key:'plat',        label:'Plataforma',       type:'text',   col:1},
-  {key:'bessId',      label:'BESS ID',          type:'number', col:1},
   {key:'numRacks',    label:'No. Racks',        type:'number', col:1},
   {key:'powCarga',    label:'kW Carga (fijo)',  type:'number', col:1},
   {key:'horasCarga',  label:'Hrs de Carga',     type:'number', col:1},
@@ -22956,9 +23290,11 @@ var CL_COLORS = {
 
 /* ══ CARGAR ══ */
 window._mlLoad = function() {
-  var stored = _mlLoadFromStorage();
-  if(stored&&stored.length){ _mlList=stored; window._masterSitesCloud=stored; }
-  else { _mlList=(window._masterSitesCloud||window.MASTER_SITES_DB||[]).slice(); }
+  /* Si _mlList ya está cargado (desde DOMContentLoaded), solo renderizar */
+  if (!_mlList || !_mlList.length) {
+    _mlList = (window.MASTER_SITES_DB || []).map(function(s){ return Object.assign({}, s); });
+    window._masterSitesCloud = _mlList.slice();
+  }
   _mlRender();
 };
 
@@ -22974,32 +23310,100 @@ window._mlRender = function() {
     return mq&&mc;
   });
   if(count) count.textContent=_mlList.length+' sitios';
-  var RB={ASUR:'rgba(74,120,245,.03)',OMA:'rgba(0,210,150,.02)',Industria:'rgba(245,158,11,.02)'};
-  tbody.innerHTML=filtered.map(function(s,i){
-    var clC=CL_COLORS[s.cliente]||{bg:'rgba(255,255,255,.05)',color:'var(--t2)'};
-    var rb=RB[s.cliente]||'';
-    var _rb=rb||'';
-    var _rb=rb||'';
-    return '<tr style="border-bottom:1px solid rgba(255,255,255,.04);background:'+_rb+'" onmouseover="this.style.background=\'rgba(74,120,245,.08)\'" onmouseout="this.style.background=\''+_rb+'\'">'
-      +'<td style="padding:8px 12px;font-weight:700;color:var(--text)">'+s.sitio+'</td>'
-      +'<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:700;background:'+clC.bg+';color:'+clC.color+'">'+s.cliente+'</span></td>'
-      +'<td style="padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--t2)">'+s.ciudad+'</td>'
-      +'<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t2)">'+s.marca+'</td>'
-      +'<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t3)">'+s.plat+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+s.bessId+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--sky)">'+s.numRacks+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#60a5fa">'+(s.powCarga!=null?s.powCarga:'—')+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#a78bfa">'+(s.horasCarga!=null?s.horasCarga:'—')+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:#f59e0b">'+(s.kwhTotal!=null?s.kwhTotal:'—')+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#00c896">'+s.powSummer+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#60a5fa">'+s.powWinter+'</td>'
-      +'<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:#00d296">'+(s.energiaBESS!=null?s.energiaBESS:'—')+'</td>'
-      +'<td style="padding:8px 12px;text-align:center">'
-        +'<button onclick="window._mlEdit('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:var(--mono);font-size:9px;cursor:pointer;margin-right:4px">✏️</button>'
-        +'<button onclick="window._mlDelete('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#f87171;font-family:var(--mono);font-size:9px;cursor:pointer">✕</button>'
-      +'</td>'
-    +'</tr>';
+
+  /* ── Ordenar ── */
+  var sk = _mlSortKey, sd = _mlSortDir;
+  var NUM_KEYS = ['sku','numRacks','powCarga','horasCarga','kwhTotal','powSummer','powWinter','energiaBESS'];
+  filtered = filtered.slice().sort(function(a,b) {
+    var av = a[sk], bv = b[sk];
+    if (av == null) av = NUM_KEYS.indexOf(sk) >= 0 ? -Infinity : '';
+    if (bv == null) bv = NUM_KEYS.indexOf(sk) >= 0 ? -Infinity : '';
+    if (typeof av === 'string') return sd * av.localeCompare(bv, 'es', {sensitivity:'base'});
+    return sd * (av - bv);
+  });
+  _mlUpdateArrows();
+
+
+  var MAX_RACKS = 60; // LG es el máximo
+
+  /* Heatmap: devuelve color según valor relativo al máximo de la columna */
+  function heatColor(val, max, alpha) {
+    if (val == null || max === 0) return 'transparent';
+    var ratio = Math.min(val / max, 1);
+    // frío (azul) → tibio (cian) → caliente (verde lima)
+    var r = Math.round(20  + ratio * 30);
+    var g = Math.round(100 + ratio * 130);
+    var b = Math.round(180 - ratio * 80);
+    return 'rgba('+r+','+g+','+b+','+(alpha||0.18)+')';
+  }
+
+  /* Calcular máximos de columnas numéricas para el heatmap */
+  var maxEnergy  = Math.max.apply(null, _mlList.map(function(x){ return x.energiaBESS||0; }));
+  var maxSummer  = Math.max.apply(null, _mlList.map(function(x){ return x.powSummer||0; }));
+  var maxWinter  = Math.max.apply(null, _mlList.map(function(x){ return x.powWinter||0; }));
+
+  /* Colores de cliente */
+  var CL_STRIPE = {
+    ASUR:      {even:'rgba(74,120,245,.055)', odd:'rgba(74,120,245,.02)'},
+    OMA:       {even:'rgba(0,210,150,.05)',   odd:'rgba(0,210,150,.015)'},
+    Industria: {even:'rgba(245,158,11,.055)', odd:'rgba(245,158,11,.02)'},
+  };
+
+  tbody.innerHTML = filtered.map(function(s, i) {
+    var clC   = CL_COLORS[s.cliente] || {bg:'rgba(255,255,255,.05)', color:'var(--t2)'};
+    var stripe = CL_STRIPE[s.cliente] || {even:'rgba(255,255,255,.03)', odd:'transparent'};
+    var rowBg  = (i % 2 === 0) ? stripe.even : stripe.odd;
+
+    /* SKU badge */
+    var skuBadge = '<span style="display:inline-block;padding:2px 7px;border-radius:5px;'
+      + 'background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);'
+      + 'font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t2);'
+      + 'letter-spacing:.5px">#' + String(s.sku).padStart(2,'0') + '</span>';
+
+    /* Rack — solo número */
+    var rackColor = s.numRacks >= 20 ? '#f59e0b' : s.numRacks >= 8 ? '#00d296' : '#7aa3ff';
+    var rackBar  = '<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:'+rackColor+'">'+s.numRacks+'</span>';
+
+    /* Heatmap cell helper — sin fondo, solo texto con color */
+    function hCell(val, max, textColor, bold) {
+      var txt = val != null ? val : '—';
+      return '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;'
+        + 'font-weight:'+(bold?'700':'400')+';color:'+textColor+'">'
+        + txt + '</td>';
+    }
+
+    /* Freeze styles for SKU + Sitio columns */
+    var tdFreeze0 = 'position:sticky;left:0;background:'+rowBg+';z-index:2;';
+    var tdFreeze1 = 'position:sticky;left:50px;background:'+rowBg+';z-index:2;box-shadow:2px 0 6px rgba(0,0,0,.15);';
+
+    return '<tr style="border-bottom:1px solid rgba(255,255,255,.04);background:'+rowBg+'"'
+      + ' onmouseover="this.style.background=\'rgba(74,120,245,.1)\';Array.from(this.querySelectorAll(\'td[style*=sticky]\')).forEach(function(el){el.style.background=\'rgba(74,120,245,.1)\';})"'
+      + ' onmouseout="this.style.background=\''+rowBg+'\';Array.from(this.querySelectorAll(\'td[style*=sticky]\')).forEach(function(el){el.style.background=\''+rowBg+'\';})">'
+      /* SKU — frozen col 0 */
+      + '<td style="'+tdFreeze0+'padding:8px 12px">'+skuBadge+'</td>'
+      /* Sitio — frozen col 1 */
+      + '<td style="'+tdFreeze1+'padding:8px 12px;font-weight:700;color:var(--text);font-size:12px;white-space:nowrap">'+s.sitio+'</td>'
+      /* Normal cols */
+      + '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:700;background:'+clC.bg+';color:'+clC.color+'">'+s.cliente+'</span></td>'
+      + '<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t2)">'+s.ciudad+'</td>'
+      + '<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t2)">'+s.marca+'</td>'
+      + '<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t3)">'+s.plat+'</td>'
+      /* Racks con barra */
+      + '<td style="padding:8px 12px;text-align:center">'+rackBar+'</td>'
+      + '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#60a5fa">'+(s.powCarga!=null?s.powCarga:'—')+'</td>'
+      + '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#a78bfa">'+(s.horasCarga!=null?s.horasCarga:'—')+'</td>'
+      + '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:#f59e0b">'+(s.kwhTotal!=null?s.kwhTotal:'—')+'</td>'
+      /* Heatmap cols */
+      + hCell(s.powSummer, maxSummer, '#00c896', false)
+      + hCell(s.powWinter, maxWinter, '#60a5fa', false)
+      + hCell(s.energiaBESS, maxEnergy, '#00d296', true)
+      + '<td style="padding:8px 12px;text-align:center">'
+        + '<button onclick="window._mlEdit('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:var(--mono);font-size:9px;cursor:pointer;margin-right:4px">✏️</button>'
+        + '<button onclick="window._mlDelete('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#f87171;font-family:var(--mono);font-size:9px;cursor:pointer">✕</button>'
+      + '</td>'
+    + '</tr>';
   }).join('');
+
 };
 
 /* ══ EDITAR ══ */
@@ -23052,8 +23456,6 @@ window._mlSaveSite = function() {
     updated[f.key]=f.type==='number'?(parseFloat(el.value)||0):el.value.trim();
   });
   if(!updated.sitio){if(typeof showToast==='function')showToast('⚠️ El nombre del sitio es requerido');return;}
-  /* Calculate energiaBESS if not set */
-  if(!updated.energiaBESS&&updated.kwhTotal&&updated.numRacks) updated.energiaBESS=updated.kwhTotal*updated.numRacks;
   if(_mlEditIdx===-1){
     _mlList.push(updated);
     if(window.MASTER_SITES_DB) window.MASTER_SITES_DB.push(updated);
@@ -23062,6 +23464,9 @@ window._mlSaveSite = function() {
     if(window.MASTER_SITES_DB&&window.MASTER_SITES_DB[_mlEditIdx]) Object.assign(window.MASTER_SITES_DB[_mlEditIdx],updated);
   }
   window._masterSitesCloud=_mlList;
+  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
+  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
+  if(typeof buildSiteSelector === 'function') buildSiteSelector();
   document.getElementById('ml-edit-modal').style.display='none';
   _mlRender(); _mlPersist();
   if(typeof showToast==='function') showToast('✅ Sitio guardado');
@@ -23079,6 +23484,9 @@ window._mlDelete = function(i) {
   _mlList.splice(idx,1);
   if(window.MASTER_SITES_DB){var di=window.MASTER_SITES_DB.indexOf(site);if(di>=0)window.MASTER_SITES_DB.splice(di,1);}
   window._masterSitesCloud=_mlList;
+  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
+  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
+  if(typeof buildSiteSelector === 'function') buildSiteSelector();
   _mlRender(); _mlPersist();
   if(typeof showToast==='function') showToast('🗑 Sitio eliminado');
 };
@@ -23126,7 +23534,12 @@ window._mlImportCSV = function(input) {
       else{_mlList.push(p);existNames.push(p.sitio.trim().toLowerCase());added++;}
     });
     window._masterSitesCloud=_mlList;
-    if(window.MASTER_SITES_DB){window.MASTER_SITES_DB.length=0;_mlList.forEach(function(x){window.MASTER_SITES_DB.push(x);});}
+  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
+  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
+    if(window.MASTER_SITES_DB){window.MASTER_SITES_DB.length=0;_mlList.forEach(function(x){window.MASTER_SITES_DB.push(x);});
+      if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
+      if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();}
+    if(typeof buildSiteSelector === 'function') buildSiteSelector();
     _mlRender(); _mlPersist();
     if(typeof showToast==='function') showToast('✅ CSV cargado · '+added+' nuevos · '+updated+' actualizados');
     setTimeout(function(){if(window._mlSyncCloud)window._mlSyncCloud();},800);
@@ -23185,10 +23598,10 @@ window._mlEnrichHistorico = function() {
 
 /* ══ ENESETAB PATCH (único) ══ */
 document.addEventListener('DOMContentLoaded', function(){
-  /* Cargar desde localStorage al arrancar */
-  var stored=_mlLoadFromStorage();
-  if(stored&&stored.length){_mlList=stored;window._masterSitesCloud=stored;}
-  else{_mlList=(window.MASTER_SITES_DB||[]).slice();window._masterSitesCloud=_mlList.slice();if(_mlList.length)_mlPersist();}
+  /* Siempre cargar desde MASTER_SITES_DB — es la fuente de verdad */
+  try { ['v1','v2','v3','v4'].forEach(function(v){ localStorage.removeItem('bess:master_sites:'+v); }); } catch(e) {}
+  _mlList = (window.MASTER_SITES_DB || []).map(function(s){ return Object.assign({}, s); });
+  window._masterSitesCloud = _mlList.slice();
 
   if(window._eneSetTabPatched) return;
   window._eneSetTabPatched=true;
@@ -23210,7 +23623,7 @@ document.addEventListener('DOMContentLoaded', function(){
       document.querySelectorAll('.ene-tab').forEach(function(b){b.classList.remove('active');});
       if(btn) btn.classList.add('active');
       /* Show maestra — it has its own overflow-y:auto */
-      if(mp) { mp.style.display='flex'; mp.style.flexDirection='column'; }
+      if(mp) { mp.style.display='block'; }
       /* Make ene-root fill remaining space but not clip maestra */
       if(root){ root.style.overflow='hidden'; root.style.padding='0'; root.style.maxWidth='none'; }
       setTimeout(_mlLoad,50);
@@ -23221,9 +23634,12 @@ document.addEventListener('DOMContentLoaded', function(){
       document.querySelectorAll('.ene-tab').forEach(function(b){b.classList.remove('active');});
       if(btn) btn.classList.add('active');
       if(bdp) bdp.style.display='block';
-      if(root){root.style.overflowY='auto';root.style.maxWidth='none';root.style.padding='0';}
-      if(window._BD&&(!window._BD.loaded||!window._BD.all.length)){if(window._bdInit)window._bdInit();}
-      else if(window._bdRender)window._bdRender();
+      /* ene-panel-bd está dentro de ene-root — restablecer scroll normal */
+      if(root){ root.style.overflowY=''; root.style.maxWidth=''; root.style.padding=''; }
+      /* BD Energética — siempre sincronizar con ENE.all al navegar */
+      setTimeout(function(){
+        if(typeof window._bdInit==='function') window._bdInit();
+      }, 80);
 
     } else {
       if(root){root.style.overflowY='';root.style.maxWidth='';root.style.padding='';}
@@ -23243,6 +23659,248 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 </script>
 <!-- ── end PATCH v6 Lista Maestra ── -->
+
+<script>
+/* BD Energetica - render, filtros, paginacion, sort
+   Lee de ENE.all (cargado por el importador CSV)
+*/
+(function(){
+'use strict';
+
+var BD_PAGE_SIZE = 50;
+var _bdState = { sorted:[], page:0, sortKey:'fecha', sortDir:-1 };
+
+/* ── Helpers ─────────────────────────────────────── */
+function fmt(v, dec){ return (v==null||v==='')?'-':Number(v).toFixed(dec||0); }
+function fmtPct(v){ return (v==null||v==='')?'-':Number(v).toFixed(1)+'%'; }
+
+function masterFor(sitio){
+  var db = window.MASTER_SITES_DB||[];
+  var s = (sitio||'').trim().toLowerCase();
+  return db.find(function(m){ return m.sitio.trim().toLowerCase()===s; })||null;
+}
+
+/* ── Poblar filtros desplegables ──────────────────── */
+function _bdPopulateFilters(data){
+  var sitios  = [...new Set(data.map(function(r){return r.si;}))].sort();
+  var marcas  = [...new Set(data.map(function(r){return r.marca||'-';}))].sort();
+
+  var fs = document.getElementById('bd-f-sitio');
+  if(fs){
+    fs.innerHTML = '<option value="">Todos los sitios</option>';
+    sitios.forEach(function(s){ var o=document.createElement('option');o.value=o.textContent=s;fs.appendChild(o); });
+  }
+  var fm = document.getElementById('bd-f-marca');
+  if(fm){
+    fm.innerHTML = '<option value="">Todas las marcas</option>';
+    marcas.forEach(function(m){ var o=document.createElement('option');o.value=o.textContent=m;fm.appendChild(o); });
+  }
+}
+
+/* ── KPIs strip ───────────────────────────────────── */
+function _bdRenderKPIs(data){
+  var kDiv = document.getElementById('bd-kpis');
+  if(!kDiv||!data.length){ if(kDiv)kDiv.innerHTML=''; return; }
+
+  var total   = data.length;
+  var avgSocI = data.reduce(function(a,r){return a+(r.soc_i||0);},0)/data.filter(function(r){return r.soc_i!=null;}).length||0;
+  var avgSocF = data.reduce(function(a,r){return a+(r.soc_f||0);},0)/data.filter(function(r){return r.soc_f!=null;}).length||0;
+  var totE    = data.reduce(function(a,r){return a+(r.e_alm||0);},0);
+  var totAh   = data.reduce(function(a,r){return a+(r.ahorro_esp||0);},0);
+  var totPerd = data.reduce(function(a,r){return a+(r.e_perdida||0);},0);
+
+  function kpi(label,value,color){
+    return '<div style="background:var(--s2);border-radius:10px;padding:10px 14px;border:1px solid var(--b1)">'
+      +'<div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--t3);text-transform:uppercase;margin-bottom:4px">'+label+'</div>'
+      +'<div style="font-family:var(--mono);font-size:16px;font-weight:700;color:'+(color||'var(--text)')+'">'+value+'</div>'
+      +'</div>';
+  }
+  kDiv.innerHTML =
+    kpi('Registros', total.toLocaleString('es-MX'), '#7aa3ff')
+   +kpi('SOC Inicial Prom.', fmtPct(avgSocI), '#00c896')
+   +kpi('SOC Final Prom.', fmtPct(avgSocF), '#00d296')
+   +kpi('Energía Total kWh', totE.toLocaleString('es-MX',{maximumFractionDigits:0}), '#f59e0b')
+   +kpi('Ahorro Total kWh', totAh.toLocaleString('es-MX',{maximumFractionDigits:0}), '#a78bfa')
+   +kpi('Pérdida Total kWh', totPerd.toLocaleString('es-MX',{maximumFractionDigits:0}), '#f87171');
+}
+
+/* ── Render tabla paginada ────────────────────────── */
+window._bdRender = function(){
+  var tbody = document.getElementById('bd-tbody');
+  var pgInfo= document.getElementById('bd-page-info');
+  var cntEl = document.getElementById('bd-count');
+  if(!tbody) return;
+
+  var data  = _bdState.sorted;
+  var total = data.length;
+  var pages = Math.max(1, Math.ceil(total/BD_PAGE_SIZE));
+  _bdState.page = Math.max(0, Math.min(_bdState.page, pages-1));
+  var start = _bdState.page * BD_PAGE_SIZE;
+  var slice = data.slice(start, start+BD_PAGE_SIZE);
+
+  if(cntEl) cntEl.textContent = total.toLocaleString('es-MX')+' registros';
+  if(pgInfo) pgInfo.textContent = 'Pág. '+(_bdState.page+1)+' / '+pages;
+
+  _bdRenderKPIs(data);
+
+  if(!slice.length){
+    tbody.innerHTML='<tr><td colspan="15" style="padding:40px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:11px">Sin registros con los filtros aplicados</td></tr>';
+    return;
+  }
+
+  var CL = { ASUR:{bg:'rgba(74,120,245,.12)',color:'#7aa3ff'}, OMA:{bg:'rgba(0,210,150,.1)',color:'#00d296'}, Industria:{bg:'rgba(245,158,11,.1)',color:'#f59e0b'} };
+  var STRIPES = { ASUR:'rgba(74,120,245,.04)', OMA:'rgba(0,210,150,.03)', Industria:'rgba(245,158,11,.04)' };
+
+  tbody.innerHTML = slice.map(function(r,i){
+    var m   = masterFor(r.si)||{};
+    var cl  = m.cliente||'';
+    var clC = CL[cl]||{bg:'rgba(255,255,255,.05)',color:'var(--t2)'};
+    var bg  = (i%2===0)?(STRIPES[cl]||'rgba(255,255,255,.02)'):'transparent';
+
+    function td(v,color,bold){
+      return '<td style="padding:7px 10px;text-align:center;font-family:var(--mono);font-size:10px;'
+        +'font-weight:'+(bold?'700':'400')+';color:'+(color||'var(--t2)')+'">'+v+'</td>';
+    }
+    function tdL(v,color){
+      return '<td style="padding:7px 10px;font-family:var(--mono);font-size:10px;color:'+(color||'var(--t2)')+'">'+v+'</td>';
+    }
+
+    var socIColor  = r.soc_i!=null     ? (r.soc_i>=80?'#00c896':r.soc_i>=50?'#f59e0b':'#f87171')         : 'var(--t3)';
+    var socFColor  = r.soc_f!=null     ? (r.soc_f>=40?'#00d296':r.soc_f>=20?'#f59e0b':'#f87171')         : 'var(--t3)';
+    var deltaColor = r.soc_delta!=null ? (r.soc_delta>=40?'#00d296':r.soc_delta>=20?'#f59e0b':'#f87171') : 'var(--t3)';
+
+    var trStyle = 'border-bottom:1px solid rgba(255,255,255,.04);background:'+bg;
+    var trOver  = 'this.style.background=&quot;rgba(74,120,245,.09)&quot;';
+    var trOut   = 'this.style.background=&quot;'+bg+'&quot;';
+    var row = '<tr style="'+trStyle+'" onmouseover="'+trOver+'" onmouseout="'+trOut+'">';
+
+    row += tdL(r.f||'-','var(--t3)');
+    row += tdL('<b style="color:var(--text)">'+(r.si||'-')+'</b>');
+    row += tdL(cl?('<span style="padding:2px 7px;border-radius:5px;font-size:9px;font-weight:700;background:'+clC.bg+';color:'+clC.color+'">'+cl+'</span>'):'-');
+    row += tdL(m.ciudad||'-','var(--t2)');
+    row += tdL(r.marca||m.marca||'-','var(--t2)');
+    row += td(r.soc_i!=null?fmtPct(r.soc_i):'-',         socIColor,  true);
+    row += td(r.soc_f!=null?fmtPct(r.soc_f):'-',         socFColor,  true);
+    row += td(r.soc_delta!=null?fmtPct(r.soc_delta):'-', deltaColor, true);
+    row += td(fmt(r.h_carga,2), '#a78bfa');
+    row += td(fmt(r.p_carga,0), '#60a5fa');
+    row += td(fmt(r.p_desc,0),  '#00c896');
+    row += td(fmt(r.p_desc_r,1),'var(--t2)');
+    row += td(fmt(r.alm_rack,0),'var(--t2)');
+    row += td(fmt(r.e_alm,0),   '#f59e0b', true);
+    row += td(r.soc_desc!=null?fmtPct(r.soc_desc):'-', '#7aa3ff');
+    row += '</tr>';
+    return row;
+  }).join('');
+};
+
+/* ── Filtrar + ordenar ────────────────────────────── */
+window._bdApplyFilters = function(){
+  var all = (window.ENE&&window.ENE.all)||[];
+  var fc  = (document.getElementById('bd-f-cliente')||{}).value||'';
+  var fs  = (document.getElementById('bd-f-sitio')||{}).value||'';
+  var fm  = (document.getElementById('bd-f-marca')||{}).value||'';
+  var fdi = (document.getElementById('bd-f-fecha-ini')||{}).value||'';
+  var fdf = (document.getElementById('bd-f-fecha-fin')||{}).value||'';
+
+  var filtered = all.filter(function(r){
+    var m = masterFor(r.si)||{};
+    if(fc && m.cliente!==fc) return false;
+    if(fs && r.si!==fs) return false;
+    if(fm && (r.marca||'-')!==fm) return false;
+    if(fdi && r.f<fdi) return false;
+    if(fdf && r.f>fdf) return false;
+    return true;
+  });
+
+  var sk=_bdState.sortKey, sd=_bdState.sortDir;
+  var numKeys=['socIni','socFin','powCarga','hCarga','powDesc','tDesc','almRack','energiaBESS','socDesc'];
+
+  filtered.sort(function(a,b){
+    var map = {fecha:'f',sitio:'si',marca:'marca',socIni:'soc_i',socFin:'soc_f',
+               powCarga:'p_carga',hCarga:'h_carga',powDesc:'p_desc',socDelta:'soc_delta',
+               almRack:'alm_rack',energiaBESS:'e_alm',socDesc:'soc_desc'};
+    var key = map[sk]||sk;
+    var av=a[key], bv=b[key];
+    if(av==null) av=numKeys.indexOf(sk)>=0?-Infinity:'';
+    if(bv==null) bv=numKeys.indexOf(sk)>=0?-Infinity:'';
+    if(typeof av==='string') return sd*av.localeCompare(bv,'es',{sensitivity:'base'});
+    return sd*(av-bv);
+  });
+
+  _bdState.sorted = filtered;
+  _bdState.page = 0;
+  window._bdRender();
+};
+
+window._bdSort = function(key){
+  if(_bdState.sortKey===key){ _bdState.sortDir*=-1; } else { _bdState.sortKey=key; _bdState.sortDir=-1; }
+  window._bdApplyFilters();
+};
+
+window._bdPage = function(dir){
+  var pages=Math.max(1,Math.ceil(_bdState.sorted.length/BD_PAGE_SIZE));
+  _bdState.page=Math.max(0,Math.min(_bdState.page+dir,pages-1));
+  window._bdRender();
+};
+
+window._bdClearFilters = function(){
+  ['bd-f-cliente','bd-f-sitio','bd-f-marca','bd-f-fecha-ini','bd-f-fecha-fin'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  window._bdApplyFilters();
+};
+
+window._bdExportCSV = function(){
+  var data=_bdState.sorted;
+  if(!data.length){ alert('Sin datos para exportar'); return; }
+  var headers=['FECHA','SITIO','CLIENTE','CIUDAD','MARCA','PLATAFORMA','SOC INI %','SOC FIN %','POT CARGA kW','HRS CARGA','POT DESC kW','HRS DESC','ALM RACK kWh','ENERGÍA BESS kWh','SOC DESC %'];
+  var rows=data.map(function(r){
+    var m=masterFor(r.si)||{};
+    return [r.f,r.si,m.cliente||'',m.ciudad||'',r.marca||'',m.plat||'',
+      r.soc_i!=null?r.soc_i:'',r.soc_f!=null?r.soc_f:'',
+      r.p_carga!=null?r.p_carga:'',r.h_carga!=null?r.h_carga:'',r.p_desc!=null?r.p_desc:'',
+      r.t_desc!=null?r.t_desc:'',r.alm_rack!=null?r.alm_rack:'',r.e_alm!=null?r.e_alm:'',
+      r.soc_desc!=null?r.soc_desc:''].join(',');
+  });
+  var csv='\ufeff'+headers.join(',')+'\n'+rows.join('\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='BD_Energetica_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
+
+/* Import desde BD panel */
+window._bdLoadCSVFile = function(inp){
+  var file=inp&&inp.files&&inp.files[0]; if(!file) return;
+  if(typeof window.eneHandleCSV==='function') window.eneHandleCSV(inp);
+};
+
+/* Init: poblar filtros y renderizar */
+window._bdInit = function(){
+  var all=(window.ENE&&window.ENE.all)||[];
+  _bdPopulateFilters(all);
+  window._bdApplyFilters();
+};
+
+/* Exponer _bdPopulateFilters para que _eneFinishImport_local la llame directamente */
+window._bdPopulateFilters = _bdPopulateFilters;
+
+/* Auto-init: si los datos ya están cargados al navegar a la pestaña BD */
+document.addEventListener('DOMContentLoaded', function(){
+  /* Si ENE ya tenía datos al cargar la página (ej. Firebase), poblar filtros */
+  setTimeout(function(){
+    if(window.ENE && window.ENE.loaded && window.ENE.all && window.ENE.all.length){
+      _bdPopulateFilters(window.ENE.all);
+    }
+  }, 1200);
+});
+
+})();
+
+</script>
+<!-- ── end BD Energética JS ── -->
+
 </body>
 </html>
 <script>
