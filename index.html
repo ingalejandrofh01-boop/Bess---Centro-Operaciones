@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1781577900000">
+<meta name="app-version" content="1781579300000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -6855,7 +6855,7 @@ async function expDoZip(mode){
       <div class="op-sec"><span class="op-sec-ttl">Status del Sistema</span>
         <div class="op-status-grid" id="op-status-btns" style="grid-template-columns:repeat(3,1fr);gap:7px;">
           <button class="op-sbtn" data-val="OK"            onclick="opSetStatusFull('OK','')">■ OK</button>
-          <button class="op-sbtn" data-val="INCOMPLETO"    onclick="opSetStatusFull('INCOMPLETO','')">△ INCOMPLETO</button>
+          <button class="op-sbtn" data-val="INCOMPLETO"    onclick="opSetStatusFull('INCOMPLETO','')">✓! INCOMPLETO</button>
           <button class="op-sbtn" data-val="NO OPERATIVO"  onclick="opSetStatusFull('NO OPERATIVO','')">✗ NO OPERATIVO</button>
           <button class="op-sbtn" data-val="DESCONECTADO"  onclick="opSetStatusFull('DESCONECTADO','')">− DESCONECTADO</button>
           <button class="op-sbtn" data-val="PÉRDIDA TOTAL" onclick="opSetStatusFull('PÉRDIDA TOTAL','')">💀 PÉRDIDA TOTAL</button>
@@ -16000,7 +16000,7 @@ var RV_TYPES={
 var rvW=null, rvReps=[], RV_SK='rv:final:v1';
 
 function rvLoad(){
-  try{var d=localStorage.getItem(RV_SK);if(d)rvReps=JSON.parse(d);}catch(e){}
+  try{var d=localStorage.getItem(RV_SK);if(d){rvReps=_dedupVal(JSON.parse(d));try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}catch(e){}}}catch(e){}
   // Firebase is synced via onSnapshot listener; localStorage is the fallback cache
 }
 function rvPersist(){try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}catch(e){}}
@@ -17170,11 +17170,72 @@ function ucalRender(){
 }
 
 /* ════ CALENDAR DELETE HELPERS ════ */
+/* ════ DEDUPLICACIÓN — elimina reportes con mismo date+period ════
+   Regla: de un grupo con igual date+period, se queda el que tenga fbId
+   (fue confirmado por Firebase); si hay empate, el más reciente (savedAt mayor). */
+function _dedupOp(reps){
+  var map = {};
+  reps.forEach(function(r){
+    var key = (r.date||'').slice(0,10) + '|' + (r.period||'');
+    if(!map[key]){
+      map[key] = r;
+    } else {
+      var prev = map[key];
+      /* Preferir el que tiene fbId; si ambos o ninguno, el más reciente */
+      var prevScore = (prev.fbId?2:0) + (prev.savedAt||prev.createdAt||0)/1e13;
+      var currScore = (r.fbId?2:0)    + (r.savedAt||r.createdAt||0)/1e13;
+      if(currScore > prevScore) map[key] = r;
+    }
+  });
+  return Object.values(map).sort(function(a,b){
+    return (b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||'');
+  });
+}
+function _dedupVal(reps){
+  var map = {};
+  reps.forEach(function(r){
+    var key = (r.date||r.createdAt||'').slice(0,10) + '|' + (r.type||'');
+    if(!map[key]){
+      map[key] = r;
+    } else {
+      var prev = map[key];
+      var prevScore = (prev.fbId?2:0) + (prev.savedAt||0)/1e13;
+      var currScore = (r.fbId?2:0)    + (r.savedAt||0)/1e13;
+      if(currScore > prevScore) map[key] = r;
+    }
+  });
+  return Object.values(map).sort(function(a,b){
+    return (b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||'');
+  });
+}
+
+/* ════ DELETED IDs REGISTRY — evita que sync re-importe reportes borrados ════ */
+var _DEL_OP_SK  = 'bess:deleted_op:v1';
+var _DEL_VAL_SK = 'bess:deleted_val:v1';
+function _getDeletedOp(){  try{return new Set(JSON.parse(localStorage.getItem(_DEL_OP_SK)||'[]'));}catch(e){return new Set();} }
+function _getDeletedVal(){ try{return new Set(JSON.parse(localStorage.getItem(_DEL_VAL_SK)||'[]'));}catch(e){return new Set();} }
+function _markDeletedOp(id,fbId){
+  var s=_getDeletedOp();
+  if(id)   s.add(String(id));
+  if(fbId) s.add(String(fbId));
+  try{localStorage.setItem(_DEL_OP_SK,JSON.stringify([...s]));}catch(e){}
+}
+function _markDeletedVal(id,fbId){
+  var s=_getDeletedVal();
+  if(id)   s.add(String(id));
+  if(fbId) s.add(String(fbId));
+  try{localStorage.setItem(_DEL_VAL_SK,JSON.stringify([...s]));}catch(e){}
+}
+function _filterDeleted(reps, deletedSet){
+  return reps.filter(function(r){ return !deletedSet.has(String(r.id||'')) && !deletedSet.has(String(r.fbId||'')); });
+}
+
 window.rvDelVal = function(id, ev){
   if(ev){ev.stopPropagation();ev.preventDefault();}
   if(!confirm('¿Eliminar este reporte de validación? No se puede deshacer.'))return;
   // Remove from memory
   var r=rvReps.find(function(x){return x.id===String(id);});
+  _markDeletedVal(id, r&&r.fbId);
   rvReps=rvReps.filter(function(x){return x.id!==String(id);});
   rvPersist();
   // Remove from Firebase
@@ -17189,6 +17250,7 @@ window.rvDelOp = function(id, ev){
   if(ev){ev.stopPropagation();ev.preventDefault();}
   if(!confirm('¿Eliminar este Reporte Operativo? No se puede deshacer.'))return;
   var r=opReps.find(function(x){return x.id===String(id);});
+  _markDeletedOp(id, r&&r.fbId);
   opReps=opReps.filter(function(x){return x.id!==String(id);});
   opPersist();
   if(r&&window._fb&&window._fb.deleteReporteOp){
@@ -17202,6 +17264,7 @@ window.rvDelMon = function(id, ev){
   if(ev){ev.stopPropagation();ev.preventDefault();}
   if(!confirm('¿Eliminar este reporte Monitor BESS? No se puede deshacer.'))return;
   var r=opReps.find(function(x){return x.id===String(id);});
+  _markDeletedOp(id, r&&r.fbId);
   opReps=opReps.filter(function(x){return x.id!==String(id);});
   opPersist();
   if(r&&window._fb&&window._fb.deleteReporteOp){
@@ -17227,7 +17290,7 @@ window._rebuildOpSites = function(){
   names.forEach(function(n){ window.OP_SITES.push(n); });
 };
 var opW=null, opReps=[], OP_SK='op:bess:v1';
-function opLoad(){try{var d=localStorage.getItem(OP_SK);if(d)opReps=JSON.parse(d);}catch(e){}}
+function opLoad(){try{var d=localStorage.getItem(OP_SK);if(d){opReps=_dedupOp(JSON.parse(d));try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}}}catch(e){}}
 function opPersist(){try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}}
 
 /* ══════════════════════════════════════════════════════════
@@ -17240,6 +17303,9 @@ async function rvStartFbSync(){
   try {
     var docs = await window._fb.getReportesVal();
     if(!docs || !docs.length) return;
+    /* Filtrar IDs borrados localmente y deduplicar por date+type */
+    var delSetV = _getDeletedVal();
+    docs = _dedupVal(_filterDeleted(docs, delSetV));
     /* Merge: solo reemplazar si Firestore tiene más que local */
     if(docs.length >= rvReps.length) {
       rvReps = docs;
@@ -17261,6 +17327,9 @@ async function opStartFbSync(){
   try {
     var docs = await window._fb.getReportesOp();
     if(!docs || !docs.length) return;
+    /* Filtrar IDs borrados localmente y deduplicar por date+period */
+    var delSet = _getDeletedOp();
+    docs = _dedupOp(_filterDeleted(docs, delSet));
     if(docs.length >= opReps.length) {
       opReps = docs;
       try{localStorage.setItem(OP_SK,JSON.stringify(opReps));}catch(e){}
@@ -17285,16 +17354,17 @@ window._manualRecoverFromFirestore = async function() {
     if(window._fb && window._fb.getReportesOp) {
       var opDocs = await window._fb.getReportesOp();
       if(opDocs && opDocs.length > 0) {
-        /* Merge: añadir los que no están en local por id/fbId */
+        opDocs = _dedupOp(_filterDeleted(opDocs, _getDeletedOp()));
         var existIds = new Set(opReps.map(function(r){ return r.id||r.fbId||''; }));
         var newOnes  = opDocs.filter(function(r){ return !existIds.has(r.id||r.fbId||''); });
         if(newOnes.length) { opReps = opDocs; opPersist(); recovered += newOnes.length; }
-        else { opReps = opDocs; opPersist(); } /* sync anyway */
+        else { opReps = opDocs; opPersist(); }
       }
     }
     if(window._fb && window._fb.getReportesVal) {
       var rvDocs = await window._fb.getReportesVal();
       if(rvDocs && rvDocs.length > 0) {
+        rvDocs = _dedupVal(_filterDeleted(rvDocs, _getDeletedVal()));
         var existIdsV = new Set(rvReps.map(function(r){ return r.id||r.fbId||''; }));
         var newOnesV  = rvDocs.filter(function(r){ return !existIdsV.has(r.id||r.fbId||''); });
         if(newOnesV.length) { rvReps = rvDocs; rvPersist(); recovered += newOnesV.length; }
@@ -17331,6 +17401,7 @@ async function _bootRecoverFromFirestore() {
     if(opReps.length === 0 && window._fb.getReportesOp) {
       var opDocs = await window._fb.getReportesOp();
       if(opDocs && opDocs.length > 0) {
+        opDocs = _dedupOp(_filterDeleted(opDocs, _getDeletedOp()));
         opReps = opDocs;
         opPersist();
         recovered += opDocs.length;
@@ -17339,6 +17410,7 @@ async function _bootRecoverFromFirestore() {
     if(rvReps.length === 0 && window._fb.getReportesVal) {
       var rvDocs = await window._fb.getReportesVal();
       if(rvDocs && rvDocs.length > 0) {
+        rvDocs = _dedupVal(_filterDeleted(rvDocs, _getDeletedVal()));
         rvReps = rvDocs;
         try { localStorage.setItem(RV_SK, JSON.stringify(rvReps)); } catch(e) {}
         recovered += rvDocs.length;
@@ -17401,7 +17473,7 @@ function opSColour(sr){
 function opSIco(sr){
   if(!sr||sr.skip||!sr.status)return '·';
   if(sr.status==='OK')return '✓';
-  if(sr.status==='INCOMPLETO')return '△';
+  if(sr.status==='INCOMPLETO')return '✓!';
   if(sr.status==='NO OPERATIVO')return '✕';
   if(sr.status==='PÉRDIDA TOTAL')return '💀';
   if(sr.status==='DESCONECTADO')return '—';
@@ -17724,15 +17796,15 @@ function opBuildSum(){
   if(kpiRow) kpiRow.innerHTML=
     '<div class="op-kpi-total">'+OP_SITES.length+' SITIOS</div>'+
     '<div class="op-kpi-block" style="background:rgba(34,197,94,.1);color:#15803d">✓ '+kpis.ok+' Operativos</div>'+
-    '<div class="op-kpi-block" style="background:rgba(245,158,11,.1);color:#b45309">△ '+kpis.par+' Incidencias</div>'+
+    '<div class="op-kpi-block" style="background:rgba(245,158,11,.1);color:#b45309">✓! '+kpis.par+' Incidencias</div>'+
     '<div class="op-kpi-block" style="background:rgba(239,68,68,.08);color:#b91c1c">✕ '+kpis.crit+' Críticos</div>';
   /* Tabla */
   var tbody=document.getElementById('op-sum-tbody');
   if(tbody) tbody.innerHTML=opW.srs.map(function(sr,i){
     var site=OP_SITES[i];
-    var opTxt=sr.oper===1?'<span class="op-chk-yes">✓</span>':sr.oper===0?'<span class="op-chk-no">✗</span>':'—';
+    var opTxt=sr.status==='INCOMPLETO'?'<span style="color:#f59e0b;font-size:15px;font-weight:900">✓!</span>':sr.oper===1?'<span class="op-chk-yes">✓</span>':sr.oper===0?'<span class="op-chk-no">✗</span>':'—';
     var stCls={'OK':'op-ok','INCOMPLETO':'op-inc','NO OPERATIVO':'op-nop','DESCONECTADO':'op-dis','MANTENIMIENTO':'op-mnt','PÉRDIDA TOTAL':'op-per'}[sr.status]||'';
-    var stTag={'OK':opBdg('✓ OK','op-tag-ok'),'INCOMPLETO':opBdg('△ INCOMPLETO','op-tag-inc'),'NO OPERATIVO':opBdg('✕ NO OPERATIVO','op-tag-nop'),'DESCONECTADO':opBdg('— DESCONECTADO','op-tag-dis'),'MANTENIMIENTO':opBdg('⚙ MANTENIMIENTO','op-tag-mnt'),'PÉRDIDA TOTAL':opBdg('💀 PÉRDIDA TOTAL','op-tag-per')}[sr.status]||'—';
+    var stTag={'OK':opBdg('✓ OK','op-tag-ok'),'INCOMPLETO':opBdg('✓! INCOMPLETO','op-tag-inc'),'NO OPERATIVO':opBdg('✕ NO OPERATIVO','op-tag-nop'),'DESCONECTADO':opBdg('— DESCONECTADO','op-tag-dis'),'MANTENIMIENTO':opBdg('⚙ MANTENIMIENTO','op-tag-mnt'),'PÉRDIDA TOTAL':opBdg('💀 PÉRDIDA TOTAL','op-tag-per')}[sr.status]||'—';
     var comTxt=sr.com===1?'<span class="op-chk-yes">☑</span>':sr.com===0?'<span class="op-chk-no">☒</span>':'—';
     var sevTxt=sr.sev?'<span class="op-sev-'+sr.sev.toLowerCase()+'">'+sr.sev+'</span>':'—';
     return'<tr class="'+stCls+(sr.skip?' op-dis':'')+'">'+
@@ -23107,7 +23179,7 @@ function _renderPimResult(data){
   title.innerHTML='✅ '+srs.length+' sitios · '+ok+' OK · '+crit+' críticos · '+inc+' incidencias'+(hf?' · 🔥 '+hf+' handoffs':'')+fmtBadge;
   var SC={'OK':'#00c896','NO OPERATIVO':'#ef4444','DESCONECTADO':'#94a3b8','PÉRDIDA TOTAL':'#7f1d1d','INCOMPLETO':'#f59e0b','MANTENIMIENTO':'cornflowerblue'};
   var showCiudad=fmt==='EXCEL';
-  body.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:rgba(255,255,255,.3);margin-bottom:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px"><span>'+(data.period||'Hora Punta')+' · '+(data.date||'')+(data.op?' · '+data.op:'')+'</span><span>'+ok+' ✓ · '+crit+' ✗ · '+inc+' △</span></div>'
+  body.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:rgba(255,255,255,.3);margin-bottom:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px"><span>'+(data.period||'Hora Punta')+' · '+(data.date||'')+(data.op?' · '+data.op:'')+'</span><span>'+ok+' ✓ · '+crit+' ✗ · '+inc+' ✓!</span></div>'
     +'<div style="display:grid;grid-template-columns:20px 1fr 90px 55px;gap:3px 6px;font-family:\'DM Mono\',monospace;font-size:8px;color:rgba(255,255,255,.2);padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:4px"><span>#</span><span>SITIO</span><span>STATUS</span><span>SOC</span></div>'
     +srs.map(function(sr){
       var col=SC[sr.status]||'#94a3b8';
@@ -23233,10 +23305,24 @@ window._pimSaveReport=function(){
 
   } else {
     /* ── GUARDAR COMO REPORTE OPERATIVO ── */
+    /* Normalizar status al vocabulario interno de la app */
+    function _normStatus(s, oper){
+      if(!s) return oper===1 ? 'OK' : 'NO OPERATIVO';
+      var u=s.trim().toUpperCase();
+      if(u==='OK') return 'OK';
+      if(u==='PARCIAL'||u==='INCOMPLETO'||u==='PARTIAL') return 'INCOMPLETO';
+      if(u==='FUERA DE OPERACIÓN'||u==='FUERA DE OPERACION'||u==='FUERA_OP'||u==='FUERA OP'||u==='NO OPERATIVO'||u==='NO OP'||u==='NOOP') return 'NO OPERATIVO';
+      if(u==='SIN COMUNICACIÓN'||u==='SIN COMUNICACION'||u==='DESCONECTADO'||u==='DISCONNECTED'||u==='SIN COM'||u==='S/COM') return 'DESCONECTADO';
+      if(u==='PÉRDIDA TOTAL'||u==='PERDIDA TOTAL'||u==='PÉRDIDA'||u==='TOTAL LOSS') return 'PÉRDIDA TOTAL';
+      if(u==='MANTENIMIENTO'||u==='MAINT'||u==='MTT') return 'MANTENIMIENTO';
+      /* fallback */
+      return oper===1 ? 'OK' : 'NO OPERATIVO';
+    }
     var srs=d.srs.map(function(sr){
+      var normSt = _normStatus(sr.status, sr.oper);
       return{
-        oper:    sr.oper!=null ? sr.oper : (sr.status==='OK'?1:0),
-        status:  sr.status||'',
+        oper:    sr.oper!=null ? sr.oper : (normSt==='OK'?1:0),
+        status:  normSt,
         cond:    sr.cond||'',
         soc:     sr.socFinal!=null ? sr.socFinal : (sr.soc!=null ? sr.soc : ''),   /* SOC FINAL → soc */
         socIni:  sr.socInicial!=null ? sr.socInicial : (sr.socIni!=null ? sr.socIni : ''), /* SOC INICIAL → socIni */
