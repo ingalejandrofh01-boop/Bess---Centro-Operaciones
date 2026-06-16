@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1781317355771">
+<meta name="app-version" content="1781577900000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro de Operaciones BESS — Skysense Energy">
@@ -8861,41 +8861,54 @@ async function expDoZip(mode){
   <!-- ══ PANEL: REGISTROS ══ -->
   <div class="ene-panel" id="ene-panel-registros">
     <div class="ene-card">
-      <div class="ene-card-hdr" style="flex-wrap:wrap;gap:10px;">
-        <div>
-          <div class="ene-card-title">Registros Energéticos</div>
-          <div class="ene-card-sub" id="ene-rec-count">Cargando...</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <!-- Period pills -->
-          <div id="ene-period-btns" style="display:flex;gap:3px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:3px;">
-            <button class="ene-prd-btn active" data-prd="" onclick="eneSetPeriod(this,'')" style="padding:5px 10px;border-radius:7px;border:none;background:var(--sky);color:#fff;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Todo</button>
-            <button class="ene-prd-btn" data-prd="year" onclick="eneSetPeriod(this,'year')" style="padding:5px 10px;border-radius:7px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Año</button>
-            <button class="ene-prd-btn" data-prd="month" onclick="eneSetPeriod(this,'month')" style="padding:5px 10px;border-radius:7px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Mes</button>
-            <button class="ene-prd-btn" data-prd="week" onclick="eneSetPeriod(this,'week')" style="padding:5px 10px;border-radius:7px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Semana</button>
-            <button class="ene-prd-btn" data-prd="day" onclick="eneSetPeriod(this,'day')" style="padding:5px 10px;border-radius:7px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Día</button>
+      <!-- Compact two-row toolbar -->
+      <div style="margin-bottom:16px;">
+        <!-- Row 1: Title + period pills -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+          <div>
+            <div class="ene-card-title">Registros Energéticos</div>
+            <div class="ene-card-sub" id="ene-rec-count">Cargando...</div>
           </div>
-          <select id="ene-f-periodo" class="ene-sel" style="display:none;min-width:140px;" onchange="eneApplyFilters()"></select>
-          <select id="ene-f-sitio" class="ene-sel" style="min-width:140px;" onchange="eneApplyFilters()">
-            <option value="">Todos los sitios</option>
-          </select>
-          <select id="ene-f-marca" class="ene-sel" onchange="eneApplyFilters()">
-            <option value="">Todas las marcas</option>
-            <option value="Pylontech">Pylontech</option>
-            <option value="CATL">CATL</option>
-            <option value="Narada">Narada</option>
-            <option value="Hoypower">Hoypower/Ultra</option>
-            <option value="BYD">BYD</option>
-            <option value="Huawei">Huawei</option>
-          </select>
-          <input id="ene-f-buscar" type="text" placeholder="🔍 Buscar sitio..."
-            oninput="eneApplyFilters()"
-            class="ene-sel" style="width:140px;"
-            onfocus="this.style.borderColor='#00d296'"
-            onblur="this.style.borderColor='var(--b2)'">
+          <div id="ene-period-btns" style="display:flex;gap:2px;background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:3px;flex-shrink:0;">
+            <button class="ene-prd-btn active" data-prd="" onclick="eneSetPeriod(this,'')" style="padding:5px 11px;border-radius:6px;border:none;background:var(--sky);color:#fff;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Todo</button>
+            <button class="ene-prd-btn" data-prd="year" onclick="eneSetPeriod(this,'year')" style="padding:5px 11px;border-radius:6px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Año</button>
+            <button class="ene-prd-btn" data-prd="month" onclick="eneSetPeriod(this,'month')" style="padding:5px 11px;border-radius:6px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Mes</button>
+            <button class="ene-prd-btn" data-prd="week" onclick="eneSetPeriod(this,'week')" style="padding:5px 11px;border-radius:6px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Semana</button>
+            <button class="ene-prd-btn" data-prd="day" onclick="eneSetPeriod(this,'day')" style="padding:5px 11px;border-radius:6px;border:none;background:transparent;color:var(--t2);font-family:'DM Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;">Día</button>
+          </div>
+        </div>
+        <!-- Row 2: Inline filters -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--s2);border-radius:10px;border:1px solid var(--b1);">
+          <select id="ene-f-periodo" class="ene-sel" style="display:none;min-width:120px;" onchange="eneApplyFilters()"></select>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);">Sitio</span>
+            <select id="ene-f-sitio" class="ene-sel" style="min-width:130px;" onchange="eneApplyFilters()">
+              <option value="">Todos los sitios</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);">Marca</span>
+            <select id="ene-f-marca" class="ene-sel" style="min-width:120px;" onchange="eneApplyFilters()">
+              <option value="">Todas las marcas</option>
+              <option value="Pylontech">Pylontech</option>
+              <option value="CATL">CATL</option>
+              <option value="Narada">Narada</option>
+              <option value="Hoypower">Hoypower/Ultra</option>
+              <option value="BYD">BYD</option>
+              <option value="Huawei">Huawei</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);">Buscar</span>
+            <input id="ene-f-buscar" type="text" placeholder="Buscar sitio..."
+              oninput="eneApplyFilters()"
+              class="ene-sel" style="width:130px;"
+              onfocus="this.style.borderColor='#00d296'"
+              onblur="this.style.borderColor='var(--b2)'">
+          </div>
           <button onclick="eneClearFilters()"
-            style="padding:6px 12px;border-radius:7px;border:1px solid var(--b2);background:transparent;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;color:var(--t3);"
-            onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'"
+            style="padding:6px 12px;border-radius:7px;border:1px solid var(--b2);background:transparent;font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;color:var(--t3);letter-spacing:.5px;text-transform:uppercase;align-self:flex-end;margin-bottom:1px;transition:all .15s;"
+            onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--text)'"
             onmouseout="this.style.color='var(--t3)';this.style.borderColor='var(--b2)'">
             ✕ Limpiar
           </button>
@@ -8949,28 +8962,89 @@ async function expDoZip(mode){
 
 
 <!-- ══ PANEL: BD ENERGÉTICA ══ -->
+<style>
+  .bd-toolbar { position:sticky;top:0;z-index:50;background:var(--s1);border-bottom:1px solid var(--b1);padding:0; }
+  .bd-toolbar-top { display:flex;align-items:center;justify-content:space-between;padding:10px 20px 0;gap:12px; }
+  .bd-toolbar-title { display:flex;align-items:center;gap:10px; }
+  .bd-toolbar-title-icon { width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,rgba(74,120,245,.2),rgba(74,120,245,.08));border:1px solid rgba(74,120,245,.25);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0; }
+  .bd-toolbar-title-text { font-family:'Syne',sans-serif;font-size:13px;font-weight:900;color:var(--text);white-space:nowrap;letter-spacing:-.2px; }
+  .bd-toolbar-title-sub { font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.5px;text-transform:uppercase;margin-top:1px; }
+  .bd-toolbar-actions { display:flex;align-items:center;gap:6px;flex-shrink:0; }
+  .bd-btn-import { display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid rgba(74,120,245,.35);background:rgba(74,120,245,.1);color:#7aa3ff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s; }
+  .bd-btn-import:hover { background:rgba(74,120,245,.18);border-color:rgba(74,120,245,.55); }
+  .bd-btn-csv { display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid rgba(0,210,150,.3);background:rgba(0,210,150,.08);color:#00d296;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s; }
+  .bd-btn-csv:hover { background:rgba(0,210,150,.15);border-color:rgba(0,210,150,.5); }
+  .bd-count-pill { display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;background:var(--s2);border:1px solid var(--b1); }
+  .bd-count-dot { width:6px;height:6px;border-radius:50%;background:#00d296;flex-shrink:0; }
+  .bd-count-label { font-family:var(--mono);font-size:9px;color:var(--t3);white-space:nowrap; }
+  .bd-toolbar-filters { display:flex;align-items:center;gap:8px;padding:10px 20px;flex-wrap:wrap; }
+  .bd-filter-group { display:flex;flex-direction:column;gap:3px;min-width:0; }
+  .bd-filter-label { font-family:var(--mono);font-size:8px;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);padding-left:2px; }
+  .bd-filter-select { padding:6px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer;min-width:130px;outline:none;transition:border-color .15s; }
+  .bd-filter-select:hover,.bd-filter-select:focus { border-color:rgba(74,120,245,.5); }
+  .bd-filter-input { padding:6px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;width:118px;outline:none;transition:border-color .15s; }
+  .bd-filter-input:hover,.bd-filter-input:focus { border-color:rgba(74,120,245,.5); }
+  .bd-divider-v { width:1px;height:32px;background:var(--b1);flex-shrink:0;margin:0 4px;align-self:flex-end;margin-bottom:3px; }
+  .bd-btn-clear { display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--mono);font-size:9px;cursor:pointer;align-self:flex-end;margin-bottom:3px;transition:all .15s;letter-spacing:.5px;text-transform:uppercase; }
+  .bd-btn-clear:hover { background:var(--s2);color:var(--text); }
+</style>
 <div class="ene-panel-bd" id="ene-panel-bd" style="display:none;padding:0 0 48px;margin:-24px -28px;width:calc(100% + 56px);box-sizing:border-box">
-  <div style="position:sticky;top:0;z-index:50;background:var(--s1);border-bottom:1px solid var(--b1);padding:10px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:900;color:var(--text);flex-shrink:0;white-space:nowrap">🗄 BD Energética</div>
-    <select id="bd-f-cliente" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer">
-      <option value="">Todos los clientes</option>
-      <option value="ASUR">ASUR</option><option value="OMA">OMA</option><option value="Industria">Industria</option>
-    </select>
-    <select id="bd-f-sitio" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer;max-width:150px">
-      <option value="">Todos los sitios</option>
-    </select>
-    <select id="bd-f-marca" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;cursor:pointer">
-      <option value="">Todas las marcas</option>
-    </select>
-    <input id="bd-f-fecha-ini" type="date" title="Desde" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px">
-    <input id="bd-f-fecha-fin" type="date" title="Hasta" onchange="window._bdApplyFilters()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px">
-    <button onclick="window._bdClearFilters()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer">✕</button>
-    <div style="flex:1"></div>
-    <label style="display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
-      📥 Importar BD<input type="file" accept=".csv" style="display:none" onchange="window._bdLoadCSVFile(this)">
-    </label>
-    <button onclick="window._bdExportCSV()" style="padding:5px 12px;border-radius:6px;border:1px solid rgba(0,210,150,.3);background:rgba(0,210,150,.08);color:#00d296;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0">↓ CSV</button>
-    <div id="bd-count" style="font-family:var(--mono);font-size:10px;color:var(--t3);white-space:nowrap;flex-shrink:0">— registros</div>
+  <div class="bd-toolbar">
+    <!-- Row 1: Title + Actions -->
+    <div class="bd-toolbar-top">
+      <div class="bd-toolbar-title">
+        <div class="bd-toolbar-title-icon">🗄</div>
+        <div>
+          <div class="bd-toolbar-title-text">BD Energética</div>
+          <div class="bd-toolbar-title-sub">Base de Datos Operativa BESS</div>
+        </div>
+      </div>
+      <div class="bd-toolbar-actions">
+        <div class="bd-count-pill">
+          <span class="bd-count-dot"></span>
+          <span id="bd-count" class="bd-count-label">0 registros</span>
+        </div>
+        <label class="bd-btn-import">
+          <span>↑</span> Importar BD
+          <input type="file" accept=".csv" style="display:none" onchange="window._bdLoadCSVFile(this)">
+        </label>
+        <button onclick="window._bdExportCSV()" class="bd-btn-csv">↓ Exportar CSV</button>
+      </div>
+    </div>
+    <!-- Row 2: Filters -->
+    <div style="padding:8px 20px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--s2);border-radius:10px;border:1px solid var(--b1);">
+        <div class="bd-filter-group">
+          <span class="bd-filter-label">Cliente</span>
+          <select id="bd-f-cliente" onchange="window._bdApplyFilters()" class="bd-filter-select">
+            <option value="">Todos los clientes</option>
+            <option value="ASUR">ASUR</option><option value="OMA">OMA</option><option value="Industria">Industria</option>
+          </select>
+        </div>
+        <div class="bd-filter-group">
+          <span class="bd-filter-label">Sitio</span>
+          <select id="bd-f-sitio" onchange="window._bdApplyFilters()" class="bd-filter-select" style="max-width:160px">
+            <option value="">Todos los sitios</option>
+          </select>
+        </div>
+        <div class="bd-filter-group">
+          <span class="bd-filter-label">Marca</span>
+          <select id="bd-f-marca" onchange="window._bdApplyFilters()" class="bd-filter-select">
+            <option value="">Todas las marcas</option>
+          </select>
+        </div>
+        <div class="bd-divider-v"></div>
+        <div class="bd-filter-group">
+          <span class="bd-filter-label">Desde</span>
+          <input id="bd-f-fecha-ini" type="date" title="Desde" onchange="window._bdApplyFilters()" class="bd-filter-input">
+        </div>
+        <div class="bd-filter-group">
+          <span class="bd-filter-label">Hasta</span>
+          <input id="bd-f-fecha-fin" type="date" title="Hasta" onchange="window._bdApplyFilters()" class="bd-filter-input">
+        </div>
+        <button onclick="window._bdClearFilters()" class="bd-btn-clear" style="align-self:flex-end;margin-bottom:1px;">✕ Limpiar</button>
+      </div>
+    </div>
   </div>
   <div id="bd-kpis" style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:14px 20px"></div>
   <div style="padding:0 20px;overflow-x:auto">
@@ -17057,7 +17131,7 @@ function ucalRender(){
                 '<div class="card-meta">'+r.op+' \u00b7 '+opFt(r.createdAt)+'</div>'+
                 '<div class="card-tags">'+
                   rvBdg(kpis.ok+'\u2713','ok')+
-                  (kpis.par>0?rvBdg(kpis.par+'p','alm'):'')+
+                  (kpis.par>0?'<span class="rv-bdg" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">\u26a0'+kpis.par+'!</span>':'')+
                   (kpis.crit>0?rvBdg(kpis.crit+'!','err'):'')+
                 '</div>'+
                 '<button onclick="event.stopPropagation();window.opShowDet(\''+r.id+'\')" title="Ver reporte" style="position:absolute;top:4px;right:28px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(26,63,204,.3);background:rgba(26,63,204,.08);color:#1a3fcc;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s" class="card-view-btn">\uD83D\uDC41</button>'+
@@ -18131,9 +18205,24 @@ function opSave() {
     kpis: kpis,
     createdAt: new Date().toISOString()
   };
-  /* Guardar en localStorage */
-  opReps.unshift(rep);
-  opPersist();
+  /* Guardar en localStorage — evitar duplicado por periodo+fecha */
+  var repDateStr = (rep.date||'').slice(0,10);
+  var dupOp = opReps.find(function(r){
+    var rds=(r.date||'').slice(0,10);
+    return rds===repDateStr && r.period===rep.period && !r._importedFromPng;
+  });
+  if(dupOp){
+    /* Reemplazar el duplicado en lugar de agregar uno nuevo */
+    var dupIdx=opReps.findIndex(function(r){return r.id===dupOp.id;});
+    if(dupIdx>=0){ opReps[dupIdx]=rep; } else { opReps.unshift(rep); }
+    opPersist();
+    /* Restaurar botones */
+    ['op-save-btn','op-save-btn2'].forEach(function(id){var b=document.getElementById(id);if(b){b.disabled=false;b.textContent=id==='op-save-btn2'?'\u2713 Guardar Reporte Operativo':'\u2713 Guardar Reporte';b.style.opacity='';}});
+    showToast&&showToast('\u267b\ufe0f Reporte actualizado (reemplaz\u00f3 duplicado)');
+  } else {
+    opReps.unshift(rep);
+    opPersist();
+  }
   /* Auto-enriquecer el histórico con datos de la tabla maestra */
   setTimeout(function(){
     var histData = (window._histH && window._histH.all) ? window._histH.all : [];
@@ -23119,8 +23208,8 @@ window._pimSaveReport=function(){
 
     /* Evitar duplicado */
     if(window.rvReps) {
-      var dup=window.rvReps.find(function(r){return r.date&&r.date.slice(0,10)===dateStr&&r.type===rvType&&r._importedFromPng;});
-      if(dup){showToast&&showToast('⚠️ Ya existe un reporte de validación importado para esta fecha y turno');return;}
+      var dup=window.rvReps.find(function(r){return r.date&&r.date.slice(0,10)===dateStr&&r.type===rvType;});
+      if(dup){showToast&&showToast('\u26a0\ufe0f Ya existe un reporte de validaci\u00f3n para esta fecha y turno — no se guard\u00f3 el duplicado');return;}
       window.rvReps.unshift(rep);
       if(typeof window.rvPersist==='function') window.rvPersist();
     }
@@ -23164,8 +23253,8 @@ window._pimSaveReport=function(){
 
     var rep2={id:'png_'+Date.now().toString(),op:d.op||localStorage.getItem('bess_uname')||'Operador',period:d.period||'Hora Punta',date:dateStr+'T12:00:00.000Z',createdAt:dateStr+'T12:00:00.000Z',srs:srs,kpis:d.kpis||{},_importedFromPng:true,_fmt:d._fmt||d.formato};
     if(window.opReps){
-      var dup2=window.opReps.find(function(r){return r.date&&r.date.slice(0,10)===dateStr&&r.period===rep2.period&&r._importedFromPng;});
-      if(dup2){showToast&&showToast('⚠️ Ya existe un reporte operativo importado para esta fecha y turno');return;}
+      var dup2=window.opReps.find(function(r){return r.date&&r.date.slice(0,10)===dateStr&&r.period===rep2.period;});
+      if(dup2){showToast&&showToast('\u26a0\ufe0f Ya existe un reporte operativo para esta fecha y turno — no se guard\u00f3 el duplicado');return;}
       window.opReps.unshift(rep2);
       if(typeof window.opPersist==='function') window.opPersist();
     }
