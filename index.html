@@ -9239,6 +9239,76 @@ async function expDoZip(mode){
 
 </div><!-- /page-energia -->
 
+<!-- ══════ PAGE: CEREBRO BESS (Manual Maestro Inteligente) ══════ -->
+<div class="page" id="page-cerebro">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Skysense Energy · Inteligencia Operativa</div>
+      <h1 style="font-family:var(--disp);font-size:26px;font-weight:900;color:var(--text);letter-spacing:-.8px;margin:0 0 4px">🧠 Cerebro de Operación BESS</h1>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">Manual maestro vivo · procedimientos por sitio · temporada verano/invierno</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="tb-btn" onclick="cerebroDownloadAll()" style="background:var(--s2);border:1px solid var(--b1)">⬇ Descargar manual completo</button>
+      <button class="tb-btn filled" onclick="cerebroOpenNewSite()" style="background:linear-gradient(135deg,#1a3fcc,#0f2ea3)">+ Agregar sitio al manual</button>
+    </div>
+  </div>
+
+  <!-- ═══ CEREBRO 3D VISUAL ═══ -->
+  <div style="position:relative;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at 50% 20%,#123a9e 0%,#0a1f5e 45%,#06112e 100%);margin-bottom:20px;border:1px solid rgba(74,120,245,.3);box-shadow:0 20px 60px rgba(10,31,94,.35)">
+    <canvas id="cerebro-canvas" style="display:block;width:100%;height:300px"></canvas>
+    <div style="position:absolute;top:14px;left:18px;display:flex;align-items:center;gap:8px">
+      <span style="width:8px;height:8px;border-radius:50%;background:#4a78f5;box-shadow:0 0 10px #4a78f5;animation:cib-pulse 2s infinite"></span>
+      <span style="font-family:var(--mono);font-size:9px;color:#a9c1ff;letter-spacing:2px;text-transform:uppercase">Ingeniero de monitoreo remoto · transmitiendo en vivo</span>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;padding:14px;background:linear-gradient(0deg,rgba(6,17,46,.85),transparent)">
+      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
+        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Sitios cargados</div>
+        <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:#fff" id="cerebro-stat-sites">0</div>
+      </div>
+      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
+        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Parámetros almacenados</div>
+        <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:#fff" id="cerebro-stat-params">0</div>
+      </div>
+      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
+        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Sitios manuales / auto</div>
+        <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:#fff" id="cerebro-stat-manual">0 / 0</div>
+      </div>
+      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
+        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Última actualización</div>
+        <div style="font-family:var(--disp);font-size:14px;font-weight:900;color:#fff" id="cerebro-stat-updated">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PRÓXIMO EN ENTRAR (inteligencia de horarios) ═══ -->
+  <div id="cerebro-next-banner" style="display:none;margin-bottom:16px;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,rgba(234,108,0,.1),rgba(234,108,0,.03));border:1px solid rgba(234,108,0,.3);align-items:center;gap:12px"></div>
+
+  <!-- ═══ FILTRO / BUSCADOR ═══ -->
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="cerebro-search" oninput="cerebroRenderSites()" placeholder="🔎 Buscar sitio en el manual…" style="flex:1;min-width:220px;padding:9px 12px;background:var(--s1);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
+    <span style="font-family:var(--mono);font-size:9px;padding:5px 10px;border-radius:14px;background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.25)">● Manual (prioridad alta)</span>
+    <span style="font-family:var(--mono);font-size:9px;padding:5px 10px;border-radius:14px;background:rgba(5,150,105,.1);color:var(--green);border:1px solid rgba(5,150,105,.25)">● Automático</span>
+  </div>
+
+  <!-- ═══ GRID DE SITIOS DEL MANUAL ═══ -->
+  <div id="cerebro-sites-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:26px"></div>
+
+  <!-- ═══ CHECKLIST DIARIO DE OPERACIÓN ═══ -->
+  <div class="dash-card" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="dash-card-title" style="margin:0">✅ Checklist diario de operación</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="date" id="ckl-date" onchange="cklLoad()" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:10px;outline:none">
+        <span style="font-family:var(--mono);font-size:9px;color:var(--t3)" id="ckl-operator-lbl">Operador: —</span>
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:12px">
+      Marca el estatus de cada sitio conforme entra a descarga. Cualquier anomalía (rack fuera, entrada tardía, potencia disminuida, sin comunicación) se agrega automáticamente como observación al Reporte Operativo del día.
+    </div>
+    <div id="ckl-grid" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
 </div><!-- /main-col -->
 </div><!-- /shell -->
 
@@ -9404,75 +9474,6 @@ async function expDoZip(mode){
   </div>
 </div>
 
-<!-- ══════ PAGE: CEREBRO BESS (Manual Maestro Inteligente) ══════ -->
-<div class="page" id="page-cerebro">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
-    <div>
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Skysense Energy · Inteligencia Operativa</div>
-      <h1 style="font-family:var(--disp);font-size:26px;font-weight:900;color:var(--text);letter-spacing:-.8px;margin:0 0 4px">🧠 Cerebro de Operación BESS</h1>
-      <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">Manual maestro vivo · procedimientos por sitio · temporada verano/invierno</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="tb-btn" onclick="cerebroDownloadAll()" style="background:var(--s2);border:1px solid var(--b1)">⬇ Descargar manual completo</button>
-      <button class="tb-btn filled" onclick="cerebroOpenNewSite()" style="background:linear-gradient(135deg,#1a3fcc,#0f2ea3)">+ Agregar sitio al manual</button>
-    </div>
-  </div>
-
-  <!-- ═══ CEREBRO 3D VISUAL ═══ -->
-  <div style="position:relative;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at 50% 20%,#123a9e 0%,#0a1f5e 45%,#06112e 100%);margin-bottom:20px;border:1px solid rgba(74,120,245,.3);box-shadow:0 20px 60px rgba(10,31,94,.35)">
-    <canvas id="cerebro-canvas" style="display:block;width:100%;height:300px"></canvas>
-    <div style="position:absolute;top:14px;left:18px;display:flex;align-items:center;gap:8px">
-      <span style="width:8px;height:8px;border-radius:50%;background:#4a78f5;box-shadow:0 0 10px #4a78f5;animation:cib-pulse 2s infinite"></span>
-      <span style="font-family:var(--mono);font-size:9px;color:#a9c1ff;letter-spacing:2px;text-transform:uppercase">Ingeniero de monitoreo remoto · transmitiendo en vivo</span>
-    </div>
-    <div style="position:absolute;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;padding:14px;background:linear-gradient(0deg,rgba(6,17,46,.85),transparent)">
-      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
-        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Sitios cargados</div>
-        <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:#fff" id="cerebro-stat-sites">0</div>
-      </div>
-      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
-        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Parámetros almacenados</div>
-        <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:#fff" id="cerebro-stat-params">0</div>
-      </div>
-      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
-        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Sitios manuales / auto</div>
-        <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:#fff" id="cerebro-stat-manual">0 / 0</div>
-      </div>
-      <div style="background:rgba(10,25,70,.6);backdrop-filter:blur(6px);border:1px solid rgba(74,120,245,.3);border-radius:10px;padding:9px 12px">
-        <div style="font-family:var(--mono);font-size:8px;color:#8fb0ff;letter-spacing:1.5px;text-transform:uppercase">Última actualización</div>
-        <div style="font-family:var(--disp);font-size:14px;font-weight:900;color:#fff" id="cerebro-stat-updated">—</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ PRÓXIMO EN ENTRAR (inteligencia de horarios) ═══ -->
-  <div id="cerebro-next-banner" style="display:none;margin-bottom:16px;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,rgba(234,108,0,.1),rgba(234,108,0,.03));border:1px solid rgba(234,108,0,.3);align-items:center;gap:12px"></div>
-
-  <!-- ═══ FILTRO / BUSCADOR ═══ -->
-  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-    <input type="text" id="cerebro-search" oninput="cerebroRenderSites()" placeholder="🔎 Buscar sitio en el manual…" style="flex:1;min-width:220px;padding:9px 12px;background:var(--s1);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
-    <span style="font-family:var(--mono);font-size:9px;padding:5px 10px;border-radius:14px;background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.25)">● Manual (prioridad alta)</span>
-    <span style="font-family:var(--mono);font-size:9px;padding:5px 10px;border-radius:14px;background:rgba(5,150,105,.1);color:var(--green);border:1px solid rgba(5,150,105,.25)">● Automático</span>
-  </div>
-
-  <!-- ═══ GRID DE SITIOS DEL MANUAL ═══ -->
-  <div id="cerebro-sites-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:26px"></div>
-
-  <!-- ═══ CHECKLIST DIARIO DE OPERACIÓN ═══ -->
-  <div class="dash-card" style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-      <div class="dash-card-title" style="margin:0">✅ Checklist diario de operación</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="date" id="ckl-date" onchange="cklLoad()" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:10px;outline:none">
-        <span style="font-family:var(--mono);font-size:9px;color:var(--t3)" id="ckl-operator-lbl">Operador: —</span>
-      </div>
-    </div>
-    <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:12px">
-      Marca el estatus de cada sitio conforme entra a descarga. Cualquier anomalía (rack fuera, entrada tardía, potencia disminuida, sin comunicación) se agrega automáticamente como observación al Reporte Operativo del día.
-    </div>
-    <div id="ckl-grid" style="display:flex;flex-direction:column;gap:8px"></div>
-  </div>
-</div>
 
 <!-- ═══ MODAL: DETALLE DE SITIO DEL MANUAL ═══ -->
 <div id="cerebro-modal" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(4,8,20,.72);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)cerebroCloseModal()">
