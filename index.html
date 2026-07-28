@@ -26247,7 +26247,13 @@ window.addEventListener('firebase-ready', function(){
    Se guarda en Firestore 'handoff_notes' (doc id = fecha).
 ══════════════════════════════════════════════════════════════════════ */
 (function(){
-  var PROBLEM_STATUSES = ['INCOMPLETO','NO OPERATIVO','PÉRDIDA TOTAL','DESCONECTADO'];
+  var PROBLEM_STATUSES = ['INCOMPLETO','NO OPERATIVO','PÉRDIDA TOTAL','DESCONECTADO','FUERA DE OPERACIÓN','PARCIAL','SIN COMUNICACIÓN'];
+  function _isProblemStatus(st){
+    if(!st) return false;
+    var norm = String(st).toUpperCase().trim();
+    if(norm==='OK') return false;
+    return true; /* cualquier estatus que no sea OK se sugiere para seguimiento */
+  }
   var _pendingImport = null; // datos parseados en espera de que el usuario confirme la selección
   var _fbH = {};
 
@@ -26308,7 +26314,7 @@ window.addEventListener('firebase-ready', function(){
     if(!_pendingImport) return;
     var list = document.getElementById('handoff-sites-list');
     list.innerHTML = _pendingImport.sites.map(function(s, i){
-      var suggested = PROBLEM_STATUSES.indexOf(s.status)>-1;
+      var suggested = _isProblemStatus(s.status);
       return '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;background:var(--s2);border:1px solid var(--b1);cursor:pointer">'+
         '<input type="checkbox" data-hidx="'+i+'" '+(suggested?'checked':'')+' style="width:auto">'+
         '<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text)">'+s.name+'</span>'+
