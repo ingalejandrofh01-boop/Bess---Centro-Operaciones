@@ -7252,9 +7252,6 @@ async function expDoZip(mode){
 <div class="page" id="page-repop">
   <div class="page-scroll" style="display:flex;flex-direction:column;align-items:center;padding:40px 24px;min-height:calc(100vh - var(--topbar-h))">
     <div style="width:100%;max-width:520px;margin-bottom:16px">
-      <div style="display:flex;justify-content:center;margin-bottom:10px">
-        <button id="handoff-open-btn" onclick="handoffOpenView()" style="display:none;padding:8px 14px;border-radius:20px;border:1px solid rgba(234,108,0,.4);background:rgba(234,108,0,.08);color:var(--orange);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">🤝 Ver Handoff</button>
-      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
         <button onclick="handoffExportJSON()" style="padding:7px 12px;border-radius:7px;border:1px solid var(--b1);background:var(--s1);color:var(--t2);font-family:var(--mono);font-size:9px;cursor:pointer">⬆ Exportar Reporte Operativo (JSON)</button>
         <input type="file" id="handoff-import-input" accept=".json" style="display:none" onchange="handoffImportJSON(event)">
@@ -8644,96 +8641,6 @@ async function expDoZip(mode){
 <!-- ═══ MODAL: REPORTE ESTILO TEAMS (sistemas en descarga / sin comunicación / fuera de operación) ═══ -->
 <!-- ═══ MODAL: HANDOFF (bajo demanda, ya no aparece automático en pantalla) ═══ -->
 <!-- ═══ MODAL: HANDOFF AL IMPORTAR JSON — misma opción que en el wizard manual ═══ -->
-<div id="import-hf-picker-modal" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(4,8,20,.78);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px">
-  <div style="background:var(--s1);border-radius:16px;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.5);border:1.5px solid rgba(239,68,68,.3)">
-    <div style="font-family:var(--disp);font-size:16px;font-weight:900;color:var(--text);margin-bottom:4px">🔥 ¿Algún sitio necesita seguimiento del turno siguiente?</div>
-    <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:14px">Igual que en el wizard manual — antes de guardar este reporte importado, marca los sitios que el turno de mañana debe atender. Si ninguno lo necesita, dale "Continuar sin handoff".</div>
-
-    <div id="import-hf-pending-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
-
-    <div style="border-top:1px solid var(--b1);padding-top:12px">
-      <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Sitio</label>
-      <select id="import-hf-site-sel" style="width:100%;margin:3px 0 10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></select>
-
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="import-hf-type-btns">
-        <button class="op-hf-btn" data-hft="VALIDACION" onclick="_importHfSetType('VALIDACION')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(245,158,11,.4);background:var(--s2);color:var(--yellow);font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:800;opacity:1">📋 Validación Prioritaria</button>
-        <button class="op-hf-btn" data-hft="INSPECCION" onclick="_importHfSetType('INSPECCION')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(239,68,68,.4);background:var(--s2);color:var(--red);font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:700;opacity:.55">🔍 Inspección Física</button>
-        <button class="op-hf-btn" data-hft="ESCALAMIENTO" onclick="_importHfSetType('ESCALAMIENTO')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(127,29,29,.5);background:var(--s2);color:#7f1d1d;font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:700;opacity:.55">🚨 Escalar a Ing. BESS</button>
-        <button class="op-hf-btn" data-hft="MONITOREO" onclick="_importHfSetType('MONITOREO')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(26,63,204,.4);background:var(--s2);color:var(--sky);font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:700;opacity:.55">👁 Monitoreo Continuo</button>
-      </div>
-
-      <textarea id="import-hf-note" rows="2" placeholder="Instrucción específica al equipo de la mañana: ej. Verificar rack 3 del T4 B1, temperatura alta registrada 58°C al cierre…" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--body);font-size:11px;outline:none;resize:vertical;line-height:1.4"></textarea>
-      <input id="import-hf-assignee" placeholder="Responsable de seguimiento (nombre del ingeniero o turno)…" style="width:100%;margin-top:6px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--body);font-size:11px;outline:none">
-
-      <button onclick="_importHfAdd()" style="width:100%;margin-top:10px;padding:9px;border-radius:8px;border:1.5px dashed rgba(239,68,68,.4);background:rgba(239,68,68,.06);color:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">+ Agregar este sitio a la lista de seguimiento</button>
-    </div>
-
-    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
-      <button onclick="_importHfContinue()" style="padding:9px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer">Continuar sin handoff</button>
-      <button onclick="_importHfContinue()" style="padding:9px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">✓ Listo, guardar reporte</button>
-    </div>
-  </div>
-</div>
-
-<div id="handoff-view-modal" style="display:none;position:fixed;inset:0;z-index:9940;background:rgba(4,8,20,.72);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)handoffCloseView()">
-  <div style="background:var(--s1);border-radius:16px;max-width:600px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.45);padding:18px">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:4px">
-      <button onclick="handoffCloseView()" style="background:none;border:none;font-size:16px;color:var(--t3);cursor:pointer">✕</button>
-    </div>
-    <div id="handoff-modal-body"></div>
-  </div>
-</div>
-
-<div id="teams-report-modal" style="display:none;position:fixed;inset:0;z-index:9950;background:rgba(4,8,20,.72);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)cerebroCloseTeamsReport()">
-  <div style="background:var(--s1);border-radius:16px;max-width:660px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.45);padding:22px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-      <div style="font-family:var(--disp);font-size:18px;font-weight:900;color:var(--text)">📋 Reporte Inicio de Descarga</div>
-      <button onclick="cerebroCloseTeamsReport()" style="background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer">✕</button>
-    </div>
-    <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:14px">Cancún entra primero por el desfase horario — manda ese reporte, y más tarde el del resto de sitios en hora punta CDMX.</div>
-
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button id="teams-tab-cancun" onclick="cerebroSwitchTeamsTab('cancun')" style="flex:1;padding:9px;border-radius:8px 8px 0 0;border:1px solid rgba(8,145,178,.4);border-bottom:none;background:rgba(8,145,178,.12);color:#0891b2;font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">🌴 CANCÚN · 1er reporte</button>
-      <button id="teams-tab-resto" onclick="cerebroSwitchTeamsTab('resto')" style="flex:1;padding:9px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">🏭 BESS GENERAL · 2do reporte</button>
-    </div>
-
-    <div id="teams-panel-cancun">
-      <div id="teams-report-card-cancun" style="background:#fff;border-radius:12px;padding:20px 22px;border:1px solid #dce8f5;margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #0891b2">
-          <img src="" id="teams-report-logo-cancun" style="height:26px" alt="Skysense">
-          <div>
-            <div style="font-family:Arial,sans-serif;font-weight:800;font-size:14px;color:#0a1f5e">🌴 Reporte Inicial de Descarga — Cancún</div>
-            <div style="font-family:'DM Mono',monospace;font-size:10px;color:#667" id="teams-report-date-cancun">—</div>
-          </div>
-        </div>
-        <div id="teams-report-body-cancun" style="font-family:Arial,sans-serif;font-size:12.5px;color:#222;line-height:1.85;white-space:pre-wrap"></div>
-      </div>
-      <textarea id="teams-report-text-cancun" rows="7" style="width:100%;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11.5px;outline:none;resize:vertical;white-space:pre-wrap"></textarea>
-      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
-        <button onclick="cerebroCopyTeamsText('cancun')" style="padding:9px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">📋 Copiar mensaje</button>
-        <button onclick="cerebroDownloadTeamsImage('cancun')" style="padding:9px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">⬇ Descargar imagen</button>
-      </div>
-    </div>
-
-    <div id="teams-panel-resto" style="display:none">
-      <div id="teams-report-card-resto" style="background:#fff;border-radius:12px;padding:20px 22px;border:1px solid #dce8f5;margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #1a3fcc">
-          <img src="" id="teams-report-logo-resto" style="height:26px" alt="Skysense">
-          <div>
-            <div style="font-family:Arial,sans-serif;font-weight:800;font-size:14px;color:#0a1f5e">🏭 Reporte Inicial de Descarga — BESS</div>
-            <div style="font-family:'DM Mono',monospace;font-size:10px;color:#667" id="teams-report-date-resto">—</div>
-          </div>
-        </div>
-        <div id="teams-report-body-resto" style="font-family:Arial,sans-serif;font-size:12.5px;color:#222;line-height:1.85;white-space:pre-wrap"></div>
-      </div>
-      <textarea id="teams-report-text-resto" rows="7" style="width:100%;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11.5px;outline:none;resize:vertical;white-space:pre-wrap"></textarea>
-      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
-        <button onclick="cerebroCopyTeamsText('resto')" style="padding:9px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">📋 Copiar mensaje</button>
-        <button onclick="cerebroDownloadTeamsImage('resto')" style="padding:9px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#1a3fcc,#0f2ea3);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">⬇ Descargar imagen</button>
-      </div>
-    </div>
-  </div>
-</div>
 </div><!-- /page-cerebro -->
 
 </div><!-- /main-col -->
@@ -18285,6 +18192,9 @@ window.opShowDet = function(id){
             if(typeof window.opPersist==='function') window.opPersist();
             if(window._fb && window._fb.saveReporteOp) window._fb.saveReporteOp(curRep).catch(function(e){console.warn('[Handoff] no se pudo guardar:',e.message);});
             if(typeof showToast==='function') showToast('✅ Handoff actualizado para este reporte');
+            /* Refrescar la tarjeta "HANDOFF — Continuidad Operativa" visible en el reporte
+               para que muestre TODOS los sitios marcados, no solo el primero */
+            if(typeof window._injectHandoffSummaryInPaper==='function') window._injectHandoffSummaryInPaper();
             var hasHandoff = (curRep.srs||[]).some(function(s){return s.handoff&&s.handoff.active;});
             if(hasHandoff && typeof window.showHandoffBriefing==='function'){
               window.showHandoffBriefing(curRep.srs, siteNames, {subtitle:'Sitios marcados para seguimiento en este reporte'});
@@ -24080,6 +23990,13 @@ document.addEventListener('DOMContentLoaded', function(){
   font-weight:600;transition:all .15s;
 }
 .hbm-skip-btn:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);}
+.hbm-export-btn {
+  padding:12px 18px;border-radius:12px;cursor:pointer;
+  background:linear-gradient(135deg,#7c3aed,#6d28d9);border:none;
+  color:#fff;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;
+  transition:all .15s;
+}
+.hbm-export-btn:hover{filter:brightness(1.12);transform:translateY(-1px);}
 /* ── HANDOFF toggle toggle en el form del sitio ── */
 .op-hf-toggle {
   width:100%;padding:9px 14px;border-radius:8px;
@@ -24118,10 +24035,13 @@ document.addEventListener('DOMContentLoaded', function(){
   margin-bottom:10px;display:flex;align-items:center;gap:6px;
 }
 .op-hs-row {
-  display:flex;align-items:flex-start;gap:10px;
-  padding:8px 0;border-bottom:1px solid rgba(220,38,38,.1);
+  display:flex;align-items:flex-start;gap:8px;
+  padding:10px;border:1px solid rgba(220,38,38,.15);border-radius:8px;
+  background:rgba(255,255,255,.4);
 }
-.op-hs-row:last-child{border-bottom:none;}
+.op-hs-grid {
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;
+}
 .op-hs-dot {
   width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px;
 }
@@ -24273,6 +24193,7 @@ function _ensureHandoffModal() {
         <div style="flex:1;font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.5px">
           <span id="hbm-count-txt">0 sitios</span> · Confirma que has leído antes de continuar
         </div>
+        <button class="hbm-export-btn" onclick="window._hbmExportImage()">⬇ Exportar imagen</button>
         <button class="hbm-skip-btn" onclick="window._hbmClose()">Ver reporte</button>
         <button class="hbm-ack-btn" onclick="window._hbmAck()">✓ ENTENDIDO — Atenderé estos sitios</button>
       </div>
@@ -24307,8 +24228,8 @@ window.showHandoffBriefing = function(srs, sites, opts) {
 
   var hasEsc = hfSites.some(function(h){ return h.sr.handoff.type==='ESCALAMIENTO'; });
   titleTxt.textContent = hasEsc
-    ? '🚨 ALERTA CRÍTICA — '+hfSites.length+' sistema'+(hfSites.length>1?'s requieren':'requiere')+' atención'
-    : '🔥 '+hfSites.length+' sistema'+(hfSites.length>1?'s requieren':'requiere')+' seguimiento';
+    ? '🚨 ALERTA CRÍTICA — '+hfSites.length+' sistema'+(hfSites.length>1?'s requieren':' requiere')+' atención'
+    : '🔥 '+hfSites.length+' sistema'+(hfSites.length>1?'s requieren':' requiere')+' seguimiento';
   subTxt.textContent = opts.subtitle || 'El turno anterior identificó los siguientes sistemas — debes atenderlos al inicio de tu turno';
   countTxt.textContent = hfSites.length+' sitio'+(hfSites.length>1?'s':'');
 
@@ -24348,6 +24269,21 @@ window._hbmAck = function() {
     if(typeof showToast === 'function') showToast('✅ Handoff confirmado — los sitios están en tu radar');
   }
   if(window._hbmOnAck) window._hbmOnAck();
+};
+
+window._hbmExportImage = function(){
+  var panel = document.querySelector('#handoff-briefing-modal .hbm-panel');
+  if(!panel || !window.html2canvas){ if(typeof showToast==='function') showToast('⚠️ No se pudo exportar la imagen'); return; }
+  html2canvas(panel, {scale:2, backgroundColor:'#0a1f4a', useCORS:true, logging:false}).then(function(canvas){
+    var a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'Handoff_'+new Date().toISOString().slice(0,10)+'.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if(typeof showToast==='function') showToast('✅ Imagen del handoff descargada');
+  }).catch(function(e){
+    console.warn('[Handoff] error exportando imagen:', e);
+    if(typeof showToast==='function') showToast('⚠️ Error al exportar la imagen');
+  });
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -24406,6 +24342,7 @@ function _injectHandoffSummaryInPaper() {
   var div = document.createElement('div');
   div.className = 'op-handoff-summary';
   div.innerHTML = '<div class="op-handoff-summary-title"><span>🔥</span> HANDOFF — Continuidad Operativa · '+hfSites.length+' sitio'+(hfSites.length>1?'s':'')+'</div>'
+    + '<div class="op-hs-grid">'
     + hfSites.map(function(h){
       var hf = h.sr.handoff;
       var cfg = HF_CFG[hf.type]||HF_CFG.VALIDACION;
@@ -24417,7 +24354,8 @@ function _injectHandoffSummaryInPaper() {
           +(hf.note?'<div style="font-size:10px;color:#4a5568;font-style:italic">'+hf.note+'</div>':'')
           +(hf.assignee?'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:#94a3b8;margin-top:2px">👤 '+hf.assignee+'</div>':'')
         +'</div></div>';
-    }).join('');
+    }).join('')
+    + '</div>';
   /* Find overflow wrapper (parent of table) as direct child of paper */
   try {
     var overflowDiv = paper.querySelector('[style*="overflow-x"]');
@@ -24431,6 +24369,7 @@ function _injectHandoffSummaryInPaper() {
     }
   } catch(e) { console.warn('[HANDOFF] insertBefore error:', e.message); }
 }
+window._injectHandoffSummaryInPaper = _injectHandoffSummaryInPaper; /* exponer para poder refrescar la tarjeta desde otros flujos (ej. botón Handoff en reporte guardado) */
 
 /* ══════════════════════════════════════════════════════════
    PATCH opShowDet → mostrar briefing al abrir reporte guardado
@@ -26997,5 +26936,97 @@ window.addEventListener('firebase-ready', function(){
   };
 })();
 </script>
+
+<!-- Modales movidos aquí (nivel superior) para que funcionen desde cualquier página, no solo Cerebro BESS -->
+<div id="import-hf-picker-modal" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(4,8,20,.78);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--s1);border-radius:16px;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.5);border:1.5px solid rgba(239,68,68,.3)">
+    <div style="font-family:var(--disp);font-size:16px;font-weight:900;color:var(--text);margin-bottom:4px">🔥 ¿Algún sitio necesita seguimiento del turno siguiente?</div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:14px">Igual que en el wizard manual — antes de guardar este reporte importado, marca los sitios que el turno de mañana debe atender. Si ninguno lo necesita, dale "Continuar sin handoff".</div>
+
+    <div id="import-hf-pending-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+
+    <div style="border-top:1px solid var(--b1);padding-top:12px">
+      <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Sitio</label>
+      <select id="import-hf-site-sel" style="width:100%;margin:3px 0 10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></select>
+
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="import-hf-type-btns">
+        <button class="op-hf-btn" data-hft="VALIDACION" onclick="_importHfSetType('VALIDACION')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(245,158,11,.4);background:var(--s2);color:var(--yellow);font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:800;opacity:1">📋 Validación Prioritaria</button>
+        <button class="op-hf-btn" data-hft="INSPECCION" onclick="_importHfSetType('INSPECCION')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(239,68,68,.4);background:var(--s2);color:var(--red);font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:700;opacity:.55">🔍 Inspección Física</button>
+        <button class="op-hf-btn" data-hft="ESCALAMIENTO" onclick="_importHfSetType('ESCALAMIENTO')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(127,29,29,.5);background:var(--s2);color:#7f1d1d;font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:700;opacity:.55">🚨 Escalar a Ing. BESS</button>
+        <button class="op-hf-btn" data-hft="MONITOREO" onclick="_importHfSetType('MONITOREO')" style="padding:5px 11px;border-radius:16px;border:1.5px solid rgba(26,63,204,.4);background:var(--s2);color:var(--sky);font-size:10px;font-family:var(--mono);cursor:pointer;font-weight:700;opacity:.55">👁 Monitoreo Continuo</button>
+      </div>
+
+      <textarea id="import-hf-note" rows="2" placeholder="Instrucción específica al equipo de la mañana: ej. Verificar rack 3 del T4 B1, temperatura alta registrada 58°C al cierre…" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--body);font-size:11px;outline:none;resize:vertical;line-height:1.4"></textarea>
+      <input id="import-hf-assignee" placeholder="Responsable de seguimiento (nombre del ingeniero o turno)…" style="width:100%;margin-top:6px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--body);font-size:11px;outline:none">
+
+      <button onclick="_importHfAdd()" style="width:100%;margin-top:10px;padding:9px;border-radius:8px;border:1.5px dashed rgba(239,68,68,.4);background:rgba(239,68,68,.06);color:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">+ Agregar este sitio a la lista de seguimiento</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button onclick="_importHfContinue()" style="padding:9px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer">Continuar sin handoff</button>
+      <button onclick="_importHfContinue()" style="padding:9px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">✓ Listo, guardar reporte</button>
+    </div>
+  </div>
+</div>
+
+<div id="handoff-view-modal" style="display:none;position:fixed;inset:0;z-index:9940;background:rgba(4,8,20,.72);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)handoffCloseView()">
+  <div style="background:var(--s1);border-radius:16px;max-width:600px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.45);padding:18px">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:4px">
+      <button onclick="handoffCloseView()" style="background:none;border:none;font-size:16px;color:var(--t3);cursor:pointer">✕</button>
+    </div>
+    <div id="handoff-modal-body"></div>
+  </div>
+</div>
+
+<div id="teams-report-modal" style="display:none;position:fixed;inset:0;z-index:9950;background:rgba(4,8,20,.72);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)cerebroCloseTeamsReport()">
+  <div style="background:var(--s1);border-radius:16px;max-width:660px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.45);padding:22px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+      <div style="font-family:var(--disp);font-size:18px;font-weight:900;color:var(--text)">📋 Reporte Inicio de Descarga</div>
+      <button onclick="cerebroCloseTeamsReport()" style="background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer">✕</button>
+    </div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:14px">Cancún entra primero por el desfase horario — manda ese reporte, y más tarde el del resto de sitios en hora punta CDMX.</div>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button id="teams-tab-cancun" onclick="cerebroSwitchTeamsTab('cancun')" style="flex:1;padding:9px;border-radius:8px 8px 0 0;border:1px solid rgba(8,145,178,.4);border-bottom:none;background:rgba(8,145,178,.12);color:#0891b2;font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">🌴 CANCÚN · 1er reporte</button>
+      <button id="teams-tab-resto" onclick="cerebroSwitchTeamsTab('resto')" style="flex:1;padding:9px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">🏭 BESS GENERAL · 2do reporte</button>
+    </div>
+
+    <div id="teams-panel-cancun">
+      <div id="teams-report-card-cancun" style="background:#fff;border-radius:12px;padding:20px 22px;border:1px solid #dce8f5;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #0891b2">
+          <img src="" id="teams-report-logo-cancun" style="height:26px" alt="Skysense">
+          <div>
+            <div style="font-family:Arial,sans-serif;font-weight:800;font-size:14px;color:#0a1f5e">🌴 Reporte Inicial de Descarga — Cancún</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:#667" id="teams-report-date-cancun">—</div>
+          </div>
+        </div>
+        <div id="teams-report-body-cancun" style="font-family:Arial,sans-serif;font-size:12.5px;color:#222;line-height:1.85;white-space:pre-wrap"></div>
+      </div>
+      <textarea id="teams-report-text-cancun" rows="7" style="width:100%;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11.5px;outline:none;resize:vertical;white-space:pre-wrap"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="cerebroCopyTeamsText('cancun')" style="padding:9px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">📋 Copiar mensaje</button>
+        <button onclick="cerebroDownloadTeamsImage('cancun')" style="padding:9px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">⬇ Descargar imagen</button>
+      </div>
+    </div>
+
+    <div id="teams-panel-resto" style="display:none">
+      <div id="teams-report-card-resto" style="background:#fff;border-radius:12px;padding:20px 22px;border:1px solid #dce8f5;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #1a3fcc">
+          <img src="" id="teams-report-logo-resto" style="height:26px" alt="Skysense">
+          <div>
+            <div style="font-family:Arial,sans-serif;font-weight:800;font-size:14px;color:#0a1f5e">🏭 Reporte Inicial de Descarga — BESS</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:#667" id="teams-report-date-resto">—</div>
+          </div>
+        </div>
+        <div id="teams-report-body-resto" style="font-family:Arial,sans-serif;font-size:12.5px;color:#222;line-height:1.85;white-space:pre-wrap"></div>
+      </div>
+      <textarea id="teams-report-text-resto" rows="7" style="width:100%;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11.5px;outline:none;resize:vertical;white-space:pre-wrap"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="cerebroCopyTeamsText('resto')" style="padding:9px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">📋 Copiar mensaje</button>
+        <button onclick="cerebroDownloadTeamsImage('resto')" style="padding:9px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#1a3fcc,#0f2ea3);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">⬇ Descargar imagen</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
