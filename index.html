@@ -7259,11 +7259,12 @@ async function expDoZip(mode){
 <div class="page" id="page-repop">
   <div class="page-scroll" style="display:flex;flex-direction:column;align-items:center;padding:40px 24px;min-height:calc(100vh - var(--topbar-h))">
     <div style="width:100%;max-width:520px;margin-bottom:16px">
+      <div id="reporteop-viewer"></div>
       <div id="handoff-banner-repop"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-        <button onclick="handoffExportJSON()" style="padding:7px 12px;border-radius:7px;border:1px solid var(--b1);background:var(--s1);color:var(--t2);font-family:var(--mono);font-size:9px;cursor:pointer">⬆ Exportar JSON (fin de turno)</button>
+        <button onclick="handoffExportJSON()" style="padding:7px 12px;border-radius:7px;border:1px solid var(--b1);background:var(--s1);color:var(--t2);font-family:var(--mono);font-size:9px;cursor:pointer">⬆ Exportar Reporte Operativo (JSON)</button>
         <input type="file" id="handoff-import-input" accept=".json" style="display:none" onchange="handoffImportJSON(event)">
-        <button onclick="document.getElementById('handoff-import-input').click()" style="padding:7px 12px;border-radius:7px;border:1px solid rgba(26,63,204,.35);background:rgba(26,63,204,.06);color:var(--sky);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer">📥 Importar JSON — Handoff</button>
+        <button onclick="document.getElementById('handoff-import-input').click()" style="padding:7px 12px;border-radius:7px;border:1px solid rgba(26,63,204,.35);background:rgba(26,63,204,.06);color:var(--sky);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer">📥 Importar Reporte Operativo → armar Handoff</button>
       </div>
     </div>
     <div class="rv-setup-card">
@@ -13265,7 +13266,7 @@ function goPage(id){
   updateTopbarTitle(id);
   if(id==='arch'){renderArchTree();if(typeof archSite!=='undefined'&&archSite)renderArchContent();}
   if(id==='dash'){renderDash();renderDashTemplates();if(window.handoffRenderBannerRefresh)window.handoffRenderBannerRefresh();}
-  if(id==='repop'){opInitSetup();if(window.handoffRenderBannerRefresh)window.handoffRenderBannerRefresh();}
+  if(id==='repop'){opInitSetup();if(window.handoffRenderBannerRefresh)window.handoffRenderBannerRefresh();if(window.handoffLoadReporteOpToday)window.handoffLoadReporteOpToday();}
   if(id==='soc'){socInit();}
   if(id==='historico'){setTimeout(function(){if(window.histInit)window.histInit();},80);}
   if(id==='maestra'){setTimeout(function(){if(window._mlRender)window._mlRender();},80);}
@@ -26267,12 +26268,23 @@ window.addEventListener('firebase-ready', function(){
       var snap = await FS.getDocs(FS.collection(DB,'handoff_notes'));
       return snap.docs.map(function(d){ return d.data(); }).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
     };
+    /* ── Reporte Operativo: el registro completo del día (todos los sitios), independiente del handoff ── */
+    _fbH.saveReporteOp = async function(doc){
+      await FS.setDoc(FS.doc(DB,'reportes_operativos', doc.date), Object.assign({}, doc, {updatedAt: Date.now()}));
+    };
+    _fbH.getReporteOp = async function(date){
+      try{
+        var snap = await FS.getDocs(FS.collection(DB,'reportes_operativos'));
+        var d = snap.docs.find(function(x){return x.id===date;});
+        return d ? d.data() : null;
+      }catch(e){ return null; }
+    };
     handoffRenderAll();
   }
   window.addEventListener('firebase-ready', _wireHandoffFS, {once:true});
   setTimeout(_wireHandoffFS, 2000);
 
-  /* ── Exportar el reporte operativo actual como JSON (fin de turno) ── */
+  /* ── Exportar el Reporte Operativo actual como JSON (fin de turno) ── */
   window.handoffExportJSON = function(){
     var w = window.opW;
     if(!w || !w.srs){ if(typeof showToast==='function') showToast('⚠ No hay un reporte operativo en curso para exportar'); else alert('No hay un reporte operativo en curso para exportar'); return; }
@@ -26281,21 +26293,24 @@ window.addEventListener('firebase-ready', function(){
       var sr = w.srs[i] || {};
       return {name: name, status: sr.status||'', obs: sr.obs||''};
     });
-    var payload = {type:'reporte_operativo_handoff', date:(w.date||new Date().toISOString()).slice(0,10), op:w.op||'', period:w.period||'', sites: sites};
+    var payload = {type:'reporte_operativo', date:(w.date||new Date().toISOString()).slice(0,10), op:w.op||'', period:w.period||'', sites: sites};
     var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = 'Handoff_'+payload.date+'.json';
+    a.href = url; a.download = 'ReporteOperativo_'+payload.date+'.json';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
   };
 
-  /* ── Importar JSON: detecta sitios problemáticos y abre el selector ── */
+  /* ── Importar JSON: 1) guarda el Reporte Operativo COMPLETO tal cual (registro del día),
+     2) además abre el selector de Handoff para elegir cuáles de esos sitios necesitan
+     seguimiento del turno entrante — son dos cosas distintas: el reporte es el registro
+     completo, el handoff es el subconjunto + nota para el siguiente turno. ── */
   window.handoffImportJSON = function(event){
     var file = event.target.files && event.target.files[0];
     if(!file) return;
     var reader = new FileReader();
-    reader.onload = function(){
+    reader.onload = async function(){
       var data;
       try{ data = JSON.parse(reader.result); }
       catch(e){ if(typeof showToast==='function') showToast('⚠ El archivo no es un JSON válido'); return; }
@@ -26303,12 +26318,46 @@ window.addEventListener('firebase-ready', function(){
       if(Array.isArray(data.sites)) sites = data.sites;
       else if(Array.isArray(data.srs) && Array.isArray(data._siteNames)) sites = data._siteNames.map(function(n,i){ return {name:n, status:(data.srs[i]||{}).status||'', obs:(data.srs[i]||{}).obs||''}; });
       else { if(typeof showToast==='function') showToast('⚠ No se reconocieron sitios en ese JSON'); return; }
-      _pendingImport = {date: data.date || new Date().toISOString().slice(0,10), sites: sites};
+      var date = data.date || new Date().toISOString().slice(0,10);
+
+      /* 1) Guardar el Reporte Operativo completo — el registro real del día */
+      try{
+        if(_fbH.saveReporteOp) await _fbH.saveReporteOp({date:date, op:data.op||'', period:data.period||'', sites:sites, importedBy: localStorage.getItem('bess_uname')||''});
+        if(typeof showToast==='function') showToast('✅ Reporte Operativo del '+date+' guardado ('+sites.length+' sitios)');
+      }catch(e){ console.warn('[ReporteOp] no se pudo guardar:', e.message); }
+      handoffRenderReporteViewer(date, sites);
+
+      /* 2) A partir de ese reporte, armar el Handoff (qué necesita seguimiento del turno entrante) */
+      _pendingImport = {date: date, sites: sites};
       handoffOpenSelect();
     };
     reader.readAsText(file);
     event.target.value = '';
   };
+
+  /* ── Visor simple del Reporte Operativo importado (tabla completa, no es el handoff) ── */
+  function handoffRenderReporteViewer(date, sites){
+    var el = document.getElementById('reporteop-viewer');
+    if(!el) return;
+    var problemCount = sites.filter(function(s){return _isProblemStatus(s.status);}).length;
+    el.innerHTML = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+
+        '<div style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text)">📊 Reporte Operativo — '+date+' · '+sites.length+' sitios · '+problemCount+' con novedad</div>'+
+        '<button onclick="document.getElementById(\'reporteop-table-wrap\').style.display=document.getElementById(\'reporteop-table-wrap\').style.display===\'none\'?\'block\':\'none\'" style="padding:4px 10px;border-radius:12px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:9px;cursor:pointer">Ver / ocultar tabla</button>'+
+      '</div>'+
+      '<div id="reporteop-table-wrap" style="display:none;max-height:320px;overflow:auto">'+
+        '<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px">'+
+          '<thead><tr style="position:sticky;top:0;background:var(--s2)"><th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--b1)">Sitio</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--b1)">Estatus</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--b1)">Observaciones</th></tr></thead>'+
+          '<tbody>'+sites.map(function(s){
+            var prob = _isProblemStatus(s.status);
+            return '<tr><td style="padding:4px 8px;border-bottom:1px solid var(--b1);color:var(--text)">'+s.name+'</td>'+
+              '<td style="padding:4px 8px;border-bottom:1px solid var(--b1);color:'+(prob?'#dc2626':'#059669')+';font-weight:700">'+(s.status||'—')+'</td>'+
+              '<td style="padding:4px 8px;border-bottom:1px solid var(--b1);color:var(--t3)">'+(s.obs||'')+'</td></tr>';
+          }).join('')+
+        '</tbody></table>'+
+      '</div>'+
+    '</div>';
+  }
 
   function handoffOpenSelect(){
     if(!_pendingImport) return;
@@ -26404,6 +26453,13 @@ window.addEventListener('firebase-ready', function(){
   };
 
   window.handoffRenderBannerRefresh = handoffRenderAll;
+  window.handoffLoadReporteOpToday = async function(){
+    try{
+      var today = new Date().toISOString().slice(0,10);
+      var rep = _fbH.getReporteOp ? await _fbH.getReporteOp(today) : null;
+      if(rep && rep.sites) handoffRenderReporteViewer(rep.date, rep.sites);
+    }catch(e){}
+  };
 
   window.handoffExportImage = function(elId){
     var el = document.getElementById(elId);
