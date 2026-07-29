@@ -8685,6 +8685,13 @@ async function expDoZip(mode){
 @keyframes comm-line-flow-anim{
   to{ stroke-dashoffset:-18; }
 }
+.comm-temp-label{
+  background:rgba(10,14,26,.85) !important; border:1px solid rgba(255,255,255,.15) !important;
+  color:#fbbf24 !important; font-family:'DM Mono',monospace !important; font-size:10px !important;
+  font-weight:700 !important; padding:2px 6px !important; border-radius:8px !important;
+  box-shadow:none !important;
+}
+.comm-temp-label::before{ display:none !important; } /* quitar la flechita default del tooltip de Leaflet */
 </style>
 <!-- ══════ PAGE: COMUNICACIÓN (Monitoreo de conectividad — puente desde BESS Monitor local) ══════ -->
 <div class="page" id="page-comunicacion">
@@ -8715,7 +8722,7 @@ async function expDoZip(mode){
     <!-- TAB: Mapa -->
     <div id="comm-tab-mapa">
       <div style="background:#0a0e1a;border:1px solid var(--b1);border-radius:12px;padding:0;position:relative;overflow:hidden">
-        <div id="comm-connected-count" style="position:absolute;top:10px;left:10px;z-index:1000;background:rgba(10,14,26,.85);backdrop-filter:blur(4px);padding:6px 12px;border-radius:20px;border:1px solid rgba(34,211,238,.4);color:#22d3ee;font-family:var(--mono);font-size:10px;font-weight:700">⚡ 0 interconectados a la microred Skysense</div>
+        <div id="comm-connected-count" style="position:absolute;top:10px;right:10px;z-index:1000;background:rgba(10,14,26,.85);backdrop-filter:blur(4px);padding:6px 12px;border-radius:20px;border:1px solid rgba(34,211,238,.4);color:#22d3ee;font-family:var(--mono);font-size:10px;font-weight:700">⚡ 0 interconectados a la microred Skysense</div>
         <div id="comm-map-leaflet" style="width:100%;height:560px"></div>
         <div style="display:flex;gap:16px;justify-content:center;padding:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--t3);background:var(--s1);border-top:1px solid var(--b1)">
           <span>🟢 En línea</span><span>🟡 Intermitente</span><span>🔴 Desconectado</span><span>🔧 Mantenimiento</span><span>⚡ Línea animada = conectado a la microred</span>
@@ -27155,6 +27162,16 @@ window.addEventListener('firebase-ready', function(){
     return String(c||'').trim();
   }
 
+  /* La mayoría de los sitios se abren por http:// simple — solo algunos (por ahora,
+     LG) necesitan https://. Si detectas otro sitio que también lo necesite, agrégalo
+     aquí a HTTPS_EXCEPTIONS. */
+  var HTTPS_EXCEPTIONS = ['LG'];
+  function _commSiteUrl(s){
+    if(!s.ip) return null;
+    var isHttps = HTTPS_EXCEPTIONS.some(function(n){ return (s.name||'').toUpperCase()===n.toUpperCase(); });
+    return (isHttps?'https://':'http://')+s.ip+(s.port?(':'+s.port):'');
+  }
+
   /* ── Firestore wiring ── */
   function _wireCommFS(){
     if(!window._fbDB || !window._fbFS) return;
@@ -27236,6 +27253,34 @@ window.addEventListener('firebase-ready', function(){
   var _leafletMap = null, _leafletMarkers = [];
   var HUB_COORD = [19.43, -99.13]; /* Centro BESS / SkySense — CDMX */
   var _leafletLines = [];
+  var _commTempCache = {}; /* siteId -> °C */
+  var _commTempFetchedAt = 0;
+
+  /* Clima actual por sitio — Open-Meteo (gratis, sin API key, permite consultar
+     muchas coordenadas en una sola llamada separándolas por comas). Se refresca
+     cada 15 minutos como máximo — la temperatura no cambia como el estatus de red. */
+  function commFetchTemps(){
+    var sites = window._commSites.filter(function(s){ return s.lat!=null && s.lng!=null; });
+    if(!sites.length) return;
+    if(Date.now()-_commTempFetchedAt < 15*60*1000 && Object.keys(_commTempCache).length) return;
+    _commTempFetchedAt = Date.now();
+    var lats = sites.map(function(s){ return s.lat; }).join(',');
+    var lngs = sites.map(function(s){ return s.lng; }).join(',');
+    fetch('https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs+'&current=temperature_2m&timezone=auto')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var arr = Array.isArray(data) ? data : [data];
+        arr.forEach(function(d, i){
+          var site = sites[i];
+          if(site && d && d.current && d.current.temperature_2m!=null){
+            _commTempCache[site._id||site.name] = Math.round(d.current.temperature_2m);
+          }
+        });
+        commRenderMap(); /* redibujar ya con las temperaturas */
+      })
+      .catch(function(e){ console.warn('[Comunicación] no se pudo obtener el clima:', e.message); });
+  }
+
   function commRenderMap(){
     var container = document.getElementById('comm-map-leaflet');
     if(!container || typeof L==='undefined') return;
@@ -27251,6 +27296,7 @@ window.addEventListener('firebase-ready', function(){
     _leafletMarkers = [];
     _leafletLines.forEach(function(l){ _leafletMap.removeLayer(l); });
     _leafletLines = [];
+    commFetchTemps(); /* dispara la consulta de clima (no bloquea; al llegar, redibuja solo) */
 
     /* Hub central — representa a Skysense / Centro BESS, de donde "salen" las conexiones */
     var hubIcon = L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11], html:'<div class="comm-hub"></div>'});
@@ -27284,6 +27330,10 @@ window.addEventListener('firebase-ready', function(){
         html:'<div class="comm-marker'+pulse+'" style="--mc:'+color+'"></div>'
       });
       var marker = L.marker([s.lat, s.lng], {icon:icon}).addTo(_leafletMap);
+      var temp = _commTempCache[s._id||s.name];
+      if(temp!=null){
+        marker.bindTooltip('🌡️'+temp+'°C', {permanent:true, direction:'top', offset:[0,-8], className:'comm-temp-label', opacity:1});
+      }
       marker.bindPopup(
         '<div style="font-family:\'DM Mono\',monospace;font-size:11px;min-width:170px;color:#222">'+
           '<b style="font-size:12px">'+(s.name||s._id)+'</b><br>'+
@@ -27313,31 +27363,24 @@ window.addEventListener('firebase-ready', function(){
     var sites = window._commSites.filter(function(s){
       if(!q) return true;
       return (s.name||'').toLowerCase().includes(q) || (s.ip||'').toLowerCase().includes(q) || (s.city||'').toLowerCase().includes(q);
-    });
+    }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
     if(!sites.length){ el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t3);font-family:var(--mono);font-size:11px">Sin sitios que coincidan — o el puente todavía no ha sincronizado nada.</div>'; return; }
-    var groups = {};
-    sites.forEach(function(s){ var k=_normCityKey(s.city)||'Sin ciudad'; (groups[k]=groups[k]||[]).push(s); });
-    el.innerHTML = Object.keys(groups).sort().map(function(city){
-      var cards = groups[city].map(function(s){
-        var inMaint = !!s.maintenance;
-        var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
-        var label = inMaint ? 'Mantenimiento' : (STATUS_LABEL[s.status]||'Sin datos');
-        var url = s.ip ? ('https://'+s.ip+(s.port?(':'+s.port):'')) : null;
-        var onclick = url ? ('window.open(\''+url+'\',\'_blank\')') : '';
-        return '<div onclick="'+onclick+'" title="'+(s.address?s.address+' · ':'')+label+(url?' — clic para abrir '+url:'')+'" '+
-          'style="cursor:'+(url?'pointer':'default')+';position:relative;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 11px;transition:all .15s" '+
-          (url?'onmouseover="this.style.borderColor=\'var(--sky)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.borderColor=\'var(--b1)\';this.style.transform=\'\'"':'')+'>'+
-          '<span style="position:absolute;top:9px;right:9px;width:8px;height:8px;border-radius:50%;background:'+color+';box-shadow:0 0 6px '+color+'"></span>'+
-          '<div style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text);padding-right:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.name||s._id)+'</div>'+
-          '<div style="font-family:var(--mono);font-size:9px;color:'+(url?'var(--sky)':'var(--t3)')+';margin-top:3px">'+(s.ip||'—')+(s.port?(':'+s.port):'')+'</div>'+
-          '<div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px">'+(s.uptimePct!=null?('⏱ '+s.uptimePct+'%'):'')+(s.latencyMs!=null?(' · 📶 '+s.latencyMs+'ms'):'')+'</div>'+
-        '</div>';
-      }).join('');
-      return '<div style="margin-bottom:16px">'+
-        '<div style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--sky);letter-spacing:1px;margin-bottom:8px">📍 '+city.toUpperCase()+' · '+groups[city].length+'</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px">'+cards+'</div>'+
+    var cards = sites.map(function(s){
+      var inMaint = !!s.maintenance;
+      var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
+      var label = inMaint ? 'Mantenimiento' : (STATUS_LABEL[s.status]||'Sin datos');
+      var url = _commSiteUrl(s);
+      var onclick = url ? ('window.open(\''+url+'\',\'_blank\')') : '';
+      return '<div onclick="'+onclick+'" title="'+(s.address?s.address+' · ':'')+label+(url?' — clic para abrir '+url:'')+'" '+
+        'style="cursor:'+(url?'pointer':'default')+';position:relative;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 11px;transition:all .15s" '+
+        (url?'onmouseover="this.style.borderColor=\'var(--sky)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.borderColor=\'var(--b1)\';this.style.transform=\'\'"':'')+'>'+
+        '<span style="position:absolute;top:9px;right:9px;width:8px;height:8px;border-radius:50%;background:'+color+';box-shadow:0 0 6px '+color+'"></span>'+
+        '<div style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text);padding-right:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.name||s._id)+'</div>'+
+        '<div style="font-family:var(--mono);font-size:9px;color:'+(url?'var(--sky)':'var(--t3)')+';margin-top:3px">'+(s.ip||'—')+(s.port?(':'+s.port):'')+'</div>'+
+        '<div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px">'+(s.uptimePct!=null?('⏱ '+s.uptimePct+'%'):'')+(s.latencyMs!=null?(' · 📶 '+s.latencyMs+'ms'):'')+'</div>'+
       '</div>';
     }).join('');
+    el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px">'+cards+'</div>';
   };
 
   /* ── Bitácora de eventos ── */
