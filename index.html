@@ -46,7 +46,7 @@ try {
   window._fbSetDoc = setDoc;
   window._fbDoc = doc;
   window._fbGetDocs = getDocs;
-  window._fbFS = { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, setDoc, where, writeBatch, limit, startAfter };
+  window._fbFS = { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, setDoc, where, writeBatch, limit, startAfter, onSnapshot };
 } catch(initErr) {
   console.error('[BESS] Firebase init error:', initErr.message);
   // firebase-ready will still fire at end of module, _fb won't be set
@@ -27137,7 +27137,7 @@ window.addEventListener('firebase-ready', function(){
         window._commSites = snap.docs.map(function(d){ var v=d.data(); v._id=d.id; return v; });
         commRenderAll();
       }, function(err){ console.warn('[Comunicación] listener comm_sites:', err.message); });
-      FS.onSnapshot(FS.query(FS.collection(DB,'comm_events'), FS.orderBy('timestamp','desc'), FS.limit(200)), function(snap){
+      FS.onSnapshot(FS.query(FS.collection(DB,'comm_events'), FS.orderBy('ts','desc'), FS.limit(200)), function(snap){
         window._commEvents = snap.docs.map(function(d){ var v=d.data(); v._id=d.id; return v; });
         commRenderAll();
       }, function(err){ console.warn('[Comunicación] listener comm_events:', err.message); });
