@@ -4632,6 +4632,18 @@ html{-webkit-text-size-adjust:100%;}
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="msapplication-tap-highlight" content="no">
 <script>
+/* ══ Fecha de HOY en horario LOCAL (no UTC) ══
+   new Date().toISOString() siempre da la fecha en UTC. En México (UTC-6/-5),
+   pasadas las 6-7pm locales eso ya es "mañana" en UTC — por eso varias partes
+   de la app (checklist diario, reportes, nombres de archivo) mostraban la
+   fecha del día siguiente. Esta función usa los componentes de fecha LOCALES
+   del navegador, así siempre coincide con el calendario real de quien la usa. */
+window._todayLocalStr = function(d){
+  d = d || new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+};
+</script>
+<script>
 /* ══ localStorage Polyfill v2 — robusto contra Edge Tracking Prevention ══
    Problema anterior: _safeLS() pasaba el test síncrono pero Edge revocaba
    el acceso de forma asíncrona, rompiendo silenciosamente todas las lecturas/escrituras.
@@ -8662,6 +8674,17 @@ async function expDoZip(mode){
   0%{ transform:scale(.6); opacity:.85; }
   100%{ transform:scale(2.4); opacity:0; }
 }
+.comm-hub{
+  width:18px; height:18px; border-radius:50%;
+  background:radial-gradient(circle, #67e8f9, #0891b2);
+  border:3px solid #fff; box-shadow:0 0 16px #22d3ee, 0 0 32px rgba(34,211,238,.6);
+}
+.comm-line-flow{
+  animation: comm-line-flow-anim 1s linear infinite;
+}
+@keyframes comm-line-flow-anim{
+  to{ stroke-dashoffset:-18; }
+}
 </style>
 <!-- ══════ PAGE: COMUNICACIÓN (Monitoreo de conectividad — puente desde BESS Monitor local) ══════ -->
 <div class="page" id="page-comunicacion">
@@ -8692,9 +8715,10 @@ async function expDoZip(mode){
     <!-- TAB: Mapa -->
     <div id="comm-tab-mapa">
       <div style="background:#0a0e1a;border:1px solid var(--b1);border-radius:12px;padding:0;position:relative;overflow:hidden">
+        <div id="comm-connected-count" style="position:absolute;top:10px;left:10px;z-index:1000;background:rgba(10,14,26,.85);backdrop-filter:blur(4px);padding:6px 12px;border-radius:20px;border:1px solid rgba(34,211,238,.4);color:#22d3ee;font-family:var(--mono);font-size:10px;font-weight:700">⚡ 0 interconectados a la microred Skysense</div>
         <div id="comm-map-leaflet" style="width:100%;height:560px"></div>
         <div style="display:flex;gap:16px;justify-content:center;padding:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--t3);background:var(--s1);border-top:1px solid var(--b1)">
-          <span>🟢 En línea</span><span>🟡 Intermitente</span><span>🔴 Desconectado</span><span>🔧 Mantenimiento</span>
+          <span>🟢 En línea</span><span>🟡 Intermitente</span><span>🔴 Desconectado</span><span>🔧 Mantenimiento</span><span>⚡ Línea animada = conectado a la microred</span>
         </div>
       </div>
     </div>
@@ -10067,7 +10091,7 @@ window.cerebroAddIssue = function(siteId){
   var site = JSON.parse(JSON.stringify(cerebroAll().find(function(s){return s.id===siteId;})||{}));
   if(!site.id) return;
   site.equipmentIssues = site.equipmentIssues || [];
-  site.equipmentIssues.push({rack:rack, problema:problema, estado:'activo', fecha:new Date().toISOString().slice(0,10)});
+  site.equipmentIssues.push({rack:rack, problema:problema, estado:'activo', fecha:window._todayLocalStr()});
   _cerebroPersistSiteChange(site);
 };
 window.cerebroToggleIssue = function(siteId, idx){
@@ -10075,7 +10099,7 @@ window.cerebroToggleIssue = function(siteId, idx){
   if(!site.id || !site.equipmentIssues || !site.equipmentIssues[idx]) return;
   var iss = site.equipmentIssues[idx];
   iss.estado = iss.estado==='activo' ? 'resuelto' : 'activo';
-  iss.fechaResolucion = iss.estado==='resuelto' ? new Date().toISOString().slice(0,10) : null;
+  iss.fechaResolucion = iss.estado==='resuelto' ? window._todayLocalStr() : null;
   _cerebroPersistSiteChange(site);
 };
 
@@ -10327,7 +10351,7 @@ function cklAllSiteRows(){
 
 window.cklLoad = async function(){
   var dateInp = document.getElementById('ckl-date');
-  if(!dateInp.value) dateInp.value = new Date().toISOString().slice(0,10);
+  if(!dateInp.value) dateInp.value = window._todayLocalStr();
   var uname = localStorage.getItem('bess_uname')||'';
   var lbl = document.getElementById('ckl-operator-lbl');
   if(lbl) lbl.textContent = 'Operador: '+(uname||'—');
@@ -10419,7 +10443,7 @@ window.cklOpenIncident = function(siteId){
   var group = cerebroAll().find(function(s){return s.id===groupId;}) || {};
   var stLbl = (CKL_STATUS.find(function(s){return s.v===d.status;})||{}).l || d.status || '';
   var dateInp = document.getElementById('ckl-date');
-  var dateStr = dateInp ? dateInp.value : new Date().toISOString().slice(0,10);
+  var dateStr = dateInp ? dateInp.value : window._todayLocalStr();
 
   document.getElementById('inc-subtitle').textContent = label+' · '+(group.grupo||'')+' · '+dateStr+' · '+stLbl;
   document.getElementById('inc-estado').value = stLbl;
@@ -10482,7 +10506,7 @@ window.cklGenerateIncidentReport = function(){
   var groupId = siteId.split('::')[0];
   var group = cerebroAll().find(function(s){return s.id===groupId;}) || {};
   var dateInp = document.getElementById('ckl-date');
-  var dateStr = dateInp ? dateInp.value : new Date().toISOString().slice(0,10);
+  var dateStr = dateInp ? dateInp.value : window._todayLocalStr();
   var dateLbl = new Date(dateStr+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
 
   var estado = document.getElementById('inc-estado').value || '—';
@@ -10712,7 +10736,7 @@ function cerebroBuildTeamsReport(zone){
 function _renderTeamsPanel(zone, title){
   var r = cerebroBuildTeamsReport(zone);
   var dateInp = document.getElementById('ckl-date');
-  var dateStr = dateInp ? dateInp.value : new Date().toISOString().slice(0,10);
+  var dateStr = dateInp ? dateInp.value : window._todayLocalStr();
   var dateLbl = new Date(dateStr+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
   dateLbl = dateLbl.charAt(0).toUpperCase()+dateLbl.slice(1);
 
@@ -10777,7 +10801,7 @@ window.cerebroDownloadTeamsImage = function(zone){
   html2canvas(el, {scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false}).then(function(canvas){
     var a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = 'Reporte_Descarga_'+zone+'_'+new Date().toISOString().slice(0,10)+'.png';
+    a.download = 'Reporte_Descarga_'+zone+'_'+window._todayLocalStr()+'.png';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   });
 };
@@ -22471,7 +22495,7 @@ window.histExportCSV = function(){
   }).join('\n');
   var blob=new Blob([header+rows],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
-  var a=document.createElement('a'); a.href=url; a.download='historico_BESS_'+new Date().toISOString().slice(0,10)+'.csv';
+  var a=document.createElement('a'); a.href=url; a.download='historico_BESS_'+window._todayLocalStr()+'.csv';
   a.click(); URL.revokeObjectURL(url);
   if(typeof safeToast!=='undefined') safeToast('📥 CSV exportado — '+data.length.toLocaleString('es-MX')+' registros');
 };
@@ -23918,7 +23942,7 @@ window.eneExportCSV = function(){
   }).join('\n');
   var blob=new Blob([hdr+rows],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
-  var a=document.createElement('a'); a.href=url; a.download='desempeno_energetico_BESS_'+new Date().toISOString().slice(0,10)+'.csv';
+  var a=document.createElement('a'); a.href=url; a.download='desempeno_energetico_BESS_'+window._todayLocalStr()+'.csv';
   a.click(); URL.revokeObjectURL(url);
   if(typeof safeToast!=='undefined') safeToast('📥 CSV exportado — '+data.length.toLocaleString('es-MX')+' registros');
 };
@@ -24361,7 +24385,7 @@ window._hbmExportImage = function(){
   html2canvas(panel, {scale:2, backgroundColor:'#0a1f4a', useCORS:true, logging:false}).then(function(canvas){
     var a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = 'Handoff_'+new Date().toISOString().slice(0,10)+'.png';
+    a.download = 'Handoff_'+window._todayLocalStr()+'.png';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     if(typeof showToast==='function') showToast('✅ Imagen del handoff descargada');
   }).catch(function(e){
@@ -24888,7 +24912,7 @@ window._pimSaveReport=function(){
   if(window._pimTypeOverride==='op')  isVal = false;
   if(window._pimTypeOverride==='val') isVal = true;
 
-  var dateStr = d.date||new Date().toISOString().slice(0,10);
+  var dateStr = d.date||window._todayLocalStr();
 
   if(isVal) {
     /* ── GUARDAR COMO VALIDACIÓN ── */
@@ -25766,7 +25790,7 @@ window._bdExportCSV = function(){
   var csv='\ufeff'+headers.join(',')+'\n'+rows.join('\n');
   var a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='BD_Energetica_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download='BD_Energetica_'+window._todayLocalStr()+'.csv';
   a.click();
 };
 
@@ -26534,7 +26558,7 @@ window.addEventListener('firebase-ready', function(){
       if(Array.isArray(data.sites)) sites = data.sites;
       else if(Array.isArray(data.srs) && Array.isArray(data._siteNames)) sites = data._siteNames.map(function(n,i){ return {name:n, status:(data.srs[i]||{}).status||'', obs:(data.srs[i]||{}).obs||''}; });
       else { if(typeof showToast==='function') showToast('⚠ No se reconocieron sitios en ese JSON'); return; }
-      var date = data.date || new Date().toISOString().slice(0,10);
+      var date = data.date || window._todayLocalStr();
 
       /* 1) Guardar el Reporte Operativo completo — el registro real del día */
       try{
@@ -26685,7 +26709,7 @@ window.addEventListener('firebase-ready', function(){
   window.handoffRenderBannerRefresh = handoffRenderAll;
   window.handoffLoadReporteOpToday = async function(){
     try{
-      var today = new Date().toISOString().slice(0,10);
+      var today = window._todayLocalStr();
       var rep = _fbH.getReporteOp ? await _fbH.getReporteOp(today) : null;
       if(rep && rep.sites) handoffRenderReporteViewer(rep.date, rep.sites);
     }catch(e){}
@@ -26697,7 +26721,7 @@ window.addEventListener('firebase-ready', function(){
     html2canvas(el, {scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false}).then(function(canvas){
       var a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
-      a.download = 'Handoff_'+new Date().toISOString().slice(0,10)+'.png';
+      a.download = 'Handoff_'+window._todayLocalStr()+'.png';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     });
   };
@@ -26732,7 +26756,7 @@ window.addEventListener('firebase-ready', function(){
       if(bC){ bC.style.background='var(--s1)'; bC.style.color='var(--green)'; }
       if(bD){ bD.style.background='var(--s2)'; bD.style.color='var(--t3)'; }
       populateCargaSites();
-      var d = document.getElementById('cg-date'); if(d && !d.value) d.value = new Date().toISOString().slice(0,10);
+      var d = document.getElementById('cg-date'); if(d && !d.value) d.value = window._todayLocalStr();
       var hi = document.getElementById('cg-hora-inicio'), hf = document.getElementById('cg-hora-fin');
       if(hi && !hi.value) hi.value = '22:00';
       if(hf && !hf.value) hf.value = '06:00';
@@ -27210,6 +27234,8 @@ window.addEventListener('firebase-ready', function(){
 
   /* ── Mapa ── */
   var _leafletMap = null, _leafletMarkers = [];
+  var HUB_COORD = [19.43, -99.13]; /* Centro BESS / SkySense — CDMX */
+  var _leafletLines = [];
   function commRenderMap(){
     var container = document.getElementById('comm-map-leaflet');
     if(!container || typeof L==='undefined') return;
@@ -27223,12 +27249,36 @@ window.addEventListener('firebase-ready', function(){
 
     _leafletMarkers.forEach(function(m){ _leafletMap.removeLayer(m); });
     _leafletMarkers = [];
+    _leafletLines.forEach(function(l){ _leafletMap.removeLayer(l); });
+    _leafletLines = [];
 
+    /* Hub central — representa a Skysense / Centro BESS, de donde "salen" las conexiones */
+    var hubIcon = L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11], html:'<div class="comm-hub"></div>'});
+    var hubMarker = L.marker(HUB_COORD, {icon:hubIcon, zIndexOffset:1000}).addTo(_leafletMap);
+    hubMarker.bindPopup('<b style="font-family:\'DM Mono\',monospace">⚡ Skysense — Centro BESS</b><br><span style="font-family:\'DM Mono\',monospace;font-size:11px">Microred de monitoreo</span>');
+    _leafletMarkers.push(hubMarker);
+
+    var connectedCount = 0;
     window._commSites.forEach(function(s){
       if(s.lat==null || s.lng==null) return; /* sin coordenadas — no se puede ubicar en el mapa */
       var inMaint = !!s.maintenance;
       var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
-      var pulse = (!inMaint && s.status==='online') ? ' comm-pulse' : '';
+      var isOnline = !inMaint && s.status==='online';
+      if(isOnline) connectedCount++;
+
+      /* Línea de conexión del hub hacia el sitio — animada y en cian si está en línea,
+         punteada y quieta en naranja/rojo si tiene problema, sin línea si está en mantenimiento */
+      if(!inMaint){
+        var lineColor = s.status==='online' ? '#22d3ee' : s.status==='intermittent' ? '#f59e0b' : '#ef4444';
+        var line = L.polyline([HUB_COORD, [s.lat, s.lng]], {
+          color: lineColor, weight: isOnline?1.6:1.2, opacity: isOnline?0.6:0.4,
+          dashArray: isOnline ? '1,8' : '4,6',
+          className: isOnline ? 'comm-line-flow' : ''
+        }).addTo(_leafletMap);
+        _leafletLines.push(line);
+      }
+
+      var pulse = isOnline ? ' comm-pulse' : '';
       var icon = L.divIcon({
         className:'', iconSize:[16,16], iconAnchor:[8,8],
         html:'<div class="comm-marker'+pulse+'" style="--mc:'+color+'"></div>'
@@ -27250,6 +27300,9 @@ window.addEventListener('firebase-ready', function(){
       });
       _leafletMarkers.push(marker);
     });
+
+    var connEl = document.getElementById('comm-connected-count');
+    if(connEl) connEl.textContent = '⚡ '+connectedCount+' interconectados a la microred Skysense';
   }
 
   /* ── Sitios (agrupados por ciudad) ── */
@@ -27265,26 +27318,24 @@ window.addEventListener('firebase-ready', function(){
     var groups = {};
     sites.forEach(function(s){ var k=_normCityKey(s.city)||'Sin ciudad'; (groups[k]=groups[k]||[]).push(s); });
     el.innerHTML = Object.keys(groups).sort().map(function(city){
-      var rows = groups[city].map(function(s){
+      var cards = groups[city].map(function(s){
         var inMaint = !!s.maintenance;
         var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
-        var label = inMaint ? '🔧 Mantenimiento' : (STATUS_LABEL[s.status]||'Sin datos');
-        var scadaData = (s.scada && typeof s.scada==='object') ? s.scada : null;
-        var extraFields = scadaData ? Object.keys(scadaData).map(function(k){ return '<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">'+k+': <b style="color:var(--text)">'+scadaData[k]+'</b></span>'; }).join('') : '';
-        return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border-radius:8px;background:var(--s2);border:1px solid var(--b1)" title="'+(s.address||'')+'">'+
-          '<span style="width:9px;height:9px;border-radius:50%;background:'+color+';flex-shrink:0;box-shadow:0 0 6px '+color+'"></span>'+
-          '<span style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text);min-width:130px">'+(s.name||s._id)+'</span>'+
-          '<span style="font-family:var(--mono);font-size:9px;color:'+color+';font-weight:700">'+label+'</span>'+
-          '<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">📡 '+(s.ip||'—')+(s.port?(':'+s.port):'')+'</span>'+
-          (s.latencyMs!=null?('<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">📶 '+s.latencyMs+' ms</span>'):'')+
-          (s.uptimePct!=null?('<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">⏱ '+s.uptimePct+'% uptime</span>'):'')+
-          '<span style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-left:auto">'+(s.lastCheck?new Date(Number(s.lastCheck)).toLocaleTimeString('es-MX',{hour12:false}):'—')+'</span>'+
-          (extraFields?('<div style="flex-basis:100%;display:flex;gap:12px;flex-wrap:wrap;margin-top:2px">'+extraFields+'</div>'):'')+
+        var label = inMaint ? 'Mantenimiento' : (STATUS_LABEL[s.status]||'Sin datos');
+        var url = s.ip ? ('https://'+s.ip+(s.port?(':'+s.port):'')) : null;
+        var onclick = url ? ('window.open(\''+url+'\',\'_blank\')') : '';
+        return '<div onclick="'+onclick+'" title="'+(s.address?s.address+' · ':'')+label+(url?' — clic para abrir '+url:'')+'" '+
+          'style="cursor:'+(url?'pointer':'default')+';position:relative;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 11px;transition:all .15s" '+
+          (url?'onmouseover="this.style.borderColor=\'var(--sky)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.borderColor=\'var(--b1)\';this.style.transform=\'\'"':'')+'>'+
+          '<span style="position:absolute;top:9px;right:9px;width:8px;height:8px;border-radius:50%;background:'+color+';box-shadow:0 0 6px '+color+'"></span>'+
+          '<div style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text);padding-right:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.name||s._id)+'</div>'+
+          '<div style="font-family:var(--mono);font-size:9px;color:'+(url?'var(--sky)':'var(--t3)')+';margin-top:3px">'+(s.ip||'—')+(s.port?(':'+s.port):'')+'</div>'+
+          '<div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px">'+(s.uptimePct!=null?('⏱ '+s.uptimePct+'%'):'')+(s.latencyMs!=null?(' · 📶 '+s.latencyMs+'ms'):'')+'</div>'+
         '</div>';
       }).join('');
-      return '<div style="margin-bottom:14px">'+
-        '<div style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--sky);letter-spacing:1px;margin-bottom:6px">📍 '+city.toUpperCase()+' · '+groups[city].length+'</div>'+
-        '<div style="display:flex;flex-direction:column;gap:6px">'+rows+'</div>'+
+      return '<div style="margin-bottom:16px">'+
+        '<div style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--sky);letter-spacing:1px;margin-bottom:8px">📍 '+city.toUpperCase()+' · '+groups[city].length+'</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px">'+cards+'</div>'+
       '</div>';
     }).join('');
   };
