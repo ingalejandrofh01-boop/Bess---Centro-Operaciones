@@ -2,6 +2,8 @@
 <html lang="es">
 <head>
 <script>console.log('%c[Centro BESS] build 2026-07-28 rev-handoff-debug-v2 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
 <meta name="app-version" content="1785274822100">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
@@ -8647,6 +8649,20 @@ async function expDoZip(mode){
 <!-- ═══ MODAL: HANDOFF AL IMPORTAR JSON — misma opción que en el wizard manual ═══ -->
 </div><!-- /page-cerebro -->
 
+<style>
+.comm-marker{
+  position:relative; width:14px; height:14px; border-radius:50%;
+  background:var(--mc); border:2px solid #fff; box-shadow:0 0 8px var(--mc);
+}
+.comm-marker.comm-pulse::after{
+  content:''; position:absolute; inset:-6px; border-radius:50%;
+  border:2px solid var(--mc); animation:comm-pulse-anim 1.8s ease-out infinite;
+}
+@keyframes comm-pulse-anim{
+  0%{ transform:scale(.6); opacity:.85; }
+  100%{ transform:scale(2.4); opacity:0; }
+}
+</style>
 <!-- ══════ PAGE: COMUNICACIÓN (Monitoreo de conectividad — puente desde BESS Monitor local) ══════ -->
 <div class="page" id="page-comunicacion">
   <div class="page-scroll" style="padding:20px 24px">
@@ -8675,12 +8691,10 @@ async function expDoZip(mode){
 
     <!-- TAB: Mapa -->
     <div id="comm-tab-mapa">
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px;position:relative">
-        <div style="display:flex;justify-content:center">
-          <svg id="comm-map-svg" viewBox="0 0 500 620" style="width:100%;max-width:560px;height:auto" xmlns="http://www.w3.org/2000/svg"></svg>
-        </div>
-        <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--t3)">
-          <span>🟢 En línea</span><span>🟡 Intermitente</span><span>🔴 Desconectado</span><span>⚪ Sin datos</span>
+      <div style="background:#0a0e1a;border:1px solid var(--b1);border-radius:12px;padding:0;position:relative;overflow:hidden">
+        <div id="comm-map-leaflet" style="width:100%;height:560px"></div>
+        <div style="display:flex;gap:16px;justify-content:center;padding:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--t3);background:var(--s1);border-top:1px solid var(--b1)">
+          <span>🟢 En línea</span><span>🟡 Intermitente</span><span>🔴 Desconectado</span><span>🔧 Mantenimiento</span>
         </div>
       </div>
     </div>
@@ -13283,6 +13297,7 @@ function goPage(id){
   if(id==='historico'){setTimeout(function(){if(window.histInit)window.histInit();},80);}
   if(id==='maestra'){setTimeout(function(){if(window._mlRender)window._mlRender();},80);}
   if(id==='cerebro'){setTimeout(function(){if(window.cerebroInit)window.cerebroInit();},80);}
+  if(id==='comunicacion'){setTimeout(function(){if(window.commRenderAll)window.commRenderAll();if(window.commInvalidateMapSize)window.commInvalidateMapSize();},80);}
 }
 
 // DASHBOARD
@@ -27109,17 +27124,6 @@ window.addEventListener('firebase-ready', function(){
   window._commEvents = [];
   var _rankPeriod = '24h';
 
-  var MX_B = {latMin:14.3, latMax:32.8, lngMin:-118.2, lngMax:-86.3};
-  function commProject(lat,lng){
-    var W=500,H=620,P=20;
-    return {
-      x: P + (lng-MX_B.lngMin)/(MX_B.lngMax-MX_B.lngMin) * (W-2*P),
-      y: P + (MX_B.latMax-lat)/(MX_B.latMax-MX_B.latMin) * (H-2*P)
-    };
-  }
-  var MX_MAINLAND_PATH = "M 123.8 67.0 L 190.2 54.5 L 217.6 123.5 L 275.2 148.5 L 289.7 186.2 L 307.0 233.2 L 318.5 236.3 L 314.2 352.3 L 338.7 446.4 L 363.2 480.9 L 419.4 427.6 L 431.0 380.5 L 472.8 383.7 L 462.7 433.8 L 451.2 468.3 L 451.2 543.6 L 393.5 581.2 L 325.7 553.0 L 283.9 518.5 L 259.4 496.5 L 220.4 449.5 L 207.5 402.5 L 203.1 374.3 L 190.2 321.0 L 154.1 239.5 L 125.3 173.6 L 106.5 92.1 L 123.8 67.0 Z";
-  var MX_BAJA_PATH = "M 35.9 29.4 L 43.1 48.2 L 53.2 107.8 L 80.6 170.5 L 80.6 201.8 L 110.8 233.2 L 133.9 292.8 L 139.7 330.4 L 146.9 314.7 L 129.6 286.5 L 110.8 245.7 L 96.4 195.6 L 87.8 170.5 L 73.4 114.1 L 70.5 76.4 L 69.0 45.1 L 58.9 26.3 L 35.9 29.4 Z";
-
   var STATUS_COLOR = {online:'#22c55e', intermittent:'#f59e0b', offline:'#ef4444'};
   var STATUS_LABEL  = {online:'En línea', intermittent:'Intermitente', offline:'Desconectado'};
 
@@ -27200,46 +27204,52 @@ window.addEventListener('firebase-ready', function(){
         btn.style.color = active ? 'var(--sky)' : 'var(--t3)';
       }
     });
+    if(tab==='mapa' && _leafletMap){ setTimeout(function(){ _leafletMap.invalidateSize(); }, 50); }
   };
+  window.commInvalidateMapSize = function(){ if(_leafletMap) _leafletMap.invalidateSize(); };
 
   /* ── Mapa ── */
+  var _leafletMap = null, _leafletMarkers = [];
   function commRenderMap(){
-    var svg = document.getElementById('comm-map-svg');
-    if(!svg) return;
-    var parts = [];
-    parts.push('<path d="'+MX_MAINLAND_PATH+'" fill="rgba(26,63,204,.08)" stroke="rgba(26,63,204,.35)" stroke-width="1.2"/>');
-    parts.push('<path d="'+MX_BAJA_PATH+'" fill="rgba(26,63,204,.08)" stroke="rgba(26,63,204,.35)" stroke-width="1.2"/>');
+    var container = document.getElementById('comm-map-leaflet');
+    if(!container || typeof L==='undefined') return;
 
-    /* Agrupar sitios que caen casi en el mismo punto (misma coordenada aproximada, ej.
-       cuando no se tenía la ubicación exacta) para repartirlos en abanico y que no
-       queden un punto exactamente encima de otro. */
-    var byPoint = {};
+    if(!_leafletMap){
+      _leafletMap = L.map('comm-map-leaflet', {zoomControl:true, attributionControl:true}).setView([23.6,-102.5], 5);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap, &copy; CARTO', subdomains:'abcd', maxZoom:19
+      }).addTo(_leafletMap);
+    }
+
+    _leafletMarkers.forEach(function(m){ _leafletMap.removeLayer(m); });
+    _leafletMarkers = [];
+
     window._commSites.forEach(function(s){
       if(s.lat==null || s.lng==null) return; /* sin coordenadas — no se puede ubicar en el mapa */
-      var key = s.lat.toFixed(2)+','+s.lng.toFixed(2);
-      (byPoint[key] = byPoint[key] || []).push(s);
-    });
-
-    Object.keys(byPoint).forEach(function(key){
-      var group = byPoint[key];
-      var center = commProject(group[0].lat, group[0].lng);
-      group.forEach(function(s, i){
-        var angle = (i / group.length) * Math.PI * 2;
-        var fan = group.length>1 ? 7 : 0;
-        var x = center.x + Math.cos(angle)*fan;
-        var y = center.y + Math.sin(angle)*fan;
-        var inMaint = !!s.maintenance;
-        var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
-        var showLabel = s.status==='offline' || s.status==='intermittent';
-        parts.push('<g style="cursor:pointer" onclick="commSwitchTab(\'sitios\');document.getElementById(\'comm-search\').value=\''+String(s.name||'').replace(/'/g,"\\'")+'\';commRenderSites();">'+
-          '<circle cx="'+x+'" cy="'+y+'" r="9" fill="'+color+'" opacity="0.18"/>'+
-          '<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+color+'" stroke="#fff" stroke-width="1.2"/>'+
-          '<title>'+s.name+' · '+(s.city||'')+' · '+(s.ip||'')+' · '+(inMaint?'Mantenimiento':(STATUS_LABEL[s.status]||s.status))+'</title>'+
-          (showLabel?('<text x="'+x+'" y="'+(y-9)+'" text-anchor="middle" font-family="DM Mono,monospace" font-size="8" font-weight="700" fill="'+color+'">'+s.name+'</text>'):'')+
-          '</g>');
+      var inMaint = !!s.maintenance;
+      var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
+      var pulse = (!inMaint && s.status==='online') ? ' comm-pulse' : '';
+      var icon = L.divIcon({
+        className:'', iconSize:[16,16], iconAnchor:[8,8],
+        html:'<div class="comm-marker'+pulse+'" style="--mc:'+color+'"></div>'
       });
+      var marker = L.marker([s.lat, s.lng], {icon:icon}).addTo(_leafletMap);
+      marker.bindPopup(
+        '<div style="font-family:\'DM Mono\',monospace;font-size:11px;min-width:170px;color:#222">'+
+          '<b style="font-size:12px">'+(s.name||s._id)+'</b><br>'+
+          '📍 '+(s.city||'—')+'<br>'+
+          '📡 '+(s.ip||'—')+(s.port?(':'+s.port):'')+'<br>'+
+          '<span style="color:'+color+';font-weight:700">'+(inMaint?'🔧 Mantenimiento':(STATUS_LABEL[s.status]||s.status))+'</span>'+
+          (s.uptimePct!=null?('<br>⏱ '+s.uptimePct+'% uptime'):'')+
+        '</div>'
+      );
+      marker.on('click', function(){
+        commSwitchTab('sitios');
+        var input = document.getElementById('comm-search');
+        if(input){ input.value = s.name||''; commRenderSites(); }
+      });
+      _leafletMarkers.push(marker);
     });
-    svg.innerHTML = parts.join('');
   }
 
   /* ── Sitios (agrupados por ciudad) ── */
