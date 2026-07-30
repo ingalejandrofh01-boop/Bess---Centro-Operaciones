@@ -7871,6 +7871,7 @@ async function expDoZip(mode){
         <button onclick="window._mbOpenForm()" style="padding:9px 16px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:8px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">+ Nueva Lectura</button>
         <button onclick="window._mbOpenImport()" style="padding:9px 16px;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:8px;color:#00a97a;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📥 Importar CSV</button>
         <button onclick="window._mbOpenConfig()" style="padding:9px 16px;background:rgba(255,255,255,.06);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📋 Catálogo de Sitios</button>
+        <button onclick="window._mbRunCleanup()" title="Quita cualquier tarjeta que no sea un sitio real (residuo de una importación anterior)" style="padding:9px 16px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.25);border-radius:8px;color:var(--red);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">🧹 Limpiar sitios inválidos</button>
       </div>
     </div>
 
@@ -27713,7 +27714,9 @@ function _mbLoadLocal(){
     Object.keys(MB_CONFIG_SEED).forEach(function(s){ MB_CONFIG[s] = { dc:MB_CONFIG_SEED[s], mult:null, codBase:'', codIntermedio:'', codPunta:'' }; });
   }
   _mbMigrateConfig();
+  var removed = _mbPurgeGhostSites();
   _mbPersistConfig();
+  if(removed) console.log('[Medidor BESS] Se limpiaron '+removed+' registro(s) fantasma de una importación anterior.');
 }
 /* Convierte el formato viejo (MB_CONFIG[sitio] = numero) al formato con catálogo completo */
 function _mbMigrateConfig(){
@@ -27738,7 +27741,7 @@ function _mbPullCloud(){
   try{
     if(window._fb && window._fb.getMedidorConfig){
       window._fb.getMedidorConfig().then(function(cfg){
-        if(cfg && Object.keys(cfg).length){ MB_CONFIG = Object.assign({}, MB_CONFIG, cfg); _mbMigrateConfig(); _mbPersistConfig(); _mbRenderAll(); }
+        if(cfg && Object.keys(cfg).length){ MB_CONFIG = Object.assign({}, MB_CONFIG, cfg); _mbMigrateConfig(); _mbPurgeGhostSites(); _mbPersistConfig(); _mbRenderAll(); }
       }).catch(function(){});
     }
     if(window._fb && window._fb.getMedidorSnapshot){
@@ -27748,6 +27751,7 @@ function _mbPullCloud(){
           var byId={}; MB_LIST.forEach(function(r){ byId[r.id]=r; });
           list.forEach(function(r){ if(!byId[r.id] || (r.savedAt||0) > (byId[r.id].savedAt||0)) byId[r.id]=r; });
           MB_LIST = Object.keys(byId).map(function(k){ return byId[k]; });
+          _mbPurgeGhostSites();
           _mbPersistList(); _mbRenderAll();
         }
       }).catch(function(){});
@@ -27770,11 +27774,40 @@ function _mbCanonicalSite(raw){
   var stripped = raw.replace(/\s+B\s?\d+\s*$/i,'').replace(/\s+\d+\s*$/,'');
   return (stripped.trim() || raw);
 }
+/* Detecta "sitios fantasma": pedazos de encabezado de CSV que quedaron guardados como si fueran
+   un sitio real (p.ej. "contratada,Descripción", "hora punta,Hora"). Nunca deben mostrarse. */
+var MB_GHOST_WORDS = [
+  'contratada','descripcion','dia registrado','hora punta','multiplicador','codigo',
+  'valor obtenido','video','demanda','intermedia','punta','dem max','dem maxima',
+  'obtenido en','sitio' /* la palabra "sitio" sola nunca es un nombre real */
+];
+function _mbIsGhostSite(name){
+  if(!name) return true;
+  var raw = String(name).trim();
+  if(!raw) return true;
+  if(raw.indexOf(',')>=0) return true; /* un sitio real nunca trae coma en el nombre */
+  if(raw.replace(/[^a-zA-Zá-úÁ-Ú]/g,'').length<2) return true; /* casi sin letras */
+  var n=_mbNorm(raw);
+  for(var i=0;i<MB_GHOST_WORDS.length;i++){ if(n===MB_GHOST_WORDS[i] || n.indexOf(MB_GHOST_WORDS[i])>=0) return true; }
+  return false;
+}
+/* Elimina de MB_LIST y MB_CONFIG cualquier registro cuyo "sitio" sea en realidad basura de encabezado
+   (quedó guardado por una importación anterior con el parser viejo). Devuelve cuántos se quitaron. */
+function _mbPurgeGhostSites(){
+  var beforeL=MB_LIST.length;
+  MB_LIST = MB_LIST.filter(function(r){ return r.sitio && !_mbIsGhostSite(r.sitio); });
+  var removedL = beforeL - MB_LIST.length;
+  var removedC = 0;
+  Object.keys(MB_CONFIG).forEach(function(k){ if(_mbIsGhostSite(k)){ delete MB_CONFIG[k]; removedC++; } });
+  if(removedL) _mbPersistList();
+  if(removedC) _mbPersistConfig();
+  return removedL+removedC;
+}
 function _mbSiteNames(){
   var set={};
-  (window.MASTER_SITES_DB||[]).forEach(function(s){ if(s.sitio) set[_mbCanonicalSite(s.sitio)]=1; });
-  Object.keys(MB_CONFIG).forEach(function(s){ set[_mbCanonicalSite(s)]=1; });
-  MB_LIST.forEach(function(r){ if(r.sitio) set[_mbCanonicalSite(r.sitio)]=1; });
+  (window.MASTER_SITES_DB||[]).forEach(function(s){ if(s.sitio && !_mbIsGhostSite(s.sitio)) set[_mbCanonicalSite(s.sitio)]=1; });
+  Object.keys(MB_CONFIG).forEach(function(s){ if(!_mbIsGhostSite(s)) set[_mbCanonicalSite(s)]=1; });
+  MB_LIST.forEach(function(r){ if(r.sitio && !_mbIsGhostSite(r.sitio)) set[_mbCanonicalSite(r.sitio)]=1; });
   return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
 }
 function _mbDemandaContratada(sitio){
@@ -28023,6 +28056,12 @@ window._mbUpdateCausa = function(id, val){
   if(!r) return;
   r.causaExcedencia = val;
   _mbPersistList();
+};
+window._mbRunCleanup = function(){
+  var removed = _mbPurgeGhostSites();
+  _mbRenderAll();
+  window._mbRenderQuickCapture && window._mbRenderQuickCapture();
+  _mbToast(removed ? ('🧹 Se quitaron '+removed+' tarjeta(s) inválida(s)') : '✅ No había tarjetas inválidas');
 };
 
 /* ══ CAPTURA RÁPIDA ══ */
@@ -28433,7 +28472,6 @@ window._mbImportCSV = function(input){
       var fallbackFecha = mes+'-'+fallbackDay;
       var imported=0, excedidos=0, configUpdated=0;
       var seenThisImport={}; // canonicalId -> rec, para fusionar sub-redes (T4 B1/B2/B3 → T4) dentro del mismo archivo
-      var BAD_SITE = /^(total|totales|nota|notas|fuente|elaborad|promedio|suma)/i;
       function buildPart(valorFinal, video, codigo, fecha, hora){
         /* Si hay lectura de video, se usa modo "video" (demanda = video × multiplicador).
            Si el sitio no maneja video (no viene ese dato) pero sí trae la demanda ya calculada
@@ -28452,7 +28490,7 @@ window._mbImportCSV = function(input){
         var row={};
         fieldByCol.forEach(function(f,idx){ if(f) row[f]=cols[idx]; });
         var sitioRaw=(row.sitio||'').trim();
-        if(!sitioRaw || BAD_SITE.test(sitioRaw) || sitioRaw.length>60) continue;
+        if(!sitioRaw || _mbIsGhostSite(sitioRaw) || sitioRaw.length>60) continue;
         var sitio=_mbCanonicalSite(sitioRaw);
         var puntaFechaISO = _mbParseDMY(row.puntaFecha) || fallbackFecha;
         var fechaVideoISO = _mbParseDMY(row.fechaVideo) || '';
