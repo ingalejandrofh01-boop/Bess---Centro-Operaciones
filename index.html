@@ -8032,6 +8032,9 @@ async function expDoZip(mode){
             <option value="2">2ª quincena (días 16–fin)</option>
           </select>
         </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.2);border-radius:8px;font-family:var(--mono);font-size:10.5px;color:var(--red);cursor:pointer">
+          <input type="checkbox" id="mb-import-clear" style="accent-color:var(--red)"> Borrar lo que ya haya guardado para ese mes/quincena antes de importar (empezar de 0)
+        </label>
         <label style="padding:10px 14px;background:rgba(0,200,150,.08);border:1px dashed rgba(0,200,150,.4);border-radius:8px;color:#00a97a;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;text-align:center">
           📄 Elegir archivo CSV…<input type="file" accept=".csv" id="mb-import-file" onchange="window._mbImportCSV(this)" style="display:none">
         </label>
@@ -27848,6 +27851,15 @@ function _mbPeriodDemand(part, multiplicador){
 /* ══ CÁLCULO DE ESTADO ══ */
 function _mbCalc(rec){
   var dc = _mbDemandaContratada(rec.sitio);
+  var hasData = ['base','intermedia','punta'].some(function(p){
+    var part=rec[p];
+    return part && ((part.video!=null && part.video!=='') || (part.directo!=null && part.directo!==''));
+  });
+  var missingMult = ['base','intermedia','punta'].some(function(p){
+    var part=rec[p];
+    var hasVideo = part && part.modo!=='directo' && part.video!=null && part.video!=='';
+    return hasVideo && (rec.multiplicador==null || rec.multiplicador==='');
+  });
   var vals = [
     _mbPeriodDemand(rec.base, rec.multiplicador)||0,
     _mbPeriodDemand(rec.intermedia, rec.multiplicador)||0,
@@ -27855,6 +27867,8 @@ function _mbCalc(rec){
   ];
   var maxD = Math.max.apply(null, vals);
   var out = { maxDemanda:maxD, demandaContratada:dc, pctUso:null, estado:'ok', kwExceso:0 };
+  if(!hasData){ out.estado='pending'; out.maxDemanda=null; return out; } /* aún no se ha capturado ningún valor — no es "OK", está pendiente */
+  if(missingMult){ out.estado='incomplete'; out.maxDemanda=null; return out; } /* hay video capturado pero no hay multiplicador — no se puede calcular el kW real */
   if(dc && dc>0){
     out.pctUso = Math.round((maxD/dc)*1000)/10;
     if(maxD > dc){ out.estado='over'; out.kwExceso = Math.round((maxD-dc)*100)/100; }
@@ -27868,6 +27882,8 @@ function _mbCalc(rec){
 function _mbEstadoBadge(estado){
   if(estado==='over')    return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(220,38,38,.12);color:var(--red);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">🚨 EXCEDIDO</span>';
   if(estado==='near')    return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(234,108,0,.12);color:var(--orange);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">⚠️ CERCA</span>';
+  if(estado==='pending') return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(102,133,172,.12);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">⏳ SIN CAPTURAR</span>';
+  if(estado==='incomplete') return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(234,108,0,.12);color:var(--orange);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">⚠️ FALTA MULTIPLICADOR</span>';
   if(estado==='unknown') return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(102,133,172,.12);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">— SIN DATO</span>';
   return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(5,150,105,.12);color:var(--green);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">✅ OK</span>';
 }
@@ -27966,14 +27982,19 @@ function _mbRenderSummaryGrid(){
   }
   grid.innerHTML = sites.map(function(sitio){
     var recs=bySite[sitio];
-    var q1=recs.some(function(r){ return _mbQuincena(r.fecha)===1; });
-    var q2=recs.some(function(r){ return _mbQuincena(r.fecha)===2; });
-    var worst = recs.some(function(r){ return r.estado==='over'; }) ? 'over' : recs.some(function(r){ return r.estado==='near'; }) ? 'near' : 'ok';
+    var q1=recs.some(function(r){ return _mbQuincena(r.fecha)===1 && r.estado!=='pending'; });
+    var q2=recs.some(function(r){ return _mbQuincena(r.fecha)===2 && r.estado!=='pending'; });
+    var worst = recs.some(function(r){ return r.estado==='over'; }) ? 'over'
+              : recs.some(function(r){ return r.estado==='near'; }) ? 'near'
+              : recs.some(function(r){ return r.estado==='incomplete'; }) ? 'incomplete'
+              : recs.every(function(r){ return r.estado==='pending'; }) ? 'pending' : 'ok';
     var maxKw = Math.max.apply(null, recs.map(function(r){ return r.maxDemanda||0; }));
     var dc = _mbDemandaContratada(sitio);
     var veredicto;
     if(worst==='over') veredicto = '🚨 Excedió la demanda contratada este mes — riesgo de penalización';
     else if(worst==='near') veredicto = '⚠️ Estuvo cerca del límite este mes';
+    else if(worst==='incomplete') veredicto = '⚠️ Hay valores capturados pero falta el multiplicador en el Catálogo — no se puede calcular el kW real';
+    else if(worst==='pending') veredicto = '⏳ Aún no se ha capturado ningún valor este mes';
     else if(q1 && q2) veredicto = '✅ Mes limpio — sin excedencias en ninguna quincena';
     else veredicto = '🕒 Falta registrar la '+(q1?'2ª':'1ª')+' quincena';
     var bd = worst==='over'?'rgba(220,38,38,.35)':worst==='near'?'rgba(234,108,0,.35)':'var(--b1)';
@@ -28392,6 +28413,7 @@ window._mbOpenImport = function(){
   document.getElementById('mb-import-mes').value = _mbToday().slice(0,7);
   document.getElementById('mb-import-q').value = _mbQuincena(_mbToday())+'';
   document.getElementById('mb-import-status').textContent = '';
+  document.getElementById('mb-import-clear').checked = false;
   document.getElementById('mb-import-modal').style.display='flex';
 };
 function _mbNorm(s){
@@ -28488,6 +28510,13 @@ window._mbImportCSV = function(input){
       var fieldByCol=hdr.fields, allRows=hdr.rows;
       var fallbackDay = quincena==='1' ? '01' : '16';
       var fallbackFecha = mes+'-'+fallbackDay;
+      if((document.getElementById('mb-import-clear')||{}).checked){
+        var mesKeyClr=_mbMesKey(fallbackFecha), qClr=_mbQuincena(fallbackFecha);
+        var before=MB_LIST.length;
+        MB_LIST = MB_LIST.filter(function(r){ return !(_mbMesKey(r.fecha)===mesKeyClr && _mbQuincena(r.fecha)===qClr); });
+        var clearedCount=before-MB_LIST.length;
+        if(clearedCount){ _mbPersistList(); statusEl.textContent='🗑️ Se borraron '+clearedCount+' lectura(s) previas de ese periodo. Importando…'; }
+      }
       var imported=0, excedidos=0, configUpdated=0;
       var seenThisImport={}; // canonicalId -> rec, para fusionar sub-redes (T4 B1/B2/B3 → T4) dentro del mismo archivo
       function buildPart(valorFinal, video, codigo, fecha, hora){
