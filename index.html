@@ -190,6 +190,27 @@ window._fb = {
     await setDoc(doc(fbDB, 'notificaciones', id), { leida: true }, { merge: true });
   },
 
+  /* ── MEDIDOR BESS (demanda contratada) ── */
+  async saveMedidorConfig(cfg) {
+    await setDoc(doc(fbDB, 'medidor_bess', 'config'), { data: JSON.stringify(cfg||{}), updatedAt: Date.now() });
+  },
+  async getMedidorConfig() {
+    const snap = await getDocs(query(collection(fbDB, 'medidor_bess'), where('__name__','==','config')));
+    let out = null;
+    snap.forEach(d => { try { out = JSON.parse(d.data().data || '{}'); } catch(e) { out = null; } });
+    return out;
+  },
+  async saveMedidorSnapshot(list) {
+    await setDoc(doc(fbDB, 'medidor_bess', 'lecturas'), { data: JSON.stringify(list||[]), updatedAt: Date.now() });
+  },
+  async getMedidorSnapshot() {
+    const snap = await getDocs(query(collection(fbDB, 'medidor_bess'), where('__name__','==','lecturas')));
+    let out = null;
+    snap.forEach(d => { try { out = JSON.parse(d.data().data || '[]'); } catch(e) { out = null; } });
+    return out;
+  },
+  async deleteMedidorLectura() { /* manejado vía saveMedidorSnapshot — el snapshot completo ya excluye el registro eliminado */ },
+
   /* ── SESIONES COLABORATIVAS ── */
   async collabCreate(session) {
     const ref = doc(fbDB, 'collab_sessions', session.id);
@@ -4984,6 +5005,7 @@ if('serviceWorker' in navigator){
     <button class="mob-nav-item" onclick="mobNavTo('repval')"><span class="mni">✅</span> Reportes Val.</button>
     <button class="mob-nav-item" onclick="mobNavTo('calval')"><span class="mni">📅</span> Calendario</button>
     <button class="mob-nav-item" onclick="mobNavTo('monitor')"><span class="mni">📊</span> Monitor BESS</button>
+    <button class="mob-nav-item" onclick="mobNavTo('medidor')"><span class="mni">⏱</span> Medidor BESS</button>
 
   </div>
   <div class="mob-drawer-footer">
@@ -5225,6 +5247,10 @@ if('serviceWorker' in navigator){
   <div class="nav-item" data-page="historico" onclick="goPage('historico')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h14"/><path d="M5 22h14"/><path d="M17 2l-5 7-5-7"/><path d="M7 22l5-7 5 7"/></svg></div>
     <div class="nl">Histórico</div><div class="nav-tt">Histórico de Descargas BESS</div>
+  </div>
+  <div class="nav-item" data-page="medidor" onclick="goPage('medidor')">
+    <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+    <div class="nl">Medidor BESS</div><div class="nav-tt">Medidor BESS · Control de Demanda Contratada</div>
   </div>
   <div class="nav-item" data-page="maestra" onclick="goPage('maestra')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg></div>
@@ -7829,6 +7855,189 @@ async function expDoZip(mode){
     </div>
   </div>
 </div><!-- /page-maestra -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE: MEDIDOR BESS — Control de Demanda Contratada
+════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-medidor">
+  <div class="page-scroll" style="padding:20px 24px;max-width:1500px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:16px">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--text)">⏱ Medidor BESS — Control de Demanda Contratada</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:2px">Registro quincenal por sitio · Detección automática de excedencias de demanda</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="window._mbOpenForm()" style="padding:9px 16px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:8px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">+ Nueva Lectura</button>
+        <button onclick="window._mbOpenImport()" style="padding:9px 16px;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:8px;color:#00a97a;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📥 Importar CSV</button>
+        <button onclick="window._mbOpenConfig()" style="padding:9px 16px;background:rgba(255,255,255,.06);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📋 Catálogo de Sitios</button>
+      </div>
+    </div>
+
+    <!-- Banner de alertas activas -->
+    <div id="mb-alert-banner" style="display:none"></div>
+
+    <!-- Stats bar -->
+    <div id="mb-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px"></div>
+
+    <!-- Captura rápida -->
+    <div style="border:1px solid var(--b1);border-radius:12px;background:var(--s1);overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#1255d4;border-radius:2px;display:inline-block"></span>⚡ Captura rápida — escribe y se guarda solo</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="month" id="mb-qc-mes" onchange="window._mbRenderQuickCapture()" style="padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+          <select id="mb-qc-q" onchange="window._mbRenderQuickCapture()" style="padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+            <option value="1">1ª quincena</option>
+            <option value="2">2ª quincena</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow:auto;max-height:420px">
+        <table style="width:100%;border-collapse:collapse;min-width:760px">
+          <thead>
+            <tr>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mult.</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Video Base</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Video Intermedia</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Video Punta</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Demanda máx.</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="mb-qc-tbody"></tbody>
+        </table>
+      </div>
+      <div style="padding:8px 16px;font-family:var(--mono);font-size:9.5px;color:var(--t3);border-top:1px solid var(--b1)">Los campos de video usan el multiplicador de cada sitio (Catálogo). Para capturar en modo "directo en kW" o agregar código/fecha/hora exactos usa "+ Nueva Lectura".</div>
+    </div>
+
+    <!-- Filtros -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="mb-search" oninput="window._mbRenderHist()" placeholder="🔍 Buscar sitio…" style="flex:1;min-width:200px;padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
+      <div style="display:flex;align-items:center;gap:4px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:2px">
+        <button onclick="window._mbShiftMes(-1)" title="Mes anterior" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:6px 8px">◀</button>
+        <select id="mb-filter-mes" onchange="window._mbOnMesChange()" style="padding:7px 6px;border:none;background:transparent;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></select>
+        <button onclick="window._mbShiftMes(1)" title="Mes siguiente" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:6px 8px">▶</button>
+      </div>
+      <select id="mb-filter-estado" onchange="window._mbRenderHist()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+        <option value="">Todos los estados</option>
+        <option value="ok">✅ Dentro de contrato</option>
+        <option value="near">⚠️ Cerca del límite</option>
+        <option value="over">🚨 Excedido</option>
+      </select>
+    </div>
+
+    <!-- Resumen mensual por sitio -->
+    <div>
+      <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#1255d4;border-radius:2px;display:inline-block"></span>Resumen del mes por sitio</div>
+      <div id="mb-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px"></div>
+    </div>
+
+    <!-- Historial de lecturas -->
+    <div>
+      <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#1255d4;border-radius:2px;display:inline-block"></span>Historial de lecturas (quincenal)</div>
+      <div style="border:1px solid var(--b1);border-radius:12px;overflow:auto;max-height:520px;background:var(--s1)">
+        <table style="width:100%;border-collapse:collapse;min-width:1400px">
+          <thead>
+            <tr style="position:sticky;top:0;z-index:3">
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Quincena</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mult.</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Dem. H. Base<br>(kW / fecha·hora)</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Dem. H. Intermedia<br>(kW / fecha·hora)</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Dem. H. Punta<br>(kW / fecha·hora)</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Demanda<br>Contratada</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">% Uso</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Descripción</th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="mb-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Registro de excedencias -->
+    <div>
+      <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--red);margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:var(--red);border-radius:2px;display:inline-block"></span>🚨 Registro de sitios con demanda contratada excedida</div>
+      <div style="border:1px solid rgba(220,38,38,.3);border-radius:12px;overflow:auto;max-height:320px;background:var(--s1)">
+        <table style="width:100%;border-collapse:collapse;min-width:820px">
+          <thead>
+            <tr>
+              <th style="position:sticky;top:0;background:rgba(220,38,38,.08);padding:8px 12px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--red);border-bottom:2px solid rgba(220,38,38,.25)">Sitio / Proyecto</th>
+              <th style="position:sticky;top:0;background:rgba(220,38,38,.08);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--red);border-bottom:2px solid rgba(220,38,38,.25)">Fecha</th>
+              <th style="position:sticky;top:0;background:rgba(220,38,38,.08);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--red);border-bottom:2px solid rgba(220,38,38,.25)">kW Excedidos</th>
+              <th style="position:sticky;top:0;background:rgba(220,38,38,.08);padding:8px 12px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--red);border-bottom:2px solid rgba(220,38,38,.25)">% Sobre contrato</th>
+              <th style="position:sticky;top:0;background:rgba(220,38,38,.08);padding:8px 12px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--red);border-bottom:2px solid rgba(220,38,38,.25)">Causa</th>
+            </tr>
+          </thead>
+          <tbody id="mb-exceed-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal: Nueva/Editar Lectura -->
+  <div id="mb-form-modal" style="display:none;position:fixed;inset:0;z-index:9200;background:rgba(3,6,18,.75);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:820px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between">
+        <div id="mb-form-title" style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">+ Nueva Lectura de Medidor</div>
+        <button onclick="window._mbCloseForm()" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div id="mb-form-fields" style="padding:18px 20px;overflow-y:auto;flex:1"></div>
+      <div id="mb-form-livealert" style="padding:0 20px"></div>
+      <div style="padding:14px 20px;border-top:1px solid var(--b1);display:flex;justify-content:flex-end;gap:10px">
+        <button onclick="window._mbCloseForm()" style="padding:8px 16px;background:transparent;border:1px solid var(--b2);border-radius:7px;color:var(--t2);font-family:var(--mono);font-size:11px;cursor:pointer">Cancelar</button>
+        <button onclick="window._mbSaveLectura()" style="padding:8px 18px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">💾 Guardar Lectura</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Configuración de Demanda Contratada -->
+  <div id="mb-config-modal" style="display:none;position:fixed;inset:0;z-index:9200;background:rgba(3,6,18,.75);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:920px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">📋 Catálogo de Sitios</div>
+        <button onclick="document.getElementById('mb-config-modal').style.display='none'" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--orange);background:rgba(234,108,0,.08);margin:12px 20px 0;border-radius:8px;padding:8px 12px">⚠️ Estos valores se van rellenando con lo que importes por CSV o captures manualmente — revísalos. Esta es la lista maestra: multiplicador, códigos y demanda contratada de aquí se usan automáticamente en cada mes nuevo que registres.</div>
+      <div style="padding:10px 20px 4px;display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr 1fr 1.3fr 24px;gap:6px;font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;color:var(--t3);text-transform:uppercase">
+        <div>Sitio</div><div>Mult.</div><div>Cód. Base</div><div>Cód. Interm.</div><div>Cód. Punta</div><div>Demanda contratada (kW)</div><div></div>
+      </div>
+      <div id="mb-config-fields" style="padding:2px 20px 14px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:5px"></div>
+      <div style="padding:14px 20px;border-top:1px solid var(--b1);display:flex;justify-content:space-between;gap:10px">
+        <button onclick="window._mbAddConfigRow()" style="padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid var(--b2);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer">+ Agregar sitio</button>
+        <button onclick="window._mbSaveConfig()" style="padding:8px 18px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">💾 Guardar Catálogo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Importar CSV -->
+  <div id="mb-import-modal" style="display:none;position:fixed;inset:0;z-index:9200;background:rgba(3,6,18,.75);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:520px;width:100%;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">📥 Importar CSV de medidores</div>
+        <button onclick="document.getElementById('mb-import-modal').style.display='none'" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:var(--body);font-size:11.5px;color:var(--t2);line-height:1.5">Usa el mismo formato de tu hoja "Datos de medidores" (columnas: Sitio, Dem Máx Hora Punta, Dem Máx H Intermedia, Dem Máx H Base, Día registrado hora punta, Hora punta, Multiplicador, Código base/intermedio/punta, Valores en video, Demanda contratada, Descripción, Fecha de video). Cada fila se organiza automáticamente por nombre de sitio.</div>
+        <label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Mes que cubre esta hoja<input type="month" id="mb-import-mes" style="padding:8px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px"></label>
+        <label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Quincena de estos registros
+          <select id="mb-import-q" style="padding:8px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
+            <option value="1">1ª quincena (días 1–15)</option>
+            <option value="2">2ª quincena (días 16–fin)</option>
+          </select>
+        </label>
+        <label style="padding:10px 14px;background:rgba(0,200,150,.08);border:1px dashed rgba(0,200,150,.4);border-radius:8px;color:#00a97a;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;text-align:center">
+          📄 Elegir archivo CSV…<input type="file" accept=".csv" id="mb-import-file" onchange="window._mbImportCSV(this)" style="display:none">
+        </label>
+        <div id="mb-import-status" style="font-family:var(--mono);font-size:10px;color:var(--t3)"></div>
+      </div>
+    </div>
+  </div>
+</div><!-- /page-medidor -->
 
 
 <!-- ═══ PAGE: DOCS — Centro de Documentos ═══ -->
@@ -13306,7 +13515,7 @@ async function _afterDelete(msg){
 }
 
 // PAGE SWITCHING
-const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas'};
+const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidor BESS'};
 function updateTopbarTitle(id){
   var t=document.getElementById('tb-title');if(!t)return;
   var title=PAGE_TITLES[id]||id;
@@ -13329,6 +13538,7 @@ function goPage(id){
   if(id==='maestra'){setTimeout(function(){if(window._mlRender)window._mlRender();},80);}
   if(id==='cerebro'){setTimeout(function(){if(window.cerebroInit)window.cerebroInit();},80);}
   if(id==='comunicacion'){setTimeout(function(){if(window.commRenderAll)window.commRenderAll();if(window.commInvalidateMapSize)window.commInvalidateMapSize();},80);}
+  if(id==='medidor'){setTimeout(function(){if(window._mbInit)window._mbInit();},80);}
 }
 
 // DASHBOARD
@@ -27441,6 +27651,870 @@ window.addEventListener('firebase-ready', function(){
       '</div>';
     }).join('');
   }
+})();
+</script>
+<!-- ═══════════════════════════════════════════════════════════════
+     PATCH — Medidor BESS (control de demanda contratada)
+════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+var MB_LS_LIST   = 'bess:medidor_registros:v1';
+var MB_LS_CONFIG = 'bess:medidor_config:v1';
+var MB_NEAR_PCT  = 90; // % de la demanda contratada a partir del cual se considera "cerca del límite"
+
+var MB_LIST = [];
+var MB_CONFIG = {};
+var _mbEditId = null;
+
+/* Semilla inicial de demanda contratada (kW) importada de la hoja de cálculo del usuario.
+   Se marca como referencia — el usuario debe verificarla desde ⚙️ Demanda Contratada. */
+var MB_CONFIG_SEED = {
+  'Alpha':370,'FBO':174,'HUX 1':350,'HUX 2':763,'PTAR':150,'TOTIS':1195,'ALYSA':705,'Comedor':113,'Almacén':181,
+  'Sala Bravo':2595,'BHS':810,'T4':4920,'T3':4500,'T2':3040,'Veracruz':1546,'Zacatecas':254,'Zihuatanejo':1047,
+  'RegioPet B1':900,'RegioPet B2':470,'RegioPet B3':500,'Bocar':900,'Diseño':920,'Torreón':900,'Vitrogenera':920,
+  'Durango':201,'Vesta':900,'RESIDEO':700,'FM Boca del Río':225,'IPASA':550,'Brom':900,'Plasti 1':2863,'Plasti 3':3201
+};
+
+/* ══ HELPERS ══ */
+function _mbEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function _mbUid(){ return 'mb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+function _mbRecId(sitio, fecha){ return _mbNorm(_mbCanonicalSite(sitio)).replace(/ /g,'_')+'_'+_mbMesKey(fecha)+'_q'+_mbQuincena(fecha); }
+function _mbToday(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _mbMesKey(fecha){ return (fecha||'').slice(0,7); }
+function _mbQuincena(fecha){ if(!fecha) return 1; var day=parseInt(fecha.slice(8,10),10)||1; return day<=15?1:2; }
+function _mbMesLabel(mk){
+  var MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  if(!mk) return '—';
+  var p=mk.split('-'); return MESES[parseInt(p[1],10)-1]+' '+p[0];
+}
+function _mbFechaCorta(f){ if(!f||!/^\d{4}-\d{2}-\d{2}$/.test(f)) return f||'—'; var p=f.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function _mbToast(msg){ if(typeof showToast==='function') showToast(msg); }
+
+/* ══ PERSISTENCIA (localStorage + espejo best-effort en Firestore) ══ */
+function _mbPersistList(){
+  try{ localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); }catch(e){}
+  try{ if(window._fb && window._fb.saveMedidorSnapshot) window._fb.saveMedidorSnapshot(MB_LIST); }catch(e){}
+}
+function _mbPersistConfig(){
+  try{ localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){}
+  try{ if(window._fb && window._fb.saveMedidorConfig) window._fb.saveMedidorConfig(MB_CONFIG); }catch(e){}
+}
+function _mbLoadLocal(){
+  try{ var s=localStorage.getItem(MB_LS_LIST); MB_LIST = s?JSON.parse(s):[]; }catch(e){ MB_LIST=[]; }
+  try{
+    var c=localStorage.getItem(MB_LS_CONFIG);
+    MB_CONFIG = c?JSON.parse(c):{};
+  }catch(e){ MB_CONFIG={}; }
+  /* Primera carga: sembrar config con valores de referencia si no existe nada guardado */
+  if(!Object.keys(MB_CONFIG).length){
+    MB_CONFIG = {};
+    Object.keys(MB_CONFIG_SEED).forEach(function(s){ MB_CONFIG[s] = { dc:MB_CONFIG_SEED[s], mult:null, codBase:'', codIntermedio:'', codPunta:'' }; });
+  }
+  _mbMigrateConfig();
+  _mbPersistConfig();
+}
+/* Convierte el formato viejo (MB_CONFIG[sitio] = numero) al formato con catálogo completo */
+function _mbMigrateConfig(){
+  var out={};
+  Object.keys(MB_CONFIG).forEach(function(s){
+    var v=MB_CONFIG[s];
+    var canon=_mbCanonicalSite(s);
+    var obj = (v && typeof v==='object') ? { dc:v.dc==null?null:Number(v.dc), mult:v.mult==null?null:Number(v.mult), codBase:v.codBase||'', codIntermedio:v.codIntermedio||'', codPunta:v.codPunta||'' }
+                                          : { dc:(v==null||v==='')?null:Number(v), mult:null, codBase:'', codIntermedio:'', codPunta:'' };
+    if(out[canon]){
+      /* fusionar duplicados que colapsaron al mismo nombre canónico */
+      out[canon].dc     = out[canon].dc!=null ? out[canon].dc : obj.dc;
+      out[canon].mult    = out[canon].mult!=null ? out[canon].mult : obj.mult;
+      out[canon].codBase = out[canon].codBase || obj.codBase;
+      out[canon].codIntermedio = out[canon].codIntermedio || obj.codIntermedio;
+      out[canon].codPunta = out[canon].codPunta || obj.codPunta;
+    } else out[canon]=obj;
+  });
+  MB_CONFIG = out;
+}
+function _mbPullCloud(){
+  try{
+    if(window._fb && window._fb.getMedidorConfig){
+      window._fb.getMedidorConfig().then(function(cfg){
+        if(cfg && Object.keys(cfg).length){ MB_CONFIG = Object.assign({}, MB_CONFIG, cfg); _mbMigrateConfig(); _mbPersistConfig(); _mbRenderAll(); }
+      }).catch(function(){});
+    }
+    if(window._fb && window._fb.getMedidorSnapshot){
+      window._fb.getMedidorSnapshot().then(function(list){
+        if(list && list.length){
+          /* fusionar por id, quedarse con el más reciente savedAt */
+          var byId={}; MB_LIST.forEach(function(r){ byId[r.id]=r; });
+          list.forEach(function(r){ if(!byId[r.id] || (r.savedAt||0) > (byId[r.id].savedAt||0)) byId[r.id]=r; });
+          MB_LIST = Object.keys(byId).map(function(k){ return byId[k]; });
+          _mbPersistList(); _mbRenderAll();
+        }
+      }).catch(function(){});
+    }
+  }catch(e){}
+}
+
+/* ══ SITIOS — normalización de nombres (varias sub-redes = un solo sitio/medidor) ══ */
+var MB_SITE_ALIASES = { 'tt':'Tejidos y Texturizados', 'tyt':'Tejidos y Texturizados' };
+/* Sitios que SÍ deben mantenerse separados aunque tengan sufijo B1/B2/B3 (medidores independientes) */
+var MB_SITE_KEEP_SEPARATE = ['regio pet','regiopet'];
+function _mbCanonicalSite(raw){
+  raw = String(raw||'').trim();
+  if(!raw) return raw;
+  var nk = _mbNorm(raw);
+  if(MB_SITE_ALIASES[nk]) return MB_SITE_ALIASES[nk];
+  var isException = MB_SITE_KEEP_SEPARATE.some(function(p){ return nk.indexOf(p)===0; });
+  if(isException) return raw;
+  /* Quita sufijos de sub-red/rack: "T4 B1" → "T4", "IPASA 2" → "IPASA", "THOR B1" → "THOR" */
+  var stripped = raw.replace(/\s+B\s?\d+\s*$/i,'').replace(/\s+\d+\s*$/,'');
+  return (stripped.trim() || raw);
+}
+function _mbSiteNames(){
+  var set={};
+  (window.MASTER_SITES_DB||[]).forEach(function(s){ if(s.sitio) set[_mbCanonicalSite(s.sitio)]=1; });
+  Object.keys(MB_CONFIG).forEach(function(s){ set[_mbCanonicalSite(s)]=1; });
+  MB_LIST.forEach(function(r){ if(r.sitio) set[_mbCanonicalSite(r.sitio)]=1; });
+  return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
+}
+function _mbDemandaContratada(sitio){
+  var d = _mbSiteDefaults(sitio);
+  return d.dc;
+}
+function _mbSiteDefaults(sitio){
+  var canon=_mbCanonicalSite(sitio);
+  var v = MB_CONFIG[canon] || MB_CONFIG[sitio] || {};
+  if(typeof v !== 'object') v = { dc:v }; // por si quedó algún registro viejo sin migrar
+  return {
+    dc: (v.dc==null||v.dc==='') ? null : Number(v.dc),
+    mult: (v.mult==null||v.mult==='') ? null : Number(v.mult),
+    codBase: v.codBase||'', codIntermedio: v.codIntermedio||'', codPunta: v.codPunta||''
+  };
+}
+function _mbSetSiteDefault(sitio, patch){
+  var canon=_mbCanonicalSite(sitio);
+  var cur = _mbSiteDefaults(canon);
+  MB_CONFIG[canon] = Object.assign(cur, patch);
+}
+
+/* ══ FÓRMULA DE DEMANDA POR PERIODO ══
+   Modo "video": demanda(kW) = valor leído en el video del medidor × Multiplicador del sitio
+   Modo "directo": el sistema ya entrega kW directos (no hay video/multiplicador que aplicar) */
+function _mbPeriodDemand(part, multiplicador){
+  if(!part) return null;
+  if(part.modo==='directo'){
+    return (part.directo==null || part.directo==='') ? null : Number(part.directo);
+  }
+  var v = (part.video==null || part.video==='') ? null : Number(part.video);
+  var m = (multiplicador==null || multiplicador==='') ? null : Number(multiplicador);
+  if(v==null || m==null) return null;
+  return Math.round(v*m*100)/100;
+}
+
+/* ══ CÁLCULO DE ESTADO ══ */
+function _mbCalc(rec){
+  var dc = _mbDemandaContratada(rec.sitio);
+  var vals = [
+    _mbPeriodDemand(rec.base, rec.multiplicador)||0,
+    _mbPeriodDemand(rec.intermedia, rec.multiplicador)||0,
+    _mbPeriodDemand(rec.punta, rec.multiplicador)||0
+  ];
+  var maxD = Math.max.apply(null, vals);
+  var out = { maxDemanda:maxD, demandaContratada:dc, pctUso:null, estado:'ok', kwExceso:0 };
+  if(dc && dc>0){
+    out.pctUso = Math.round((maxD/dc)*1000)/10;
+    if(maxD > dc){ out.estado='over'; out.kwExceso = Math.round((maxD-dc)*100)/100; }
+    else if(out.pctUso >= MB_NEAR_PCT){ out.estado='near'; }
+    else { out.estado='ok'; }
+  } else {
+    out.estado='unknown';
+  }
+  return out;
+}
+function _mbEstadoBadge(estado){
+  if(estado==='over')    return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(220,38,38,.12);color:var(--red);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">🚨 EXCEDIDO</span>';
+  if(estado==='near')    return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(234,108,0,.12);color:var(--orange);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">⚠️ CERCA</span>';
+  if(estado==='unknown') return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(102,133,172,.12);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">— SIN DATO</span>';
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:rgba(5,150,105,.12);color:var(--green);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.5px">✅ OK</span>';
+}
+
+/* ══ INIT ══ */
+window._mbInit = function(){
+  if(!window._mbLoaded){ _mbLoadLocal(); window._mbLoaded=true; _mbPullCloud(); }
+  var qcMes=document.getElementById('mb-qc-mes');
+  if(qcMes && !qcMes.value){ qcMes.value=_mbToday().slice(0,7); document.getElementById('mb-qc-q').value=_mbQuincena(_mbToday())+''; }
+  _mbRenderAll();
+};
+function _mbRenderAll(){
+  _mbRenderMesFilter();
+  _mbRenderStats();
+  _mbRenderAlertBanner();
+  _mbRenderQuickCapture();
+  _mbRenderSummaryGrid();
+  _mbRenderHist();
+  _mbRenderExceedTable();
+}
+
+function _mbRenderMesFilter(){
+  var sel=document.getElementById('mb-filter-mes'); if(!sel) return;
+  var cur=sel.value;
+  var meses={}; MB_LIST.forEach(function(r){ meses[_mbMesKey(r.fecha)]=1; });
+  var thisMK=_mbToday().slice(0,7); meses[thisMK]=1;
+  var keys=Object.keys(meses).sort().reverse();
+  sel.innerHTML='<option value="">Todos los meses</option>'+keys.map(function(k){ return '<option value="'+k+'">'+_mbMesLabel(k)+'</option>'; }).join('');
+  sel.value = cur || thisMK;
+}
+
+/* ══ STATS ══ */
+function _mbRenderStats(){
+  var box=document.getElementById('mb-stats'); if(!box) return;
+  var mk=_mbToday().slice(0,7);
+  var thisMonth=MB_LIST.filter(function(r){ return _mbMesKey(r.fecha)===mk; });
+  var withCalc=thisMonth.map(function(r){ return Object.assign({}, r, _mbCalc(r)); });
+  var sitiosExcedidos={}, sitiosCerca={};
+  withCalc.forEach(function(r){
+    if(r.estado==='over') sitiosExcedidos[r.sitio]=Math.max(sitiosExcedidos[r.sitio]||0, r.kwExceso);
+    else if(r.estado==='near') sitiosCerca[r.sitio]=1;
+  });
+  function card(label,val,color){
+    return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 14px">'+
+      '<div style="font-family:var(--mono);font-size:8.5px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">'+label+'</div>'+
+      '<div style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:19px;color:'+color+';margin-top:2px">'+val+'</div></div>';
+  }
+  box.innerHTML =
+    card('Sitios monitoreados', _mbSiteNames().length, 'var(--text)') +
+    card('Lecturas este mes', thisMonth.length, 'var(--text)') +
+    card('Sitios excedidos (mes)', Object.keys(sitiosExcedidos).length, Object.keys(sitiosExcedidos).length?'var(--red)':'var(--green)') +
+    card('Sitios cerca del límite', Object.keys(sitiosCerca).length, Object.keys(sitiosCerca).length?'var(--orange)':'var(--green)');
+}
+
+/* ══ BANNER DE ALERTAS ACTIVAS ══ */
+function _mbRenderAlertBanner(){
+  var box=document.getElementById('mb-alert-banner'); if(!box) return;
+  /* última lectura por sitio */
+  var lastBySite={};
+  MB_LIST.forEach(function(r){ var cur=lastBySite[r.sitio]; if(!cur || r.fecha>cur.fecha) lastBySite[r.sitio]=r; });
+  var alerts=Object.values(lastBySite).map(function(r){ return Object.assign({}, r, _mbCalc(r)); })
+    .filter(function(r){ return r.estado==='over' || r.estado==='near'; })
+    .sort(function(a,b){ return b.pctUso-a.pctUso; });
+  if(!alerts.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='block';
+  box.innerHTML = alerts.map(function(r){
+    var isOver = r.estado==='over';
+    var bg = isOver ? 'rgba(220,38,38,.1)' : 'rgba(234,108,0,.1)';
+    var bd = isOver ? 'rgba(220,38,38,.35)' : 'rgba(234,108,0,.35)';
+    var fg = isOver ? 'var(--red)' : 'var(--orange)';
+    var msg = isOver
+      ? '🚨 <b>'+_mbEsc(r.sitio)+'</b> excedió su demanda contratada por <b>'+r.kwExceso+' kW</b> ('+r.pctUso+'% del contrato) — <b>reduce potencia de inmediato</b>.'
+      : '⚠️ <b>'+_mbEsc(r.sitio)+'</b> está al <b>'+r.pctUso+'%</b> de su demanda contratada — vigila de cerca, riesgo de penalización.';
+    return '<div style="background:'+bg+';border:1px solid '+bd+';border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'+
+      '<span style="font-family:var(--body);font-size:12.5px;color:'+fg+'">'+msg+'</span>'+
+      '<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">última lectura: '+_mbFechaCorta(r.fecha)+'</span>'+
+    '</div>';
+  }).join('');
+}
+
+/* ══ RESUMEN MENSUAL POR SITIO ══ */
+function _mbRenderSummaryGrid(){
+  var grid=document.getElementById('mb-summary-grid'); if(!grid) return;
+  var mk=(document.getElementById('mb-filter-mes')||{}).value || _mbToday().slice(0,7);
+  var bySite={};
+  MB_LIST.filter(function(r){ return _mbMesKey(r.fecha)===mk; }).forEach(function(r){
+    (bySite[r.sitio]=bySite[r.sitio]||[]).push(Object.assign({}, r, _mbCalc(r)));
+  });
+  var sites=Object.keys(bySite).sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
+  if(!sites.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--t3);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sin lecturas registradas para '+_mbMesLabel(mk)+'</div>';
+    return;
+  }
+  grid.innerHTML = sites.map(function(sitio){
+    var recs=bySite[sitio];
+    var q1=recs.some(function(r){ return _mbQuincena(r.fecha)===1; });
+    var q2=recs.some(function(r){ return _mbQuincena(r.fecha)===2; });
+    var worst = recs.some(function(r){ return r.estado==='over'; }) ? 'over' : recs.some(function(r){ return r.estado==='near'; }) ? 'near' : 'ok';
+    var maxKw = Math.max.apply(null, recs.map(function(r){ return r.maxDemanda||0; }));
+    var dc = _mbDemandaContratada(sitio);
+    var veredicto;
+    if(worst==='over') veredicto = '🚨 Excedió la demanda contratada este mes — riesgo de penalización';
+    else if(worst==='near') veredicto = '⚠️ Estuvo cerca del límite este mes';
+    else if(q1 && q2) veredicto = '✅ Mes limpio — sin excedencias en ninguna quincena';
+    else veredicto = '🕒 Falta registrar la '+(q1?'2ª':'1ª')+' quincena';
+    var bd = worst==='over'?'rgba(220,38,38,.35)':worst==='near'?'rgba(234,108,0,.35)':'var(--b1)';
+    return '<div style="background:var(--s1);border:1px solid '+bd+';border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text)">'+_mbEsc(sitio)+'</span>'+_mbEstadoBadge(worst)+'</div>'+
+      '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">Quincenas registradas: '+(q1?'1ª ✓':'1ª ✗')+' · '+(q2?'2ª ✓':'2ª ✗')+'</div>'+
+      '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">Máx. demanda: <b style="color:var(--text)">'+maxKw+' kW</b>'+(dc?' / contrato '+dc+' kW':' — sin demanda contratada configurada')+'</div>'+
+      '<div style="font-family:var(--body);font-size:11.5px;color:var(--text2,var(--text))">'+veredicto+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* ══ HISTORIAL ══ */
+function _mbCell(part, multiplicador){
+  var val = _mbPeriodDemand(part, multiplicador);
+  if(val==null) return '<span style="color:var(--t3)">—</span>';
+  var fh = [part.fecha?_mbFechaCorta(part.fecha):'', part.hora||''].filter(Boolean).join(' · ');
+  var codLine = part.codigo ? ('cód. '+_mbEsc(part.codigo)) : '';
+  var modoLine = part.modo==='directo' ? 'directo' : (part.video!=null&&part.video!=='' ? (part.video+'×'+(multiplicador||'—')) : '');
+  var sub = [codLine, modoLine, fh].filter(Boolean).join(' · ');
+  return '<b>'+val+' kW</b>'+(sub?'<br><span style="font-family:var(--mono);font-size:8.5px;color:var(--t3)">'+sub+'</span>':'');
+}
+function _mbRenderHist(){
+  var tbody=document.getElementById('mb-tbody'); if(!tbody) return;
+  var q=((document.getElementById('mb-search')||{}).value||'').toLowerCase();
+  var mk=(document.getElementById('mb-filter-mes')||{}).value||'';
+  var fe=(document.getElementById('mb-filter-estado')||{}).value||'';
+  var rows = MB_LIST.map(function(r){ return Object.assign({}, r, _mbCalc(r)); })
+    .filter(function(r){
+      if(q && r.sitio.toLowerCase().indexOf(q)<0) return false;
+      if(mk && _mbMesKey(r.fecha)!==mk) return false;
+      if(fe && r.estado!==fe) return false;
+      return true;
+    })
+    .sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || (b.savedAt||0)-(a.savedAt||0); });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--t3);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sin lecturas — agrega una con "+ Nueva Lectura"</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r){
+    var pct = r.pctUso==null ? '<span style="color:var(--t3)">—</span>' : (r.pctUso+'%');
+    var dc = r.demandaContratada==null ? '<span style="color:var(--t3)">sin config.</span>' : (r.demandaContratada+' kW');
+    return '<tr style="border-bottom:1px solid var(--b1)">'+
+      '<td style="padding:8px 12px;font-family:var(--body);font-size:12px;color:var(--text);font-weight:700">'+_mbEsc(r.sitio)+'<div style="font-family:var(--mono);font-size:8.5px;color:var(--t3)">'+_mbFechaCorta(r.fecha)+'</div></td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+_mbQuincena(r.fecha)+'ª</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+(r.multiplicador||'—')+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+_mbCell(r.base,r.multiplicador)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+_mbCell(r.intermedia,r.multiplicador)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+_mbCell(r.punta,r.multiplicador)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+dc+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:800;color:'+(r.estado==='over'?'var(--red)':r.estado==='near'?'var(--orange)':'var(--text)')+'">'+pct+'</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+_mbEstadoBadge(r.estado)+'</td>'+
+      '<td style="padding:8px 12px;font-family:var(--body);font-size:11px;color:var(--t2);max-width:200px">'+_mbEsc(r.descripcion||'')+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;white-space:nowrap">'+
+        '<button onclick="window._mbOpenForm(\''+r.id+'\')" title="Editar" style="background:none;border:none;cursor:pointer;font-size:14px">✏️</button> '+
+        '<button onclick="window._mbDeleteLectura(\''+r.id+'\')" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:14px">🗑️</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+/* ══ REGISTRO DE EXCEDENCIAS ══ */
+function _mbRenderExceedTable(){
+  var tbody=document.getElementById('mb-exceed-tbody'); if(!tbody) return;
+  var rows = MB_LIST.map(function(r){ return Object.assign({}, r, _mbCalc(r)); })
+    .filter(function(r){ return r.estado==='over'; })
+    .sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase">✅ Sin excedencias registradas</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r){
+    return '<tr style="border-bottom:1px solid rgba(220,38,38,.15)">'+
+      '<td style="padding:8px 12px;font-family:var(--body);font-size:12px;font-weight:700;color:var(--text)">'+_mbEsc(r.sitio)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px">'+_mbFechaCorta(r.fecha)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:800;color:var(--red)">'+r.kwExceso+' kW</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:800;color:var(--red)">'+r.pctUso+'%</td>'+
+      '<td style="padding:6px 12px"><input type="text" value="'+_mbEsc(r.causaExcedencia||'')+'" placeholder="Causa / motivo…" onchange="window._mbUpdateCausa(\''+r.id+'\',this.value)" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--body);font-size:11px"></td>'+
+    '</tr>';
+  }).join('');
+}
+window._mbUpdateCausa = function(id, val){
+  var r = MB_LIST.find(function(x){ return x.id===id; });
+  if(!r) return;
+  r.causaExcedencia = val;
+  _mbPersistList();
+};
+
+/* ══ CAPTURA RÁPIDA ══ */
+window._mbRenderQuickCapture = function(){
+  var tbody=document.getElementById('mb-qc-tbody'); if(!tbody) return;
+  var mes=(document.getElementById('mb-qc-mes')||{}).value || _mbToday().slice(0,7);
+  var q=(document.getElementById('mb-qc-q')||{}).value || '1';
+  var fecha = mes+'-'+(q==='1'?'01':'16');
+  var sites=_mbSiteNames();
+  if(!sites.length){ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--t3);font-family:var(--mono);font-size:10px">Agrega sitios desde 📋 Catálogo de Sitios</td></tr>'; return; }
+  tbody.innerHTML = sites.map(function(sitio){
+    var id=_mbRecId(sitio, fecha);
+    var rec=MB_LIST.find(function(r){ return r.id===id; });
+    var d=_mbSiteDefaults(sitio);
+    var mult=(rec&&rec.multiplicador!=null)?rec.multiplicador:d.mult;
+    var calc = rec ? _mbCalc(rec) : { estado:'unknown', pctUso:null };
+    function videoInput(prefix){
+      var p = rec && rec[prefix];
+      var v = p && p.modo!=='directo' ? p.video : null;
+      return '<input type="number" step="0.001" value="'+(v==null?'':v)+'" onchange="window._mbQuickSave(\''+_mbEsc(sitio).replace(/'/g,"\\'")+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:90px;padding:5px 6px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;text-align:center">';
+    }
+    return '<tr style="border-bottom:1px solid var(--b1)">'+
+      '<td style="padding:6px 10px;font-family:var(--body);font-size:11.5px;font-weight:700;color:var(--text)">'+_mbEsc(sitio)+'</td>'+
+      '<td style="padding:6px 10px;text-align:center"><input type="number" value="'+(mult==null?'':mult)+'" onchange="window._mbQuickSetMult(\''+_mbEsc(sitio).replace(/'/g,"\\'")+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:64px;padding:5px 6px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;text-align:center"></td>'+
+      '<td style="padding:6px 10px;text-align:center">'+videoInput('base')+'</td>'+
+      '<td style="padding:6px 10px;text-align:center">'+videoInput('intermedia')+'</td>'+
+      '<td style="padding:6px 10px;text-align:center">'+videoInput('punta')+'</td>'+
+      '<td id="mb-qc-max-'+_mbNorm(sitio).replace(/ /g,'_')+'" style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:800;color:'+(calc.estado==='over'?'var(--red)':calc.estado==='near'?'var(--orange)':'var(--text)')+'">'+(calc.maxDemanda?calc.maxDemanda+' kW':'—')+'</td>'+
+      '<td style="padding:6px 10px;text-align:center">'+_mbEstadoBadge(calc.estado)+'</td>'+
+    '</tr>';
+  }).join('');
+};
+window._mbQuickSetMult = function(sitio, val, mes, q){
+  var mult = val===''?null:Number(val);
+  _mbSetSiteDefault(sitio, { mult: mult });
+  _mbPersistConfig();
+  /* también actualiza la lectura de este mes si ya existe, para que el cálculo use el multiplicador nuevo */
+  var fecha=mes+'-'+(q==='1'?'01':'16');
+  var id=_mbRecId(sitio, fecha);
+  var rec=MB_LIST.find(function(r){ return r.id===id; });
+  if(rec){ rec.multiplicador=mult; _mbPersistList(); }
+  window._mbRenderQuickCapture();
+  _mbRenderStats(); _mbRenderAlertBanner();
+};
+window._mbQuickSave = function(sitio, prefix, val, mes, q){
+  var fecha = mes+'-'+(q==='1'?'01':'16');
+  var id = _mbRecId(sitio, fecha);
+  var rec = MB_LIST.find(function(r){ return r.id===id; });
+  var d = _mbSiteDefaults(sitio);
+  if(!rec){
+    rec = {
+      id: id, sitio: _mbCanonicalSite(sitio), fecha: fecha,
+      multiplicador: d.mult,
+      base:       { modo:'video', codigo:d.codBase,       video:null, directo:null, fecha:fecha, hora:'' },
+      intermedia: { modo:'video', codigo:d.codIntermedio, video:null, directo:null, fecha:fecha, hora:'' },
+      punta:      { modo:'video', codigo:d.codPunta,      video:null, directo:null, fecha:fecha, hora:'' },
+      fechaVideo:'', descripcion:'', causaExcedencia:'', savedAt: Date.now()
+    };
+    MB_LIST.push(rec);
+  }
+  var v = val===''?null:Number(val);
+  rec[prefix].video = v;
+  rec[prefix].modo = 'video';
+  rec.savedAt = Date.now();
+  var calc = _mbCalc(rec);
+  rec.demandaContratada = calc.demandaContratada;
+  _mbPersistList();
+  var cell=document.getElementById('mb-qc-max-'+_mbNorm(sitio).replace(/ /g,'_'));
+  if(cell){ cell.textContent = calc.maxDemanda? calc.maxDemanda+' kW':'—'; cell.style.color = calc.estado==='over'?'var(--red)':calc.estado==='near'?'var(--orange)':'var(--text)'; }
+  _mbRenderStats(); _mbRenderAlertBanner(); _mbRenderSummaryGrid(); _mbRenderHist(); _mbRenderExceedTable();
+  if(calc.estado==='over'){ _mbToast('🚨 '+_mbCanonicalSite(sitio)+' excedió su demanda contratada por '+calc.kwExceso+' kW'); }
+};
+
+/* ══ MODAL: CONFIGURACIÓN DE DEMANDA CONTRATADA ══ */
+window._mbOpenConfig = function(){
+  var box=document.getElementById('mb-config-fields');
+  var sites=_mbSiteNames();
+  box.innerHTML = sites.map(function(s){ return _mbConfigRow(s, _mbSiteDefaults(s)); }).join('');
+  document.getElementById('mb-config-modal').style.display='flex';
+};
+function _mbConfigRow(sitio, d){
+  d = d || { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' };
+  function inp(id,val,ph,type){ return '<input type="'+(type||'text')+'" data-f="'+id+'" value="'+_mbEsc(val==null?'':val)+'" placeholder="'+ph+'" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px;box-sizing:border-box">'; }
+  return '<div class="mb-cfg-row" style="display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr 1fr 1.3fr 24px;gap:6px;align-items:center">'+
+    '<input type="text" data-f="sitio" value="'+_mbEsc(sitio)+'" placeholder="Sitio" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--body);font-size:11px;font-weight:600;box-sizing:border-box">'+
+    inp('mult', d.mult, 'ej. 2800', 'number')+
+    inp('codBase', d.codBase, 'ej. 41')+
+    inp('codIntermedio', d.codIntermedio, 'ej. 42')+
+    inp('codPunta', d.codPunta, 'ej. 43')+
+    inp('dc', d.dc, 'kW contratados', 'number')+
+    '<button onclick="this.closest(\'.mb-cfg-row\').remove()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">✕</button>'+
+  '</div>';
+}
+window._mbAddConfigRow = function(){
+  var box=document.getElementById('mb-config-fields');
+  var wrap=document.createElement('div'); wrap.innerHTML=_mbConfigRow('', null);
+  box.appendChild(wrap.firstChild);
+};
+window._mbSaveConfig = function(){
+  var rows=document.querySelectorAll('#mb-config-fields .mb-cfg-row');
+  var cfg={};
+  rows.forEach(function(row){
+    var g=function(f){ var el=row.querySelector('[data-f="'+f+'"]'); return el?el.value:''; };
+    var sitioRaw=(g('sitio')||'').trim();
+    if(!sitioRaw) return;
+    var sitio=_mbCanonicalSite(sitioRaw);
+    var mult=g('mult'), dc=g('dc');
+    cfg[sitio] = {
+      dc: dc===''?null:Number(dc),
+      mult: mult===''?null:Number(mult),
+      codBase: g('codBase')||'', codIntermedio: g('codIntermedio')||'', codPunta: g('codPunta')||''
+    };
+  });
+  MB_CONFIG = cfg;
+  _mbPersistConfig();
+  document.getElementById('mb-config-modal').style.display='none';
+  _mbToast('📋 Catálogo de sitios actualizado');
+  _mbRenderAll();
+  window._mbRenderQuickCapture && window._mbRenderQuickCapture();
+};
+
+/* ══ MODAL: NUEVA / EDITAR LECTURA ══ */
+function _mbPartFields(prefix, label, rec){
+  var p = (rec && rec[prefix]) || {};
+  var modo = p.modo || 'video';
+  var isDirecto = modo==='directo';
+  return '<div style="border:1px solid var(--b1);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'+
+      '<div style="font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--t3);text-transform:uppercase">'+label+'</div>'+
+      '<div style="display:flex;gap:12px;font-family:var(--mono);font-size:9.5px;color:var(--text)">'+
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="mb-'+prefix+'-modo" value="video" '+(isDirecto?'':'checked')+' onchange="window._mbTogglePeriodMode(\''+prefix+'\')"> Video × Multiplicador</label>'+
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="mb-'+prefix+'-modo" value="directo" '+(isDirecto?'checked':'')+' onchange="window._mbTogglePeriodMode(\''+prefix+'\')"> Directo en kW</label>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;align-items:end">'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Código<input type="text" id="mb-'+prefix+'-codigo" value="'+_mbEsc(p.codigo||'')+'" placeholder="ej. 43" style="padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px"></label>'+
+      '<label id="mb-'+prefix+'-video-wrap" style="display:'+(isDirecto?'none':'flex')+';flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Valor en video<input type="number" step="0.001" id="mb-'+prefix+'-video" value="'+(p.video==null?'':p.video)+'" style="padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px" oninput="window._mbLiveCheck()"></label>'+
+      '<label id="mb-'+prefix+'-directo-wrap" style="display:'+(isDirecto?'flex':'none')+';flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Demanda directa (kW)<input type="number" step="0.01" id="mb-'+prefix+'-directo" value="'+(p.directo==null?'':p.directo)+'" style="padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px" oninput="window._mbLiveCheck()"></label>'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Fecha<input type="date" id="mb-'+prefix+'-fecha" value="'+(p.fecha||'')+'" style="padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px"></label>'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Hora<input type="time" id="mb-'+prefix+'-hora" value="'+(p.hora||'')+'" style="padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px"></label>'+
+    '</div>'+
+    '<div id="mb-'+prefix+'-calc" style="font-family:var(--mono);font-size:9.5px;color:var(--t3)"></div>'+
+  '</div>';
+}
+window._mbTogglePeriodMode = function(prefix){
+  var modo = document.querySelector('input[name="mb-'+prefix+'-modo"]:checked').value;
+  document.getElementById('mb-'+prefix+'-video-wrap').style.display   = modo==='directo' ? 'none' : 'flex';
+  document.getElementById('mb-'+prefix+'-directo-wrap').style.display = modo==='directo' ? 'flex' : 'none';
+  window._mbLiveCheck();
+};
+window._mbAutofillFromCatalog = function(){
+  var sitio=(document.getElementById('mb-sitio')||{}).value||'';
+  if(!sitio.trim()) return;
+  var d=_mbSiteDefaults(sitio);
+  var multEl=document.getElementById('mb-mult');
+  if(multEl && !multEl.value && d.mult!=null) multEl.value=d.mult;
+  var MAP={base:'codBase',intermedia:'codIntermedio',punta:'codPunta'};
+  Object.keys(MAP).forEach(function(prefix){
+    var codEl=document.getElementById('mb-'+prefix+'-codigo');
+    if(codEl && !codEl.value && d[MAP[prefix]]) codEl.value=d[MAP[prefix]];
+  });
+  window._mbLiveCheck();
+};
+window._mbOpenForm = function(id){
+  _mbEditId = id || null;
+  var rec = id ? MB_LIST.find(function(r){ return r.id===id; }) : null;
+  document.getElementById('mb-form-title').textContent = rec ? ('✏️ Editar lectura — '+rec.sitio) : '+ Nueva Lectura de Medidor';
+  var sites=_mbSiteNames();
+  var dl = '<datalist id="mb-site-datalist">'+sites.map(function(s){ return '<option value="'+_mbEsc(s)+'">'; }).join('')+'</datalist>';
+  var html = dl +
+    '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px">'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Sitio<input type="text" id="mb-sitio" list="mb-site-datalist" value="'+_mbEsc(rec?rec.sitio:'')+'" placeholder="Selecciona o escribe…" style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--body);font-size:11px" oninput="window._mbLiveCheck()" onchange="window._mbAutofillFromCatalog()"></label>'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Fecha de lectura<input type="date" id="mb-fecha" value="'+(rec?rec.fecha:_mbToday())+'" style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px"></label>'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Multiplicador<input type="number" id="mb-mult" value="'+(rec&&rec.multiplicador!=null?rec.multiplicador:'')+'" style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px" oninput="window._mbLiveCheck()"></label>'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Demanda contratada<input type="text" disabled id="mb-dc-display" value="" style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:11px"></label>'+
+    '</div>'+
+    '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'+
+      _mbPartFields('base','Demanda máxima — Hora Base', rec)+
+      _mbPartFields('intermedia','Demanda máxima — Hora Intermedia', rec)+
+      _mbPartFields('punta','Demanda máxima — Hora Punta', rec)+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Fecha toma del video del medidor<input type="date" id="mb-fecha-video" value="'+(rec?rec.fechaVideo||'':'')+'" style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px"></label>'+
+      '<label style="display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:8.5px;color:var(--t3)">Descripción / observaciones<textarea id="mb-descripcion" rows="1" style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--body);font-size:11px;resize:vertical">'+_mbEsc(rec?rec.descripcion||'':'')+'</textarea></label>'+
+    '</div>';
+  document.getElementById('mb-form-fields').innerHTML = html;
+  document.getElementById('mb-form-modal').style.display='flex';
+  setTimeout(window._mbLiveCheck, 30);
+};
+window._mbCloseForm = function(){
+  document.getElementById('mb-form-modal').style.display='none';
+  document.getElementById('mb-form-livealert').innerHTML='';
+  _mbEditId=null;
+};
+function _mbReadPart(prefix){
+  var modoEl = document.querySelector('input[name="mb-'+prefix+'-modo"]:checked');
+  var modo = modoEl ? modoEl.value : 'video';
+  return {
+    modo: modo,
+    codigo: (document.getElementById('mb-'+prefix+'-codigo')||{}).value || '',
+    video:   modo==='directo' ? null : ((document.getElementById('mb-'+prefix+'-video')||{}).value===''?null:Number(document.getElementById('mb-'+prefix+'-video').value)),
+    directo: modo==='directo' ? ((document.getElementById('mb-'+prefix+'-directo')||{}).value===''?null:Number(document.getElementById('mb-'+prefix+'-directo').value)) : null,
+    fecha: (document.getElementById('mb-'+prefix+'-fecha')||{}).value || '',
+    hora:  (document.getElementById('mb-'+prefix+'-hora')||{}).value || ''
+  };
+}
+window._mbLiveCheck = function(){
+  var sitio=_mbCanonicalSite((document.getElementById('mb-sitio')||{}).value||'');
+  var dc=_mbDemandaContratada(sitio);
+  var dcDisp=document.getElementById('mb-dc-display'); if(dcDisp) dcDisp.value = dc? dc+' kW' : 'sin configurar';
+  var mult = parseFloat((document.getElementById('mb-mult')||{}).value)||null;
+  var parts = { base:_mbReadPart('base'), intermedia:_mbReadPart('intermedia'), punta:_mbReadPart('punta') };
+  ['base','intermedia','punta'].forEach(function(prefix){
+    var d=_mbPeriodDemand(parts[prefix], mult);
+    var calcEl=document.getElementById('mb-'+prefix+'-calc');
+    if(!calcEl) return;
+    if(d==null){ calcEl.textContent=''; return; }
+    calcEl.textContent = parts[prefix].modo==='directo'
+      ? ('= '+d+' kW (capturado directo)')
+      : ('= '+(parts[prefix].video==null?'—':parts[prefix].video)+' × '+(mult==null?'—':mult)+' = '+d+' kW');
+  });
+  var vB=_mbPeriodDemand(parts.base,mult)||0, vI=_mbPeriodDemand(parts.intermedia,mult)||0, vP=_mbPeriodDemand(parts.punta,mult)||0;
+  var maxD=Math.max(vB,vI,vP);
+  var box=document.getElementById('mb-form-livealert'); if(!box) return;
+  if(!dc || maxD<=0){ box.innerHTML=''; return; }
+  var pct=Math.round((maxD/dc)*1000)/10;
+  if(maxD>dc){
+    var exc=Math.round((maxD-dc)*100)/100;
+    box.innerHTML='<div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.4);border-radius:9px;padding:10px 14px;margin-bottom:10px;font-family:var(--body);font-size:12.5px;color:var(--red)">🚨 <b>¡Demanda contratada excedida!</b> '+maxD+' kW registrados vs. '+dc+' kW contratados — exceso de <b>'+exc+' kW</b> ('+pct+'%). <b>Reduce potencia de inmediato</b> y documenta la causa.</div>';
+  } else if(pct>=MB_NEAR_PCT){
+    box.innerHTML='<div style="background:rgba(234,108,0,.12);border:1px solid rgba(234,108,0,.4);border-radius:9px;padding:10px 14px;margin-bottom:10px;font-family:var(--body);font-size:12.5px;color:var(--orange)">⚠️ Estás al <b>'+pct+'%</b> de la demanda contratada ('+maxD+' de '+dc+' kW). Vigila de cerca para no excederte.</div>';
+  } else {
+    box.innerHTML='<div style="background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);border-radius:9px;padding:10px 14px;margin-bottom:10px;font-family:var(--body);font-size:12.5px;color:var(--green)">✅ Dentro de contrato — '+pct+'% de '+dc+' kW.</div>';
+  }
+};
+window._mbSaveLectura = function(){
+  var sitio=_mbCanonicalSite((document.getElementById('mb-sitio').value||'').trim());
+  var fecha=document.getElementById('mb-fecha').value;
+  if(!sitio || !fecha){ _mbToast('⚠️ Sitio y fecha son obligatorios'); return; }
+  var mult = document.getElementById('mb-mult').value===''?null:Number(document.getElementById('mb-mult').value);
+  function part(prefix){
+    var p = _mbReadPart(prefix);
+    if(!p.fecha) p.fecha = fecha;
+    return p;
+  }
+  var rec = {
+    id: _mbEditId || _mbRecId(sitio, fecha),
+    sitio: sitio,
+    fecha: fecha,
+    multiplicador: mult,
+    base: part('base'), intermedia: part('intermedia'), punta: part('punta'),
+    fechaVideo: document.getElementById('mb-fecha-video').value||'',
+    descripcion: document.getElementById('mb-descripcion').value||'',
+    savedAt: Date.now()
+  };
+  var calc = _mbCalc(rec);
+  rec.demandaContratada = calc.demandaContratada;
+  if(_mbEditId){
+    var existing = MB_LIST.find(function(r){ return r.id===_mbEditId; });
+    rec.causaExcedencia = existing ? existing.causaExcedencia : '';
+    var idx=MB_LIST.findIndex(function(r){ return r.id===_mbEditId; });
+    MB_LIST[idx]=rec;
+  } else {
+    rec.causaExcedencia='';
+    MB_LIST.push(rec);
+  }
+  _mbPersistList();
+  window._mbCloseForm();
+  _mbRenderAll();
+  if(calc.estado==='over'){
+    _mbToast('🚨 '+sitio+' excedió la demanda contratada por '+calc.kwExceso+' kW — reduce potencia de inmediato');
+  } else if(calc.estado==='near'){
+    _mbToast('⚠️ '+sitio+' está al '+calc.pctUso+'% de su demanda contratada');
+  } else {
+    _mbToast('✅ Lectura guardada — '+sitio);
+  }
+};
+window._mbDeleteLectura = function(id){
+  if(!confirm('¿Eliminar esta lectura? No se puede deshacer.')) return;
+  MB_LIST = MB_LIST.filter(function(r){ return r.id!==id; });
+  _mbPersistList();
+  try{ if(window._fb && window._fb.deleteMedidorLectura) window._fb.deleteMedidorLectura(id); }catch(e){}
+  _mbRenderAll();
+};
+
+/* ══ NAVEGACIÓN POR MES ══ */
+window._mbOnMesChange = function(){ _mbRenderSummaryGrid(); _mbRenderHist(); };
+window._mbShiftMes = function(dir){
+  var sel=document.getElementById('mb-filter-mes'); if(!sel) return;
+  var opts=Array.prototype.map.call(sel.options, function(o){ return o.value; }).filter(Boolean);
+  if(!opts.length) return;
+  opts.sort(); // ascendente
+  var cur=sel.value;
+  var idx=opts.indexOf(cur);
+  if(idx<0){
+    /* si está en "Todos los meses", partir del mes actual */
+    var mk=_mbToday().slice(0,7);
+    idx=opts.indexOf(mk);
+    if(idx<0){ opts.push(mk); opts.sort(); idx=opts.indexOf(mk); }
+  }
+  var next=idx+dir;
+  if(next<0) next=0;
+  if(next>=opts.length) next=opts.length-1;
+  sel.value=opts[next];
+  window._mbOnMesChange();
+};
+
+/* ══ IMPORTAR CSV ══ */
+window._mbOpenImport = function(){
+  document.getElementById('mb-import-mes').value = _mbToday().slice(0,7);
+  document.getElementById('mb-import-q').value = _mbQuincena(_mbToday())+'';
+  document.getElementById('mb-import-status').textContent = '';
+  document.getElementById('mb-import-modal').style.display='flex';
+};
+function _mbNorm(s){
+  return String(s||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') /* quitar acentos */
+    .replace(/[^a-z0-9]+/g,' ').trim();
+}
+function _mbParseDMY(s){
+  /* admite dd/mm/yyyy → yyyy-mm-dd; si ya viene yyyy-mm-dd la deja igual */
+  s=(s||'').trim();
+  if(!s) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(!m) return '';
+  var d=m[1].padStart(2,'0'), mo=m[2].padStart(2,'0'), y=m[3].length===2?('20'+m[3]):m[3];
+  return y+'-'+mo+'-'+d;
+}
+function _mbNum(s){ if(s==null||s==='') return null; var n=parseFloat(String(s).replace(',','.')); return isNaN(n)?null:n; }
+var MB_CSV_MAP = [
+  [['sitio'],'sitio'],
+  [['dem max hora punta kw','dem max hora punta'],'puntaValor'],
+  [['dem max h intermedia','dem maxima h intermedia'],'intermediaValor'],
+  [['dem max h base','dem maxima h base'],'baseValor'],
+  [['dia registrado hora punta'],'puntaFecha'],
+  [['hora punta'],'puntaHora'],
+  [['multiplicador'],'multiplicador'],
+  [['codigo base'],'codBase'],
+  [['codigo intermedio','codigo intermedi'],'codIntermedio'],
+  [['codigo punta'],'codPunta'],
+  [['codigo'],'codGenerico'],
+  [['valor obtenido en video hora punta'],'puntaVideo'],
+  [['valor obtenido en video hora intermedia','valor obtenido en video hora intermedio'],'intermediaVideo'],
+  [['valor obtenido en video hora base'],'baseVideo'],
+  [['demanda contratada'],'demandaContratada'],
+  [['descripcion'],'descripcion'],
+  [['fecha de toma del video del medidor','fecha de toma del video del medier','fecha de toma del video'],'fechaVideo']
+];
+function _mbMatchHeader(h){
+  var n=_mbNorm(h);
+  for(var i=0;i<MB_CSV_MAP.length;i++){
+    if(MB_CSV_MAP[i][0].indexOf(n)>=0) return MB_CSV_MAP[i][1];
+  }
+  return null;
+}
+/* Parser CSV completo (respeta comillas, incluyendo saltos de línea DENTRO de un campo entre comillas —
+   Excel/Sheets exportan encabezados de varias líneas así, y partir por \n antes de tiempo rompía el archivo) */
+function _mbParseCSV(text, sep){
+  var rows=[], row=[], cur='', inQ=false;
+  for(var i=0;i<text.length;i++){
+    var ch=text[i];
+    if(inQ){
+      if(ch==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else { inQ=false; } }
+      else cur+=ch;
+    } else {
+      if(ch==='"') inQ=true;
+      else if(ch===sep){ row.push(cur.trim()); cur=''; }
+      else if(ch==='\r'){ /* ignorar, \n lo maneja */ }
+      else if(ch==='\n'){ row.push(cur.trim()); cur=''; rows.push(row); row=[]; }
+      else cur+=ch;
+    }
+  }
+  if(cur!=='' || row.length){ row.push(cur.trim()); rows.push(row); }
+  /* quitar filas totalmente vacías */
+  return rows.filter(function(r){ return r.some(function(c){ return c!==''; }); });
+}
+function _mbFindHeaderRow(text){
+  var seps=[',',';','\t'];
+  for(var s=0;s<seps.length;s++){
+    var rows=_mbParseCSV(text, seps[s]);
+    var maxScan=Math.min(rows.length,15);
+    for(var i=0;i<maxScan;i++){
+      if(rows[i].length<2) continue;
+      var fields=rows[i].map(_mbMatchHeader);
+      if(fields.indexOf('sitio')>=0) return { idx:i, sep:seps[s], fields:fields, rows:rows };
+    }
+  }
+  return null;
+}
+window._mbImportCSV = function(input){
+  var file=input&&input.files&&input.files[0];
+  if(!file) return;
+  var mes=document.getElementById('mb-import-mes').value;
+  var quincena=document.getElementById('mb-import-q').value;
+  if(!mes){ _mbToast('⚠️ Selecciona el mes que cubre la hoja'); return; }
+  var statusEl=document.getElementById('mb-import-status');
+  statusEl.textContent='Leyendo archivo…';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var text=e.target.result;
+      if(text.charCodeAt(0)===0xFEFF) text=text.slice(1); /* quitar BOM de Excel */
+      var hdr=_mbFindHeaderRow(text);
+      if(!hdr){ statusEl.textContent='⚠️ No se encontró la columna "Sitio" — revisa que tu CSV tenga un encabezado con esa columna (puede ir en cualquiera de las primeras filas)'; return; }
+      var fieldByCol=hdr.fields, allRows=hdr.rows;
+      var fallbackDay = quincena==='1' ? '01' : '16';
+      var fallbackFecha = mes+'-'+fallbackDay;
+      var imported=0, excedidos=0, configUpdated=0;
+      var seenThisImport={}; // canonicalId -> rec, para fusionar sub-redes (T4 B1/B2/B3 → T4) dentro del mismo archivo
+      var BAD_SITE = /^(total|totales|nota|notas|fuente|elaborad|promedio|suma)/i;
+      function buildPart(valorFinal, video, codigo, fecha, hora){
+        /* Si hay lectura de video, se usa modo "video" (demanda = video × multiplicador).
+           Si el sitio no maneja video (no viene ese dato) pero sí trae la demanda ya calculada
+           en la columna "Dem Máx…", se usa modo "directo" con ese valor tal cual. */
+        if(video!=null) return { modo:'video', codigo:codigo||'', video:video, directo:null, fecha:fecha, hora:hora||'' };
+        if(valorFinal!=null) return { modo:'directo', codigo:codigo||'', video:null, directo:valorFinal, fecha:fecha, hora:hora||'' };
+        return { modo:'video', codigo:codigo||'', video:null, directo:null, fecha:fecha, hora:hora||'' };
+      }
+      function mergePart(a,b,mult){
+        /* conserva el valor más alto entre las dos sub-redes fusionadas (más conservador para alertas) */
+        var da=_mbPeriodDemand(a, mult), db=_mbPeriodDemand(b, mult);
+        return (db!=null && (da==null || db>da)) ? b : a;
+      }
+      for(var i=hdr.idx+1;i<allRows.length;i++){
+        var cols=allRows[i];
+        var row={};
+        fieldByCol.forEach(function(f,idx){ if(f) row[f]=cols[idx]; });
+        var sitioRaw=(row.sitio||'').trim();
+        if(!sitioRaw || BAD_SITE.test(sitioRaw) || sitioRaw.length>60) continue;
+        var sitio=_mbCanonicalSite(sitioRaw);
+        var puntaFechaISO = _mbParseDMY(row.puntaFecha) || fallbackFecha;
+        var fechaVideoISO = _mbParseDMY(row.fechaVideo) || '';
+        var codBase = row.codBase || row.codGenerico || '';
+        var codInter = row.codIntermedio || row.codGenerico || '';
+        var codPunta = row.codPunta || row.codGenerico || '';
+        var rec = {
+          id: _mbRecId(sitio, fallbackFecha),
+          sitio: sitio,
+          fecha: fallbackFecha,
+          multiplicador: _mbNum(row.multiplicador),
+          base:       buildPart(_mbNum(row.baseValor),       _mbNum(row.baseVideo),       codBase,  fallbackFecha, ''),
+          intermedia: buildPart(_mbNum(row.intermediaValor), _mbNum(row.intermediaVideo), codInter, fallbackFecha, ''),
+          punta:      buildPart(_mbNum(row.puntaValor),      _mbNum(row.puntaVideo),      codPunta, puntaFechaISO, row.puntaHora||''),
+          fechaVideo: fechaVideoISO,
+          descripcion: row.descripcion||'',
+          savedAt: Date.now(),
+          _csvImport: true
+        };
+        if(seenThisImport[rec.id]){
+          /* misma canonicalización dentro del mismo archivo (p.ej. dos filas que colapsan al mismo sitio) → fusionar */
+          var prev=seenThisImport[rec.id];
+          prev.base=mergePart(prev.base,rec.base,rec.multiplicador);
+          prev.intermedia=mergePart(prev.intermedia,rec.intermedia,rec.multiplicador);
+          prev.punta=mergePart(prev.punta,rec.punta,rec.multiplicador);
+          prev.descripcion=[prev.descripcion,rec.descripcion].filter(Boolean).join(' / ');
+          rec=prev;
+        } else {
+          seenThisImport[rec.id]=rec;
+        }
+        var calc=_mbCalc(Object.assign({}, rec, { demandaContratada: _mbNum(row.demandaContratada) || _mbDemandaContratada(sitio) }));
+        var existingIdx=MB_LIST.findIndex(function(r){ return r.id===rec.id; });
+        rec.causaExcedencia = existingIdx>=0 ? MB_LIST[existingIdx].causaExcedencia : '';
+        if(existingIdx>=0) MB_LIST[existingIdx]=rec; else MB_LIST.push(rec);
+        imported++;
+        if(calc.estado==='over') excedidos++;
+        var dcCsv=_mbNum(row.demandaContratada);
+        var patch={};
+        if(dcCsv!=null && dcCsv>0) patch.dc=dcCsv;
+        if(rec.multiplicador!=null) patch.mult=rec.multiplicador;
+        if(codBase) patch.codBase=codBase;
+        if(codInter) patch.codIntermedio=codInter;
+        if(codPunta) patch.codPunta=codPunta;
+        if(Object.keys(patch).length){ _mbSetSiteDefault(sitio, patch); configUpdated++; }
+      }
+      if(!imported){ statusEl.textContent='⚠️ No se importó ninguna fila — revisa el archivo'; return; }
+      _mbPersistList();
+      if(configUpdated) _mbPersistConfig();
+      document.getElementById('mb-filter-mes').value = mes;
+      _mbRenderAll();
+      statusEl.textContent='✅ '+imported+' sitios importados para '+_mbMesLabel(mes)+' (quincena '+quincena+'ª)'+(excedidos?' · '+excedidos+' con excedencia':'');
+      _mbToast('✅ CSV importado · '+imported+' sitios · '+_mbMesLabel(mes));
+      if(excedidos>0){ setTimeout(function(){ _mbToast('🚨 '+excedidos+' sitio(s) excedieron su demanda contratada este mes'); },600); }
+    }catch(err){
+      console.error('[Medidor BESS] Error importando CSV:', err);
+      statusEl.textContent='⚠️ Error al leer el CSV — revisa el formato';
+    }
+  };
+  reader.readAsText(file);
+  if(input) input.value='';
+};
+
 })();
 </script>
 </div>
