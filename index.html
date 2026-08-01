@@ -27675,13 +27675,69 @@ var MB_LIST = [];
 var MB_CONFIG = {};
 var _mbEditId = null;
 
-/* Semilla inicial de demanda contratada (kW) importada de la hoja de cálculo del usuario.
-   Se marca como referencia — el usuario debe verificarla desde ⚙️ Demanda Contratada. */
+/* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
+   medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
+   cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
+var MB_CONFIG_SEED_VERSION = '2026-07-31-v2';
 var MB_CONFIG_SEED = {
-  'Alpha':370,'FBO':174,'HUX 1':350,'HUX 2':763,'PTAR':150,'TOTIS':1195,'ALYSA':705,'Comedor':113,'Almacén':181,
-  'Sala Bravo':2595,'BHS':810,'T4':4920,'T3':4500,'T2':3040,'Veracruz':1546,'Zacatecas':254,'Zihuatanejo':1047,
-  'RegioPet B1':900,'RegioPet B2':470,'RegioPet B3':500,'Bocar':900,'Diseño':920,'Torreón':900,'Vitrogenera':920,
-  'Durango':201,'Vesta':900,'RESIDEO':700,'FM Boca del Río':225,'IPASA':550,'Brom':900,'Plasti 1':2863,'Plasti 3':3201
+  'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
+  'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
+  'BHS': { dc:810, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'Comedor': { dc:113, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
+  'FBO': { dc:174, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
+  'PTAR': { dc:150, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
+  'Sala Bravo': { dc:2595, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'T1': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'T2': { dc:3059, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'T3': { dc:4600, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'T4': { dc:4820, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'Hidro': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'HUX 01': { dc:350, mult:140, codBase:'', codIntermedio:'', codPunta:'' },
+  'HUX 02': { dc:763, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'Minatitlán': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Veracruz': { dc:1846, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'Mérida': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Acapulco': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'CD Juárez': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Chihuahua 2G': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Chihuahua': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Culiacán': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Durango': { dc:201, mult:140, codBase:'', codIntermedio:'', codPunta:'' },
+  'Monterrey': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Torreón': { dc:920, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'Zacatecas': { dc:251, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'Zihuatanejo': { dc:1047, mult:1, codBase:'', codIntermedio:'', codPunta:'' },
+  'Reynosa': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'DISEKO': { dc:900, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
+  'Alysa': { dc:735, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
+  'Vitrogenera': { dc:null, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
+  'RegioPet 1': { dc:900.00, mult:350, codBase:'', codIntermedio:'', codPunta:'' },
+  'RegioPet 2': { dc:470, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
+  'RegioPet 3': { dc:500, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
+  'Bocar': { dc:600, mult:240, codBase:'', codIntermedio:'', codPunta:'' },
+  'Telas Asturcón': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'IPASA': { dc:550, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'TOTIS': { dc:1195, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
+  'FM boca del río': { dc:225, mult:140, codBase:'', codIntermedio:'', codPunta:'' },
+  'Tejidos y texturizados': { dc:532, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Resideo': { dc:1266, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'Brom': { dc:2346, mult:3000, codBase:'', codIntermedio:'', codPunta:'' },
+  'Vesta': { dc:900, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'THOR': { dc:3240, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'Park Royal Luna': { dc:1489, mult:1400, codBase:'', codIntermedio:'', codPunta:'' },
+  'Park Royal Sol': { dc:800, mult:1400, codBase:'', codIntermedio:'', codPunta:'' },
+  'LG': { dc:16007, mult:12000, codBase:'', codIntermedio:'', codPunta:'' },
+  'FM MERIDA': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'ABADIMEX': { dc:1050, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
+  'Park Royal Cozumel': { dc:990, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'Vidanta': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Park Royal CBE': { dc:1400, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'Plastiexports 1': { dc:2663, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'Plastiexports 3': { dc:3201, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'Fisfiber': { dc:727, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
+  'Tuk': { dc:3895, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
+  'VALLARTA': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'BIDASOA': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' }
 };
 
 /* ══ HELPERS ══ */
@@ -27717,8 +27773,22 @@ function _mbLoadLocal(){
   /* Primera carga: sembrar config con valores de referencia si no existe nada guardado */
   if(!Object.keys(MB_CONFIG).length){
     MB_CONFIG = {};
-    Object.keys(MB_CONFIG_SEED).forEach(function(s){ MB_CONFIG[s] = { dc:MB_CONFIG_SEED[s], mult:null, codBase:'', codIntermedio:'', codPunta:'' }; });
+    Object.keys(MB_CONFIG_SEED).forEach(function(s){ MB_CONFIG[s] = Object.assign({}, MB_CONFIG_SEED[s]); });
   }
+  /* Catálogo actualizado por el usuario (consolidado por medidor, con multiplicador y demanda
+     contratada confirmados) — se reemplaza TODO lo anterior una sola vez por versión, tanto
+     local como en la nube, para que le llegue a todo el equipo. Después de este reemplazo,
+     las ediciones manuales de cualquier persona se respetan con normalidad. */
+  try{
+    var seedVer = localStorage.getItem('bess:medidor_config_seed_ver');
+    if(seedVer !== MB_CONFIG_SEED_VERSION){
+      MB_CONFIG = {};
+      Object.keys(MB_CONFIG_SEED).forEach(function(s){ MB_CONFIG[s] = Object.assign({}, MB_CONFIG_SEED[s]); });
+      localStorage.setItem('bess:medidor_config_seed_ver', MB_CONFIG_SEED_VERSION);
+      window._mbForceSeedThisLoad = true; /* evita que el pull a la nube que sigue sobreescriba este reemplazo con datos viejos */
+      console.log('[Medidor BESS] Catálogo de sitios reemplazado con la versión '+MB_CONFIG_SEED_VERSION);
+    }
+  }catch(e){}
   _mbMigrateConfig();
   var removed = _mbPurgeGhostSites();
   _mbPersistConfig();
@@ -27750,7 +27820,12 @@ function _mbPullCloud(cb){
     if(window._fb && window._fb.getMedidorConfig){
       pending++;
       window._fb.getMedidorConfig().then(function(cfg){
-        if(cfg!=null){
+        if(window._mbForceSeedThisLoad){
+          /* Se acaba de reemplazar el catálogo con la versión nueva — esta vez la nube NO manda,
+             empujamos nuestra semilla para que sea la que todos reciban de ahora en adelante. */
+          window._mbForceSeedThisLoad = false;
+          _mbPersistConfig();
+        } else if(cfg!=null){
           /* La nube es la fuente de verdad — se REEMPLAZA la config local, no se fusiona,
              para que un sitio borrado por otra persona no "reviva" con datos viejos de este navegador. */
           MB_CONFIG = cfg; _mbMigrateConfig(); _mbPurgeGhostSites();
