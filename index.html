@@ -27678,7 +27678,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-07-31-v2';
+var MB_CONFIG_SEED_VERSION = '2026-07-31-v3';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -27885,7 +27885,7 @@ function _mbIsGhostSite(name){
   var raw = String(name).trim();
   if(!raw) return true;
   if(raw.indexOf(',')>=0) return true; /* un sitio real nunca trae coma en el nombre */
-  if(raw.replace(/[^a-zA-Zá-úÁ-Ú]/g,'').length<2) return true; /* casi sin letras */
+  if(raw.replace(/[^a-zA-Zá-úÁ-Ú]/g,'').length<1) return true; /* sin ninguna letra real (ej. solo números/símbolos) — pero "T1","T2" etc. sí tienen una letra y se conservan */
   var n=_mbNorm(raw);
   for(var i=0;i<MB_GHOST_WORDS.length;i++){ if(n===MB_GHOST_WORDS[i] || n.indexOf(MB_GHOST_WORDS[i])>=0) return true; }
   return false;
@@ -27903,19 +27903,39 @@ function _mbPurgeGhostSites(){
   return removedL+removedC;
 }
 function _mbSiteNames(){
-  var set={};
-  (window.MASTER_SITES_DB||[]).forEach(function(s){ if(s.sitio && !_mbIsGhostSite(s.sitio)) set[_mbCanonicalSite(s.sitio)]=1; });
-  Object.keys(MB_CONFIG).forEach(function(s){ if(!_mbIsGhostSite(s)) set[_mbCanonicalSite(s)]=1; });
-  MB_LIST.forEach(function(r){ if(r.sitio && !_mbIsGhostSite(r.sitio)) set[_mbCanonicalSite(r.sitio)]=1; });
-  return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
+  var byKey = {}; /* normKey -> {display, hasData} — evita filas duplicadas por diferencias de mayúsculas/minúsculas */
+  function consider(rawName){
+    if(!rawName || _mbIsGhostSite(rawName)) return;
+    var canon = _mbCanonicalSite(rawName);
+    var key = _mbNorm(canon);
+    var cfg = MB_CONFIG[canon];
+    var hasData = !!(cfg && typeof cfg==='object' && (cfg.dc!=null || cfg.mult!=null || cfg.codBase || cfg.codIntermedio || cfg.codPunta));
+    var existing = byKey[key];
+    if(!existing || (hasData && !existing.hasData)){
+      byKey[key] = { display:canon, hasData:hasData };
+    }
+  }
+  (window.MASTER_SITES_DB||[]).forEach(function(s){ consider(s.sitio); });
+  Object.keys(MB_CONFIG).forEach(consider);
+  MB_LIST.forEach(function(r){ consider(r.sitio); });
+  return Object.keys(byKey).map(function(k){ return byKey[k].display; })
+    .sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
 }
 function _mbDemandaContratada(sitio){
   var d = _mbSiteDefaults(sitio);
   return d.dc;
 }
-function _mbSiteDefaults(sitio){
+function _mbFindConfigEntry(sitio){
   var canon=_mbCanonicalSite(sitio);
-  var v = MB_CONFIG[canon] || MB_CONFIG[sitio] || {};
+  if(MB_CONFIG[canon]!=null) return MB_CONFIG[canon];
+  if(MB_CONFIG[sitio]!=null) return MB_CONFIG[sitio];
+  /* último recurso: buscar sin distinguir mayúsculas/minúsculas (ej. "Sala bravo" vs "Sala Bravo") */
+  var target=_mbNorm(canon);
+  var foundKey = Object.keys(MB_CONFIG).find(function(k){ return _mbNorm(k)===target; });
+  return foundKey!=null ? MB_CONFIG[foundKey] : null;
+}
+function _mbSiteDefaults(sitio){
+  var v = _mbFindConfigEntry(sitio) || {};
   if(typeof v !== 'object') v = { dc:v }; // por si quedó algún registro viejo sin migrar
   return {
     dc: (v.dc==null||v.dc==='') ? null : Number(v.dc),
