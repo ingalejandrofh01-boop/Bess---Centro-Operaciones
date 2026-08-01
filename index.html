@@ -7872,8 +7872,10 @@ async function expDoZip(mode){
         <button onclick="window._mbOpenImport()" style="padding:9px 16px;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:8px;color:#00a97a;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📥 Importar CSV</button>
         <button onclick="window._mbOpenConfig()" style="padding:9px 16px;background:rgba(255,255,255,.06);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📋 Catálogo de Sitios</button>
         <button onclick="window._mbRunCleanup()" title="Quita cualquier tarjeta que no sea un sitio real (residuo de una importación anterior)" style="padding:9px 16px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.25);border-radius:8px;color:var(--red);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">🧹 Limpiar sitios inválidos</button>
+        <button id="mb-sync-btn" onclick="window._mbSyncCloud(false)" title="Vuelve a traer los datos guardados en la nube (por si alguien más hizo cambios)" style="padding:9px 16px;background:rgba(26,63,204,.06);border:1px solid rgba(26,63,204,.25);border-radius:8px;color:#1a3fcc;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">☁️ Sincronizar</button>
       </div>
     </div>
+    <div id="mb-sync-indicator" style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:-10px">Sincronizando…</div>
 
     <!-- Banner de alertas activas -->
     <div id="mb-alert-banner" style="flex-shrink:0;display:none"></div>
@@ -27741,26 +27743,44 @@ function _mbMigrateConfig(){
   });
   MB_CONFIG = out;
 }
-function _mbPullCloud(){
+function _mbPullCloud(cb){
+  var pending = 0, gotAny = false;
+  function done(){ pending--; if(pending<=0){ window._mbLastCloudSync = Date.now(); if(typeof cb==='function') cb(gotAny); } }
   try{
     if(window._fb && window._fb.getMedidorConfig){
+      pending++;
       window._fb.getMedidorConfig().then(function(cfg){
-        if(cfg && Object.keys(cfg).length){ MB_CONFIG = Object.assign({}, MB_CONFIG, cfg); _mbMigrateConfig(); _mbPurgeGhostSites(); _mbPersistConfig(); _mbRenderAll(); }
-      }).catch(function(){});
+        if(cfg!=null){
+          /* La nube es la fuente de verdad — se REEMPLAZA la config local, no se fusiona,
+             para que un sitio borrado por otra persona no "reviva" con datos viejos de este navegador. */
+          MB_CONFIG = cfg; _mbMigrateConfig(); _mbPurgeGhostSites();
+          try{ localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){}
+          gotAny = true; _mbRenderAll();
+        } else if(Object.keys(MB_CONFIG).length){
+          /* Nunca se ha guardado nada en la nube — subimos la semilla local para que
+             cualquier otra persona que entre vea el mismo catálogo base desde ya. */
+          _mbPersistConfig();
+        }
+        done();
+      }).catch(function(){ done(); });
     }
     if(window._fb && window._fb.getMedidorSnapshot){
+      pending++;
       window._fb.getMedidorSnapshot().then(function(list){
-        if(list && list.length){
-          /* fusionar por id, quedarse con el más reciente savedAt */
-          var byId={}; MB_LIST.forEach(function(r){ byId[r.id]=r; });
-          list.forEach(function(r){ if(!byId[r.id] || (r.savedAt||0) > (byId[r.id].savedAt||0)) byId[r.id]=r; });
-          MB_LIST = Object.keys(byId).map(function(k){ return byId[k]; });
+        if(Array.isArray(list)){
+          /* Igual que arriba: reemplazo completo, la nube manda. Así los borrados y ediciones
+             de cualquier persona se ven de inmediato para todos, sin resucitar registros viejos. */
+          MB_LIST = list;
           _mbPurgeGhostSites();
-          _mbPersistList(); _mbRenderAll();
+          try{ localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); }catch(e){}
+          gotAny = true; _mbRenderAll();
+          window._mbRenderQuickCapture && window._mbRenderQuickCapture();
         }
-      }).catch(function(){});
+        done();
+      }).catch(function(){ done(); });
     }
-  }catch(e){}
+    if(!pending && typeof cb==='function') cb(false);
+  }catch(e){ if(typeof cb==='function') cb(false); }
 }
 
 /* ══ SITIOS — normalización de nombres (varias sub-redes = un solo sitio/medidor) ══ */
@@ -27890,13 +27910,29 @@ function _mbEstadoBadge(estado){
 
 /* ══ INIT ══ */
 window._mbInit = function(){
-  if(!window._mbLoaded){ _mbLoadLocal(); window._mbLoaded=true; _mbPullCloud(); }
+  if(!window._mbLoaded){ _mbLoadLocal(); window._mbLoaded=true; }
   var qcMes=document.getElementById('mb-qc-mes');
   if(qcMes && !qcMes.value){ qcMes.value=_mbToday().slice(0,7); document.getElementById('mb-qc-q').value=_mbQuincena(_mbToday())+''; }
   _mbRenderAll();
+  /* Cada vez que se abre la página se vuelve a sincronizar con la nube — así se ven de inmediato
+     los cambios que haya hecho cualquier otra persona (multiplicador, código, lecturas, etc.) */
+  window._mbSyncCloud(true);
   /* Evita que el scroll quede "atorado" a mitad de página al volver a esta pestaña — causa visual de secciones encimadas */
   var scrollBox = document.querySelector('#page-medidor .page-scroll') || document.getElementById('page-medidor');
   if(scrollBox) scrollBox.scrollTop = 0;
+};
+window._mbSyncCloud = function(silent){
+  var btn = document.getElementById('mb-sync-btn');
+  if(btn){ btn.disabled=true; btn.textContent='☁️ Sincronizando…'; }
+  _mbPullCloud(function(gotAny){
+    if(btn){ btn.disabled=false; btn.textContent='☁️ Sincronizar'; }
+    var indicator = document.getElementById('mb-sync-indicator');
+    if(indicator){
+      var d = new Date(window._mbLastCloudSync||Date.now());
+      indicator.textContent = 'Última sincronización: '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    }
+    if(!silent){ _mbToast(gotAny ? '☁️ Datos actualizados desde la nube' : '⚠️ No se pudo conectar a la nube — usando lo guardado en este dispositivo'); }
+  });
 };
 function _mbRenderAll(){
   _mbRenderMesFilter();
