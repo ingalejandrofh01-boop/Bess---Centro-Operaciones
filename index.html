@@ -8011,6 +8011,7 @@ async function expDoZip(mode){
         <div>Sitio</div><div>Mult.</div><div>Cód. Base</div><div>Cód. Interm.</div><div>Cód. Punta</div><div>Demanda contratada (kW)</div><div></div>
       </div>
       <div id="mb-config-fields" style="padding:2px 20px 14px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:5px"></div>
+      <div id="mb-config-deleted" style="padding:0 20px 10px"></div>
       <div style="padding:14px 20px;border-top:1px solid var(--b1);display:flex;justify-content:space-between;gap:10px">
         <button onclick="window._mbAddConfigRow()" style="padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid var(--b2);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer">+ Agregar sitio</button>
         <button onclick="window._mbSaveConfig()" style="padding:8px 18px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">💾 Guardar Catálogo</button>
@@ -27678,7 +27679,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-08-11-v4';
+var MB_CONFIG_SEED_VERSION = '2026-08-11-v6';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -27807,6 +27808,17 @@ function _mbLoadLocal(){
         if(!cur.codPunta) cur.codPunta = seedEntry.codPunta;
       });
       localStorage.setItem('bess:medidor_config_seed_ver', MB_CONFIG_SEED_VERSION);
+      /* Limpieza puntual pedida por el usuario: solo deben existir "RegioPet 1/2/3" —
+         cualquier otra variante (RegioPet suelto, "Regio Pet(B1)", "Regio Pet(B2)", etc.,
+         residuos de importaciones viejas) se elimina del catálogo. */
+      var REGIOPET_KEEP = ['regiopet 1','regiopet 2','regiopet 3'];
+      Object.keys(MB_CONFIG).forEach(function(k){
+        var nk = _mbNorm(k); /* _mbNorm ya quita paréntesis/espacios raros y deja solo letras+números separados por espacio */
+        var isRegioPet = nk.indexOf('regiopet')===0 || nk.indexOf('regio pet')===0;
+        if(isRegioPet && REGIOPET_KEEP.indexOf(nk.replace('regio pet','regiopet'))===-1){
+          MB_CONFIG[k] = Object.assign({}, MB_CONFIG[k], { deleted:true });
+        }
+      });
       window._mbForceSeedThisLoad = true; /* evita que el pull a la nube que sigue sobreescriba esta fusión con datos viejos */
       console.log('[Medidor BESS] Catálogo de sitios fusionado con la versión '+MB_CONFIG_SEED_VERSION+' (sin pisar datos ya guardados)');
     }
@@ -27934,11 +27946,19 @@ function _mbPurgeGhostSites(){
 }
 function _mbSiteNames(){
   var byKey = {}; /* normKey -> {display, hasData} — evita filas duplicadas por diferencias de mayúsculas/minúsculas */
+  function findCfg(canon){
+    var cfg = MB_CONFIG[canon];
+    if(cfg) return cfg;
+    var target=_mbNorm(canon);
+    var k = Object.keys(MB_CONFIG).find(function(kk){ return _mbNorm(kk)===target; });
+    return k!=null ? MB_CONFIG[k] : null;
+  }
   function consider(rawName){
     if(!rawName || _mbIsGhostSite(rawName)) return;
     var canon = _mbCanonicalSite(rawName);
     var key = _mbNorm(canon);
-    var cfg = MB_CONFIG[canon];
+    var cfg = findCfg(canon);
+    if(cfg && cfg.deleted) return; /* sitio eliminado del catálogo — nunca se muestra */
     var hasData = !!(cfg && typeof cfg==='object' && (cfg.dc!=null || cfg.mult!=null || cfg.codBase || cfg.codIntermedio || cfg.codPunta));
     var existing = byKey[key];
     if(!existing || (hasData && !existing.hasData)){
@@ -27949,6 +27969,11 @@ function _mbSiteNames(){
   Object.keys(MB_CONFIG).forEach(consider);
   MB_LIST.forEach(function(r){ consider(r.sitio); });
   return Object.keys(byKey).map(function(k){ return byKey[k].display; })
+    .sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
+}
+/* Lista de sitios eliminados (para poder restaurarlos si fue un error) */
+function _mbDeletedSiteNames(){
+  return Object.keys(MB_CONFIG).filter(function(k){ return MB_CONFIG[k] && MB_CONFIG[k].deleted; })
     .sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
 }
 function _mbDemandaContratada(sitio){
@@ -28340,6 +28365,15 @@ window._mbOpenConfig = function(){
   var box=document.getElementById('mb-config-fields');
   var sites=_mbSiteNames();
   box.innerHTML = sites.map(function(s){ return _mbConfigRow(s, _mbSiteDefaults(s)); }).join('');
+  var delBox=document.getElementById('mb-config-deleted');
+  if(delBox){
+    var deleted=_mbDeletedSiteNames();
+    delBox.innerHTML = !deleted.length ? '' :
+      '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin:10px 0 4px">Eliminados ('+deleted.length+') — click para restaurar:</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">'+deleted.map(function(s){
+        return '<button onclick="window._mbRestoreDeletedSite(\''+_mbEsc(s).replace(/'/g,"\\'")+'\')" style="padding:4px 10px;background:rgba(255,255,255,.05);border:1px dashed var(--b2);border-radius:20px;color:var(--t3);font-family:var(--mono);font-size:9.5px;cursor:pointer">↩️ '+_mbEsc(s)+'</button>';
+      }).join('')+'</div>';
+  }
   document.getElementById('mb-config-modal').style.display='flex';
 };
 function _mbConfigRow(sitio, d){
@@ -28363,13 +28397,13 @@ window._mbAddConfigRow = function(){
 window._mbSaveConfig = function(){
   try{
     var rows=document.querySelectorAll('#mb-config-fields .mb-cfg-row');
-    if(!rows.length){ _mbToast('⚠️ No hay filas para guardar'); return; }
-    var cfg={}, skipped=0;
+    var cfg={}, skipped=0, seenCanon={};
     rows.forEach(function(row){
       var g=function(f){ var el=row.querySelector('[data-f="'+f+'"]'); return el?el.value:''; };
       var sitioRaw=(g('sitio')||'').trim();
       if(!sitioRaw){ skipped++; return; }
       var sitio=_mbCanonicalSite(sitioRaw);
+      seenCanon[_mbNorm(sitio)] = true;
       var mult=g('mult'), dc=g('dc');
       var prev = cfg[sitio]; /* si dos filas caen en el mismo sitio canónico, fusiona en vez de perder datos */
       cfg[sitio] = {
@@ -28380,16 +28414,31 @@ window._mbSaveConfig = function(){
         codPunta: g('codPunta')||(prev?prev.codPunta:'')||''
       };
     });
+    /* Cualquier sitio que estaba en el catálogo pero ya no tiene fila en pantalla fue borrado
+       con la ✕ — se conserva marcado como "deleted" para que NUNCA vuelva a aparecer, ni
+       siquiera si sigue existiendo en la lista maestra de sitios físicos o en lecturas viejas. */
+    Object.keys(MB_CONFIG).forEach(function(k){
+      var nk=_mbNorm(k);
+      if(!seenCanon[nk] && !cfg[k]) cfg[k] = Object.assign({}, MB_CONFIG[k], { deleted:true });
+    });
     MB_CONFIG = cfg;
     _mbPersistConfig();
     document.getElementById('mb-config-modal').style.display='none';
-    _mbToast('📋 Catálogo de sitios actualizado ('+Object.keys(cfg).length+' sitios)'+(skipped?' — '+skipped+' fila(s) sin nombre se omitieron':''));
+    _mbToast('📋 Catálogo de sitios actualizado ('+Object.keys(cfg).filter(function(k){return !cfg[k].deleted;}).length+' sitios activos)'+(skipped?' — '+skipped+' fila(s) sin nombre se omitieron':''));
     _mbRenderAll();
     window._mbRenderQuickCapture && window._mbRenderQuickCapture();
   }catch(err){
     console.error('[Medidor BESS] Error al guardar el catálogo:', err);
     alert('❌ No se pudo guardar el catálogo. Detalle técnico: '+(err&&err.message?err.message:err)+'\n\nAbre la consola del navegador (F12) y comparte este mensaje si el problema sigue.');
   }
+};
+window._mbRestoreDeletedSite = function(canon){
+  if(!confirm('¿Restaurar "'+canon+'" al catálogo?')) return;
+  var cur = MB_CONFIG[canon] || {};
+  MB_CONFIG[canon] = Object.assign({}, cur, { deleted:false });
+  _mbPersistConfig();
+  window._mbOpenConfig();
+  _mbToast('↩️ "'+canon+'" restaurado');
 };
 
 /* ══ MODAL: NUEVA / EDITAR LECTURA ══ */
