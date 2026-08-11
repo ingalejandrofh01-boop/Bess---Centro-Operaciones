@@ -27678,7 +27678,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-07-31-v3';
+var MB_CONFIG_SEED_VERSION = '2026-08-11-v4';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -27761,8 +27761,18 @@ function _mbPersistList(){
   try{ if(window._fb && window._fb.saveMedidorSnapshot) window._fb.saveMedidorSnapshot(MB_LIST); }catch(e){}
 }
 function _mbPersistConfig(){
-  try{ localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){}
-  try{ if(window._fb && window._fb.saveMedidorConfig) window._fb.saveMedidorConfig(MB_CONFIG); }catch(e){}
+  try{ localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){ console.error('[Medidor BESS] No se pudo guardar el catálogo localmente:', e); }
+  try{
+    if(window._fb && window._fb.saveMedidorConfig){
+      var r = window._fb.saveMedidorConfig(MB_CONFIG);
+      if(r && typeof r.catch==='function'){
+        r.catch(function(e){
+          console.error('[Medidor BESS] No se pudo sincronizar el catálogo con la nube:', e);
+          _mbToast('⚠️ Catálogo guardado en este dispositivo, pero no se sincronizó con la nube');
+        });
+      }
+    }
+  }catch(e){ console.error('[Medidor BESS] Error al sincronizar el catálogo con la nube:', e); }
 }
 function _mbLoadLocal(){
   try{ var s=localStorage.getItem(MB_LS_LIST); MB_LIST = s?JSON.parse(s):[]; }catch(e){ MB_LIST=[]; }
@@ -27782,11 +27792,23 @@ function _mbLoadLocal(){
   try{
     var seedVer = localStorage.getItem('bess:medidor_config_seed_ver');
     if(seedVer !== MB_CONFIG_SEED_VERSION){
-      MB_CONFIG = {};
-      Object.keys(MB_CONFIG_SEED).forEach(function(s){ MB_CONFIG[s] = Object.assign({}, MB_CONFIG_SEED[s]); });
+      /* IMPORTANTE: esto ya NO reemplaza el catálogo — lo FUSIONA. Si el usuario ya guardó un
+         valor (multiplicador, demanda contratada, código) para un sitio, ese valor se respeta
+         siempre; la semilla solo rellena los campos que todavía están vacíos. Así, actualizar
+         la app (nueva versión) nunca borra lo que el equipo ya capturó en el Catálogo. */
+      Object.keys(MB_CONFIG_SEED).forEach(function(s){
+        var seedEntry = MB_CONFIG_SEED[s];
+        var cur = MB_CONFIG[s];
+        if(!cur || typeof cur !== 'object'){ MB_CONFIG[s] = Object.assign({}, seedEntry); return; }
+        if(cur.dc==null || cur.dc==='') cur.dc = seedEntry.dc;
+        if(cur.mult==null || cur.mult==='') cur.mult = seedEntry.mult;
+        if(!cur.codBase) cur.codBase = seedEntry.codBase;
+        if(!cur.codIntermedio) cur.codIntermedio = seedEntry.codIntermedio;
+        if(!cur.codPunta) cur.codPunta = seedEntry.codPunta;
+      });
       localStorage.setItem('bess:medidor_config_seed_ver', MB_CONFIG_SEED_VERSION);
-      window._mbForceSeedThisLoad = true; /* evita que el pull a la nube que sigue sobreescriba este reemplazo con datos viejos */
-      console.log('[Medidor BESS] Catálogo de sitios reemplazado con la versión '+MB_CONFIG_SEED_VERSION);
+      window._mbForceSeedThisLoad = true; /* evita que el pull a la nube que sigue sobreescriba esta fusión con datos viejos */
+      console.log('[Medidor BESS] Catálogo de sitios fusionado con la versión '+MB_CONFIG_SEED_VERSION+' (sin pisar datos ya guardados)');
     }
   }catch(e){}
   _mbMigrateConfig();
@@ -27859,19 +27881,27 @@ function _mbPullCloud(cb){
 }
 
 /* ══ SITIOS — normalización de nombres (varias sub-redes = un solo sitio/medidor) ══ */
-var MB_SITE_ALIASES = { 'tt':'Tejidos y Texturizados', 'tyt':'Tejidos y Texturizados' };
-/* Sitios que SÍ deben mantenerse separados aunque tengan sufijo B1/B2/B3 (medidores independientes) */
-var MB_SITE_KEEP_SEPARATE = ['regio pet','regiopet'];
+var MB_SITE_ALIASES = { 'tt':'Tejidos y Texturizados', 'tyt':'Tejidos y Texturizados', 'almacen':'Almacén General' };
+/* Sitios cuyo número final identifica un sitio/medidor DISTINTO (no un banco/rack) y por lo
+   tanto NUNCA debe recortarse — p.ej. "HUX 01" y "HUX 02" son dos medidores distintos, igual
+   que "Plastiexports 1" y "Plastiexports 3". Se mantiene el sufijo B1/B2 (banco) como fusionable. */
+var MB_SITE_KEEP_SEPARATE = ['regio pet','regiopet','hux','plastiexports'];
 function _mbCanonicalSite(raw){
   raw = String(raw||'').trim();
   if(!raw) return raw;
   var nk = _mbNorm(raw);
   if(MB_SITE_ALIASES[nk]) return MB_SITE_ALIASES[nk];
-  var isException = MB_SITE_KEEP_SEPARATE.some(function(p){ return nk.indexOf(p)===0; });
-  if(isException) return raw;
-  /* Quita sufijos de sub-red/rack: "T4 B1" → "T4", "IPASA 2" → "IPASA", "THOR B1" → "THOR" */
-  var stripped = raw.replace(/\s+B\s?\d+\s*$/i,'').replace(/\s+\d+\s*$/,'');
-  return (stripped.trim() || raw);
+  /* Paso 1: siempre se puede fusionar el sufijo de banco/rack "B1"/"B2"/"B3" — son el mismo
+     medidor físico reportado en varias filas (p.ej. "T4 B1"/"T4 B2" → "T4"). */
+  var stripped = raw.replace(/\s+B\s?\d+\s*$/i,'').trim() || raw;
+  /* Paso 2: un número final SIN "B" normalmente identifica sub-medidores del mismo sitio que se
+     reportan juntos (p.ej. "IPASA 2" → "IPASA"), EXCEPTO para los prefijos en KEEP_SEPARATE,
+     donde ese número es justamente lo que distingue un sitio del otro. */
+  var nk2 = _mbNorm(stripped);
+  var isException = MB_SITE_KEEP_SEPARATE.some(function(p){ return nk2.indexOf(p)===0; });
+  if(isException) return stripped;
+  stripped = stripped.replace(/\s+\d+\s*$/,'').trim();
+  return (stripped || raw);
 }
 /* Detecta "sitios fantasma": pedazos de encabezado de CSV que quedaron guardados como si fueran
    un sitio real (p.ej. "contratada,Descripción", "hora punta,Hora"). Nunca deben mostrarse. */
@@ -28331,26 +28361,35 @@ window._mbAddConfigRow = function(){
   box.appendChild(wrap.firstChild);
 };
 window._mbSaveConfig = function(){
-  var rows=document.querySelectorAll('#mb-config-fields .mb-cfg-row');
-  var cfg={};
-  rows.forEach(function(row){
-    var g=function(f){ var el=row.querySelector('[data-f="'+f+'"]'); return el?el.value:''; };
-    var sitioRaw=(g('sitio')||'').trim();
-    if(!sitioRaw) return;
-    var sitio=_mbCanonicalSite(sitioRaw);
-    var mult=g('mult'), dc=g('dc');
-    cfg[sitio] = {
-      dc: dc===''?null:Number(dc),
-      mult: mult===''?null:Number(mult),
-      codBase: g('codBase')||'', codIntermedio: g('codIntermedio')||'', codPunta: g('codPunta')||''
-    };
-  });
-  MB_CONFIG = cfg;
-  _mbPersistConfig();
-  document.getElementById('mb-config-modal').style.display='none';
-  _mbToast('📋 Catálogo de sitios actualizado');
-  _mbRenderAll();
-  window._mbRenderQuickCapture && window._mbRenderQuickCapture();
+  try{
+    var rows=document.querySelectorAll('#mb-config-fields .mb-cfg-row');
+    if(!rows.length){ _mbToast('⚠️ No hay filas para guardar'); return; }
+    var cfg={}, skipped=0;
+    rows.forEach(function(row){
+      var g=function(f){ var el=row.querySelector('[data-f="'+f+'"]'); return el?el.value:''; };
+      var sitioRaw=(g('sitio')||'').trim();
+      if(!sitioRaw){ skipped++; return; }
+      var sitio=_mbCanonicalSite(sitioRaw);
+      var mult=g('mult'), dc=g('dc');
+      var prev = cfg[sitio]; /* si dos filas caen en el mismo sitio canónico, fusiona en vez de perder datos */
+      cfg[sitio] = {
+        dc: dc===''?(prev?prev.dc:null):Number(dc),
+        mult: mult===''?(prev?prev.mult:null):Number(mult),
+        codBase: g('codBase')||(prev?prev.codBase:'')||'',
+        codIntermedio: g('codIntermedio')||(prev?prev.codIntermedio:'')||'',
+        codPunta: g('codPunta')||(prev?prev.codPunta:'')||''
+      };
+    });
+    MB_CONFIG = cfg;
+    _mbPersistConfig();
+    document.getElementById('mb-config-modal').style.display='none';
+    _mbToast('📋 Catálogo de sitios actualizado ('+Object.keys(cfg).length+' sitios)'+(skipped?' — '+skipped+' fila(s) sin nombre se omitieron':''));
+    _mbRenderAll();
+    window._mbRenderQuickCapture && window._mbRenderQuickCapture();
+  }catch(err){
+    console.error('[Medidor BESS] Error al guardar el catálogo:', err);
+    alert('❌ No se pudo guardar el catálogo. Detalle técnico: '+(err&&err.message?err.message:err)+'\n\nAbre la consola del navegador (F12) y comparte este mensaje si el problema sigue.');
+  }
 };
 
 /* ══ MODAL: NUEVA / EDITAR LECTURA ══ */
