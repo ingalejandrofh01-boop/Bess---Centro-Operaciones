@@ -7916,14 +7916,14 @@ async function expDoZip(mode){
         <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#dc2626;display:inline-block"></span>Punta</span>
       </div>
       <div style="overflow:auto;max-height:420px">
-        <table style="width:100%;border-collapse:collapse;min-width:920px">
+        <table style="width:100%;border-collapse:collapse;min-width:1040px">
           <thead>
             <tr>
               <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
               <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mult.</th>
-              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Base<br><span style="font-weight:400;text-transform:none;font-size:8px">video + fecha del video</span></th>
-              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Intermedia<br><span style="font-weight:400;text-transform:none;font-size:8px">video + fecha del video</span></th>
-              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Punta<br><span style="font-weight:400;text-transform:none;font-size:8px">video + fecha del video</span></th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Base<br><span style="font-weight:400;text-transform:none;font-size:8px">video + fecha y hora</span></th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Intermedia<br><span style="font-weight:400;text-transform:none;font-size:8px">video + fecha y hora</span></th>
+              <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Punta<br><span style="font-weight:400;text-transform:none;font-size:8px">video + fecha y hora</span></th>
               <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Demanda máx.</th>
               <th style="position:sticky;top:0;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
             </tr>
@@ -7931,7 +7931,7 @@ async function expDoZip(mode){
           <tbody id="mb-qc-tbody"></tbody>
         </table>
       </div>
-      <div style="padding:8px 16px;font-family:var(--mono);font-size:9.5px;color:var(--t3);border-top:1px solid var(--b1)">La fecha arriba (mes/quincena) es solo el periodo de captura. Cada franja (Base/Intermedia/Punta) tiene su propio campo de fecha — captúrala con la fecha real en que se tomó ese video del medidor, no la fecha de hoy. Los campos de video usan el multiplicador de cada sitio (Catálogo). Para capturar en modo "directo en kW" o agregar hora exacta usa "+ Nueva Lectura".</div>
+      <div style="padding:8px 16px;font-family:var(--mono);font-size:9.5px;color:var(--t3);border-top:1px solid var(--b1)">La fecha arriba (mes/quincena) es solo el periodo de captura. Cada franja (Base/Intermedia/Punta) tiene su propio campo de fecha y hora — captúralos con el momento real en que se tomó ese video del medidor, no el momento de hoy. Los campos de video usan el multiplicador de cada sitio (Catálogo). Para capturar en modo "directo en kW" usa "+ Nueva Lectura".</div>
     </div>
 
     <!-- Filtros -->
@@ -27723,7 +27723,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-08-11-v11-report-png-pdf';
+var MB_CONFIG_SEED_VERSION = '2026-08-11-v12-quickcapture-hora';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -28354,6 +28354,7 @@ window._mbRenderQuickCapture = function(){
       var p = rec && rec[prefix];
       var v = p && p.modo!=='directo' ? p.video : null;
       var pf = p ? (p.fecha||'') : '';
+      var ph = p ? (p.hora||'') : '';
       var color = PART_COLOR[prefix];
       var code = codeByPart[prefix];
       var sitioEsc = _mbEsc(sitio).replace(/'/g,"\\'");
@@ -28363,7 +28364,10 @@ window._mbRenderQuickCapture = function(){
       return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">'
         + codeBadge
         + '<input type="number" step="0.001" value="'+(v==null?'':v)+'" placeholder="video" title="Valor leído en el video del medidor" onchange="window._mbQuickSave(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:88px;padding:5px 6px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;text-align:center">'
-        + '<input type="date" value="'+_mbEsc(pf)+'" title="Fecha en que se TOMÓ el video del medidor (no la fecha de hoy)" onchange="window._mbQuickSaveFecha(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:88px;padding:3px 4px;border-radius:5px;border:1px dashed '+color+'55;background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9px;text-align:center">'
+        + '<div style="display:flex;gap:3px">'
+          + '<input type="date" value="'+_mbEsc(pf)+'" title="Fecha en que se TOMÓ el video del medidor (no la fecha de hoy)" onchange="window._mbQuickSaveFecha(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:60px;padding:3px 3px;border-radius:5px;border:1px dashed '+color+'55;background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:8.5px;text-align:center">'
+          + '<input type="time" value="'+_mbEsc(ph)+'" title="Hora en que se TOMÓ el video del medidor" onchange="window._mbQuickSaveHora(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:56px;padding:3px 2px;border-radius:5px;border:1px dashed '+color+'55;background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:8.5px;text-align:center">'
+        + '</div>'
         + '</div>';
     }
     return '<tr style="border-bottom:1px solid var(--b1)">'+
@@ -28430,6 +28434,13 @@ window._mbQuickSaveFecha = function(sitio, prefix, val, mes, q){
   rec.savedAt = Date.now();
   _mbPersistList();
   _mbToast('📅 Fecha del video ('+({base:'Base',intermedia:'Intermedia',punta:'Punta'}[prefix])+') guardada para '+_mbCanonicalSite(sitio));
+};
+window._mbQuickSaveHora = function(sitio, prefix, val, mes, q){
+  var rec = _mbQuickEnsureRec(sitio, mes, q);
+  rec[prefix].hora = val || '';
+  rec.savedAt = Date.now();
+  _mbPersistList();
+  _mbToast('🕒 Hora del video ('+({base:'Base',intermedia:'Intermedia',punta:'Punta'}[prefix])+') guardada para '+_mbCanonicalSite(sitio));
 };
 
 /* ══ MODAL: CONFIGURACIÓN DE DEMANDA CONTRATADA ══ */
