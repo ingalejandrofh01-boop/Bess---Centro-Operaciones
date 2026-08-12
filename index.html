@@ -7916,14 +7916,14 @@ async function expDoZip(mode){
         <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#dc2626;display:inline-block"></span>Punta</span>
       </div>
       <div style="overflow:auto;max-height:420px">
-        <table style="width:100%;border-collapse:collapse;min-width:920px">
+        <table style="width:100%;border-collapse:collapse;min-width:1280px">
           <thead>
             <tr>
               <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
               <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mult.</th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Base<br><span style="font-weight:400;text-transform:none;font-size:8px">valor del video</span></th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Intermedia<br><span style="font-weight:400;text-transform:none;font-size:8px">valor del video</span></th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Punta<br><span style="font-weight:400;text-transform:none;font-size:8px">valor del video</span></th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Base<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Intermedia<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Punta<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
               <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Demanda máx.</th>
               <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
             </tr>
@@ -7931,7 +7931,7 @@ async function expDoZip(mode){
           <tbody id="mb-qc-tbody"></tbody>
         </table>
       </div>
-      <div style="padding:8px 16px;font-family:var(--mono);font-size:9.5px;color:var(--t3);border-top:1px solid var(--b1)">La fecha arriba (mes/quincena) es solo el periodo de captura. Debajo del nombre de cada sitio hay UN solo campo de fecha y hora — el momento real en que se tomó el video del medidor (no el momento de hoy) — y se aplica junto a Base, Intermedia y Punta. Los campos de video usan el multiplicador de cada sitio (Catálogo). Para capturar en modo "directo en kW" o poner una fecha distinta por franja usa "+ Nueva Lectura".</div>
+      <div style="padding:8px 16px;font-family:var(--mono);font-size:9.5px;color:var(--t3);border-top:1px solid var(--b1)">La fecha arriba (mes/quincena) es solo el periodo de captura. Debajo del nombre del sitio: fecha y hora en que se <b>grabó el video</b> (una sola, la visita a sitio). Debajo de cada franja (Base/Intermedia/Punta): fecha y hora del <b>pico máximo de demanda</b> que marca el propio medidor — son datos distintos y cada franja trae el suyo. Los campos de video usan el multiplicador de cada sitio (Catálogo).</div>
     </div>
 
     <!-- Filtros -->
@@ -27724,7 +27724,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-08-11-v16-alerts-scoped-linked-dates-causa';
+var MB_CONFIG_SEED_VERSION = '2026-08-11-v17-separate-recording-vs-peak-dates';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -28359,6 +28359,8 @@ window._mbRenderQuickCapture = function(){
     function videoCell(prefix){
       var p = rec && rec[prefix];
       var v = p && p.modo!=='directo' ? p.video : null;
+      var pf = p ? (p.fecha||'') : '';
+      var ph = p ? (p.hora||'') : '';
       var color = PART_COLOR[prefix];
       var code = codeByPart[prefix];
       var sitioEsc = _mbEsc(sitio).replace(/'/g,"\\'");
@@ -28367,7 +28369,10 @@ window._mbRenderQuickCapture = function(){
         : '<div style="font-size:8.5px;color:var(--t3);margin-bottom:3px">sin código</div>';
       return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         + codeBadge
-        + '<input type="number" step="0.001" value="'+(v==null?'':v)+'" placeholder="video" title="Valor leído en el video del medidor" onchange="window._mbQuickSave(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:110px;padding:6px 6px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px;text-align:center;box-sizing:border-box">'
+        + '<input type="number" step="0.001" value="'+(v==null?'':v)+'" placeholder="video" title="Valor leído en el video del medidor" onchange="window._mbQuickSave(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:118px;padding:6px 6px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px;text-align:center;box-sizing:border-box">'
+        + '<input type="date" value="'+_mbEsc(pf)+'" title="Fecha en que ocurrió el PICO MÁXIMO de demanda de esta franja — dato que muestra el propio medidor" onchange="window._mbQuickSaveFecha(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:118px;padding:3px 4px;border-radius:5px;border:1px dashed '+color+'70;background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9.5px;text-align:center;box-sizing:border-box">'
+        + '<input type="time" value="'+_mbEsc(ph)+'" title="Hora en que ocurrió el PICO MÁXIMO de demanda de esta franja — dato que muestra el propio medidor" onchange="window._mbQuickSaveHora(\''+sitioEsc+'\',\''+prefix+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:118px;padding:3px 4px;border-radius:5px;border:1px dashed '+color+'70;background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9.5px;text-align:center;box-sizing:border-box">'
+        + '<div style="font-size:7.5px;color:'+color+';line-height:1.2">pico máx. (medidor)</div>'
         + '</div>';
     }
     var fechaGen = rec ? (rec.fechaVideo||'') : '';
@@ -28376,10 +28381,10 @@ window._mbRenderQuickCapture = function(){
     return '<tr style="border-bottom:1px solid var(--b1)">'+
       '<td style="padding:6px 10px;font-family:var(--body);font-size:11.5px;font-weight:700;color:var(--text);vertical-align:top">'+_mbEsc(sitio)
         +'<div style="margin-top:6px;display:flex;gap:4px">'
-          +'<input type="date" value="'+_mbEsc(fechaGen)+'" title="Fecha en que se TOMÓ el video del medidor (no la fecha de hoy) — aplica a Base, Intermedia y Punta" onchange="window._mbQuickSaveFechaGeneral(\''+sitioEscRow+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:98px;padding:3px 4px;border-radius:5px;border:1px dashed var(--b2);background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9px;box-sizing:border-box">'
-          +'<input type="time" value="'+_mbEsc(horaGen)+'" title="Hora en que se TOMÓ el video del medidor — aplica a Base, Intermedia y Punta" onchange="window._mbQuickSaveHoraGeneral(\''+sitioEscRow+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:66px;padding:3px 4px;border-radius:5px;border:1px dashed var(--b2);background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9px;box-sizing:border-box">'
+          +'<input type="date" value="'+_mbEsc(fechaGen)+'" title="Fecha en que la persona fue al sitio y GRABÓ el video del medidor" onchange="window._mbQuickSaveFechaGeneral(\''+sitioEscRow+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:98px;padding:3px 4px;border-radius:5px;border:1px dashed var(--b2);background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9px;box-sizing:border-box">'
+          +'<input type="time" value="'+_mbEsc(horaGen)+'" title="Hora en que la persona fue al sitio y GRABÓ el video del medidor" onchange="window._mbQuickSaveHoraGeneral(\''+sitioEscRow+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:66px;padding:3px 4px;border-radius:5px;border:1px dashed var(--b2);background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9px;box-sizing:border-box">'
         +'</div>'
-        +'<div style="font-size:8px;color:var(--t3);margin-top:2px;line-height:1.3">fecha y hora de la toma (aplica a las 3 franjas)</div>'
+        +'<div style="font-size:8px;color:var(--t3);margin-top:2px;line-height:1.3">fecha y hora de grabación<br>(visita a sitio)</div>'
       +'</td>'+
       '<td style="padding:6px 10px;text-align:center"><input type="number" value="'+(mult==null?'':mult)+'" onchange="window._mbQuickSetMult(\''+sitioEscRow+'\',this.value,\''+mes+'\',\''+q+'\')" style="width:64px;padding:5px 6px;border-radius:5px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;text-align:center"></td>'+
       '<td style="padding:6px 10px;text-align:center">'+videoCell('base')+'</td>'+
@@ -28392,14 +28397,13 @@ window._mbRenderQuickCapture = function(){
 };
 window._mbQuickSaveFechaGeneral = function(sitio, val, mes, q){
   var rec = _mbQuickEnsureRec(sitio, mes, q);
+  /* Fecha de GRABACIÓN del video (visita a sitio) — distinta de la fecha del pico de demanda
+     que marca el medidor en cada franja. No se toca base/intermedia/punta aquí. */
   rec.fechaVideo = val || '';
-  /* Una sola fecha enlazada a las tres franjas (Base/Intermedia/Punta) — así no hay que
-     capturarla tres veces cuando el video se tomó en una sola sesión. */
-  ['base','intermedia','punta'].forEach(function(p){ if(rec[p]) rec[p].fecha = val || ''; });
   rec.savedAt = Date.now();
   _mbPersistList();
   window._mbRenderQuickCapture();
-  _mbToast('📅 Fecha de la toma guardada para '+_mbCanonicalSite(sitio));
+  _mbToast('🎥 Fecha de grabación guardada para '+_mbCanonicalSite(sitio));
 };
 function _mbQuickEnsureRec(sitio, mes, q){
   var fecha = mes+'-'+(q==='1'?'01':'16');
@@ -28450,11 +28454,25 @@ window._mbQuickSave = function(sitio, prefix, val, mes, q){
 };
 window._mbQuickSaveHoraGeneral = function(sitio, val, mes, q){
   var rec = _mbQuickEnsureRec(sitio, mes, q);
+  /* Hora de GRABACIÓN del video (visita a sitio) — no toca las horas de pico por franja. */
   rec.horaVideo = val || '';
-  ['base','intermedia','punta'].forEach(function(p){ if(rec[p]) rec[p].hora = val || ''; });
   rec.savedAt = Date.now();
   _mbPersistList();
-  _mbToast('🕒 Hora de la toma guardada para '+_mbCanonicalSite(sitio));
+  _mbToast('🎥 Hora de grabación guardada para '+_mbCanonicalSite(sitio));
+};
+window._mbQuickSaveFecha = function(sitio, prefix, val, mes, q){
+  var rec = _mbQuickEnsureRec(sitio, mes, q);
+  rec[prefix].fecha = val || '';
+  rec.savedAt = Date.now();
+  _mbPersistList();
+  _mbToast('📅 Fecha del pico ('+({base:'Base',intermedia:'Intermedia',punta:'Punta'}[prefix])+') guardada para '+_mbCanonicalSite(sitio));
+};
+window._mbQuickSaveHora = function(sitio, prefix, val, mes, q){
+  var rec = _mbQuickEnsureRec(sitio, mes, q);
+  rec[prefix].hora = val || '';
+  rec.savedAt = Date.now();
+  _mbPersistList();
+  _mbToast('🕒 Hora del pico ('+({base:'Base',intermedia:'Intermedia',punta:'Punta'}[prefix])+') guardada para '+_mbCanonicalSite(sitio));
 };
 
 /* ══ MODAL: CONFIGURACIÓN DE DEMANDA CONTRATADA ══ */
@@ -28636,7 +28654,9 @@ window._mbRenderReportPreview = function(){
       });
     }
     return '<tr>'
-      +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;font-weight:700;vertical-align:top">'+_mbEsc(r.sitio)+'</td>'
+      +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;font-weight:700;vertical-align:top">'+_mbEsc(r.sitio)
+        +(r.fechaVideo ? '<div style="font-weight:400;font-size:9px;color:#9ca3af;margin-top:1px">Grabado: '+_mbEsc(_mbFechaCorta(r.fechaVideo))+(r.horaVideo?' · '+_mbEsc(r.horaVideo):'')+'</div>' : '')
+      +'</td>'
       +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:top;border-left:3px solid '+PART_COLOR_REPORT.base+'33">'+partCellHtml(parts.base)+'</td>'
       +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:top;border-left:3px solid '+PART_COLOR_REPORT.intermedia+'33">'+partCellHtml(parts.intermedia)+'</td>'
       +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:top;border-left:3px solid '+PART_COLOR_REPORT.punta+'33">'+partCellHtml(parts.punta)+'</td>'
@@ -28707,10 +28727,10 @@ window._mbDownloadReportExcel = function(){
     var q = document.getElementById('mb-report-q').value;
     var rows = _mbReportRows(mesKey, q);
     var header = [
-      'Sitio',
-      'Cód. Base','Demanda Base (kW)','Fecha Base','Hora Base',
-      'Cód. Intermedia','Demanda Intermedia (kW)','Fecha Intermedia','Hora Intermedia',
-      'Cód. Punta','Demanda Punta (kW)','Fecha Punta','Hora Punta',
+      'Sitio','Fecha Grabación','Hora Grabación',
+      'Cód. Base','Demanda Base (kW)','Fecha Pico Base','Hora Pico Base',
+      'Cód. Intermedia','Demanda Intermedia (kW)','Fecha Pico Intermedia','Hora Pico Intermedia',
+      'Cód. Punta','Demanda Punta (kW)','Fecha Pico Punta','Hora Pico Punta',
       'Demanda Contratada (kW)','% Uso','Estado',
       'Exceso Base (kW)','Exceso Intermedia (kW)','Exceso Punta (kW)','Motivo / Causa'
     ];
@@ -28727,7 +28747,7 @@ window._mbDownloadReportExcel = function(){
       var pb = partVals('base'), pi = partVals('intermedia'), pp = partVals('punta');
       function exceso(kw){ return (dc && kw!=null && kw>dc) ? Math.round((kw-dc)*100)/100 : ''; }
       aoa.push([
-        r.sitio,
+        r.sitio, r.fechaVideo||'', r.horaVideo||'',
         d.codBase||'', pb.kw==null?'':pb.kw, pb.fecha||'', pb.hora||'',
         d.codIntermedio||'', pi.kw==null?'':pi.kw, pi.fecha||'', pi.hora||'',
         d.codPunta||'', pp.kw==null?'':pp.kw, pp.fecha||'', pp.hora||'',
@@ -28737,10 +28757,10 @@ window._mbDownloadReportExcel = function(){
     });
     var ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [
-      {wch:20},
-      {wch:9},{wch:16},{wch:12},{wch:8},
-      {wch:9},{wch:18},{wch:14},{wch:8},
-      {wch:9},{wch:14},{wch:12},{wch:8},
+      {wch:20},{wch:14},{wch:8},
+      {wch:9},{wch:16},{wch:14},{wch:8},
+      {wch:9},{wch:18},{wch:16},{wch:8},
+      {wch:9},{wch:14},{wch:14},{wch:8},
       {wch:16},{wch:8},{wch:16},
       {wch:14},{wch:16},{wch:14},{wch:26}
     ];
