@@ -27679,7 +27679,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-08-11-v6';
+var MB_CONFIG_SEED_VERSION = '2026-08-11-v7-masterlist-only';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -27944,32 +27944,33 @@ function _mbPurgeGhostSites(){
   if(removedC) _mbPersistConfig();
   return removedL+removedC;
 }
+/* Sitios agregados a mano con "+ Agregar sitio" que no estaban en el catálogo maestro original */
+var MB_LS_EXTRA_SITES = 'bess:medidor_extra_sites:v1';
+var MB_EXTRA_SITES = [];
+try{ MB_EXTRA_SITES = JSON.parse(localStorage.getItem(MB_LS_EXTRA_SITES)||'[]'); }catch(e){ MB_EXTRA_SITES = []; }
+function _mbPersistExtraSites(){ try{ localStorage.setItem(MB_LS_EXTRA_SITES, JSON.stringify(MB_EXTRA_SITES)); }catch(e){} }
+
+/* IMPORTANTE: la lista de sitios de Medidor BESS sale ÚNICAMENTE del catálogo maestro
+   (MB_CONFIG_SEED, la lista exacta que definió el usuario) más lo agregado a mano con
+   "+ Agregar sitio". YA NO se mezcla con MASTER_SITES_DB (esa es la base de datos física de
+   instalaciones BESS, un catálogo distinto) ni con nombres sueltos encontrados en lecturas
+   viejas — mezclar esas fuentes fue la causa de todos los sitios "fantasma" (HUX, Plastiexports,
+   Regio Pet(B1)/(B2)/(B3), Almacén, etc.). Así el catálogo nunca vuelve a inventar sitios. */
 function _mbSiteNames(){
-  var byKey = {}; /* normKey -> {display, hasData} — evita filas duplicadas por diferencias de mayúsculas/minúsculas */
-  function findCfg(canon){
-    var cfg = MB_CONFIG[canon];
-    if(cfg) return cfg;
-    var target=_mbNorm(canon);
-    var k = Object.keys(MB_CONFIG).find(function(kk){ return _mbNorm(kk)===target; });
-    return k!=null ? MB_CONFIG[k] : null;
-  }
-  function consider(rawName){
-    if(!rawName || _mbIsGhostSite(rawName)) return;
+  var base = Object.keys(MB_CONFIG_SEED).concat(MB_EXTRA_SITES);
+  var seen = {}, out = [];
+  base.forEach(function(rawName){
+    if(!rawName) return;
     var canon = _mbCanonicalSite(rawName);
     var key = _mbNorm(canon);
-    var cfg = findCfg(canon);
+    if(seen[key]) return;
+    var cfg = MB_CONFIG[canon];
+    if(!cfg){ var k=Object.keys(MB_CONFIG).find(function(kk){ return _mbNorm(kk)===key; }); if(k) cfg=MB_CONFIG[k]; }
     if(cfg && cfg.deleted) return; /* sitio eliminado del catálogo — nunca se muestra */
-    var hasData = !!(cfg && typeof cfg==='object' && (cfg.dc!=null || cfg.mult!=null || cfg.codBase || cfg.codIntermedio || cfg.codPunta));
-    var existing = byKey[key];
-    if(!existing || (hasData && !existing.hasData)){
-      byKey[key] = { display:canon, hasData:hasData };
-    }
-  }
-  (window.MASTER_SITES_DB||[]).forEach(function(s){ consider(s.sitio); });
-  Object.keys(MB_CONFIG).forEach(consider);
-  MB_LIST.forEach(function(r){ consider(r.sitio); });
-  return Object.keys(byKey).map(function(k){ return byKey[k].display; })
-    .sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
+    seen[key]=true;
+    out.push(canon);
+  });
+  return out.sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
 }
 /* Lista de sitios eliminados (para poder restaurarlos si fue un error) */
 function _mbDeletedSiteNames(){
@@ -28421,6 +28422,16 @@ window._mbSaveConfig = function(){
       var nk=_mbNorm(k);
       if(!seenCanon[nk] && !cfg[k]) cfg[k] = Object.assign({}, MB_CONFIG[k], { deleted:true });
     });
+    /* Si el usuario escribió un sitio nuevo (con "+ Agregar sitio") que no está en el catálogo
+       maestro original, se registra en MB_EXTRA_SITES para que quede permanentemente en la lista. */
+    Object.keys(cfg).forEach(function(k){
+      if(cfg[k].deleted) return;
+      var nk=_mbNorm(k);
+      var inSeed = Object.keys(MB_CONFIG_SEED).some(function(sk){ return _mbNorm(sk)===nk; });
+      var inExtra = MB_EXTRA_SITES.some(function(e){ return _mbNorm(e)===nk; });
+      if(!inSeed && !inExtra) MB_EXTRA_SITES.push(k);
+    });
+    _mbPersistExtraSites();
     MB_CONFIG = cfg;
     _mbPersistConfig();
     document.getElementById('mb-config-modal').style.display='none';
