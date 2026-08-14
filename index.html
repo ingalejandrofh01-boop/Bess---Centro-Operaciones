@@ -27724,7 +27724,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-08-11-v17-separate-recording-vs-peak-dates';
+var MB_CONFIG_SEED_VERSION = '2026-08-11-v18-fix-date-input-reset';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -28395,14 +28395,26 @@ window._mbRenderQuickCapture = function(){
     '</tr>';
   }).join('');
 };
+/* Evita guardar una fecha a medio escribir (el navegador a veces dispara "change" con un año
+   incompleto, p.ej. "0026" mientras se teclea "2026") — solo se acepta vacío o una fecha con
+   año de 4 dígitos en un rango razonable. */
+function _mbValidQuickDate(val){
+  if(!val) return true;
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val);
+  if(!m) return false;
+  var year = Number(m[1]);
+  return year >= 2000 && year <= 2099;
+}
 window._mbQuickSaveFechaGeneral = function(sitio, val, mes, q){
+  if(!_mbValidQuickDate(val)) return; /* año incompleto todavía — no guardar ni redibujar */
   var rec = _mbQuickEnsureRec(sitio, mes, q);
   /* Fecha de GRABACIÓN del video (visita a sitio) — distinta de la fecha del pico de demanda
      que marca el medidor en cada franja. No se toca base/intermedia/punta aquí. */
   rec.fechaVideo = val || '';
   rec.savedAt = Date.now();
   _mbPersistList();
-  window._mbRenderQuickCapture();
+  /* Importante: NO se vuelve a dibujar toda la tabla aquí — hacerlo le quita el foco al campo
+     mientras el usuario todavía está escribiendo la fecha y se siente como que "se borra". */
   _mbToast('🎥 Fecha de grabación guardada para '+_mbCanonicalSite(sitio));
 };
 function _mbQuickEnsureRec(sitio, mes, q){
@@ -28461,6 +28473,7 @@ window._mbQuickSaveHoraGeneral = function(sitio, val, mes, q){
   _mbToast('🎥 Hora de grabación guardada para '+_mbCanonicalSite(sitio));
 };
 window._mbQuickSaveFecha = function(sitio, prefix, val, mes, q){
+  if(!_mbValidQuickDate(val)) return; /* año incompleto todavía — no guardar */
   var rec = _mbQuickEnsureRec(sitio, mes, q);
   rec[prefix].fecha = val || '';
   rec.savedAt = Date.now();
