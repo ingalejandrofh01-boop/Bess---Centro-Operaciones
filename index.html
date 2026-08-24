@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-07-28 rev-handoff-debug-v2 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-24 rev-fp-modulo-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1785274822100">
+<meta name="app-version" content="1787611494595">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -210,6 +210,27 @@ window._fb = {
     return out;
   },
   async deleteMedidorLectura() { /* manejado vía saveMedidorSnapshot — el snapshot completo ya excluye el registro eliminado */ },
+
+  /* ── FACTOR DE POTENCIA (FP) — por sitio ── */
+  async saveFPConfig(cfg) {
+    await setDoc(doc(fbDB, 'fp_bess', 'config'), { data: JSON.stringify(cfg||{}), updatedAt: Date.now() });
+  },
+  async getFPConfig() {
+    const snap = await getDocs(query(collection(fbDB, 'fp_bess'), where('__name__','==','config')));
+    let out = null;
+    snap.forEach(d => { try { out = JSON.parse(d.data().data || '{}'); } catch(e) { out = null; } });
+    return out;
+  },
+  async saveFPSnapshot(list) {
+    await setDoc(doc(fbDB, 'fp_bess', 'lecturas'), { data: JSON.stringify(list||[]), updatedAt: Date.now() });
+  },
+  async getFPSnapshot() {
+    const snap = await getDocs(query(collection(fbDB, 'fp_bess'), where('__name__','==','lecturas')));
+    let out = null;
+    snap.forEach(d => { try { out = JSON.parse(d.data().data || '[]'); } catch(e) { out = null; } });
+    return out;
+  },
+
 
   /* ── SESIONES COLABORATIVAS ── */
   async collabCreate(session) {
@@ -5018,6 +5039,7 @@ if('serviceWorker' in navigator){
     <button class="mob-nav-item" onclick="mobNavTo('calval')"><span class="mni">📅</span> Calendario</button>
     <button class="mob-nav-item" onclick="mobNavTo('monitor')"><span class="mni">📊</span> Monitor BESS</button>
     <button class="mob-nav-item" onclick="mobNavTo('medidor')"><span class="mni">⏱</span> Medidor BESS</button>
+    <button class="mob-nav-item" onclick="mobNavTo('fp')"><span class="mni">⚡</span> Factor de Potencia</button>
 
   </div>
   <div class="mob-drawer-footer">
@@ -5263,6 +5285,10 @@ if('serviceWorker' in navigator){
   <div class="nav-item" data-page="medidor" onclick="goPage('medidor')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
     <div class="nl">Medidor BESS</div><div class="nav-tt">Medidor BESS · Control de Demanda Contratada</div>
+  </div>
+  <div class="nav-item" data-page="fp" onclick="goPage('fp')">
+    <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+    <div class="nl">Factor de Potencia</div><div class="nav-tt">Factor de Potencia · FP por sitio</div>
   </div>
   <div class="nav-item" data-page="maestra" onclick="goPage('maestra')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg></div>
@@ -8091,6 +8117,173 @@ async function expDoZip(mode){
     </div>
   </div>
 </div><!-- /page-medidor -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE: FACTOR DE POTENCIA (FP) — Control y monitoreo por sitio
+════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-fp" style="position:relative;z-index:0">
+  <div class="page-scroll" style="padding:20px 24px;max-width:1500px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:16px">
+
+    <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--text)">⚡ Factor de Potencia — Control y Monitoreo</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:2px">Código 1 (kWh) y Código 5 (kVArh) del medidor ELSTER A3RAL · Cálculo automático · Historial y tendencia</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="window._fpOpenForm()" style="padding:9px 16px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:8px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">+ Nueva Lectura</button>
+        <button onclick="window._fpOpenExportReport()" style="padding:9px 16px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);border-radius:8px;color:#7c3aed;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📄 Exportar Reporte</button>
+        <button onclick="window._fpOpenSitesModal()" style="padding:9px 16px;background:rgba(255,255,255,.06);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">📋 Sitios monitoreados</button>
+        <button id="fp-sync-btn" onclick="window._fpSyncCloud(false)" title="Vuelve a traer los datos guardados en la nube" style="padding:9px 16px;background:rgba(26,63,204,.06);border:1px solid rgba(26,63,204,.25);border-radius:8px;color:#1a3fcc;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">☁️ Sincronizar</button>
+      </div>
+    </div>
+    <div id="fp-sync-indicator" style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:-10px">Sincronizando…</div>
+
+    <!-- Banner de alertas activas -->
+    <div id="fp-alert-banner" style="flex-shrink:0;display:none"></div>
+
+    <!-- Tarjeta informativa: qué es el FP, para qué sirven los reactivos, escala de colores -->
+    <div style="flex-shrink:0;border:1px solid var(--b1);border-radius:12px;background:var(--s1);padding:14px 18px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between">
+        <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#1255d4;border-radius:2px;display:inline-block;flex-shrink:0"></span>ℹ️ ¿Qué es el Factor de Potencia y por qué importa?</div>
+        <button onclick="document.getElementById('fp-info-body').style.display=document.getElementById('fp-info-body').style.display==='none'?'block':'none'" style="background:none;border:1px solid var(--b1);border-radius:6px;color:var(--t3);font-family:var(--mono);font-size:9.5px;padding:4px 9px;cursor:pointer">Mostrar/ocultar</button>
+      </div>
+      <div id="fp-info-body" style="font-family:var(--body);font-size:12px;color:var(--t2);line-height:1.6">
+        El <b>Factor de Potencia (FP)</b> mide qué tan eficiente es el uso de la energía eléctrica: compara la potencia activa (kWh, la que realmente hace trabajo) contra la potencia aparente total (que incluye la <b>energía reactiva</b> o kVArh, la que consumen motores, transformadores y equipos inductivos sin producir trabajo útil). Se calcula del medidor con la fórmula
+        <b>FP = Código 1 / √(Código 1² + Código 5²)</b>. Cuando instalamos <b>bancos de capacitores</b> (reactivos), compensamos esa energía reactiva y el FP sube — por eso el historial y la tendencia de esta página sirven para ver, en la práctica, cómo van mejorando los sitios después de cada ajuste.
+        <br><br>CFE exige un FP mínimo (típicamente 90%) y penaliza económicamente por debajo de ese umbral; entre 90% y 95% ya se pierden bonificaciones. Nuestra meta interna es más estricta:
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);font-family:var(--mono);font-size:9.5px;color:#dc2626;font-weight:700">&lt; 90% · Crítico / urgente — riesgo de penalización</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;background:rgba(234,108,0,.1);border:1px solid rgba(234,108,0,.3);font-family:var(--mono);font-size:9.5px;color:#ea6c00;font-weight:700">90 – 94.9% · Alerta — algo estamos haciendo mal</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);font-family:var(--mono);font-size:9.5px;color:#059669;font-weight:700">95 – 97.9% · Bueno</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;background:rgba(0,200,150,.12);border:1px solid rgba(0,200,150,.35);font-family:var(--mono);font-size:9.5px;color:#00a97a;font-weight:700">≥ 98% · Ideal / perfecto</span>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div id="fp-stats" style="flex-shrink:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px"></div>
+
+    <!-- Tarjetas por sitio -->
+    <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="font-family:var(--disp);font-weight:800;font-size:14px;color:var(--text)">Sitios monitoreados</div>
+    </div>
+    <div id="fp-site-grid" style="flex-shrink:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px"></div>
+
+    <!-- Detalle / tendencia -->
+    <div style="flex-shrink:0;border:1px solid var(--b1);border-radius:12px;background:var(--s1);padding:14px 18px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#7c3aed;border-radius:2px;display:inline-block;flex-shrink:0"></span>📈 Tendencia del FP</div>
+        <select id="fp-detail-site-sel" onchange="window._fpRenderDetail()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
+      </div>
+      <div style="position:relative;height:280px"><canvas id="fp-detail-chart"></canvas></div>
+    </div>
+
+    <!-- Historial -->
+    <div style="flex-shrink:0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="fp-hist-search" oninput="window._fpRenderHist()" placeholder="🔍 Buscar sitio…" style="flex:1;min-width:200px;padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
+      <select id="fp-hist-filter-estado" onchange="window._fpRenderHist()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+        <option value="">Todos los estados</option>
+        <option value="ideal">✅ Ideal (≥98%)</option>
+        <option value="bueno">🟢 Bueno (95–97.9%)</option>
+        <option value="alerta">⚠️ Alerta (90–94.9%)</option>
+        <option value="critico">🚨 Crítico (&lt;90%)</option>
+      </select>
+    </div>
+    <div style="flex-shrink:0;border:1px solid var(--b1);border-radius:12px;background:var(--s1);overflow:auto;max-height:460px">
+      <table style="width:100%;border-collapse:collapse;min-width:920px">
+        <thead>
+          <tr>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Fecha</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Código 1 (kWh)</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Código 5 (kVArh)</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh / ΔkVArh</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP acumulado</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP del periodo</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="fp-hist-tbody"></tbody>
+      </table>
+    </div>
+    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP acumulado = calculado directo sobre las lecturas crudas del medidor (Código 1 / Código 5). FP del periodo = calculado sobre la diferencia contra la lectura anterior del mismo sitio — refleja mejor el comportamiento reciente y es el que dispara las alertas de color.</div>
+
+  </div>
+
+  <!-- Modal: Nueva lectura / editar -->
+  <div id="fp-form-modal" style="display:none;position:fixed;inset:0;z-index:9300;background:rgba(3,6,18,.85);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:480px;width:100%;max-height:92vh;overflow:auto;padding:22px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div id="fp-form-title" style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">⚡ Nueva Lectura de FP</div>
+        <button onclick="document.getElementById('fp-form-modal').style.display='none'" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t3);font-size:13px;cursor:pointer;padding:6px 10px">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <input type="hidden" id="fp-edit-id" value="">
+        <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Sitio
+          <select id="fp-in-sitio" onchange="window._fpLiveCheck()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px"></select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Fecha de lectura
+          <input type="date" id="fp-in-fecha" onchange="window._fpLiveCheck()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Código 1 — kWh
+            <input type="number" step="any" id="fp-in-c1" oninput="window._fpLiveCheck()" placeholder="p.ej. 23270" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Código 5 — kVArh
+            <input type="number" step="any" id="fp-in-c5" oninput="window._fpLiveCheck()" placeholder="p.ej. 9384" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
+          </label>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Nota (opcional)
+          <input type="text" id="fp-in-nota" placeholder="p.ej. banco de capacitores en modo corregir" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
+        </label>
+        <div id="fp-live-preview" style="border-radius:10px;padding:12px 14px;background:var(--s2);border:1px solid var(--b1);display:none"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+          <button onclick="document.getElementById('fp-form-modal').style.display='none'" style="padding:9px 16px;background:none;border:1px solid var(--b1);border-radius:8px;color:var(--t3);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">Cancelar</button>
+          <button onclick="window._fpSaveForm()" style="padding:9px 18px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:8px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">Guardar lectura</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: sitios monitoreados -->
+  <div id="fp-sites-modal" style="display:none;position:fixed;inset:0;z-index:9300;background:rgba(3,6,18,.85);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:460px;width:100%;max-height:92vh;overflow:auto;padding:22px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">📋 Sitios monitoreados con FP</div>
+        <button onclick="document.getElementById('fp-sites-modal').style.display='none'" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t3);font-size:13px;cursor:pointer;padding:6px 10px">✕</button>
+      </div>
+      <div style="font-family:var(--body);font-size:11px;color:var(--t2);margin-bottom:12px">Por ahora capturamos <b>T3</b> y <b>T4</b>. Agrega cualquier otro sitio cuando quieras empezar a llevarle el FP también.</div>
+      <div id="fp-sites-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px">
+        <select id="fp-add-site-sel" style="flex:1;padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px"></select>
+        <button onclick="window._fpAddSite()" style="padding:9px 14px;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:8px;color:#00a97a;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">+ Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: exportar reporte FP (PDF/PNG) -->
+  <div id="fp-report-modal" style="display:none;position:fixed;inset:0;z-index:9300;background:rgba(3,6,18,.85);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:980px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">📄 Exportar Reporte de FP</div>
+          <select id="fp-report-site-sel" onchange="window._fpRenderReportPreview()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="fp-report-btn-png" onclick="window._fpDownloadReportPNG()" style="padding:8px 16px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);border-radius:7px;color:#059669;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">🖼️ Descargar PNG</button>
+          <button id="fp-report-btn-pdf" onclick="window._fpDownloadReportPDF()" style="padding:8px 16px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">📄 Descargar PDF</button>
+          <button onclick="document.getElementById('fp-report-modal').style.display='none'" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t3);font-size:13px;cursor:pointer;padding:8px 12px">✕ Cerrar</button>
+        </div>
+      </div>
+      <div style="overflow-y:auto;flex:1;background:#fff">
+        <div id="fp-report-print"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page-fp -->
+
 
 
 <!-- ═══ PAGE: DOCS — Centro de Documentos ═══ -->
@@ -13568,7 +13761,7 @@ async function _afterDelete(msg){
 }
 
 // PAGE SWITCHING
-const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidor BESS'};
+const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidor BESS',fp:'Factor de Potencia'};
 function updateTopbarTitle(id){
   var t=document.getElementById('tb-title');if(!t)return;
   var title=PAGE_TITLES[id]||id;
@@ -13592,6 +13785,7 @@ function goPage(id){
   if(id==='cerebro'){setTimeout(function(){if(window.cerebroInit)window.cerebroInit();},80);}
   if(id==='comunicacion'){setTimeout(function(){if(window.commRenderAll)window.commRenderAll();if(window.commInvalidateMapSize)window.commInvalidateMapSize();},80);}
   if(id==='medidor'){setTimeout(function(){if(window._mbInit)window._mbInit();},80);}
+  if(id==='fp'){setTimeout(function(){if(window._fpInit)window._fpInit();},80);}
 }
 
 // DASHBOARD
@@ -29226,6 +29420,694 @@ window._mbImportCSV = function(input){
 
 })();
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PATCH — Factor de Potencia (FP) por sitio
+════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+var FP_LS_LIST  = 'bess:fp_lecturas:v1';
+var FP_LS_SITES = 'bess:fp_sitios:v1';
+
+var FP_SITES_SEED = ['T3','T4'];
+
+/* Mismo catálogo de sitios BESS que usa Medidor BESS — para que el nombre de sitio
+   sea siempre consistente entre módulos al agregar uno nuevo a seguimiento de FP. */
+var FP_KNOWN_SITES = ['Almacén General','Alpha','BHS','Comedor','FBO','PTAR','Sala Bravo','T1','T2','T3','T4','Hidro','HUX 01','HUX 02','Minatitlán','Veracruz','Mérida','Acapulco','CD Juárez','Chihuahua 2G','Chihuahua','Culiacán','Durango','Monterrey','Torreón','Zacatecas','Zihuatanejo','Reynosa','DISEKO','Alysa','Vitrogenera','RegioPet 1','RegioPet 2','RegioPet 3','Bocar','Telas Asturcón','IPASA','TOTIS','FM boca del río','Tejidos y texturizados','Resideo','Brom','Vesta','THOR','Park Royal Luna','Park Royal Sol','LG','FM MERIDA','ABADIMEX','Park Royal Cozumel','Vidanta','Park Royal CBE','Plastiexports 1','Plastiexports 3','Fisfiber','Tuk','VALLARTA','BIDASOA'];
+
+var FP_LIST  = [];   // lecturas: {id, sitio, fecha, codigo1, codigo5, nota, createdAt}
+var FP_SITES = [];   // sitios activos con seguimiento de FP
+
+var _fpCharts = {};  // instancias Chart.js activas, por id de canvas
+
+/* ══ HELPERS ══ */
+function _fpEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function _fpUid(){ return 'fp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+function _fpToday(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _fpFechaCorta(f){ if(!f||!/^\d{4}-\d{2}-\d{2}$/.test(f)) return f||'—'; var p=f.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function _fpToast(msg){ if(typeof showToast==='function') showToast(msg); }
+function _fpNum(v){ return (v==null||v==='') ? null : Number(v); }
+function _fpFmtPct(v){ return v==null ? '—' : v.toFixed(2)+'%'; }
+function _fpFmtNum(v){ return v==null ? '—' : Number(v).toLocaleString('es-MX',{maximumFractionDigits:2}); }
+
+/* FP = Código1 / √(Código1² + Código5²) — misma fórmula que la hoja de cálculo del equipo.
+   Recibe valores crudos (kWh, kVArh) y devuelve el FP en % (0–100) o null si no se puede calcular. */
+function _fpCalc(c1, c5){
+  var a = Number(c1), b = Number(c5);
+  if(!isFinite(a) || !isFinite(b)) return null;
+  if(a===0 && b===0) return null;
+  if(a<0 || b<0) return null;
+  var denom = Math.sqrt(a*a + b*b);
+  if(!denom) return null;
+  return (a/denom)*100;
+}
+
+/* Escala de estatus acordada con el equipo:
+   <90 crítico/urgente · 90–94.9 alerta · 95–97.9 bueno · ≥98 ideal */
+function _fpStatus(pct){
+  if(pct==null) return { key:'sin_dato', label:'Sin dato', short:'—', color:'#9ca3af' };
+  if(pct < 90)  return { key:'critico', label:'Crítico — riesgo de penalización', short:'Crítico', color:'#dc2626' };
+  if(pct < 95)  return { key:'alerta',  label:'Por debajo del objetivo', short:'Alerta', color:'#ea6c00' };
+  if(pct < 98)  return { key:'bueno',   label:'Bueno', short:'Bueno', color:'#059669' };
+  return              { key:'ideal',   label:'Ideal / perfecto', short:'Ideal', color:'#00a97a' };
+}
+
+function _fpBadge(pct){
+  var st = _fpStatus(pct);
+  return '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:'+st.color+'1A;color:'+st.color+';font-family:var(--mono);font-size:10px;font-weight:700;white-space:nowrap">'+_fpFmtPct(pct)+' · '+st.short+'</span>';
+}
+
+/* ══ PERSISTENCIA (localStorage + espejo best-effort en Firestore, mismo patrón que Medidor BESS) ══ */
+function _fpPersistList(){
+  try{ localStorage.setItem(FP_LS_LIST, JSON.stringify(FP_LIST)); }catch(e){}
+  try{ if(window._fb && window._fb.saveFPSnapshot) window._fb.saveFPSnapshot(FP_LIST); }catch(e){}
+}
+function _fpPersistSites(){
+  try{ localStorage.setItem(FP_LS_SITES, JSON.stringify(FP_SITES)); }catch(e){}
+  try{ if(window._fb && window._fb.saveFPConfig) window._fb.saveFPConfig({ sites: FP_SITES }); }catch(e){}
+}
+function _fpLoadLocal(){
+  try{ var s=localStorage.getItem(FP_LS_LIST); FP_LIST = s?JSON.parse(s):[]; }catch(e){ FP_LIST=[]; }
+  try{
+    var c=localStorage.getItem(FP_LS_SITES);
+    FP_SITES = c?JSON.parse(c):null;
+  }catch(e){ FP_SITES=null; }
+  if(!Array.isArray(FP_SITES) || !FP_SITES.length){ FP_SITES = FP_SITES_SEED.slice(); _fpPersistSites(); }
+}
+function _fpPullCloud(cb){
+  var pending=0, gotAny=false;
+  function done(){ pending--; if(pending<=0){ window._fpLastCloudSync=Date.now(); if(typeof cb==='function') cb(gotAny); } }
+  try{
+    if(window._fb && window._fb.getFPConfig){
+      pending++;
+      window._fb.getFPConfig().then(function(cfg){
+        if(cfg && Array.isArray(cfg.sites) && cfg.sites.length){
+          FP_SITES = cfg.sites;
+          try{ localStorage.setItem(FP_LS_SITES, JSON.stringify(FP_SITES)); }catch(e){}
+          gotAny=true; window._fpRenderAll && window._fpRenderAll();
+        } else if(Array.isArray(FP_SITES) && FP_SITES.length){
+          _fpPersistSites();
+        }
+        done();
+      }).catch(function(){ done(); });
+    }
+    if(window._fb && window._fb.getFPSnapshot){
+      pending++;
+      window._fb.getFPSnapshot().then(function(list){
+        if(Array.isArray(list)){
+          FP_LIST = list;
+          try{ localStorage.setItem(FP_LS_LIST, JSON.stringify(FP_LIST)); }catch(e){}
+          gotAny=true; window._fpRenderAll && window._fpRenderAll();
+        }
+        done();
+      }).catch(function(){ done(); });
+    }
+  }catch(e){}
+  if(!pending) done();
+}
+
+/* ══ DATOS DERIVADOS ══ */
+function _fpSiteReadings(site){
+  return FP_LIST.filter(function(r){ return r.sitio===site; })
+    .slice()
+    .sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||'') || (a.createdAt||0)-(b.createdAt||0); });
+}
+/* Devuelve las lecturas de un sitio ya anotadas con fpAcum, fpPeriodo, deltaC1, deltaC5 */
+function _fpSiteHistory(site){
+  var list = _fpSiteReadings(site);
+  var out = [];
+  var prev = null;
+  list.forEach(function(r){
+    var fpAcum = _fpCalc(r.codigo1, r.codigo5);
+    var fpPeriodo = null, deltaC1 = null, deltaC5 = null;
+    if(prev){
+      deltaC1 = r.codigo1 - prev.codigo1;
+      deltaC5 = r.codigo5 - prev.codigo5;
+      if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
+      /* si el delta es negativo probablemente el medidor se reinició — no se calcula FP de periodo, se deja el acumulado */
+    }
+    out.push(Object.assign({}, r, { fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5 }));
+    prev = r;
+  });
+  return out;
+}
+/* FP "vigente" de un sitio: el del periodo de la última lectura si existe, si no el acumulado */
+function _fpLatestForSite(site){
+  var hist = _fpSiteHistory(site);
+  if(!hist.length) return null;
+  var last = hist[hist.length-1];
+  return { rec:last, pct: last.fpPeriodo!=null ? last.fpPeriodo : last.fpAcum, esPeriodo: last.fpPeriodo!=null };
+}
+function _fpDiasDesde(fecha){
+  if(!fecha) return null;
+  var d0 = new Date(fecha+'T00:00:00'), d1 = new Date(_fpToday()+'T00:00:00');
+  return Math.round((d1-d0)/86400000);
+}
+
+/* ══ RENDER: STATS ══ */
+function _fpRenderStats(){
+  var box=document.getElementById('fp-stats'); if(!box) return;
+  var total = FP_LIST.length;
+  var enMeta=0, enAlerta=0, enCritico=0;
+  FP_SITES.forEach(function(s){
+    var lt = _fpLatestForSite(s);
+    if(!lt || lt.pct==null) return;
+    var st = _fpStatus(lt.pct).key;
+    if(st==='bueno' || st==='ideal') enMeta++;
+    else if(st==='alerta') enAlerta++;
+    else if(st==='critico') enCritico++;
+  });
+  function card(label,val,color){
+    return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 14px">'+
+      '<div style="font-family:var(--mono);font-size:8.5px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">'+label+'</div>'+
+      '<div style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:19px;color:'+color+';margin-top:2px">'+val+'</div></div>';
+  }
+  box.innerHTML =
+    card('Sitios monitoreados', FP_SITES.length, 'var(--text)') +
+    card('Lecturas registradas', total, 'var(--text)') +
+    card('En meta (≥95%)', enMeta, enMeta?'var(--green)':'var(--text)') +
+    card('En alerta / crítico', enAlerta+enCritico, (enAlerta+enCritico)?'var(--red)':'var(--green)');
+}
+
+/* ══ RENDER: BANNER DE ALERTAS ══ */
+function _fpRenderAlertBanner(){
+  var box=document.getElementById('fp-alert-banner'); if(!box) return;
+  var alerts=[];
+  FP_SITES.forEach(function(s){
+    var lt=_fpLatestForSite(s);
+    if(!lt || lt.pct==null) return;
+    var st=_fpStatus(lt.pct);
+    if(st.key==='alerta' || st.key==='critico') alerts.push({ sitio:s, pct:lt.pct, st:st });
+  });
+  if(!alerts.length){ box.style.display='none'; box.innerHTML=''; return; }
+  alerts.sort(function(a,b){ return a.pct-b.pct; });
+  box.style.display='block';
+  box.innerHTML = alerts.map(function(a){
+    var isCrit = a.st.key==='critico';
+    var bg = isCrit ? 'rgba(220,38,38,.1)' : 'rgba(234,108,0,.1)';
+    var bd = isCrit ? 'rgba(220,38,38,.35)' : 'rgba(234,108,0,.35)';
+    var fg = isCrit ? 'var(--red)' : 'var(--orange)';
+    var msg = isCrit
+      ? '🚨 <b>'+_fpEsc(a.sitio)+'</b> tiene FP de <b>'+_fpFmtPct(a.pct)+'</b> — crítico, riesgo de penalización de CFE. Revisa el banco de capacitores de inmediato.'
+      : '⚠️ <b>'+_fpEsc(a.sitio)+'</b> tiene FP de <b>'+_fpFmtPct(a.pct)+'</b> — por debajo del objetivo (95%).';
+    return '<div style="background:'+bg+';border:1px solid '+bd+';border-radius:10px;padding:10px 14px;margin-bottom:8px;font-family:var(--body);font-size:12.5px;color:'+fg+'">'+msg+'</div>';
+  }).join('');
+}
+
+/* ══ RENDER: TARJETAS POR SITIO ══ */
+function _fpRenderSiteGrid(){
+  var grid=document.getElementById('fp-site-grid'); if(!grid) return;
+  if(!FP_SITES.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--t3);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sin sitios configurados — usa "Sitios monitoreados" para agregar uno</div>';
+    return;
+  }
+  grid.innerHTML = FP_SITES.map(function(site){
+    var hist = _fpSiteHistory(site);
+    var lt = _fpLatestForSite(site);
+    var pct = lt ? lt.pct : null;
+    var st = _fpStatus(pct);
+    var dias = lt ? _fpDiasDesde(lt.rec.fecha) : null;
+    var staleWarn = (dias!=null && dias>15) ? '<div style="font-family:var(--mono);font-size:9px;color:var(--orange);margin-top:4px">⏳ Última lectura hace '+dias+' días</div>' : '';
+    var sparkId = 'fp-spark-'+site.replace(/[^a-z0-9]/gi,'_');
+    return '<div style="background:var(--s1);border:1px solid '+(st.key==='critico'?'rgba(220,38,38,.4)':st.key==='alerta'?'rgba(234,108,0,.35)':'var(--b1)')+';border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between">'+
+        '<span style="font-family:var(--disp);font-weight:800;font-size:14px;color:var(--text)">'+_fpEsc(site)+'</span>'+
+        '<button onclick="window._fpOpenForm(null,\''+_fpEsc(site).replace(/'/g,"\\'")+'\')" title="Nueva lectura para '+_fpEsc(site)+'" style="background:rgba(26,63,204,.08);border:1px solid rgba(26,63,204,.25);border-radius:6px;color:#1a3fcc;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;padding:4px 8px">+ Lectura</button>'+
+      '</div>'+
+      '<div style="display:flex;align-items:baseline;gap:8px">'+
+        '<span style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:28px;color:'+st.color+'">'+(pct==null?'—':pct.toFixed(1)+'%')+'</span>'+
+        '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.esPeriodo?'FP del periodo':'FP acumulado'):'sin lecturas')+'</span>'+
+      '</div>'+
+      '<div style="font-family:var(--body);font-size:11px;color:'+st.color+';font-weight:600">'+st.label+'</div>'+
+      (lt ? '<div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Última lectura: '+_fpFechaCorta(lt.rec.fecha)+' · Cód.1 '+_fpFmtNum(lt.rec.codigo1)+' kWh · Cód.5 '+_fpFmtNum(lt.rec.codigo5)+' kVArh</div>' : '')+
+      staleWarn+
+      '<div style="position:relative;height:52px;margin-top:2px"><canvas id="'+sparkId+'"></canvas></div>'+
+      '<button onclick="document.getElementById(\'fp-detail-site-sel\').value=\''+_fpEsc(site).replace(/'/g,"\\'")+'\';window._fpRenderDetail();document.getElementById(\'fp-detail-site-sel\').scrollIntoView({behavior:\'smooth\',block:\'center\'})" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t2);font-family:var(--mono);font-size:9.5px;font-weight:700;cursor:pointer;padding:6px 10px;align-self:flex-start">Ver tendencia completa →</button>'+
+    '</div>';
+  }).join('');
+  /* sparklines, después de que el HTML ya está en el DOM */
+  FP_SITES.forEach(function(site){
+    var hist = _fpSiteHistory(site);
+    var sparkId = 'fp-spark-'+site.replace(/[^a-z0-9]/gi,'_');
+    var canvas = document.getElementById(sparkId);
+    if(!canvas || typeof Chart==='undefined') return;
+    if(_fpCharts[sparkId]){ try{ _fpCharts[sparkId].destroy(); }catch(e){} }
+    var vals = hist.map(function(h){ return h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum; });
+    if(!vals.length) return;
+    _fpCharts[sparkId] = new Chart(canvas, {
+      type:'line',
+      data:{ labels: hist.map(function(h){return h.fecha;}), datasets:[{ data:vals, borderColor:_fpStatus(vals[vals.length-1]).color, borderWidth:2, pointRadius:0, tension:.3, fill:false }] },
+      options:{ responsive:true, maintainAspectRatio:false, animation:false,
+        plugins:{ legend:{display:false}, tooltip:{enabled:false} },
+        scales:{ x:{display:false}, y:{display:false} },
+        elements:{ point:{radius:0} }
+      }
+    });
+  });
+}
+
+/* ══ RENDER: DETALLE / TENDENCIA ══ */
+function _fpRenderDetailSiteSelect(){
+  var sel=document.getElementById('fp-detail-site-sel'); if(!sel) return;
+  var cur=sel.value;
+  sel.innerHTML = FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
+  if(cur && FP_SITES.indexOf(cur)>-1) sel.value=cur; else if(FP_SITES.length) sel.value=FP_SITES[0];
+}
+window._fpRenderDetail = function(){
+  var sel=document.getElementById('fp-detail-site-sel'); if(!sel) return;
+  var site=sel.value;
+  var canvas=document.getElementById('fp-detail-chart');
+  if(!canvas || typeof Chart==='undefined') return;
+  if(_fpCharts['fp-detail-chart']){ try{ _fpCharts['fp-detail-chart'].destroy(); }catch(e){} }
+  var hist=_fpSiteHistory(site);
+  var labels=hist.map(function(h){ return _fpFechaCorta(h.fecha); });
+  var periodo=hist.map(function(h){ return h.fpPeriodo; });
+  var acumulado=hist.map(function(h){ return h.fpAcum; });
+  function flat(v){ return labels.map(function(){ return v; }); }
+  _fpCharts['fp-detail-chart'] = new Chart(canvas, {
+    type:'line',
+    data:{ labels:labels, datasets:[
+      { label:'FP del periodo', data:periodo, borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true },
+      { label:'FP acumulado', data:acumulado, borderColor:'#7c3aed', borderWidth:1.5, borderDash:[4,3], tension:.25, pointRadius:2, fill:false },
+      { label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
+      { label:'Objetivo (95%)', data:flat(95), borderColor:'#059669', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
+      { label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc2626', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:9.5 } } },
+        tooltip:{ callbacks:{ label:function(ctx){ return ctx.dataset.label+': '+(ctx.raw==null?'—':ctx.raw.toFixed(2)+'%'); } } } },
+      scales:{ y:{ suggestedMin:80, suggestedMax:100, ticks:{ callback:function(v){return v+'%';} } } }
+    }
+  });
+};
+function _fpRenderDetail(){ window._fpRenderDetail(); }
+
+/* ══ RENDER: HISTORIAL ══ */
+window._fpRenderHist = function(){
+  var tbody=document.getElementById('fp-hist-tbody'); if(!tbody) return;
+  var search=(document.getElementById('fp-hist-search')||{}).value||'';
+  var filterEstado=(document.getElementById('fp-hist-filter-estado')||{}).value||'';
+  var rows=[];
+  FP_SITES.forEach(function(site){
+    _fpSiteHistory(site).forEach(function(h){ rows.push(h); });
+  });
+  rows.sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || (b.createdAt||0)-(a.createdAt||0); });
+  if(search) rows = rows.filter(function(r){ return r.sitio.toLowerCase().indexOf(search.toLowerCase())>-1; });
+  if(filterEstado) rows = rows.filter(function(r){ var pct=r.fpPeriodo!=null?r.fpPeriodo:r.fpAcum; return _fpStatus(pct).key===filterEstado; });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas que coincidan</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r){
+    var pct = r.fpPeriodo!=null ? r.fpPeriodo : r.fpAcum;
+    var st = _fpStatus(pct);
+    var delta = (r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh');
+    return '<tr style="border-bottom:1px solid var(--b1)">'+
+      '<td style="padding:8px 10px;font-weight:700;font-family:var(--body);font-size:11.5px;color:var(--text)">'+_fpEsc(r.sitio)+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFechaCorta(r.fecha)+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo1)+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo5)+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+delta+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtPct(r.fpAcum)+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+_fpBadge(r.fpPeriodo)+'</td>'+
+      '<td style="padding:8px 10px;text-align:center"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+st.color+'"></span></td>'+
+      '<td style="padding:8px 10px;text-align:center;white-space:nowrap">'+
+        '<button onclick="window._fpOpenForm(\''+r.id+'\')" title="Editar" style="background:none;border:1px solid var(--b1);border-radius:5px;color:var(--t2);cursor:pointer;padding:4px 7px;font-size:11px;margin-right:4px">✏️</button>'+
+        '<button onclick="window._fpDeleteReading(\''+r.id+'\')" title="Eliminar" style="background:none;border:1px solid rgba(220,38,38,.3);border-radius:5px;color:var(--red);cursor:pointer;padding:4px 7px;font-size:11px">🗑</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+};
+
+/* ══ RENDER ALL ══ */
+window._fpRenderAll = function(){
+  _fpRenderStats();
+  _fpRenderAlertBanner();
+  _fpRenderSiteGrid();
+  _fpRenderDetailSiteSelect();
+  window._fpRenderDetail();
+  window._fpRenderHist();
+};
+
+/* ══ FORMULARIO: nueva lectura / editar ══ */
+window._fpOpenForm = function(editId, presetSite){
+  var sel=document.getElementById('fp-in-sitio');
+  sel.innerHTML = FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
+  document.getElementById('fp-edit-id').value='';
+  document.getElementById('fp-in-fecha').value=_fpToday();
+  document.getElementById('fp-in-c1').value='';
+  document.getElementById('fp-in-c5').value='';
+  document.getElementById('fp-in-nota').value='';
+  document.getElementById('fp-form-title').textContent='⚡ Nueva Lectura de FP';
+  if(editId){
+    var rec = FP_LIST.find(function(r){ return r.id===editId; });
+    if(rec){
+      document.getElementById('fp-edit-id').value=rec.id;
+      sel.value=rec.sitio;
+      document.getElementById('fp-in-fecha').value=rec.fecha;
+      document.getElementById('fp-in-c1').value=rec.codigo1;
+      document.getElementById('fp-in-c5').value=rec.codigo5;
+      document.getElementById('fp-in-nota').value=rec.nota||'';
+      document.getElementById('fp-form-title').textContent='✏️ Editar Lectura de FP';
+    }
+  } else if(presetSite){
+    sel.value=presetSite;
+  }
+  window._fpLiveCheck();
+  document.getElementById('fp-form-modal').style.display='flex';
+};
+window._fpLiveCheck = function(){
+  var box=document.getElementById('fp-live-preview');
+  var site=document.getElementById('fp-in-sitio').value;
+  var c1=_fpNum(document.getElementById('fp-in-c1').value);
+  var c5=_fpNum(document.getElementById('fp-in-c5').value);
+  if(c1==null || c5==null){ box.style.display='none'; return; }
+  var fpAcum = _fpCalc(c1,c5);
+  var hist = _fpSiteHistory(site);
+  var editId = document.getElementById('fp-edit-id').value;
+  var prevList = hist.filter(function(h){ return h.id!==editId; });
+  var prev = prevList.length ? prevList[prevList.length-1] : null;
+  var fpPeriodo=null, deltaMsg='Esta será la primera lectura del sitio — no hay FP de periodo.';
+  if(prev){
+    var d1=c1-prev.codigo1, d5=c5-prev.codigo5;
+    if(d1>=0 && d5>=0 && (d1>0||d5>0)){
+      fpPeriodo = _fpCalc(d1,d5);
+      deltaMsg = 'Contra la lectura del '+_fpFechaCorta(prev.fecha)+': Δ'+_fpFmtNum(d1)+' kWh / Δ'+_fpFmtNum(d5)+' kVArh';
+    } else {
+      deltaMsg = '⚠️ Los códigos son menores a la lectura anterior ('+_fpFechaCorta(prev.fecha)+') — probable reinicio del medidor, no se calcula FP de periodo.';
+    }
+  }
+  var pctShow = fpPeriodo!=null ? fpPeriodo : fpAcum;
+  var st = _fpStatus(pctShow);
+  box.style.display='block';
+  box.innerHTML =
+    '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'+
+      '<span style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:22px;color:'+st.color+'">'+(pctShow==null?'—':pctShow.toFixed(2)+'%')+'</span>'+
+      '<span style="font-family:var(--mono);font-size:10px;color:'+st.color+';font-weight:700">'+st.label+'</span>'+
+    '</div>'+
+    '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:4px">FP acumulado (crudo): '+_fpFmtPct(fpAcum)+'</div>'+
+    '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">'+deltaMsg+'</div>';
+};
+window._fpSaveForm = function(){
+  var editId = document.getElementById('fp-edit-id').value;
+  var sitio = document.getElementById('fp-in-sitio').value;
+  var fecha = document.getElementById('fp-in-fecha').value;
+  var c1 = _fpNum(document.getElementById('fp-in-c1').value);
+  var c5 = _fpNum(document.getElementById('fp-in-c5').value);
+  var nota = document.getElementById('fp-in-nota').value||'';
+  if(!sitio){ alert('Selecciona un sitio.'); return; }
+  if(!fecha){ alert('Selecciona la fecha de la lectura.'); return; }
+  if(c1==null || c5==null || c1<0 || c5<0){ alert('Captura Código 1 y Código 5 (números válidos, no negativos).'); return; }
+  if(editId){
+    var rec = FP_LIST.find(function(r){ return r.id===editId; });
+    if(rec){ rec.sitio=sitio; rec.fecha=fecha; rec.codigo1=c1; rec.codigo5=c5; rec.nota=nota; rec.updatedAt=Date.now(); }
+  } else {
+    FP_LIST.push({ id:_fpUid(), sitio:sitio, fecha:fecha, codigo1:c1, codigo5:c5, nota:nota, createdAt:Date.now() });
+  }
+  _fpPersistList();
+  document.getElementById('fp-form-modal').style.display='none';
+  window._fpRenderAll();
+  _fpToast('✅ Lectura de FP guardada — '+sitio+' · '+_fpFechaCorta(fecha));
+};
+window._fpDeleteReading = function(id){
+  if(!confirm('¿Eliminar esta lectura de FP? No se puede deshacer.')) return;
+  FP_LIST = FP_LIST.filter(function(r){ return r.id!==id; });
+  _fpPersistList();
+  window._fpRenderAll();
+  _fpToast('🗑 Lectura eliminada');
+};
+
+/* ══ MODAL: sitios monitoreados ══ */
+window._fpOpenSitesModal = function(){
+  var list=document.getElementById('fp-sites-list');
+  list.innerHTML = FP_SITES.map(function(s){
+    var n = _fpSiteReadings(s).length;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--s2);border-radius:8px">'+
+      '<span style="font-family:var(--body);font-size:12px;color:var(--text);font-weight:600">'+_fpEsc(s)+'</span>'+
+      '<span style="display:flex;align-items:center;gap:10px">'+
+        '<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">'+n+' lectura'+(n===1?'':'s')+'</span>'+
+        '<button onclick="window._fpRemoveSite(\''+_fpEsc(s).replace(/'/g,"\\'")+'\')" title="Quitar de seguimiento" style="background:none;border:1px solid rgba(220,38,38,.3);border-radius:5px;color:var(--red);cursor:pointer;padding:3px 7px;font-size:10px">✕</button>'+
+      '</span>'+
+    '</div>';
+  }).join('') || '<div style="color:var(--t3);font-family:var(--mono);font-size:10px">Sin sitios configurados</div>';
+  var addSel=document.getElementById('fp-add-site-sel');
+  var opciones = FP_KNOWN_SITES.filter(function(s){ return FP_SITES.indexOf(s)===-1; });
+  addSel.innerHTML = opciones.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('') +
+    '<option value="__custom__">Otro sitio (escribir nombre)…</option>';
+  document.getElementById('fp-sites-modal').style.display='flex';
+};
+window._fpAddSite = function(){
+  var sel=document.getElementById('fp-add-site-sel');
+  var val=sel.value;
+  if(val==='__custom__'){
+    val = prompt('Nombre del sitio a agregar a seguimiento de FP:');
+    if(!val) return;
+    val = val.trim();
+  }
+  if(!val) return;
+  if(FP_SITES.indexOf(val)>-1){ _fpToast('Ese sitio ya está en seguimiento'); return; }
+  FP_SITES.push(val);
+  _fpPersistSites();
+  window._fpOpenSitesModal();
+  window._fpRenderAll();
+  _fpToast('✅ "'+val+'" agregado a seguimiento de FP');
+};
+window._fpRemoveSite = function(site){
+  if(!confirm('¿Quitar "'+site+'" de seguimiento de FP? El historial de lecturas de este sitio NO se borra, solo deja de mostrarse.')) return;
+  FP_SITES = FP_SITES.filter(function(s){ return s!==site; });
+  _fpPersistSites();
+  window._fpOpenSitesModal();
+  window._fpRenderAll();
+};
+
+/* ══ INIT / SYNC ══ */
+window._fpInit = function(){
+  if(!window._fpLoaded){ _fpLoadLocal(); window._fpLoaded=true; }
+  window._fpRenderAll();
+  window._fpSyncCloud(true);
+  var scrollBox = document.querySelector('#page-fp .page-scroll') || document.getElementById('page-fp');
+  if(scrollBox) scrollBox.scrollTop = 0;
+};
+window._fpSyncCloud = function(silent){
+  var btn=document.getElementById('fp-sync-btn');
+  if(btn){ btn.disabled=true; btn.textContent='☁️ Sincronizando…'; }
+  _fpPullCloud(function(gotAny){
+    if(btn){ btn.disabled=false; btn.textContent='☁️ Sincronizar'; }
+    var indicator=document.getElementById('fp-sync-indicator');
+    if(indicator){
+      var d=new Date(window._fpLastCloudSync||Date.now());
+      indicator.textContent='Última sincronización: '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    }
+    if(!silent){ _fpToast(gotAny ? '☁️ Datos actualizados desde la nube' : '⚠️ No se pudo conectar a la nube — usando lo guardado en este dispositivo'); }
+  });
+};
+
+/* ══ EXPORTAR REPORTE FP (PNG / PDF) ══ */
+function _fpReportFilenameBase(){
+  var site=(document.getElementById('fp-report-site-sel')||{}).value||'todos';
+  return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+'_'+_fpToday();
+}
+window._fpOpenExportReport = function(){
+  var sel=document.getElementById('fp-report-site-sel');
+  sel.innerHTML = '<option value="__all__">Todos los sitios</option>'+FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
+  document.getElementById('fp-report-modal').style.display='flex';
+  window._fpRenderReportPreview();
+};
+window._fpRenderReportPreview = function(){
+  var siteSel=(document.getElementById('fp-report-site-sel')||{}).value||'__all__';
+  var sites = siteSel==='__all__' ? FP_SITES.slice() : [siteSel];
+  var genUser = localStorage.getItem('bess_uname') || 'Operador';
+  var genDate = new Date().toLocaleString('es-MX',{ dateStyle:'long', timeStyle:'short' });
+
+  var sections = sites.map(function(site){
+    var hist=_fpSiteHistory(site);
+    var lt=_fpLatestForSite(site);
+    var pct=lt?lt.pct:null;
+    var st=_fpStatus(pct);
+    var rowsHtml = hist.slice().reverse().map(function(h){
+      var hst=_fpStatus(h.fpPeriodo!=null?h.fpPeriodo:h.fpAcum);
+      return '<tr>'+
+        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">'+_fpEsc(_fpFechaCorta(h.fecha))+'</td>'+
+        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">'+_fpFmtNum(h.codigo1)+'</td>'+
+        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">'+_fpFmtNum(h.codigo5)+'</td>'+
+        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpFmtPct(h.fpAcum)+'</td>'+
+        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(h.fpPeriodo)+'</td>'+
+        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+
+          '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+hst.color+'1A;color:'+hst.color+';font-size:9.5px;font-weight:700">'+hst.short+'</span>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+    var chartImg = '';
+    var chartInst = _fpCharts['fp-detail-chart'];
+    if(chartInst && document.getElementById('fp-detail-site-sel') && document.getElementById('fp-detail-site-sel').value===site){
+      try{ chartImg = '<img src="'+chartInst.toBase64Image()+'" style="width:100%;max-width:700px;display:block;margin:14px auto">'; }catch(e){}
+    }
+    return '<div style="page-break-inside:avoid;margin-bottom:26px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0a1f5e;padding-bottom:8px;margin-bottom:12px">'+
+        '<div style="font-size:16px;font-weight:800;color:#111827">'+_fpEsc(site)+'</div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:22px;font-weight:900;color:'+st.color+'">'+(pct==null?'—':pct.toFixed(2)+'%')+'</div>'+
+          '<div style="font-size:10px;color:'+st.color+';font-weight:700">'+st.label+'</div>'+
+        '</div>'+
+      '</div>'+
+      chartImg+
+      (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
+        '<thead><tr style="background:#f3f4f6">'+
+          '<th style="padding:6px 8px;text-align:left;font-size:9.5px;color:#6b7280">FECHA</th>'+
+          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">CÓD. 1 (kWh)</th>'+
+          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">CÓD. 5 (kVArh)</th>'+
+          '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP ACUM.</th>'+
+          '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP PERIODO</th>'+
+          '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">ESTADO</th>'+
+        '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
+        : '<div style="color:#9ca3af;font-size:11px;padding:10px 0">Sin lecturas registradas.</div>')+
+    '</div>';
+  }).join('');
+
+  var html = '<div style="font-family:Arial,Helvetica,sans-serif;color:#111827;max-width:980px;margin:0 auto;padding:32px 30px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3fcc;padding-bottom:16px;margin-bottom:20px">'+
+      '<div>'+
+        '<div style="font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:19px;color:#0a1f5e">⚡ Skysense Energy</div>'+
+        '<div style="font-size:14px;color:#4b5563;margin-top:2px">Reporte de Factor de Potencia — Centro de Operaciones BESS</div>'+
+      '</div>'+
+      '<div style="text-align:right;font-size:11px;color:#6b7280;line-height:1.6">'+
+        '<div><b>Sitios:</b> '+(siteSel==='__all__'?'Todos ('+sites.length+')':_fpEsc(siteSel))+'</div>'+
+        '<div><b>Generado:</b> '+_fpEsc(genDate)+'</div>'+
+        '<div><b>Generado por:</b> '+_fpEsc(genUser)+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;font-size:9.5px">'+
+      '<span style="padding:4px 10px;border-radius:14px;background:#fef2f2;color:#dc2626;font-weight:700">&lt;90% Crítico</span>'+
+      '<span style="padding:4px 10px;border-radius:14px;background:#fff7ed;color:#ea6c00;font-weight:700">90–94.9% Alerta</span>'+
+      '<span style="padding:4px 10px;border-radius:14px;background:#ecfdf5;color:#059669;font-weight:700">95–97.9% Bueno</span>'+
+      '<span style="padding:4px 10px;border-radius:14px;background:#ecfdf9;color:#00a97a;font-weight:700">≥98% Ideal</span>'+
+    '</div>'+
+    sections+
+    '<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:9.5px;color:#9ca3af;text-align:center">Generado automáticamente por Centro BESS · Skysense Energy</div>'+
+  '</div>';
+  document.getElementById('fp-report-print').innerHTML = html;
+};
+window._fpDownloadReportPNG = async function(){
+  var el=document.getElementById('fp-report-print');
+  if(!window.html2canvas){ alert('⚠️ html2canvas no disponible en este momento.'); return; }
+  var btn=document.getElementById('fp-report-btn-png'); var origText=btn?btn.textContent:'';
+  if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
+  try{
+    var canvas = await html2canvas(el, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
+    var a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=_fpReportFilenameBase()+'.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    _fpToast('✅ PNG descargado');
+  }catch(err){ console.error('[FP] Error generando PNG:', err); alert('❌ No se pudo generar el PNG.'); }
+  if(btn){ btn.textContent=origText; btn.disabled=false; }
+};
+window._fpDownloadReportPDF = async function(){
+  var el=document.getElementById('fp-report-print');
+  var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+  if(!window.html2canvas || !jsPDFCtor){ alert('⚠️ Las librerías necesarias no están disponibles en este momento.'); return; }
+  var btn=document.getElementById('fp-report-btn-pdf'); var origText=btn?btn.textContent:'';
+  if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
+  try{
+    var canvas = await html2canvas(el, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
+    var doc = new jsPDFCtor({ unit:'pt', format:'a4' });
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var pxPerPt = canvas.width / pageW;
+    var pageHeightPx = Math.floor(pageH * pxPerPt);
+    var totalPages = Math.max(1, Math.ceil(canvas.height / pageHeightPx));
+    for(var i=0;i<totalPages;i++){
+      var sliceH = Math.min(pageHeightPx, canvas.height - i*pageHeightPx);
+      var sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width; sliceCanvas.height = sliceH;
+      var ctx = sliceCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,sliceCanvas.width,sliceCanvas.height);
+      ctx.drawImage(canvas, 0, i*pageHeightPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+      var imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+      if(i>0) doc.addPage();
+      doc.addImage(imgData, 'JPEG', 0, 0, pageW, sliceH/pxPerPt);
+    }
+    doc.save(_fpReportFilenameBase()+'.pdf');
+    _fpToast('✅ PDF descargado');
+  }catch(err){ console.error('[FP] Error generando PDF:', err); alert('❌ No se pudo generar el PDF.'); }
+  if(btn){ btn.textContent=origText; btn.disabled=false; }
+};
+
+/* ══ INTEGRACIÓN: columna de FP dentro del Reporte de Medidores BESS ══
+   No se toca el código original de Medidor BESS — se "envuelve" la función que ya
+   pinta el reporte (window._mbRenderReportPreview) y, después de que corre, se le
+   inserta una columna extra de FP a la tabla ya generada. Mismo patrón que ya usa
+   esta app en otros módulos para extender funcionalidad sin tocar el original. */
+function _fpPatchMedidorReport(){
+  if(typeof window._mbRenderReportPreview !== 'function') return;
+  if(window._mbRenderReportPreview.__fpPatched) return;
+  var orig = window._mbRenderReportPreview;
+  var patched = function(){
+    orig.apply(this, arguments);
+    try{ _fpInjectIntoMedidorReport(); }catch(e){ console.warn('[FP] No se pudo agregar la columna de FP al Reporte de Medidores:', e); }
+  };
+  patched.__fpPatched = true;
+  window._mbRenderReportPreview = patched;
+}
+function _fpInjectIntoMedidorReport(){
+  var container = document.getElementById('mb-report-print');
+  if(!container) return;
+  var table = container.querySelector('table');
+  if(!table) return;
+  var headRow = table.querySelector('thead tr');
+  if(headRow && !headRow.querySelector('[data-fp-col]')){
+    var th = document.createElement('th');
+    th.setAttribute('data-fp-col','1');
+    th.style.padding='8px'; th.style.textAlign='center'; th.style.fontSize='10px'; th.style.letterSpacing='.4px';
+    th.innerHTML = 'FP<br><span style="font-weight:400;font-size:8.5px;text-transform:none">factor de potencia</span>';
+    headRow.appendChild(th);
+  }
+  var bodyRows = table.querySelectorAll('tbody tr');
+  bodyRows.forEach(function(tr){
+    if(tr.querySelector('[data-fp-col]')) return;
+    var firstTd = tr.querySelector('td');
+    if(!firstTd) return;
+    var siteName = (firstTd.childNodes[0] ? firstTd.childNodes[0].textContent : firstTd.textContent).trim();
+    var td = document.createElement('td');
+    td.setAttribute('data-fp-col','1');
+    td.style.padding='7px 8px'; td.style.borderBottom='1px solid #e5e7eb'; td.style.textAlign='center'; td.style.verticalAlign='top';
+    if(FP_SITES.indexOf(siteName)>-1){
+      var lt=_fpLatestForSite(siteName);
+      var pct = lt?lt.pct:null;
+      var st=_fpStatus(pct);
+      td.innerHTML = '<span style="display:inline-block;padding:2px 9px;border-radius:12px;background:'+st.color+'1A;color:'+st.color+';font-size:10px;font-weight:700">'+(pct==null?'sin dato':pct.toFixed(1)+'%')+'</span>';
+    } else {
+      td.innerHTML = '<span style="color:#c1c7d0">—</span>';
+    }
+    tr.appendChild(td);
+  });
+}
+
+/* ══ CARGA TEMPRANA ══
+   FP_SITES / FP_LIST se cargan de inmediato al arrancar la app (no solo cuando alguien entra a
+   la pestaña "Factor de Potencia"), porque el Reporte de Medidores BESS necesita esos datos
+   disponibles aunque el usuario nunca haya abierto la pestaña de FP en este dispositivo. */
+_fpLoadLocal();
+window._fpLoaded = true;
+_fpPullCloud(function(){
+  /* Si el Reporte de Medidores ya está abierto cuando llega la respuesta de la nube, se refresca
+     para que la columna de FP no se quede con datos viejos. */
+  try{
+    var modal = document.getElementById('mb-report-modal');
+    if(modal && modal.style.display==='flex' && typeof window._mbRenderReportPreview==='function') window._mbRenderReportPreview();
+  }catch(e){}
+  if(document.getElementById('page-fp')) window._fpRenderAll && window._fpRenderAll();
+});
+
+/* Reintenta el parche cada vez que se entra a la página del Medidor (por si el módulo de FP
+   cargó antes de que existiera window._mbRenderReportPreview) y cuando se abre Factor de Potencia. */
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(_fpPatchMedidorReport, 300); });
+setTimeout(_fpPatchMedidorReport, 800);
+setTimeout(_fpPatchMedidorReport, 2500);
+
+})();
+</script>
+
 </div>
 </body>
 </html>
