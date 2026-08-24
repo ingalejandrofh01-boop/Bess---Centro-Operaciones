@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-24 rev-fp-modulo-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-24 rev-nav-compacto-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787611494595">
+<meta name="app-version" content="1787613470147">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -1504,10 +1504,12 @@ body::after{content:'';position:fixed;top:0;left:var(--nav-w);right:0;height:3px
   background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 100%) !important;
   border-right:none;
   display:flex;flex-direction:column;align-items:center;
-  padding:0 0 12px;gap:4px;
-  position:sticky;top:0;height:100vh;z-index:50;overflow:hidden;
+  padding:0 0 10px;gap:2px;
+  position:sticky;top:0;height:100vh;z-index:50;overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:none;-ms-overflow-style:none;
   box-shadow:4px 0 24px rgba(6,17,46,.55),1px 0 0 rgba(74,120,245,.18);
 }
+.icon-nav::-webkit-scrollbar{width:0;height:0;display:none}
 nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 100%) !important;}
 .nav-logo{
   width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1549,11 +1551,12 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 }
 .nav-logo-icon{display:none}
 .nav-item{position:relative;z-index:1;
-  width:72px;height:56px;border-radius:10px;
+  width:72px;height:44px;border-radius:10px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  cursor:pointer;transition:all .2s;gap:3px;
+  cursor:pointer;transition:background .2s,border-color .2s,transform .15s;gap:3px;
   border:1px solid transparent;background:transparent;position:relative;
 }
+.nav-item:active{transform:scale(.94)}
 .nav-item:hover{
   background:rgba(74,120,245,.15);
   border-color:rgba(74,120,245,.3);
@@ -1564,20 +1567,31 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
   box-shadow:0 0 18px rgba(74,120,245,.3),inset 0 0 12px rgba(74,120,245,.08);
 }
 .nav-item .ni{font-size:16px;line-height:1;color:rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;transition:color .2s}
-.nav-item .nl{font-family:var(--mono);font-size:7.5px;letter-spacing:.2px;color:rgba(255,255,255,.3);text-transform:uppercase;line-height:1.25;transition:color .2s;text-align:center;width:100%;padding:0 2px;box-sizing:border-box;white-space:normal;word-break:break-word}
+.nav-item .nl{display:none}
 .nav-item.active .nl{color:#a8c4ff}
 .nav-item.active .ni{color:#fff;filter:drop-shadow(0 0 6px rgba(74,120,245,.8))}
 .nav-item:hover .ni{color:rgba(255,255,255,.85)}
 .nav-item:hover .nl{color:rgba(255,255,255,.6)}
-.nav-tt{
-  position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);
-  background:#0a1f5e;border:1px solid rgba(74,120,245,.4);
-  border-radius:5px;padding:5px 12px;
-  font-family:var(--mono);font-size:10px;letter-spacing:1px;color:#c8d9ff;
-  white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:200;
-  box-shadow:0 4px 16px rgba(0,0,0,.4);
+.nav-tt{display:none}
+.nav-flyout{
+  position:fixed;top:0;left:0;
+  transform:translateY(-50%) translateX(-6px);
+  background:linear-gradient(160deg,#0d2570,#0a1f5e);
+  border:1px solid rgba(74,120,245,.45);
+  border-radius:9px;padding:9px 14px;
+  min-width:120px;max-width:260px;
+  box-shadow:0 10px 30px rgba(3,8,24,.55),0 0 0 1px rgba(74,120,245,.08);
+  opacity:0;pointer-events:none;
+  transition:opacity .16s ease,transform .16s cubic-bezier(.34,1.56,.64,1);
+  z-index:500;
 }
-.nav-item:hover .nav-tt{opacity:1}
+.nav-flyout.show{opacity:1;transform:translateY(-50%) translateX(0)}
+.nav-flyout::before{
+  content:'';position:absolute;left:-5px;top:50%;transform:translateY(-50%) rotate(45deg);
+  width:9px;height:9px;background:#0d2570;border-left:1px solid rgba(74,120,245,.45);border-bottom:1px solid rgba(74,120,245,.45);
+}
+.nav-flyout-title{font-family:var(--disp);font-weight:800;font-size:12px;color:#fff;letter-spacing:.2px;white-space:nowrap}
+.nav-flyout-desc{font-family:var(--mono);font-size:9.5px;color:#a8c4ff;letter-spacing:.3px;margin-top:3px;white-space:nowrap}
 .nav-spacer{flex:1}
 
 /* ═══ MAIN COL ═══ */
@@ -5277,10 +5291,6 @@ if('serviceWorker' in navigator){
   <div class="nav-item" data-page="soc" onclick="goPage('soc')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
     <div class="nl">SOC</div><div class="nav-tt">Tendencia SOC por Sitio</div>
-  </div>
-  <div class="nav-item" data-page="historico" onclick="goPage('historico')">
-    <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h14"/><path d="M5 22h14"/><path d="M17 2l-5 7-5-7"/><path d="M7 22l5-7 5 7"/></svg></div>
-    <div class="nl">Histórico</div><div class="nav-tt">Histórico de Descargas BESS</div>
   </div>
   <div class="nav-item" data-page="medidor" onclick="goPage('medidor')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
@@ -30109,5 +30119,48 @@ setTimeout(_fpPatchMedidorReport, 2500);
 </script>
 
 </div>
+
+<!-- Flyout compartido del menú lateral (riel de iconos) -->
+<div id="nav-flyout" class="nav-flyout"><div class="nav-flyout-title"></div><div class="nav-flyout-desc"></div></div>
+<script>
+(function(){
+  function initNavFlyout(){
+    var nav = document.querySelector('nav.icon-nav');
+    var flyout = document.getElementById('nav-flyout');
+    if(!nav || !flyout) return;
+    var titleEl = flyout.querySelector('.nav-flyout-title');
+    var descEl = flyout.querySelector('.nav-flyout-desc');
+    var hideTimer = null;
+    function position(item){
+      var r = item.getBoundingClientRect();
+      flyout.style.top = (r.top + r.height/2) + 'px';
+      flyout.style.left = (r.right + 12) + 'px';
+    }
+    function show(item){
+      clearTimeout(hideTimer);
+      var nl = item.querySelector('.nl');
+      var tt = item.querySelector('.nav-tt');
+      titleEl.textContent = nl ? nl.textContent : '';
+      descEl.textContent = tt ? tt.textContent : '';
+      descEl.style.display = descEl.textContent ? 'block' : 'none';
+      position(item);
+      flyout.classList.add('show');
+    }
+    function hide(){
+      hideTimer = setTimeout(function(){ flyout.classList.remove('show'); }, 60);
+    }
+    Array.prototype.forEach.call(nav.querySelectorAll('.nav-item'), function(item){
+      item.addEventListener('mouseenter', function(){ show(item); });
+      item.addEventListener('mouseleave', hide);
+      item.addEventListener('focus', function(){ show(item); });
+      item.addEventListener('blur', hide);
+    });
+    nav.addEventListener('scroll', function(){ flyout.classList.remove('show'); }, { passive:true });
+    window.addEventListener('resize', function(){ flyout.classList.remove('show'); });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initNavFlyout);
+  else initNavFlyout();
+})();
+</script>
 </body>
 </html>
