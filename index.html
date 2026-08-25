@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787642084000">
+<meta name="app-version" content="1787642954000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -8289,7 +8289,7 @@ async function expDoZip(mode){
           <tr>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Fecha</th>
-            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kWh</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kWh / kW</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kVAr / kVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh / ΔkVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP</th>
@@ -29551,12 +29551,18 @@ function _fpCapacitorInfo(site){ return FP_SITE_CAPACITOR.hasOwnProperty(site) ?
    'acumulado' (default) — el medidor entrega Código 1 / Código 5 como registros que suben
      sin parar; el FP del periodo sale de la diferencia contra la lectura anterior (T4, medidor
      ELSTER A3RAL con lectura manual quincenal).
-   'directo' — el sitio ya entrega kWh y kVAr del periodo de forma directa (no hay un total
+   'directo' — el sitio ya entrega kW y kVAr instantáneos de forma directa (no hay un total
      acumulado que restar, el dato se refresca por sí solo); el FP de cada lectura se calcula
      directo sobre esos dos valores, sin comparar contra la lectura anterior (T3, panel Scheider
      con lectura diaria/semanal). */
 var FP_SITE_MODE = { 'T3': 'directo' };
 function _fpSiteMode(site){ return FP_SITE_MODE.hasOwnProperty(site) ? FP_SITE_MODE[site] : 'acumulado'; }
+/* Unidades correctas según el modo del sitio: en modo 'directo' (T3) el panel entrega potencia
+   INSTANTÁNEA — kW de potencia activa y kVAr de potencia reactiva, sin hora — mientras que en
+   modo 'acumulado' (T4) los códigos del medidor son energía acumulada — kWh y kVArh, con hora. */
+function _fpUnitLabels(site){
+  return _fpSiteMode(site)==='directo' ? { c1:'kW', c5:'kVAr' } : { c1:'kWh', c5:'kVArh' };
+}
 
 /* Meta acordada con el equipo: cualquier FP por debajo de 98% se marca en amarillo con
    aviso de revisión, además del semáforo de 4 niveles de _fpStatus(). */
@@ -29793,7 +29799,7 @@ function _fpApplySeedT4(){
 
 /* ══ SEED: histórico real T3 (tabla "T3 SCHEIDER" del equipo) ══
    T3 es sitio de modo 'directo' (ver FP_SITE_MODE) — codigo1/codigo5 aquí NO son códigos
-   acumulados de medidor, son kWh y kVAr del periodo tal como los entrega el panel Scheider
+   acumulados de medidor, son kW y kVAr instantáneos tal como los entrega el panel Scheider
    directamente. A partir del 20/ago/2026 se instaló un banco de 250 kVAr en T3, por eso las
    lecturas desde esa fecha llevan nota. */
 var FP_SEED_T3_VERSION = '2026-08-25-v1-t3-directo-inicial';
@@ -29846,7 +29852,7 @@ function _fpSiteHistory(site){
   list.forEach(function(r){
     var fpAcum = _fpCalc(r.codigo1, r.codigo5);
     var fpPeriodo = null, deltaC1 = null, deltaC5 = null;
-    /* Modo 'directo' (p.ej. T3): codigo1/codigo5 YA son kWh/kVAr del periodo, no un acumulado
+    /* Modo 'directo' (p.ej. T3): codigo1/codigo5 YA son kW/kVAr instantáneos, no un acumulado
        de medidor — no tiene sentido restar contra la lectura anterior, cada lectura trae su
        propio FP ya "listo". Solo el modo 'acumulado' (T4) calcula el delta contra la anterior. */
     if(prev && modo==='acumulado'){
@@ -29957,7 +29963,7 @@ function _fpRenderSiteGrid(){
       '<div style="font-family:var(--body);font-size:11px;color:'+st.color+';font-weight:600">'+st.label+'</div>'+
       metaWarnHtml+
       capLine+
-      (lt ? '<div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Última lectura: '+_fpFechaCorta(lt.rec.fecha)+' · Cód.1 '+_fpFmtNum(lt.rec.codigo1)+' kWh · Cód.5 '+_fpFmtNum(lt.rec.codigo5)+' kVArh</div>' : '')+
+      (lt ? '<div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Última lectura: '+_fpFechaCorta(lt.rec.fecha)+' · Cód.1 '+_fpFmtNum(lt.rec.codigo1)+' '+_fpUnitLabels(site).c1+' · Cód.5 '+_fpFmtNum(lt.rec.codigo5)+' '+_fpUnitLabels(site).c5+'</div>' : '')+
       staleWarn+
       '<div style="position:relative;height:52px;margin-top:2px"><canvas id="'+sparkId+'"></canvas></div>'+
       '<button onclick="document.getElementById(\'fp-detail-site-sel\').value=\''+_fpEsc(site).replace(/'/g,"\\'")+'\';window._fpRenderDetail();document.getElementById(\'fp-detail-site-sel\').scrollIntoView({behavior:\'smooth\',block:\'center\'})" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t2);font-family:var(--mono);font-size:9.5px;font-weight:700;cursor:pointer;padding:6px 10px;align-self:flex-start">Ver tendencia completa →</button>'+
@@ -30116,8 +30122,8 @@ function _fpRenderMonthSiteSelect(){
    pierde, se acumula en el siguiente mes que sí tenga datos (ese mes usa el mismo cierre de más
    atrás como su apertura). El primer mes con datos de un sitio, al no tener mes anterior con el
    cual comparar, queda marcado como "sin datos suficientes". */
-/* Sitios en modo 'directo' (p.ej. T3): cada lectura YA trae su propio FP (kWh/kVAr directos del
-   periodo, no un código acumulado). El "FP del mes" es el promedio simple de los FP de todas las
+/* Sitios en modo 'directo' (p.ej. T3): cada lectura YA trae su propio FP (kW/kVAr instantáneos,
+   no un código acumulado). El "FP del mes" es el promedio simple de los FP de todas las
    lecturas capturadas ese mes, y se destaca la mejor lectura del mes (la de FP más alto) para ver
    si hubo mejora — así lo pidió el equipo para T3. */
 function _fpMonthlyGroupsDirecto(hist){
@@ -30189,7 +30195,7 @@ window._fpRenderMonthly = function(){
   var explainer=document.getElementById('fp-month-explainer');
   var th2=document.getElementById('fp-month-th-2'), th3=document.getElementById('fp-month-th-3');
   if(modo==='directo'){
-    if(explainer) explainer.textContent='FP del mes = promedio de los FP ya calculados de cada lectura del mes (aquí kWh y kVAr son directos del periodo, no un código acumulado). Se destaca la mejor lectura del mes.';
+    if(explainer) explainer.textContent='FP del mes = promedio de los FP ya calculados de cada lectura del mes (aquí kW y kVAr son la potencia instantánea que entrega el panel, no un código acumulado). Se destaca la mejor lectura del mes.';
     if(th2) th2.textContent='Lecturas';
     if(th3) th3.textContent='Mejor lectura';
   } else {
@@ -30323,8 +30329,8 @@ window._fpLiveCheck = function(){
   var lblC1=document.getElementById('fp-lbl-c1'), lblC5=document.getElementById('fp-lbl-c5');
   var inC1=document.getElementById('fp-in-c1'), inC5=document.getElementById('fp-in-c5');
   if(modo==='directo'){
-    if(lblC1) lblC1.textContent='kWh del mes';
-    if(lblC5) lblC5.textContent='kVAr del mes';
+    if(lblC1) lblC1.textContent='kW (potencia activa)';
+    if(lblC5) lblC5.textContent='kVAr (potencia reactiva)';
     if(inC1) inC1.placeholder='p.ej. 3255.79';
     if(inC5) inC5.placeholder='p.ej. 1039.13';
   } else {
@@ -30345,7 +30351,7 @@ window._fpLiveCheck = function(){
   var pctShow, st, metaWarn, extraLine;
   if(modo==='directo'){
     /* Modo directo (T3): no hay código acumulado que restar — el FP de esta lectura es el FP
-       directo de kWh/kVAr del periodo, punto. */
+       directo de kW/kVAr instantáneos, punto. */
     pctShow = fpAcum;
     st = _fpStatus(pctShow);
     metaWarn = _fpMetaWarning(pctShow);
@@ -30480,6 +30486,7 @@ window._fpSyncCloud = function(silent){
 /* ══ EXPORTAR REPORTE FP (PNG / PDF) ══ */
 function _fpReportFilenameBase(){
   var site=(document.getElementById('fp-report-site-sel')||{}).value||'todos';
+  if(site==='__all__') site='todos';
   var meses = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
   var suf = (meses && meses.length) ? ('_'+meses.slice().sort().join('_')) : '';
   return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+suf+'_'+_fpToday();
@@ -30640,7 +30647,7 @@ window._fpRenderReportPreview = function(){
     if(hist.length) chartTargets.push({ id:chartId, hist:hist });
     var chartPlaceholder = hist.length ? ('<div id="'+chartId+'" style="min-height:4px;margin-bottom:10px;border-radius:10px;overflow:hidden"></div>') : '';
     return '<div style="page-break-inside:avoid;margin-bottom:30px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(10,31,94,.08)">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">'+
+      '<div data-pdf-avoid-break="1" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">'+
         '<div style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.3px">'+_fpEsc(site)+'</div>'+
         '<div style="text-align:right">'+
           '<div style="font-size:24px;font-weight:900;color:#ffffff">'+(pct==null?'—':pct.toFixed(2)+'%')+'</div>'+
@@ -30652,8 +30659,8 @@ window._fpRenderReportPreview = function(){
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#eef2fb">'+
           '<th style="padding:8px;text-align:left;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FECHA</th>'+
-          '<th style="padding:8px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KWH DEL MES':'CÓD. 1 (kWh)')+'</th>'+
-          '<th style="padding:8px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KVAR DEL MES':'CÓD. 5 (kVArh)')+'</th>'+
+          '<th style="padding:8px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KW':'CÓD. 1 (kWh)')+'</th>'+
+          '<th style="padding:8px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KVAR':'CÓD. 5 (kVArh)')+'</th>'+
           '<th style="padding:8px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FP</th>'+
           '<th style="padding:8px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">ESTADO</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
@@ -30708,6 +30715,13 @@ window._fpDownloadReportPNG = async function(){
   }catch(err){ console.error('[FP] Error generando PNG:', err); alert('❌ No se pudo generar el PNG.'); }
   if(btn){ btn.textContent=origText; btn.disabled=false; }
 };
+/* Reparte un canvas alto en páginas de PDF SIN cortar filas de tabla a la mitad.
+   El corte "ingenuo" por altura fija cortaba renglones y tarjetas de sitio justo por la
+   mitad, dejando la hoja siguiente con un pedazo suelto y feo. Aquí se miden las filas
+   (<tr>) reales del reporte en pantalla y, si un corte de página cae dentro de una fila,
+   se sube el corte justo arriba de esa fila — la fila completa pasa a la página siguiente.
+   Además, si una tabla queda partida entre dos hojas, se repite su encabezado de columnas
+   arriba en la hoja nueva para que no se vea "incompleta". */
 window._fpDownloadReportPDF = async function(){
   var el=document.getElementById('fp-report-print');
   var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
@@ -30716,23 +30730,98 @@ window._fpDownloadReportPDF = async function(){
   if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
   try{
     if(_fpReportChartsPromise){ try{ await _fpReportChartsPromise; }catch(e){} }
-    var canvas = await html2canvas(el, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
+
+    var scale = 2;
+    var elRect = el.getBoundingClientRect();
+
+    /* Filas y tarjetas que no deben partirse a la mitad, medidas en px de canvas (mismo
+       factor de escala que usará html2canvas). */
+    var avoidNodes = Array.from(el.querySelectorAll('tr, [data-pdf-avoid-break]'));
+    var avoidRects = [];
+    for(var ai=0; ai<avoidNodes.length; ai++){
+      var arc = avoidNodes[ai].getBoundingClientRect();
+      var top = (arc.top - elRect.top) * scale, bot = (arc.bottom - elRect.top) * scale;
+      if(bot > top) avoidRects.push({ top:top, bottom:bot, el:avoidNodes[ai] });
+    }
+
+    /* Encabezados <thead> de cada tabla, para poder repetirlos al inicio de una hoja nueva. */
+    var theadNodes = Array.from(el.querySelectorAll('thead'));
+    var theadRects = [];
+    for(var ti=0; ti<theadNodes.length; ti++){
+      var trc = theadNodes[ti].getBoundingClientRect();
+      theadRects.push({ top:(trc.top-elRect.top)*scale, height: trc.height*scale, table: theadNodes[ti].closest('table') });
+    }
+    function theadFor(table){
+      for(var i=0;i<theadRects.length;i++){ if(theadRects[i].table===table) return theadRects[i]; }
+      return null;
+    }
+
+    var canvas = await html2canvas(el, { scale: scale, backgroundColor:'#ffffff', useCORS:true, logging:false });
+
     var doc = new jsPDFCtor({ unit:'pt', format:'a4' });
     var pageW = doc.internal.pageSize.getWidth();
     var pageH = doc.internal.pageSize.getHeight();
-    var pxPerPt = canvas.width / pageW;
-    var pageHeightPx = Math.floor(pageH * pxPerPt);
-    var totalPages = Math.max(1, Math.ceil(canvas.height / pageHeightPx));
-    for(var i=0;i<totalPages;i++){
-      var sliceH = Math.min(pageHeightPx, canvas.height - i*pageHeightPx);
+    var margin = 24; /* pt — aire alrededor del contenido, para que no toque el borde de la hoja */
+    var pxPerPt = canvas.width / (pageW - margin*2);
+    var usableHeightPx = Math.floor((pageH - margin*2) * pxPerPt);
+
+    /* Calcula los puntos de corte: si el corte natural (cada usableHeightPx) cae dentro de
+       una fila, se sube hasta el borde superior de esa fila. Si esa fila pertenece a una
+       tabla, se recuerda para repetir su encabezado en la hoja que empieza ahí. */
+    var breaks = [{ y:0, headTable:null }];
+    var y = 0, guard = 0;
+    while(y < canvas.height - 4 && guard < 1000){
+      guard++;
+      var headHOfCurrentPage = 0;
+      var lastHead = breaks[breaks.length-1].headTable;
+      if(lastHead){ var lastTh = theadFor(lastHead); if(lastTh) headHOfCurrentPage = lastTh.height; }
+      var budget = usableHeightPx - headHOfCurrentPage;
+      if(budget < 120) budget = usableHeightPx;
+
+      var candidate = Math.min(y + budget, canvas.height);
+      var causingRow = null;
+      if(candidate < canvas.height){
+        var adjusted = candidate;
+        for(var ri=0; ri<avoidRects.length; ri++){
+          var r = avoidRects[ri];
+          if(r.top > y && r.top < candidate && r.bottom > candidate){
+            if(r.top < adjusted){ adjusted = r.top; causingRow = r.el; }
+          }
+        }
+        if(adjusted <= y + 60){ adjusted = candidate; causingRow = null; } /* fila enorme: no forzar bucle infinito */
+        candidate = adjusted;
+      }
+      breaks.push({ y:candidate, headTable: causingRow ? causingRow.closest('table') : null });
+      y = candidate;
+    }
+
+    /* Gancho de depuración opcional (no afecta producción): permite verificar en pruebas que
+       ninguna fila queda partida por un salto de página. */
+    if(window.__FP_PDF_DEBUG__){
+      window.__fpPdfDebug = {
+        breaks: breaks.map(function(b){ return b.y; }),
+        avoidRects: avoidRects.map(function(r){ return { top:r.top, bottom:r.bottom }; }),
+        canvasHeight: canvas.height, usableHeightPx: usableHeightPx
+      };
+    }
+
+    for(var p=0; p<breaks.length-1; p++){
+      var sliceTop = breaks[p].y, sliceBottom = breaks[p+1].y;
+      var repeatTable = p>0 ? breaks[p].headTable : null;
+      var theadRect = repeatTable ? theadFor(repeatTable) : null;
+      var headH = theadRect ? theadRect.height : 0;
+      var contentH = sliceBottom - sliceTop;
+
       var sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width; sliceCanvas.height = sliceH;
+      sliceCanvas.width = canvas.width; sliceCanvas.height = headH + contentH;
       var ctx = sliceCanvas.getContext('2d');
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,sliceCanvas.width,sliceCanvas.height);
-      ctx.drawImage(canvas, 0, i*pageHeightPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-      var imgData = sliceCanvas.toDataURL('image/jpeg', 0.92);
-      if(i>0) doc.addPage();
-      doc.addImage(imgData, 'JPEG', 0, 0, pageW, sliceH/pxPerPt);
+      if(theadRect) ctx.drawImage(canvas, 0, theadRect.top, canvas.width, headH, 0, 0, canvas.width, headH);
+      ctx.drawImage(canvas, 0, sliceTop, canvas.width, contentH, 0, headH, canvas.width, contentH);
+
+      var imgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
+      if(p>0) doc.addPage();
+      doc.addImage(imgData, 'JPEG', margin, margin, pageW - margin*2, sliceCanvas.height/pxPerPt);
     }
     doc.save(_fpReportFilenameBase()+'.pdf');
     _fpToast('✅ PDF descargado');
