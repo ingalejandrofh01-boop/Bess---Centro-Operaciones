@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1787643794_bess_v19_fp_wm_spacing';
+const DEPLOY_TS  = '1787644210_bess_v20_fp_wm_no_overlap';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

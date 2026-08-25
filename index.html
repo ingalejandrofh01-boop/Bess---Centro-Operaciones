@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787643794000">
+<meta name="app-version" content="1787644210000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -29600,23 +29600,28 @@ function _fpBarGradient(ctx, color){
   g.addColorStop(1, color+'8C');
   return g;
 }
-/* Dibuja el logo de Skysense (sin modificaciones) como marca de agua discreta en la esquina
-   superior derecha del area de la grafica — usado en graficas de reportes exportables. */
-/* Marca de agua del logo en la esquina de cada gráfica. Antes se dibujaba diminuta (72px de
-   ancho ≈ 13px de alto, dado que el logo es un rectángulo muy ancho) directamente sobre la
-   rejilla y las líneas punteadas de referencia (Meta/Ideal 98%, etc.) — quedaba ilegible y con
-   una línea punteada atravesándola. Ahora se dibuja más grande y sobre una placa blanca
-   redondeada propia, así queda nítida sin importar qué haya debajo. */
+/* Logo de Skysense (sin modificaciones) como marca en la esquina superior derecha de cada
+   gráfica — usado en las gráficas de reportes exportables.
+   Ojo: el FP casi siempre anda entre 90–100%, es decir pegado al TOPE de la escala (80–100%) —
+   así que cualquier logo dibujado dentro del área de trazo, aunque tenga una placa blanca detrás,
+   termina tapando la línea o los puntos de datos justo ahí. La solución no es un fondo más
+   opaco: es dibujar el logo AFUERA del área de trazo. Cada gráfica que usa este plugin reserva
+   una franja vacía arriba del todo (options.layout.padding.top = FP_WATERMARK_BAND) y el logo se
+   dibuja únicamente en esa franja — nunca puede superponerse a los datos porque Chart.js jamás
+   traza nada ahí. */
+var FP_WATERMARK_BAND = 34; /* debe coincidir con layout.padding.top en cada gráfica que use este plugin */
 var FP_WATERMARK_PLUGIN = {
   id: 'fpSkysenseWatermark',
   afterDraw: function(chart){
     if(!_fpLogoImg.complete || !_fpLogoImg.naturalWidth) return;
     var area = chart.chartArea; if(!area) return;
+    if(area.top < 16) return; /* sin franja reservada arriba, no hay dónde dibujar sin tapar datos */
     var ctx = chart.ctx;
-    var w = 112, h = w * (_fpLogoImg.naturalHeight/_fpLogoImg.naturalWidth);
-    var padX = 10, padY = 7, margin = 8;
-    var bw = w + padX*2, bh = h + padY*2, r = 8;
-    var bx = area.right - bw - margin, by = area.top + margin;
+    var w = 108, h = w * (_fpLogoImg.naturalHeight/_fpLogoImg.naturalWidth);
+    var padX = 9, padY = 5, r = 7;
+    var bw = w + padX*2, bh = h + padY*2;
+    var bx = area.right - bw;
+    var by = Math.max(2, (area.top - bh) / 2); /* centrado verticalmente en la franja reservada */
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(bx+r, by);
@@ -30048,6 +30053,9 @@ window._fpRenderDetail = function(){
     ]},
     plugins:[FP_WATERMARK_PLUGIN],
     options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+      /* Franja vacía reservada arriba para el logo — así nunca tapa la línea de datos, que suele
+         andar pegada al tope de la escala (80–100%). */
+      layout:{ padding:{ top:FP_WATERMARK_BAND } },
       plugins:{
         legend:{ position:'bottom', labels:{ boxWidth:10, usePointStyle:true, pointStyle:'circle', padding:14, font:{ family:"'DM Mono',monospace", size:9.5 } } },
         tooltip:Object.assign({}, FP_TOOLTIP_STYLE, { callbacks:{ label:function(ctx){ return ctx.dataset.label+': '+(ctx.raw==null?'—':ctx.raw.toFixed(2)+'%'); } } })
@@ -30242,6 +30250,7 @@ window._fpRenderMonthly = function(){
       },
       plugins:[FP_WATERMARK_PLUGIN],
       options:{ responsive:true, maintainAspectRatio:false,
+        layout:{ padding:{ top:FP_WATERMARK_BAND } },
         plugins:{ legend:{display:false},
           tooltip:Object.assign({}, FP_TOOLTIP_STYLE, { callbacks:{ label:function(ctx){
             if(ctx.dataset.type==='line') return ctx.dataset.label;
@@ -30612,6 +30621,7 @@ function _fpBuildReportChartImg(hist){
         ]},
         plugins:[whiteBgPlugin, FP_WATERMARK_PLUGIN],
         options:{ responsive:false, animation:false, devicePixelRatio:2,
+          layout:{ padding:{ top:FP_WATERMARK_BAND } },
           plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, usePointStyle:true, pointStyle:'circle', font:{ family:'Arial', size:11 } } } },
           scales:{
             x:{ grid:{ display:false } },
