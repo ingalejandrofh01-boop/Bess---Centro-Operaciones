@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t3-modo-directo-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t3-fpacum-dedup-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787631400000">
+<meta name="app-version" content="1787631900000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -30025,7 +30025,7 @@ window._fpRenderHist = function(){
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo1)+'</td>'+
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo5)+'</td>'+
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+delta+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtPct(r.fpAcum)+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+(modoR==='directo' ? '<span style="color:var(--t3)" title="En lectura directa, FP acumulado y FP vigente son el mismo dato">= FP vigente</span>' : _fpFmtPct(r.fpAcum))+'</td>'+
       '<td style="padding:8px 10px;text-align:center">'+_fpBadge(pct)+'</td>'+
       '<td style="padding:8px 10px;text-align:center"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+st.color+'"></span></td>'+
       '<td style="padding:8px 10px;text-align:center;white-space:nowrap">'+
@@ -30531,14 +30531,22 @@ window._fpRenderReportPreview = function(){
     if(mesesSel) hist = hist.filter(function(h){ return mesesSel.indexOf(_fpMonthKey(h.fecha))>-1; });
     var pct = hist.length ? (hist[hist.length-1].fpPeriodo!=null ? hist[hist.length-1].fpPeriodo : hist[hist.length-1].fpAcum) : null;
     var st=_fpStatus(pct);
+    var modoSite = _fpSiteMode(site);
+    /* Modo 'directo' (T3): fpAcum y fpPeriodo son SIEMPRE el mismo número (no hay código que
+       restar), así que mostrar dos columnas de FP idénticas solo confunde — una sola columna
+       "FP" basta. Modo 'acumulado' (T4) sí conserva las dos, porque de verdad son datos distintos. */
     var rowsHtml = hist.slice().reverse().map(function(h){
-      var hst=_fpStatus(h.fpPeriodo!=null?h.fpPeriodo:h.fpAcum);
+      var pctRow = h.fpPeriodo!=null?h.fpPeriodo:h.fpAcum;
+      var hst=_fpStatus(pctRow);
+      var fpCols = modoSite==='directo'
+        ? '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(pctRow)+'</td>'
+        : '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpFmtPct(h.fpAcum)+'</td>'+
+          '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(pctRow)+'</td>';
       return '<tr>'+
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">'+_fpEsc(_fpFechaCorta(h.fecha))+'</td>'+
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">'+_fpFmtNum(h.codigo1)+'</td>'+
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">'+_fpFmtNum(h.codigo5)+'</td>'+
-        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpFmtPct(h.fpAcum)+'</td>'+
-        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(h.fpPeriodo!=null?h.fpPeriodo:h.fpAcum)+'</td>'+
+        fpCols+
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+
           '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+hst.color+'1A;color:'+hst.color+';font-size:9.5px;font-weight:700">'+hst.short+'</span>'+
         '</td>'+
@@ -30547,6 +30555,10 @@ window._fpRenderReportPreview = function(){
     var chartId = 'fp-report-chart-'+idx;
     if(hist.length) chartTargets.push({ id:chartId, hist:hist });
     var chartPlaceholder = hist.length ? ('<div id="'+chartId+'" style="min-height:4px"></div>') : '';
+    var fpTh = modoSite==='directo'
+      ? '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP</th>'
+      : '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP ACUM.</th>'+
+        '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP PERIODO</th>';
     return '<div style="page-break-inside:avoid;margin-bottom:26px">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0a1f5e;padding-bottom:8px;margin-bottom:12px">'+
         '<div style="font-size:16px;font-weight:800;color:#111827">'+_fpEsc(site)+'</div>'+
@@ -30559,10 +30571,9 @@ window._fpRenderReportPreview = function(){
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#f3f4f6">'+
           '<th style="padding:6px 8px;text-align:left;font-size:9.5px;color:#6b7280">FECHA</th>'+
-          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">'+(_fpSiteMode(site)==='directo'?'KWH DEL MES':'CÓD. 1 (kWh)')+'</th>'+
-          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">'+(_fpSiteMode(site)==='directo'?'KVAR DEL MES':'CÓD. 5 (kVArh)')+'</th>'+
-          '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP ACUM.</th>'+
-          '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">'+(_fpSiteMode(site)==='directo'?'FP LECTURA':'FP PERIODO')+'</th>'+
+          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">'+(modoSite==='directo'?'KWH DEL MES':'CÓD. 1 (kWh)')+'</th>'+
+          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">'+(modoSite==='directo'?'KVAR DEL MES':'CÓD. 5 (kVArh)')+'</th>'+
+          fpTh+
           '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">ESTADO</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
         : '<div style="color:#9ca3af;font-size:11px;padding:10px 0">Sin lecturas registradas.</div>')+
