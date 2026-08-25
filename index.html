@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t3-fpacum-dedup-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t3-trend-chart-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787631900000">
+<meta name="app-version" content="1787632400000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -29947,19 +29947,25 @@ window._fpRenderDetail = function(){
   if(!canvas || typeof Chart==='undefined') return;
   if(_fpCharts['fp-detail-chart']){ try{ _fpCharts['fp-detail-chart'].destroy(); }catch(e){} }
   var hist=_fpSiteHistory(site);
+  var modo=_fpSiteMode(site);
   var labels=hist.map(function(h){ return _fpFechaCorta(h.fecha); });
-  var periodo=hist.map(function(h){ return h.fpPeriodo; });
   var acumulado=hist.map(function(h){ return h.fpAcum; });
   function flat(v){ return labels.map(function(){ return v; }); }
+  /* Modo 'directo' (T3): no existe "FP del periodo" (no hay código que restar) — el dataset
+     salía siempre en null y la línea principal (rellena) se veía vacía, aunque sí había lecturas
+     (se notaban solo por la línea punteada de "FP acumulado"). Con una sola línea de FP, sólida
+     y rellena, se evita esa confusión. Modo 'acumulado' (T4) conserva las dos líneas de siempre. */
+  var seriesDatasets = modo==='directo'
+    ? [{ label:'FP', data:acumulado, borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true }]
+    : [{ label:'FP del periodo', data:hist.map(function(h){ return h.fpPeriodo; }), borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true },
+       { label:'FP acumulado', data:acumulado, borderColor:'#7c3aed', borderWidth:1.5, borderDash:[4,3], tension:.25, pointRadius:2, fill:false }];
   _fpCharts['fp-detail-chart'] = new Chart(canvas, {
     type:'line',
-    data:{ labels:labels, datasets:[
-      { label:'FP del periodo', data:periodo, borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true },
-      { label:'FP acumulado', data:acumulado, borderColor:'#7c3aed', borderWidth:1.5, borderDash:[4,3], tension:.25, pointRadius:2, fill:false },
+    data:{ labels:labels, datasets:seriesDatasets.concat([
       { label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
       { label:'Objetivo (95%)', data:flat(95), borderColor:'#059669', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
       { label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc2626', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false }
-    ]},
+    ])},
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:9.5 } } },
         tooltip:{ callbacks:{ label:function(ctx){ return ctx.dataset.label+': '+(ctx.raw==null?'—':ctx.raw.toFixed(2)+'%'); } } } },
@@ -30480,9 +30486,15 @@ function _fpBuildReportChartImg(hist){
     canvas.style.width='900px'; canvas.style.height='340px';
     document.body.appendChild(canvas);
     var labels = hist.map(function(h){ return _fpFechaCorta(h.fecha); });
-    var periodo = hist.map(function(h){ return h.fpPeriodo; });
     var acumulado = hist.map(function(h){ return h.fpAcum; });
+    var modo = hist.length ? _fpSiteMode(hist[0].sitio) : 'acumulado';
     function flat(v){ return labels.map(function(){ return v; }); }
+    /* Igual que en _fpRenderDetail: en modo 'directo' (T3) "FP del periodo" no existe (siempre
+       null), así que se usa una sola línea de FP en vez de dejar la principal vacía. */
+    var seriesDatasets = modo==='directo'
+      ? [{ label:'FP', data:acumulado, borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true }]
+      : [{ label:'FP del periodo', data:hist.map(function(h){ return h.fpPeriodo; }), borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true },
+         { label:'FP acumulado', data:acumulado, borderColor:'#7c3aed', borderWidth:1.5, borderDash:[4,3], tension:.25, pointRadius:2, fill:false }];
     var chart=null;
     function cleanupAndResolve(img){
       try{ if(chart) chart.destroy(); }catch(e){}
@@ -30492,13 +30504,11 @@ function _fpBuildReportChartImg(hist){
     try{
       chart = new Chart(canvas, {
         type:'line',
-        data:{ labels:labels, datasets:[
-          { label:'FP del periodo', data:periodo, borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true },
-          { label:'FP acumulado', data:acumulado, borderColor:'#7c3aed', borderWidth:1.5, borderDash:[4,3], tension:.25, pointRadius:2, fill:false },
+        data:{ labels:labels, datasets:seriesDatasets.concat([
           { label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
           { label:'Objetivo (95%)', data:flat(95), borderColor:'#059669', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
           { label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc2626', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false }
-        ]},
+        ])},
         options:{ responsive:false, animation:false,
           plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:11 } } } },
           scales:{ y:{ suggestedMin:80, suggestedMax:100, ticks:{ callback:function(v){return v+'%';} } } }
