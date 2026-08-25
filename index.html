@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-mensual-encadenado-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t4-jun-jul-ago-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787629151000">
+<meta name="app-version" content="1787629764000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -29639,7 +29639,7 @@ function _fpPullCloud(cb){
    "FP T4 2026" del equipo. FP_SEED_T4_VERSION controla que esta importación se aplique
    UNA sola vez por dispositivo — después de fusionarse, cualquier lectura que el equipo
    agregue o edite se respeta con normalidad, igual que el patrón ya usado en Medidor BESS. ══ */
-var FP_SEED_T4_VERSION = '2026-08-25-v1-t4-historico';
+var FP_SEED_T4_VERSION = '2026-08-25-v2-t4-historico-jun-jul-ago';
 var FP_SEED_T4 = [
   { fecha:'2025-11-10', codigo1:23270, codigo5:9384 },
   { fecha:'2025-11-21', codigo1:23489, codigo5:9479 },
@@ -29680,7 +29680,13 @@ var FP_SEED_T4 = [
   { fecha:'2026-06-05', codigo1:28006, codigo5:10588, nota:'Banco de capacitores: 200 kVAr' },
   { fecha:'2026-06-08', codigo1:28087, codigo5:10598, nota:'Banco de capacitores: 200 kVAr' },
   { fecha:'2026-06-10', codigo1:28139, codigo5:10605, nota:'Banco de capacitores: 200 kVAr' },
-  { fecha:'2026-06-12', codigo1:28195, codigo5:10613, nota:'Banco de capacitores: 200 kVAr' }
+  { fecha:'2026-06-12', codigo1:28195, codigo5:10613, nota:'Banco de capacitores: 200 kVAr' },
+  { fecha:'2026-06-29', codigo1:28682, codigo5:10677, nota:'Banco de capacitores: 200 kVAr' },
+  { fecha:'2026-07-01', codigo1:28738, codigo5:10684, nota:'Banco de capacitores: 200 kVAr' },
+  { fecha:'2026-07-17', codigo1:29185, codigo5:10750, nota:'Banco de capacitores: 200 kVAr' },
+  { fecha:'2026-07-31', codigo1:29565, codigo5:10819, nota:'Banco de capacitores: 200 kVAr' },
+  { fecha:'2026-08-15', codigo1:29981, codigo5:10891, nota:'Banco de capacitores: 200 kVAr' },
+  { fecha:'2026-08-22', codigo1:30179, codigo5:10925, nota:'Banco de capacitores: 200 kVAr' }
 ];
 function _fpApplySeedT4(){
   try{
