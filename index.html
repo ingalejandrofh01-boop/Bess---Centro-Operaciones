@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-reporte-meses-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-mensual-encadenado-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787621191000">
+<meta name="app-version" content="1787629151000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -8159,7 +8159,60 @@ async function expDoZip(mode){
       </div>
       <div id="fp-info-body" style="font-family:var(--body);font-size:12px;color:var(--t2);line-height:1.6">
         El <b>Factor de Potencia (FP)</b> mide qué tan eficiente es el uso de la energía eléctrica: compara la potencia activa (kWh, la que realmente hace trabajo) contra la potencia aparente total (que incluye la <b>energía reactiva</b> o kVArh, la que consumen motores, transformadores y equipos inductivos sin producir trabajo útil). Se calcula del medidor con la fórmula
-        <b>FP = Código 1 / √(Código 1² + Código 5²)</b>. Cuando instalamos <b>bancos de capacitores</b> (reactivos), compensamos esa energía reactiva y el FP sube — por eso el historial y la tendencia de esta página sirven para ver, en la práctica, cómo van mejorando los sitios después de cada ajuste.
+        <b>FP = Código 1 / √(Código 1² + Código 5²)</b>.
+
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px 10px 10px;margin:14px 0">
+          <div style="text-align:center;font-family:var(--disp);font-weight:800;font-size:11.5px;color:var(--text);letter-spacing:.3px;margin-bottom:2px">TRIÁNGULO DE POTENCIAS — ¿QUÉ HACE UN BANCO DE CAPACITORES?</div>
+          <svg viewBox="0 0 680 250" style="width:100%;max-width:640px;height:auto;display:block;margin:4px auto" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="fpArrowBlue" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1255d4"/></marker>
+              <marker id="fpArrowGreen" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#059669"/></marker>
+              <marker id="fpArrowOrange" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#ea6c00"/></marker>
+            </defs>
+
+            <!-- Panel izquierdo: SIN banco de capacitores -->
+            <text x="126" y="20" text-anchor="middle" font-family="var(--mono)" font-size="10.5" font-weight="700" fill="#dc2626" letter-spacing=".5">SIN BANCO DE CAPACITORES</text>
+            <line x1="45" y1="190" x2="205" y2="190" stroke="#059669" stroke-width="3" marker-end="url(#fpArrowGreen)"/>
+            <text x="122" y="210" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="#059669" font-weight="700">kW</text>
+            <line x1="208" y1="190" x2="208" y2="63" stroke="#ea6c00" stroke-width="3" marker-end="url(#fpArrowOrange)"/>
+            <text x="230" y="122" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="#ea6c00" font-weight="700">kVAr</text>
+            <line x1="45" y1="190" x2="208" y2="60" stroke="#1255d4" stroke-width="3" marker-end="url(#fpArrowBlue)"/>
+            <text x="88" y="106" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="#1255d4" font-weight="700" transform="rotate(-51 88 106)">kVA</text>
+            <path d="M208,190 L196,190 L196,178 L208,178" fill="none" stroke="#9aa4c2" stroke-width="1.3"/>
+            <path d="M85,190 A40,40 0 0 0 71,155" fill="none" stroke="#9aa4c2" stroke-width="1.3"/>
+            <text x="92" y="172" font-family="var(--mono)" font-size="12" fill="var(--t2)" font-style="italic">φ</text>
+            <text x="122" y="232" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="#dc2626" font-weight="700">FP bajo (ejemplo)</text>
+
+            <!-- Flecha central + icono de capacitor -->
+            <line x1="262" y1="122" x2="408" y2="122" stroke="#9aa4c2" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#fpArrowBlue)"/>
+            <line x1="325" y1="103" x2="325" y2="141" stroke="var(--text)" stroke-width="3.5"/>
+            <line x1="339" y1="103" x2="339" y2="141" stroke="var(--text)" stroke-width="3.5"/>
+            <line x1="300" y1="122" x2="325" y2="122" stroke="var(--text)" stroke-width="2"/>
+            <line x1="339" y1="122" x2="365" y2="122" stroke="var(--text)" stroke-width="2"/>
+            <text x="332" y="92" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--t2)" font-weight="700">BANCO DE</text>
+            <text x="332" y="163" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--t2)" font-weight="700">CAPACITORES</text>
+
+            <!-- Panel derecho: CON banco -->
+            <text x="536" y="20" text-anchor="middle" font-family="var(--mono)" font-size="10.5" font-weight="700" fill="#00a97a" letter-spacing=".5">CON BANCO DE CAPACITORES</text>
+            <line x1="455" y1="190" x2="615" y2="190" stroke="#059669" stroke-width="3" marker-end="url(#fpArrowGreen)"/>
+            <text x="532" y="210" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="#059669" font-weight="700">kW</text>
+            <line x1="618" y1="190" x2="618" y2="148" stroke="#ea6c00" stroke-width="3" marker-end="url(#fpArrowOrange)"/>
+            <text x="643" y="165" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#ea6c00" font-weight="700">kVAr</text>
+            <line x1="455" y1="190" x2="618" y2="148" stroke="#1255d4" stroke-width="3" marker-end="url(#fpArrowBlue)"/>
+            <text x="516" y="159" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="#1255d4" font-weight="700" transform="rotate(-15.5 516 159)">kVA</text>
+            <path d="M618,190 L606,190 L606,178 L618,178" fill="none" stroke="#9aa4c2" stroke-width="1.3"/>
+            <path d="M493,190 A38,38 0 0 0 487,178" fill="none" stroke="#9aa4c2" stroke-width="1.3"/>
+            <text x="497" y="185" font-family="var(--mono)" font-size="11" fill="var(--t2)" font-style="italic">φ</text>
+            <text x="532" y="232" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="#00a97a" font-weight="700">FP alto (ejemplo)</text>
+          </svg>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;padding:6px 6px 2px;font-family:var(--mono);font-size:9.5px">
+            <span style="color:#1255d4;font-weight:700">■ kVA — Potencia aparente (lo que ve el medidor)</span>
+            <span style="color:#059669;font-weight:700">■ kW — Potencia activa (la que trabaja)</span>
+            <span style="color:#ea6c00;font-weight:700">■ kVAr — Potencia reactiva (la que se pierde)</span>
+          </div>
+        </div>
+
+        El triángulo explica por qué: <b>kW</b> es la energía que de verdad mueve motores y hace trabajo útil; <b>kVAr</b> es la energía "de sobra" que consumen motores, transformadores y equipos inductivos solo para magnetizarse, sin producir nada; y <b>kVA</b> es lo que el medidor termina viendo en total (la suma de ambas). El FP es, literalmente, el <b>coseno del ángulo φ</b> entre kW y kVA — mientras más grande el kVAr, más se "abre" ese ángulo y más bajo es el FP. Al instalar un <b>banco de capacitores</b>, este inyecta potencia reactiva capacitiva que cancela la inductiva de motores y transformadores: el kVAr neto que ve el medidor baja, el ángulo φ se cierra, y el FP sube — justo lo que se ve en el "antes / después" de arriba, y es la mejora real que este historial y esta tendencia buscan capturar.
         <br><br>CFE exige un FP mínimo (típicamente 90%) y penaliza económicamente por debajo de ese umbral; entre 90% y 95% ya se pierden bonificaciones. Nuestra meta interna es más estricta:
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -8194,17 +8247,16 @@ async function expDoZip(mode){
         <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#ea6c00;border-radius:2px;display:inline-block;flex-shrink:0"></span>📅 Resumen mensual</div>
         <select id="fp-month-site-sel" onchange="window._fpRenderMonthly()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
       </div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Promedio del FP del periodo por mes calendario — para ver de un vistazo qué mes estuvo mejor y cuál peor.</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--t3)">FP del mes = diferencia de Código 1 y Código 5 entre el cierre de este mes y el cierre del mes anterior (mismo método que la hoja de cálculo del equipo). Un mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga datos.</div>
       <div style="position:relative;height:200px"><canvas id="fp-month-chart"></canvas></div>
       <div style="overflow:auto">
         <table style="width:100%;border-collapse:collapse;min-width:520px">
           <thead>
             <tr>
               <th style="padding:6px 8px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mes</th>
-              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Lecturas</th>
-              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Promedio</th>
-              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mínimo</th>
-              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Máximo</th>
+              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh</th>
+              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkVArh</th>
+              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP del mes</th>
               <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Vs. mes anterior</th>
             </tr>
           </thead>
@@ -29902,66 +29954,97 @@ function _fpRenderMonthSiteSelect(){
   sel.innerHTML = FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
   if(cur && FP_SITES.indexOf(cur)>-1) sel.value=cur; else if(FP_SITES.length) sel.value=FP_SITES[0];
 }
-/* Agrupa el historial de un sitio por mes calendario, usando el FP del periodo cuando existe
-   (si no, el acumulado) — para ver qué mes estuvo mejor y cuál peor. */
+/* Calcula el FP de cada mes calendario con la MISMA lógica que la hoja de cálculo del equipo:
+   FP del mes = diferencia de Código 1 y Código 5 entre la ÚLTIMA lectura de ese mes (o la más
+   reciente disponible, si el mes sigue en curso) y la ÚLTIMA lectura del mes anterior — es decir,
+   "cuánto avanzamos código contra código durante el mes", no un promedio de lecturas sueltas.
+   Encadenado: la apertura de cada mes es siempre el cierre del mes anterior (así se ven diciembre,
+   enero y febrero en la hoja del equipo). Un mes sin lecturas propias se salta — su periodo no se
+   pierde, se acumula en el siguiente mes que sí tenga datos (ese mes usa el mismo cierre de más
+   atrás como su apertura). El primer mes con datos de un sitio, al no tener mes anterior con el
+   cual comparar, queda marcado como "sin datos suficientes". */
 function _fpMonthlyGroups(site){
-  var hist = _fpSiteHistory(site);
-  var byMonth = {};
-  hist.forEach(function(h){
-    var key = _fpMonthKey(h.fecha); if(!key) return;
-    var pct = h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum;
-    if(pct==null) return;
-    if(!byMonth[key]) byMonth[key] = [];
-    byMonth[key].push(pct);
+  var hist = _fpSiteReadings(site);
+  if(!hist.length) return [];
+  var monthsWithData = {};
+  hist.forEach(function(h){ var k=_fpMonthKey(h.fecha); if(k) monthsWithData[k]=true; });
+  var monthKeys = Object.keys(monthsWithData).sort();
+  var groups = [];
+  var prevClose = null;
+  monthKeys.forEach(function(key){
+    var inMonth = hist.filter(function(h){ return _fpMonthKey(h.fecha)===key; });
+    var closeReading = inMonth[inMonth.length-1];
+    var openReading = prevClose;
+    var g = { key:key, label:_fpMonthLabel(key), openReading:openReading, closeReading:closeReading,
+      deltaC1:null, deltaC5:null, fp:null, note:'' };
+    if(openReading && closeReading && openReading.id!==closeReading.id){
+      var d1 = closeReading.codigo1 - openReading.codigo1;
+      var d5 = closeReading.codigo5 - openReading.codigo5;
+      if(d1>=0 && d5>=0 && (d1>0||d5>0)){
+        g.deltaC1=d1; g.deltaC5=d5; g.fp=_fpCalc(d1,d5);
+      } else {
+        g.note='⚠️ Los códigos son menores a la lectura anterior — probable reinicio del medidor.';
+      }
+    } else {
+      g.note='Sin lectura del mes anterior con la cual comparar (primeros datos del sitio).';
+    }
+    groups.push(g);
+    prevClose = closeReading;
   });
-  return Object.keys(byMonth).sort().map(function(key){
-    var vals = byMonth[key];
-    var avg = vals.reduce(function(a,b){return a+b;},0)/vals.length;
-    return { key:key, label:_fpMonthLabel(key), count:vals.length, avg:avg, min:Math.min.apply(null,vals), max:Math.max.apply(null,vals) };
-  });
+  return groups;
 }
 window._fpRenderMonthly = function(){
   var sel=document.getElementById('fp-month-site-sel'); if(!sel) return;
   var site=sel.value;
   var groups=_fpMonthlyGroups(site);
+  /* comparación contra el último mes VÁLIDO anterior (no necesariamente el inmediato) */
+  var lastValid=null;
+  groups.forEach(function(g){
+    g.diffVsPrev = (g.fp!=null && lastValid!=null) ? (g.fp-lastValid) : null;
+    if(g.fp!=null) lastValid=g.fp;
+  });
   var canvas=document.getElementById('fp-month-chart');
   if(canvas && typeof Chart!=='undefined'){
     if(_fpCharts['fp-month-chart']){ try{ _fpCharts['fp-month-chart'].destroy(); }catch(e){} }
     _fpCharts['fp-month-chart'] = new Chart(canvas, {
       type:'bar',
       data:{ labels: groups.map(function(g){return g.label;}),
-        datasets:[{ label:'FP promedio del mes', data: groups.map(function(g){return g.avg;}),
-          backgroundColor: groups.map(function(g){return _fpStatus(g.avg).color+'CC';}),
-          borderColor: groups.map(function(g){return _fpStatus(g.avg).color;}), borderWidth:1.5, borderRadius:4 }]
+        datasets:[{ label:'FP del mes', data: groups.map(function(g){return g.fp;}),
+          backgroundColor: groups.map(function(g){ return g.fp!=null ? (_fpStatus(g.fp).color+'CC') : '#9ca3af55'; }),
+          borderColor: groups.map(function(g){ return g.fp!=null ? _fpStatus(g.fp).color : '#9ca3af'; }), borderWidth:1.5, borderRadius:4 }]
       },
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false},
-          tooltip:{ callbacks:{ label:function(ctx){ var g=groups[ctx.dataIndex]; return 'Promedio: '+g.avg.toFixed(2)+'% · min '+g.min.toFixed(1)+'% · max '+g.max.toFixed(1)+'% · '+g.count+' lectura(s)'; } } } },
+          tooltip:{ callbacks:{ label:function(ctx){ var g=groups[ctx.dataIndex]; return g.fp!=null ? ('FP del mes: '+g.fp.toFixed(2)+'%') : 'Sin datos suficientes'; } } } },
         scales:{ y:{ suggestedMin:80, suggestedMax:100, ticks:{ callback:function(v){return v+'%';} } } }
       }
     });
   }
   var tbody=document.getElementById('fp-month-tbody'); if(!tbody) return;
   if(!groups.length){
-    tbody.innerHTML='<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas suficientes para armar el resumen mensual</td></tr>';
+    tbody.innerHTML='<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas suficientes para armar el resumen mensual</td></tr>';
     return;
   }
   var desc = groups.slice().reverse();
-  tbody.innerHTML = desc.map(function(g,i){
-    var prev = desc[i+1];
+  tbody.innerHTML = desc.map(function(g){
+    if(g.fp==null){
+      return '<tr style="border-bottom:1px solid var(--b1)">'+
+        '<td style="padding:7px 8px;font-weight:700;font-family:var(--body);font-size:11px;color:var(--text);vertical-align:top">'+_fpEsc(g.label)+'</td>'+
+        '<td colspan="4" style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:9.5px;color:var(--t3);font-style:italic">'+_fpEsc(g.note||'Sin datos suficientes')+'</td>'+
+      '</tr>';
+    }
+    var periodo = _fpFechaCorta(g.openReading.fecha)+' → '+_fpFechaCorta(g.closeReading.fecha);
     var cmp = '<span style="color:var(--t3)">— sin dato previo</span>';
-    if(prev){
-      var diff = g.avg - prev.avg;
-      var col = diff>0.05 ? '#059669' : (diff<-0.05 ? '#dc2626' : 'var(--t3)');
-      var arrow = diff>0.05 ? '▲' : (diff<-0.05 ? '▼' : '≈');
-      cmp = '<span style="color:'+col+';font-weight:700">'+arrow+' '+(diff>=0?'+':'')+diff.toFixed(2)+' pp</span>';
+    if(g.diffVsPrev!=null){
+      var col = g.diffVsPrev>0.05 ? '#059669' : (g.diffVsPrev<-0.05 ? '#dc2626' : 'var(--t3)');
+      var arrow = g.diffVsPrev>0.05 ? '▲' : (g.diffVsPrev<-0.05 ? '▼' : '≈');
+      cmp = '<span style="color:'+col+';font-weight:700">'+arrow+' '+(g.diffVsPrev>=0?'+':'')+g.diffVsPrev.toFixed(2)+' pp</span>';
     }
     return '<tr style="border-bottom:1px solid var(--b1)">'+
-      '<td style="padding:7px 8px;font-weight:700;font-family:var(--body);font-size:11px;color:var(--text)">'+_fpEsc(g.label)+'</td>'+
-      '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+g.count+'</td>'+
-      '<td style="padding:7px 8px;text-align:center">'+_fpBadge(g.avg)+'</td>'+
-      '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+g.min.toFixed(2)+'%</td>'+
-      '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+g.max.toFixed(2)+'%</td>'+
+      '<td style="padding:7px 8px;vertical-align:top"><div style="font-weight:700;font-family:var(--body);font-size:11px;color:var(--text)">'+_fpEsc(g.label)+'</div><div style="font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-top:2px;white-space:nowrap">'+periodo+'</div></td>'+
+      '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">Δ'+_fpFmtNum(g.deltaC1)+'</td>'+
+      '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">Δ'+_fpFmtNum(g.deltaC5)+'</td>'+
+      '<td style="padding:7px 8px;text-align:center">'+_fpBadge(g.fp)+'</td>'+
       '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px">'+cmp+'</td>'+
     '</tr>';
   }).join('');
@@ -30197,14 +30280,69 @@ window._fpOpenExportReport = function(){
   document.getElementById('fp-report-modal').style.display='flex';
   window._fpRenderReportPreview();
 };
+/* ══ GRÁFICA DEL REPORTE (siempre acorde a lo exportado) ══
+   Arma la misma gráfica de "Tendencia del FP" pero sobre un historial YA FILTRADO
+   (los meses elegidos para el reporte), en un canvas temporal fuera de pantalla —
+   así la gráfica del reporte SIEMPRE corresponde a los meses que se están exportando,
+   sin depender de qué sitio esté seleccionado en la pestaña "Tendencia del FP". */
+var _fpReportRenderToken = 0;
+var _fpReportChartsPromise = null;
+function _fpBuildReportChartImg(hist){
+  return new Promise(function(resolve){
+    if(!hist.length || typeof Chart==='undefined'){ resolve(''); return; }
+    var canvas = document.createElement('canvas');
+    canvas.width = 900; canvas.height = 340;
+    canvas.style.position='fixed'; canvas.style.left='-99999px'; canvas.style.top='0';
+    canvas.style.width='900px'; canvas.style.height='340px';
+    document.body.appendChild(canvas);
+    var labels = hist.map(function(h){ return _fpFechaCorta(h.fecha); });
+    var periodo = hist.map(function(h){ return h.fpPeriodo; });
+    var acumulado = hist.map(function(h){ return h.fpAcum; });
+    function flat(v){ return labels.map(function(){ return v; }); }
+    var chart=null;
+    function cleanupAndResolve(img){
+      try{ if(chart) chart.destroy(); }catch(e){}
+      try{ document.body.removeChild(canvas); }catch(e){}
+      resolve(img||'');
+    }
+    try{
+      chart = new Chart(canvas, {
+        type:'line',
+        data:{ labels:labels, datasets:[
+          { label:'FP del periodo', data:periodo, borderColor:'#1255d4', backgroundColor:'rgba(18,85,212,.08)', borderWidth:2.5, spanGaps:true, tension:.25, pointRadius:3, pointBackgroundColor:'#1255d4', fill:true },
+          { label:'FP acumulado', data:acumulado, borderColor:'#7c3aed', borderWidth:1.5, borderDash:[4,3], tension:.25, pointRadius:2, fill:false },
+          { label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
+          { label:'Objetivo (95%)', data:flat(95), borderColor:'#059669', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false },
+          { label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc2626', borderWidth:1, borderDash:[2,3], pointRadius:0, fill:false }
+        ]},
+        options:{ responsive:false, animation:false,
+          plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:11 } } } },
+          scales:{ y:{ suggestedMin:80, suggestedMax:100, ticks:{ callback:function(v){return v+'%';} } } }
+        }
+      });
+    }catch(e){ cleanupAndResolve(''); return; }
+    /* animation:false ya deja el primer draw() listo de forma síncrona, pero se espera
+       un par de frames extra por seguridad antes de leer el canvas como imagen. */
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        var img='';
+        try{ img = chart.toBase64Image(); }catch(e){}
+        cleanupAndResolve(img);
+      });
+    });
+  });
+}
+
 window._fpRenderReportPreview = function(){
   var siteSel=(document.getElementById('fp-report-site-sel')||{}).value||'__all__';
   var sites = siteSel==='__all__' ? FP_SITES.slice() : [siteSel];
   var mesesSel = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
   var genUser = localStorage.getItem('bess_uname') || 'Operador';
   var genDate = new Date().toLocaleString('es-MX',{ dateStyle:'long', timeStyle:'short' });
+  var myToken = ++_fpReportRenderToken;
+  var chartTargets = [];
 
-  var sections = sites.map(function(site){
+  var sections = sites.map(function(site, idx){
     var hist=_fpSiteHistory(site);
     if(mesesSel) hist = hist.filter(function(h){ return mesesSel.indexOf(_fpMonthKey(h.fecha))>-1; });
     var pct = hist.length ? (hist[hist.length-1].fpPeriodo!=null ? hist[hist.length-1].fpPeriodo : hist[hist.length-1].fpAcum) : null;
@@ -30222,11 +30360,9 @@ window._fpRenderReportPreview = function(){
         '</td>'+
       '</tr>';
     }).join('');
-    var chartImg = '';
-    var chartInst = _fpCharts['fp-detail-chart'];
-    if(!mesesSel && chartInst && document.getElementById('fp-detail-site-sel') && document.getElementById('fp-detail-site-sel').value===site){
-      try{ chartImg = '<img src="'+chartInst.toBase64Image()+'" style="width:100%;max-width:700px;display:block;margin:14px auto">'; }catch(e){}
-    }
+    var chartId = 'fp-report-chart-'+idx;
+    if(hist.length) chartTargets.push({ id:chartId, hist:hist });
+    var chartPlaceholder = hist.length ? ('<div id="'+chartId+'" style="min-height:4px"></div>') : '';
     return '<div style="page-break-inside:avoid;margin-bottom:26px">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0a1f5e;padding-bottom:8px;margin-bottom:12px">'+
         '<div style="font-size:16px;font-weight:800;color:#111827">'+_fpEsc(site)+'</div>'+
@@ -30235,7 +30371,7 @@ window._fpRenderReportPreview = function(){
           '<div style="font-size:10px;color:'+st.color+';font-weight:700">'+st.label+'</div>'+
         '</div>'+
       '</div>'+
-      chartImg+
+      chartPlaceholder+
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#f3f4f6">'+
           '<th style="padding:6px 8px;text-align:left;font-size:9.5px;color:#6b7280">FECHA</th>'+
@@ -30272,6 +30408,14 @@ window._fpRenderReportPreview = function(){
     '<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:9.5px;color:#9ca3af;text-align:center">Generado automáticamente por Centro BESS · Skysense Energy</div>'+
   '</div>';
   document.getElementById('fp-report-print').innerHTML = html;
+
+  _fpReportChartsPromise = Promise.all(chartTargets.map(function(t){
+    return _fpBuildReportChartImg(t.hist).then(function(img){
+      if(myToken !== _fpReportRenderToken) return; /* el usuario ya cambió el filtro — descarta este resultado viejo */
+      var el = document.getElementById(t.id);
+      if(el && img) el.innerHTML = '<img src="'+img+'" style="width:100%;max-width:700px;display:block;margin:14px auto">';
+    });
+  }));
 };
 window._fpDownloadReportPNG = async function(){
   var el=document.getElementById('fp-report-print');
@@ -30279,6 +30423,7 @@ window._fpDownloadReportPNG = async function(){
   var btn=document.getElementById('fp-report-btn-png'); var origText=btn?btn.textContent:'';
   if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
   try{
+    if(_fpReportChartsPromise){ try{ await _fpReportChartsPromise; }catch(e){} }
     var canvas = await html2canvas(el, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
     var a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=_fpReportFilenameBase()+'.png';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -30293,6 +30438,7 @@ window._fpDownloadReportPDF = async function(){
   var btn=document.getElementById('fp-report-btn-pdf'); var origText=btn?btn.textContent:'';
   if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
   try{
+    if(_fpReportChartsPromise){ try{ await _fpReportChartsPromise; }catch(e){} }
     var canvas = await html2canvas(el, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
     var doc = new jsPDFCtor({ unit:'pt', format:'a4' });
     var pageW = doc.internal.pageSize.getWidth();
