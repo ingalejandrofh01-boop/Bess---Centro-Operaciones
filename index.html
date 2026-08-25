@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787642954000">
+<meta name="app-version" content="1787643794000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -29602,17 +29602,35 @@ function _fpBarGradient(ctx, color){
 }
 /* Dibuja el logo de Skysense (sin modificaciones) como marca de agua discreta en la esquina
    superior derecha del area de la grafica — usado en graficas de reportes exportables. */
+/* Marca de agua del logo en la esquina de cada gráfica. Antes se dibujaba diminuta (72px de
+   ancho ≈ 13px de alto, dado que el logo es un rectángulo muy ancho) directamente sobre la
+   rejilla y las líneas punteadas de referencia (Meta/Ideal 98%, etc.) — quedaba ilegible y con
+   una línea punteada atravesándola. Ahora se dibuja más grande y sobre una placa blanca
+   redondeada propia, así queda nítida sin importar qué haya debajo. */
 var FP_WATERMARK_PLUGIN = {
   id: 'fpSkysenseWatermark',
   afterDraw: function(chart){
     if(!_fpLogoImg.complete || !_fpLogoImg.naturalWidth) return;
     var area = chart.chartArea; if(!area) return;
     var ctx = chart.ctx;
-    var w = 72, h = w * (_fpLogoImg.naturalHeight/_fpLogoImg.naturalWidth);
-    var x = area.right - w - 4, y = area.top + 4;
+    var w = 112, h = w * (_fpLogoImg.naturalHeight/_fpLogoImg.naturalWidth);
+    var padX = 10, padY = 7, margin = 8;
+    var bw = w + padX*2, bh = h + padY*2, r = 8;
+    var bx = area.right - bw - margin, by = area.top + margin;
     ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(_fpLogoImg, x, y, w, h);
+    ctx.beginPath();
+    ctx.moveTo(bx+r, by);
+    ctx.arcTo(bx+bw, by, bx+bw, by+bh, r);
+    ctx.arcTo(bx+bw, by+bh, bx, by+bh, r);
+    ctx.arcTo(bx, by+bh, bx, by, r);
+    ctx.arcTo(bx, by, bx+bw, by, r);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,.96)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(26,63,204,.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.drawImage(_fpLogoImg, bx+padX, by+padY, w, h);
     ctx.restore();
   }
 };
@@ -29623,6 +29641,9 @@ var FP_TOOLTIP_STYLE = {
   titleFont:{ family:"'DM Mono',monospace", size:11, weight:'700' },
   bodyFont:{ family:"'DM Mono',monospace", size:11 }
 };
+/* Gancho de depuración opcional (no afecta producción): expone referencias internas del módulo
+   para poder probarlas desde fuera en pruebas automatizadas. */
+if(window.__FP_DEBUG__){ window.__fpDebugRefs = { FP_WATERMARK_PLUGIN: FP_WATERMARK_PLUGIN, _fpLogoImg: _fpLogoImg }; }
 
 var FP_LIST  = [];   // lecturas: {id, sitio, fecha, codigo1, codigo5, nota, createdAt}
 var FP_SITES = [];   // sitios activos con seguimiento de FP
@@ -30634,11 +30655,11 @@ window._fpRenderReportPreview = function(){
       var hst=_fpStatus(pctRow);
       var zebra = ridx%2===1 ? 'background:#f9fafb;' : '';
       return '<tr style="'+zebra+'">'+
-        '<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb">'+_fpEsc(_fpFechaCorta(h.fecha))+'</td>'+
-        '<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo1)+'</td>'+
-        '<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo5)+'</td>'+
-        '<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(pctRow)+'</td>'+
-        '<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb">'+_fpEsc(_fpFechaCorta(h.fecha))+'</td>'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo1)+'</td>'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo5)+'</td>'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(pctRow)+'</td>'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+
           '<span style="display:inline-block;padding:2px 9px;border-radius:10px;background:'+hst.color+'1A;color:'+hst.color+';font-size:9.5px;font-weight:700">'+hst.short+'</span>'+
         '</td>'+
       '</tr>';
@@ -30646,7 +30667,7 @@ window._fpRenderReportPreview = function(){
     var chartId = 'fp-report-chart-'+idx;
     if(hist.length) chartTargets.push({ id:chartId, hist:hist });
     var chartPlaceholder = hist.length ? ('<div id="'+chartId+'" style="min-height:4px;margin-bottom:10px;border-radius:10px;overflow:hidden"></div>') : '';
-    return '<div style="page-break-inside:avoid;margin-bottom:30px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(10,31,94,.08)">'+
+    return '<div style="page-break-inside:avoid;margin-bottom:38px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(10,31,94,.08)">'+
       '<div data-pdf-avoid-break="1" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">'+
         '<div style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.3px">'+_fpEsc(site)+'</div>'+
         '<div style="text-align:right">'+
@@ -30658,11 +30679,11 @@ window._fpRenderReportPreview = function(){
       chartPlaceholder+
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#eef2fb">'+
-          '<th style="padding:8px;text-align:left;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FECHA</th>'+
-          '<th style="padding:8px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KW':'CÓD. 1 (kWh)')+'</th>'+
-          '<th style="padding:8px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KVAR':'CÓD. 5 (kVArh)')+'</th>'+
-          '<th style="padding:8px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FP</th>'+
-          '<th style="padding:8px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">ESTADO</th>'+
+          '<th style="padding:12px;text-align:left;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FECHA</th>'+
+          '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KW':'CÓD. 1 (kWh)')+'</th>'+
+          '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KVAR':'CÓD. 5 (kVArh)')+'</th>'+
+          '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FP</th>'+
+          '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">ESTADO</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
         : '<div style="color:#9ca3af;font-size:11px;padding:10px 0">Sin lecturas registradas.</div>')+
       '</div>'+
@@ -30761,9 +30782,13 @@ window._fpDownloadReportPDF = async function(){
     var doc = new jsPDFCtor({ unit:'pt', format:'a4' });
     var pageW = doc.internal.pageSize.getWidth();
     var pageH = doc.internal.pageSize.getHeight();
-    var margin = 24; /* pt — aire alrededor del contenido, para que no toque el borde de la hoja */
+    var margin = 40; /* pt — aire alrededor del contenido, para que no toque el borde de la hoja */
     var pxPerPt = canvas.width / (pageW - margin*2);
-    var usableHeightPx = Math.floor((pageH - margin*2) * pxPerPt);
+    /* Además del margen, se deja un colchón extra al fondo de cada hoja: sin esto, una página
+       "llena" terminaba justo pegada al margen inferior — se veía apretada, sin aire, aunque
+       ninguna fila quedara cortada. */
+    var bottomBufferPx = Math.round(18 * pxPerPt);
+    var usableHeightPx = Math.floor((pageH - margin*2) * pxPerPt) - bottomBufferPx;
 
     /* Calcula los puntos de corte: si el corte natural (cada usableHeightPx) cae dentro de
        una fila, se sube hasta el borde superior de esa fila. Si esa fila pertenece a una
