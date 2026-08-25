@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t4-jun-jul-ago-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t3-modo-directo-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787629764000">
+<meta name="app-version" content="1787631400000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -8137,7 +8137,7 @@ async function expDoZip(mode){
     <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--text)">⚡ Factor de Potencia — Control y Monitoreo</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:2px">Código 1 (kWh) y Código 5 (kVArh) del medidor ELSTER A3RAL · Cálculo automático · Historial y tendencia</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:2px">Código 1/5 acumulados (T4, medidor ELSTER A3RAL) o kWh/kVAr directos del periodo (T3) según el sitio · Cálculo automático · Historial y tendencia</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="window._fpOpenForm()" style="padding:9px 16px;background:linear-gradient(135deg,#1a3fcc,#1255d4);border:none;border-radius:8px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">+ Nueva Lectura</button>
@@ -8247,15 +8247,15 @@ async function expDoZip(mode){
         <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#ea6c00;border-radius:2px;display:inline-block;flex-shrink:0"></span>📅 Resumen mensual</div>
         <select id="fp-month-site-sel" onchange="window._fpRenderMonthly()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
       </div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--t3)">FP del mes = diferencia de Código 1 y Código 5 entre el cierre de este mes y el cierre del mes anterior (mismo método que la hoja de cálculo del equipo). Un mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga datos.</div>
+      <div id="fp-month-explainer" style="font-family:var(--mono);font-size:9px;color:var(--t3)">FP del mes = diferencia de Código 1 y Código 5 entre el cierre de este mes y el cierre del mes anterior (mismo método que la hoja de cálculo del equipo). Un mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga datos.</div>
       <div style="position:relative;height:200px"><canvas id="fp-month-chart"></canvas></div>
       <div style="overflow:auto">
         <table style="width:100%;border-collapse:collapse;min-width:520px">
           <thead>
             <tr>
               <th style="padding:6px 8px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mes</th>
-              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh</th>
-              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkVArh</th>
+              <th id="fp-month-th-2" style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh</th>
+              <th id="fp-month-th-3" style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkVArh</th>
               <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP del mes</th>
               <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Vs. mes anterior</th>
             </tr>
@@ -8289,11 +8289,11 @@ async function expDoZip(mode){
           <tr>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Fecha</th>
-            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Código 1 (kWh)</th>
-            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Código 5 (kVArh)</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kWh</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kVAr / kVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh / ΔkVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP acumulado</th>
-            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP del periodo</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP vigente</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Acciones</th>
           </tr>
@@ -8301,7 +8301,7 @@ async function expDoZip(mode){
         <tbody id="fp-hist-tbody"></tbody>
       </table>
     </div>
-    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP acumulado = calculado directo sobre las lecturas crudas del medidor (Código 1 / Código 5). FP del periodo = calculado sobre la diferencia contra la lectura anterior del mismo sitio — refleja mejor el comportamiento reciente y es el que dispara las alertas de color.</div>
+    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP acumulado = calculado directo sobre las lecturas crudas del medidor (Código 1 / Código 5). FP vigente = el que dispara las alertas de color — en sitios con código acumulado (p.ej. T4) es la diferencia contra la lectura anterior; en sitios de lectura directa (p.ej. T3, donde kWh/kVAr ya vienen del periodo) es el mismo FP acumulado de esa lectura.</div>
 
   </div>
 
@@ -8321,10 +8321,10 @@ async function expDoZip(mode){
           <input type="date" id="fp-in-fecha" onchange="window._fpLiveCheck()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
         </label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Código 1 — kWh
+          <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px"><span id="fp-lbl-c1">Código 1 — kWh</span>
             <input type="number" step="any" id="fp-in-c1" oninput="window._fpLiveCheck()" placeholder="p.ej. 23270" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
           </label>
-          <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Código 5 — kVArh
+          <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px"><span id="fp-lbl-c5">Código 5 — kVArh</span>
             <input type="number" step="any" id="fp-in-c5" oninput="window._fpLiveCheck()" placeholder="p.ej. 9384" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
           </label>
         </div>
@@ -29540,6 +29540,33 @@ var FP_SITES_SEED = ['T3','T4'];
    sea siempre consistente entre módulos al agregar uno nuevo a seguimiento de FP. */
 var FP_KNOWN_SITES = ['Almacén General','Alpha','BHS','Comedor','FBO','PTAR','Sala Bravo','T1','T2','T3','T4','Hidro','HUX 01','HUX 02','Minatitlán','Veracruz','Mérida','Acapulco','CD Juárez','Chihuahua 2G','Chihuahua','Culiacán','Durango','Monterrey','Torreón','Zacatecas','Zihuatanejo','Reynosa','DISEKO','Alysa','Vitrogenera','RegioPet 1','RegioPet 2','RegioPet 3','Bocar','Telas Asturcón','IPASA','TOTIS','FM boca del río','Tejidos y texturizados','Resideo','Brom','Vesta','THOR','Park Royal Luna','Park Royal Sol','LG','FM MERIDA','ABADIMEX','Park Royal Cozumel','Vidanta','Park Royal CBE','Plastiexports 1','Plastiexports 3','Fisfiber','Tuk','VALLARTA','BIDASOA'];
 
+/* Tamaño del banco de capacitores instalado por sitio (kVAr por unidad BESS) — solo
+   referencia informativa que se muestra al capturar/revisar lecturas de FP. Agregar
+   aquí conforme se conozcan los demás sitios.
+   T3: banco de 250 kVAr instalado a partir del 20/ago/2026 — antes de esa fecha el
+   sitio no tenía compensación reactiva. */
+var FP_SITE_CAPACITOR = { 'T4': 200, 'T3': 250 };
+function _fpCapacitorInfo(site){ return FP_SITE_CAPACITOR.hasOwnProperty(site) ? FP_SITE_CAPACITOR[site] : null; }
+
+/* Modo de cálculo por sitio:
+   'acumulado' (default) — el medidor entrega Código 1 / Código 5 como registros que suben
+     sin parar; el FP del periodo sale de la diferencia contra la lectura anterior (T4, medidor
+     ELSTER A3RAL con lectura manual quincenal).
+   'directo' — el sitio ya entrega kWh y kVAr del periodo de forma directa (no hay un total
+     acumulado que restar, el dato se refresca por sí solo); el FP de cada lectura se calcula
+     directo sobre esos dos valores, sin comparar contra la lectura anterior (T3, panel Scheider
+     con lectura diaria/semanal). */
+var FP_SITE_MODE = { 'T3': 'directo' };
+function _fpSiteMode(site){ return FP_SITE_MODE.hasOwnProperty(site) ? FP_SITE_MODE[site] : 'acumulado'; }
+
+/* Meta acordada con el equipo: cualquier FP por debajo de 98% se marca en amarillo con
+   aviso de revisión, además del semáforo de 4 niveles de _fpStatus(). */
+var FP_META_OBJETIVO = 98;
+function _fpMetaWarning(pct){
+  if(pct==null || pct>=FP_META_OBJETIVO) return null;
+  return { color:'#92620a', bg:'#eab30822', border:'#eab30866', label:'⚠️ Por debajo de la meta ('+FP_META_OBJETIVO+'%) — hay que revisar esta parte' };
+}
+
 var FP_LIST  = [];   // lecturas: {id, sitio, fecha, codigo1, codigo5, nota, createdAt}
 var FP_SITES = [];   // sitios activos con seguimiento de FP
 
@@ -29713,6 +29740,46 @@ function _fpApplySeedT4(){
   }catch(e){}
 }
 
+/* ══ SEED: histórico real T3 (tabla "T3 SCHEIDER" del equipo) ══
+   T3 es sitio de modo 'directo' (ver FP_SITE_MODE) — codigo1/codigo5 aquí NO son códigos
+   acumulados de medidor, son kWh y kVAr del periodo tal como los entrega el panel Scheider
+   directamente. A partir del 20/ago/2026 se instaló un banco de 250 kVAr en T3, por eso las
+   lecturas desde esa fecha llevan nota. */
+var FP_SEED_T3_VERSION = '2026-08-25-v1-t3-directo-inicial';
+var FP_SEED_T3 = [
+  { fecha:'2026-07-31', codigo1:3262.64, codigo5:999.19 },
+  { fecha:'2026-08-08', codigo1:3613.5,  codigo5:1084.29 },
+  { fecha:'2026-08-15', codigo1:3665.61, codigo5:1159.59 },
+  { fecha:'2026-08-20', codigo1:3201.24, codigo5:881.24,  nota:'Banco de capacitores: 250 kVAr (instalado a partir de esta fecha)' },
+  { fecha:'2026-08-21', codigo1:3380,    codigo5:1065.98, nota:'Banco de capacitores: 250 kVAr' },
+  { fecha:'2026-08-22', codigo1:3788,    codigo5:1173,    nota:'Banco de capacitores: 250 kVAr' },
+  { fecha:'2026-08-24', codigo1:3255.79, codigo5:1039.13, nota:'Banco de capacitores: 250 kVAr' }
+];
+function _fpApplySeedT3(){
+  try{
+    var ver = localStorage.getItem('bess:fp_seed_t3_ver');
+    if(ver === FP_SEED_T3_VERSION) return;
+    if(FP_SITES.indexOf('T3')===-1){ FP_SITES.push('T3'); _fpPersistSites(); }
+    var existing = {};
+    FP_LIST.forEach(function(r){ if(r.sitio==='T3') existing[r.fecha]=true; });
+    var added=0;
+    FP_SEED_T3.forEach(function(row){
+      if(existing[row.fecha]) return; /* respeta cualquier lectura que el equipo ya haya capturado a mano para esa fecha */
+      FP_LIST.push({
+        id:_fpUid(), sitio:'T3', fecha:row.fecha, codigo1:row.codigo1, codigo5:row.codigo5,
+        nota:row.nota||'', createdAt:Date.now(), seeded:true
+      });
+      added++;
+    });
+    localStorage.setItem('bess:fp_seed_t3_ver', FP_SEED_T3_VERSION);
+    if(added){
+      _fpPersistList();
+      window._fpForceSeedThisLoad = true;
+      console.log('[Factor de Potencia] Se importaron '+added+' lectura(s) historicas de T3 (version '+FP_SEED_T3_VERSION+').');
+    }
+  }catch(e){}
+}
+
 /* ══ DATOS DERIVADOS ══ */
 function _fpSiteReadings(site){
   return FP_LIST.filter(function(r){ return r.sitio===site; })
@@ -29721,13 +29788,17 @@ function _fpSiteReadings(site){
 }
 /* Devuelve las lecturas de un sitio ya anotadas con fpAcum, fpPeriodo, deltaC1, deltaC5 */
 function _fpSiteHistory(site){
+  var modo = _fpSiteMode(site);
   var list = _fpSiteReadings(site);
   var out = [];
   var prev = null;
   list.forEach(function(r){
     var fpAcum = _fpCalc(r.codigo1, r.codigo5);
     var fpPeriodo = null, deltaC1 = null, deltaC5 = null;
-    if(prev){
+    /* Modo 'directo' (p.ej. T3): codigo1/codigo5 YA son kWh/kVAr del periodo, no un acumulado
+       de medidor — no tiene sentido restar contra la lectura anterior, cada lectura trae su
+       propio FP ya "listo". Solo el modo 'acumulado' (T4) calcula el delta contra la anterior. */
+    if(prev && modo==='acumulado'){
       deltaC1 = r.codigo1 - prev.codigo1;
       deltaC5 = r.codigo5 - prev.codigo5;
       if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
@@ -29784,19 +29855,22 @@ function _fpRenderAlertBanner(){
     var lt=_fpLatestForSite(s);
     if(!lt || lt.pct==null) return;
     var st=_fpStatus(lt.pct);
-    if(st.key==='alerta' || st.key==='critico') alerts.push({ sitio:s, pct:lt.pct, st:st });
+    if(st.key==='alerta' || st.key==='critico' || st.key==='bueno') alerts.push({ sitio:s, pct:lt.pct, st:st });
   });
   if(!alerts.length){ box.style.display='none'; box.innerHTML=''; return; }
   alerts.sort(function(a,b){ return a.pct-b.pct; });
   box.style.display='block';
   box.innerHTML = alerts.map(function(a){
     var isCrit = a.st.key==='critico';
-    var bg = isCrit ? 'rgba(220,38,38,.1)' : 'rgba(234,108,0,.1)';
-    var bd = isCrit ? 'rgba(220,38,38,.35)' : 'rgba(234,108,0,.35)';
-    var fg = isCrit ? 'var(--red)' : 'var(--orange)';
+    var isMeta = a.st.key==='bueno'; /* 95–97.9% — cumple el mínimo pero no llega a la meta de 98% */
+    var bg = isCrit ? 'rgba(220,38,38,.1)' : isMeta ? '#eab30822' : 'rgba(234,108,0,.1)';
+    var bd = isCrit ? 'rgba(220,38,38,.35)' : isMeta ? '#eab30866' : 'rgba(234,108,0,.35)';
+    var fg = isCrit ? 'var(--red)' : isMeta ? '#92620a' : 'var(--orange)';
     var msg = isCrit
       ? '🚨 <b>'+_fpEsc(a.sitio)+'</b> tiene FP de <b>'+_fpFmtPct(a.pct)+'</b> — crítico, riesgo de penalización de CFE. Revisa el banco de capacitores de inmediato.'
-      : '⚠️ <b>'+_fpEsc(a.sitio)+'</b> tiene FP de <b>'+_fpFmtPct(a.pct)+'</b> — por debajo del objetivo (95%).';
+      : isMeta
+        ? '⚠️ <b>'+_fpEsc(a.sitio)+'</b> tiene FP de <b>'+_fpFmtPct(a.pct)+'</b> — por debajo de la meta ('+FP_META_OBJETIVO+'%), hay que revisar esa parte.'
+        : '⚠️ <b>'+_fpEsc(a.sitio)+'</b> tiene FP de <b>'+_fpFmtPct(a.pct)+'</b> — por debajo del objetivo (95%).';
     return '<div style="background:'+bg+';border:1px solid '+bd+';border-radius:10px;padding:10px 14px;margin-bottom:8px;font-family:var(--body);font-size:12.5px;color:'+fg+'">'+msg+'</div>';
   }).join('');
 }
@@ -29815,6 +29889,10 @@ function _fpRenderSiteGrid(){
     var st = _fpStatus(pct);
     var dias = lt ? _fpDiasDesde(lt.rec.fecha) : null;
     var staleWarn = (dias!=null && dias>15) ? '<div style="font-family:var(--mono);font-size:9px;color:var(--orange);margin-top:4px">⏳ Última lectura hace '+dias+' días</div>' : '';
+    var capKvar = _fpCapacitorInfo(site);
+    var capLine = capKvar!=null ? '<div style="font-family:var(--mono);font-size:9px;color:#1a3fcc;font-weight:700">🔋 Banco de capacitores: '+capKvar+' kVAr por BESS</div>' : '';
+    var metaWarn = _fpMetaWarning(pct);
+    var metaWarnHtml = metaWarn ? '<div style="font-family:var(--mono);font-size:9.5px;font-weight:700;color:'+metaWarn.color+';background:'+metaWarn.bg+';border:1px solid '+metaWarn.border+';border-radius:6px;padding:5px 8px;margin-top:2px">'+metaWarn.label+'</div>' : '';
     var sparkId = 'fp-spark-'+site.replace(/[^a-z0-9]/gi,'_');
     return '<div style="background:var(--s1);border:1px solid '+(st.key==='critico'?'rgba(220,38,38,.4)':st.key==='alerta'?'rgba(234,108,0,.35)':'var(--b1)')+';border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">'+
       '<div style="display:flex;align-items:center;justify-content:space-between">'+
@@ -29826,6 +29904,8 @@ function _fpRenderSiteGrid(){
         '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.esPeriodo?'FP del periodo':'FP acumulado'):'sin lecturas')+'</span>'+
       '</div>'+
       '<div style="font-family:var(--body);font-size:11px;color:'+st.color+';font-weight:600">'+st.label+'</div>'+
+      metaWarnHtml+
+      capLine+
       (lt ? '<div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Última lectura: '+_fpFechaCorta(lt.rec.fecha)+' · Cód.1 '+_fpFmtNum(lt.rec.codigo1)+' kWh · Cód.5 '+_fpFmtNum(lt.rec.codigo5)+' kVArh</div>' : '')+
       staleWarn+
       '<div style="position:relative;height:52px;margin-top:2px"><canvas id="'+sparkId+'"></canvas></div>'+
@@ -29935,7 +30015,10 @@ window._fpRenderHist = function(){
   tbody.innerHTML = rows.map(function(r){
     var pct = r.fpPeriodo!=null ? r.fpPeriodo : r.fpAcum;
     var st = _fpStatus(pct);
-    var delta = (r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh');
+    var modoR = _fpSiteMode(r.sitio);
+    var delta = modoR==='directo'
+      ? '<span style="color:var(--t3)">lectura directa</span>'
+      : ((r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh'));
     return '<tr style="border-bottom:1px solid var(--b1)">'+
       '<td style="padding:8px 10px;font-weight:700;font-family:var(--body);font-size:11.5px;color:var(--text)">'+_fpEsc(r.sitio)+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFechaCorta(r.fecha)+'</td>'+
@@ -29943,7 +30026,7 @@ window._fpRenderHist = function(){
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo5)+'</td>'+
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+delta+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtPct(r.fpAcum)+'</td>'+
-      '<td style="padding:8px 10px;text-align:center">'+_fpBadge(r.fpPeriodo)+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+_fpBadge(pct)+'</td>'+
       '<td style="padding:8px 10px;text-align:center"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+st.color+'"></span></td>'+
       '<td style="padding:8px 10px;text-align:center;white-space:nowrap">'+
         '<button onclick="window._fpOpenForm(\''+r.id+'\')" title="Editar" style="background:none;border:1px solid var(--b1);border-radius:5px;color:var(--t2);cursor:pointer;padding:4px 7px;font-size:11px;margin-right:4px">✏️</button>'+
@@ -29969,9 +30052,38 @@ function _fpRenderMonthSiteSelect(){
    pierde, se acumula en el siguiente mes que sí tenga datos (ese mes usa el mismo cierre de más
    atrás como su apertura). El primer mes con datos de un sitio, al no tener mes anterior con el
    cual comparar, queda marcado como "sin datos suficientes". */
+/* Sitios en modo 'directo' (p.ej. T3): cada lectura YA trae su propio FP (kWh/kVAr directos del
+   periodo, no un código acumulado). El "FP del mes" es el promedio simple de los FP de todas las
+   lecturas capturadas ese mes, y se destaca la mejor lectura del mes (la de FP más alto) para ver
+   si hubo mejora — así lo pidió el equipo para T3. */
+function _fpMonthlyGroupsDirecto(hist){
+  var monthsWithData = {};
+  hist.forEach(function(h){ var k=_fpMonthKey(h.fecha); if(k) monthsWithData[k]=true; });
+  var monthKeys = Object.keys(monthsWithData).sort();
+  return monthKeys.map(function(key){
+    var inMonth = hist.filter(function(h){ return _fpMonthKey(h.fecha)===key; })
+      .map(function(h){ return Object.assign({}, h, { fpAcum:_fpCalc(h.codigo1,h.codigo5) }); });
+    var sum=0, best=inMonth[0];
+    inMonth.forEach(function(h){ sum+=h.fpAcum; if(h.fpAcum>best.fpAcum) best=h; });
+    var avg = sum/inMonth.length;
+    return { key:key, label:_fpMonthLabel(key), modo:'directo', readings:inMonth,
+      fp:avg, bestReading:best, bestFp:best.fpAcum, note:'' };
+  });
+}
+/* Calcula el FP de cada mes calendario. Dos modos, según el sitio (ver FP_SITE_MODE):
+   'acumulado' (T4) — MISMA lógica que la hoja de cálculo del equipo: FP del mes = diferencia de
+   Código 1 y Código 5 entre la ÚLTIMA lectura de ese mes (o la más reciente disponible, si el mes
+   sigue en curso) y la ÚLTIMA lectura del mes anterior — "cuánto avanzamos código contra código
+   durante el mes". Encadenado: la apertura de cada mes es siempre el cierre del mes anterior. Un
+   mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga
+   datos. El primer mes con datos de un sitio queda marcado "sin datos suficientes".
+   'directo' (T3) — ver _fpMonthlyGroupsDirecto: promedio simple de los FP ya calculados de cada
+   lectura del mes, destacando la mejor lectura. */
 function _fpMonthlyGroups(site){
+  var modo = _fpSiteMode(site);
   var hist = _fpSiteReadings(site);
   if(!hist.length) return [];
+  if(modo==='directo') return _fpMonthlyGroupsDirecto(hist);
   var monthsWithData = {};
   hist.forEach(function(h){ var k=_fpMonthKey(h.fecha); if(k) monthsWithData[k]=true; });
   var monthKeys = Object.keys(monthsWithData).sort();
@@ -29981,7 +30093,7 @@ function _fpMonthlyGroups(site){
     var inMonth = hist.filter(function(h){ return _fpMonthKey(h.fecha)===key; });
     var closeReading = inMonth[inMonth.length-1];
     var openReading = prevClose;
-    var g = { key:key, label:_fpMonthLabel(key), openReading:openReading, closeReading:closeReading,
+    var g = { key:key, label:_fpMonthLabel(key), modo:'acumulado', openReading:openReading, closeReading:closeReading,
       deltaC1:null, deltaC5:null, fp:null, note:'' };
     if(openReading && closeReading && openReading.id!==closeReading.id){
       var d1 = closeReading.codigo1 - openReading.codigo1;
@@ -30002,6 +30114,7 @@ function _fpMonthlyGroups(site){
 window._fpRenderMonthly = function(){
   var sel=document.getElementById('fp-month-site-sel'); if(!sel) return;
   var site=sel.value;
+  var modo=_fpSiteMode(site);
   var groups=_fpMonthlyGroups(site);
   /* comparación contra el último mes VÁLIDO anterior (no necesariamente el inmediato) */
   var lastValid=null;
@@ -30009,6 +30122,17 @@ window._fpRenderMonthly = function(){
     g.diffVsPrev = (g.fp!=null && lastValid!=null) ? (g.fp-lastValid) : null;
     if(g.fp!=null) lastValid=g.fp;
   });
+  var explainer=document.getElementById('fp-month-explainer');
+  var th2=document.getElementById('fp-month-th-2'), th3=document.getElementById('fp-month-th-3');
+  if(modo==='directo'){
+    if(explainer) explainer.textContent='FP del mes = promedio de los FP ya calculados de cada lectura del mes (aquí kWh y kVAr son directos del periodo, no un código acumulado). Se destaca la mejor lectura del mes.';
+    if(th2) th2.textContent='Lecturas';
+    if(th3) th3.textContent='Mejor lectura';
+  } else {
+    if(explainer) explainer.textContent='FP del mes = diferencia de Código 1 y Código 5 entre el cierre de este mes y el cierre del mes anterior (mismo método que la hoja de cálculo del equipo). Un mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga datos.';
+    if(th2) th2.textContent='ΔkWh';
+    if(th3) th3.textContent='ΔkVArh';
+  }
   var canvas=document.getElementById('fp-month-chart');
   if(canvas && typeof Chart!=='undefined'){
     if(_fpCharts['fp-month-chart']){ try{ _fpCharts['fp-month-chart'].destroy(); }catch(e){} }
@@ -30033,6 +30157,24 @@ window._fpRenderMonthly = function(){
   }
   var desc = groups.slice().reverse();
   tbody.innerHTML = desc.map(function(g){
+    if(g.modo==='directo'){
+      var cmpD = '<span style="color:var(--t3)">— sin dato previo</span>';
+      if(g.diffVsPrev!=null){
+        var colD = g.diffVsPrev>0.05 ? '#059669' : (g.diffVsPrev<-0.05 ? '#dc2626' : 'var(--t3)');
+        var arrowD = g.diffVsPrev>0.05 ? '▲' : (g.diffVsPrev<-0.05 ? '▼' : '≈');
+        cmpD = '<span style="color:'+colD+';font-weight:700">'+arrowD+' '+(g.diffVsPrev>=0?'+':'')+g.diffVsPrev.toFixed(2)+' pp</span>';
+      }
+      var metaWarnD = _fpMetaWarning(g.fp);
+      var warnCellD = metaWarnD ? '<div style="font-family:var(--mono);font-size:8.5px;font-weight:700;color:'+metaWarnD.color+';margin-top:3px;white-space:nowrap">⚠️ Revisar — meta '+FP_META_OBJETIVO+'%</div>' : '';
+      var bestHtml = '🏆 '+_fpFechaCorta(g.bestReading.fecha)+'<div style="font-family:var(--mono);font-size:9px;color:'+_fpStatus(g.bestFp).color+';font-weight:700;margin-top:1px">'+_fpFmtPct(g.bestFp)+'</div>';
+      return '<tr style="border-bottom:1px solid var(--b1);'+(metaWarnD?'background:'+metaWarnD.bg+';':'')+'">'+
+        '<td style="padding:7px 8px;vertical-align:top"><div style="font-weight:700;font-family:var(--body);font-size:11px;color:var(--text)">'+_fpEsc(g.label)+'</div></td>'+
+        '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+g.readings.length+'</td>'+
+        '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t2)">'+bestHtml+'</td>'+
+        '<td style="padding:7px 8px;text-align:center">'+_fpBadge(g.fp)+warnCellD+'</td>'+
+        '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px">'+cmpD+'</td>'+
+      '</tr>';
+    }
     if(g.fp==null){
       return '<tr style="border-bottom:1px solid var(--b1)">'+
         '<td style="padding:7px 8px;font-weight:700;font-family:var(--body);font-size:11px;color:var(--text);vertical-align:top">'+_fpEsc(g.label)+'</td>'+
@@ -30046,11 +30188,13 @@ window._fpRenderMonthly = function(){
       var arrow = g.diffVsPrev>0.05 ? '▲' : (g.diffVsPrev<-0.05 ? '▼' : '≈');
       cmp = '<span style="color:'+col+';font-weight:700">'+arrow+' '+(g.diffVsPrev>=0?'+':'')+g.diffVsPrev.toFixed(2)+' pp</span>';
     }
-    return '<tr style="border-bottom:1px solid var(--b1)">'+
+    var metaWarn = _fpMetaWarning(g.fp);
+    var warnCell = metaWarn ? '<div style="font-family:var(--mono);font-size:8.5px;font-weight:700;color:'+metaWarn.color+';margin-top:3px;white-space:nowrap">⚠️ Revisar — meta '+FP_META_OBJETIVO+'%</div>' : '';
+    return '<tr style="border-bottom:1px solid var(--b1);'+(metaWarn?'background:'+metaWarn.bg+';':'')+'">'+
       '<td style="padding:7px 8px;vertical-align:top"><div style="font-weight:700;font-family:var(--body);font-size:11px;color:var(--text)">'+_fpEsc(g.label)+'</div><div style="font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-top:2px;white-space:nowrap">'+periodo+'</div></td>'+
       '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">Δ'+_fpFmtNum(g.deltaC1)+'</td>'+
       '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">Δ'+_fpFmtNum(g.deltaC5)+'</td>'+
-      '<td style="padding:7px 8px;text-align:center">'+_fpBadge(g.fp)+'</td>'+
+      '<td style="padding:7px 8px;text-align:center">'+_fpBadge(g.fp)+warnCell+'</td>'+
       '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px">'+cmp+'</td>'+
     '</tr>';
   }).join('');
@@ -30098,34 +30242,68 @@ window._fpOpenForm = function(editId, presetSite){
 window._fpLiveCheck = function(){
   var box=document.getElementById('fp-live-preview');
   var site=document.getElementById('fp-in-sitio').value;
-  var c1=_fpNum(document.getElementById('fp-in-c1').value);
-  var c5=_fpNum(document.getElementById('fp-in-c5').value);
-  if(c1==null || c5==null){ box.style.display='none'; return; }
-  var fpAcum = _fpCalc(c1,c5);
-  var hist = _fpSiteHistory(site);
-  var editId = document.getElementById('fp-edit-id').value;
-  var prevList = hist.filter(function(h){ return h.id!==editId; });
-  var prev = prevList.length ? prevList[prevList.length-1] : null;
-  var fpPeriodo=null, deltaMsg='Esta será la primera lectura del sitio — no hay FP de periodo.';
-  if(prev){
-    var d1=c1-prev.codigo1, d5=c5-prev.codigo5;
-    if(d1>=0 && d5>=0 && (d1>0||d5>0)){
-      fpPeriodo = _fpCalc(d1,d5);
-      deltaMsg = 'Contra la lectura del '+_fpFechaCorta(prev.fecha)+': Δ'+_fpFmtNum(d1)+' kWh / Δ'+_fpFmtNum(d5)+' kVArh';
-    } else {
-      deltaMsg = '⚠️ Los códigos son menores a la lectura anterior ('+_fpFechaCorta(prev.fecha)+') — probable reinicio del medidor, no se calcula FP de periodo.';
-    }
+  var modo=_fpSiteMode(site);
+  var lblC1=document.getElementById('fp-lbl-c1'), lblC5=document.getElementById('fp-lbl-c5');
+  var inC1=document.getElementById('fp-in-c1'), inC5=document.getElementById('fp-in-c5');
+  if(modo==='directo'){
+    if(lblC1) lblC1.textContent='kWh del mes';
+    if(lblC5) lblC5.textContent='kVAr del mes';
+    if(inC1) inC1.placeholder='p.ej. 3255.79';
+    if(inC5) inC5.placeholder='p.ej. 1039.13';
+  } else {
+    if(lblC1) lblC1.textContent='Código 1 — kWh';
+    if(lblC5) lblC5.textContent='Código 5 — kVArh';
+    if(inC1) inC1.placeholder='p.ej. 23270';
+    if(inC5) inC5.placeholder='p.ej. 9384';
   }
-  var pctShow = fpPeriodo!=null ? fpPeriodo : fpAcum;
-  var st = _fpStatus(pctShow);
+  var capKvar = _fpCapacitorInfo(site);
+  var capLine = capKvar!=null ? '<div style="font-family:var(--mono);font-size:9.5px;color:#1a3fcc;font-weight:700;margin-bottom:6px">🔋 Banco de capacitores instalado en '+_fpEsc(site)+': '+capKvar+' kVAr por BESS</div>' : '';
+  var c1=_fpNum(inC1.value);
+  var c5=_fpNum(inC5.value);
+  if(c1==null || c5==null){
+    if(capKvar!=null){ box.style.display='block'; box.innerHTML=capLine; } else { box.style.display='none'; }
+    return;
+  }
+  var fpAcum = _fpCalc(c1,c5);
+  var pctShow, st, metaWarn, extraLine;
+  if(modo==='directo'){
+    /* Modo directo (T3): no hay código acumulado que restar — el FP de esta lectura es el FP
+       directo de kWh/kVAr del periodo, punto. */
+    pctShow = fpAcum;
+    st = _fpStatus(pctShow);
+    metaWarn = _fpMetaWarning(pctShow);
+    extraLine = '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">Lectura directa — no se compara contra la anterior (este sitio no usa código acumulado de medidor).</div>';
+  } else {
+    var hist = _fpSiteHistory(site);
+    var editId = document.getElementById('fp-edit-id').value;
+    var prevList = hist.filter(function(h){ return h.id!==editId; });
+    var prev = prevList.length ? prevList[prevList.length-1] : null;
+    var fpPeriodo=null, deltaMsg='Esta será la primera lectura del sitio — no hay FP de periodo.';
+    if(prev){
+      var d1=c1-prev.codigo1, d5=c5-prev.codigo5;
+      if(d1>=0 && d5>=0 && (d1>0||d5>0)){
+        fpPeriodo = _fpCalc(d1,d5);
+        deltaMsg = 'Contra la lectura del '+_fpFechaCorta(prev.fecha)+': Δ'+_fpFmtNum(d1)+' kWh / Δ'+_fpFmtNum(d5)+' kVArh';
+      } else {
+        deltaMsg = '⚠️ Los códigos son menores a la lectura anterior ('+_fpFechaCorta(prev.fecha)+') — probable reinicio del medidor, no se calcula FP de periodo.';
+      }
+    }
+    pctShow = fpPeriodo!=null ? fpPeriodo : fpAcum;
+    st = _fpStatus(pctShow);
+    metaWarn = _fpMetaWarning(pctShow);
+    extraLine = '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:4px">FP acumulado (crudo): '+_fpFmtPct(fpAcum)+'</div>'+
+      '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">'+deltaMsg+'</div>';
+  }
+  var metaWarnHtml = metaWarn ? '<div style="font-family:var(--mono);font-size:10px;font-weight:700;color:'+metaWarn.color+';background:'+metaWarn.bg+';border:1px solid '+metaWarn.border+';border-radius:7px;padding:6px 10px;margin-top:8px">'+metaWarn.label+'</div>' : '';
   box.style.display='block';
   box.innerHTML =
+    capLine+
     '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'+
       '<span style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:22px;color:'+st.color+'">'+(pctShow==null?'—':pctShow.toFixed(2)+'%')+'</span>'+
       '<span style="font-family:var(--mono);font-size:10px;color:'+st.color+';font-weight:700">'+st.label+'</span>'+
     '</div>'+
-    '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:4px">FP acumulado (crudo): '+_fpFmtPct(fpAcum)+'</div>'+
-    '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">'+deltaMsg+'</div>';
+    extraLine+
+    metaWarnHtml;
 };
 window._fpSaveForm = function(){
   var editId = document.getElementById('fp-edit-id').value;
@@ -30360,7 +30538,7 @@ window._fpRenderReportPreview = function(){
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">'+_fpFmtNum(h.codigo1)+'</td>'+
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">'+_fpFmtNum(h.codigo5)+'</td>'+
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpFmtPct(h.fpAcum)+'</td>'+
-        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(h.fpPeriodo)+'</td>'+
+        '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(h.fpPeriodo!=null?h.fpPeriodo:h.fpAcum)+'</td>'+
         '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">'+
           '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+hst.color+'1A;color:'+hst.color+';font-size:9.5px;font-weight:700">'+hst.short+'</span>'+
         '</td>'+
@@ -30381,10 +30559,10 @@ window._fpRenderReportPreview = function(){
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#f3f4f6">'+
           '<th style="padding:6px 8px;text-align:left;font-size:9.5px;color:#6b7280">FECHA</th>'+
-          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">CÓD. 1 (kWh)</th>'+
-          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">CÓD. 5 (kVArh)</th>'+
+          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">'+(_fpSiteMode(site)==='directo'?'KWH DEL MES':'CÓD. 1 (kWh)')+'</th>'+
+          '<th style="padding:6px 8px;text-align:right;font-size:9.5px;color:#6b7280">'+(_fpSiteMode(site)==='directo'?'KVAR DEL MES':'CÓD. 5 (kVArh)')+'</th>'+
           '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP ACUM.</th>'+
-          '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">FP PERIODO</th>'+
+          '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">'+(_fpSiteMode(site)==='directo'?'FP LECTURA':'FP PERIODO')+'</th>'+
           '<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#6b7280">ESTADO</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
         : '<div style="color:#9ca3af;font-size:11px;padding:10px 0">Sin lecturas registradas.</div>')+
@@ -30526,6 +30704,7 @@ function _fpInjectIntoMedidorReport(){
 _fpLoadLocal();
 window._fpLoaded = true;
 _fpApplySeedT4();
+_fpApplySeedT3();
 _fpPullCloud(function(){
   /* Si el Reporte de Medidores ya está abierto cuando llega la respuesta de la nube, se refresca
      para que la columna de FP no se quede con datos viejos. */
