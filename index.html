@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-historico-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-reporte-meses-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787618767000">
+<meta name="app-version" content="1787621191000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense Energy">
@@ -8311,6 +8311,15 @@ async function expDoZip(mode){
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">📄 Exportar Reporte de FP</div>
           <select id="fp-report-site-sel" onchange="window._fpRenderReportPreview()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
+          <div style="position:relative">
+            <button type="button" id="fp-report-mes-btn" onclick="window._fpToggleMesPicker()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px">📅 <span id="fp-report-mes-label">Todos los meses</span> ▾</button>
+            <div id="fp-report-mes-panel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9400;background:var(--s1);border:1px solid var(--b1);border-radius:10px;box-shadow:0 10px 30px rgba(3,8,24,.45);padding:10px;min-width:190px;width:max-content;max-height:260px;overflow:auto">
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px 9px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;border-bottom:1px solid var(--b1);margin-bottom:5px;font-weight:700;white-space:nowrap">
+                <input type="checkbox" id="fp-report-mes-all" checked onchange="window._fpMesToggleAll(this.checked)"> Todos los meses
+              </label>
+              <div id="fp-report-mes-list" style="display:flex;flex-direction:column;gap:2px;white-space:nowrap"></div>
+            </div>
+          </div>
         </div>
         <div style="display:flex;gap:8px">
           <button id="fp-report-btn-png" onclick="window._fpDownloadReportPNG()" style="padding:8px 16px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);border-radius:7px;color:#059669;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">🖼️ Descargar PNG</button>
@@ -30126,24 +30135,79 @@ window._fpSyncCloud = function(silent){
 /* ══ EXPORTAR REPORTE FP (PNG / PDF) ══ */
 function _fpReportFilenameBase(){
   var site=(document.getElementById('fp-report-site-sel')||{}).value||'todos';
-  return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+'_'+_fpToday();
+  var meses = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
+  var suf = (meses && meses.length) ? ('_'+meses.slice().sort().join('_')) : '';
+  return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+suf+'_'+_fpToday();
 }
+/* ══ FILTRO DE MESES DEL REPORTE ══
+   Permite exportar el reporte de FP con uno, varios, o todos los meses — no siempre hace
+   falta incluir el historial completo. null = sin filtro (todos los meses). */
+window._fpToggleMesPicker = function(){
+  var panel=document.getElementById('fp-report-mes-panel'); if(!panel) return;
+  panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+};
+window._fpMesToggleAll = function(checked){
+  Array.prototype.forEach.call(document.querySelectorAll('#fp-report-mes-list input[type=checkbox]'), function(b){ b.checked=checked; });
+  window._fpUpdateMesLabel();
+  window._fpRenderReportPreview();
+};
+window._fpUpdateMesLabel = function(){
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#fp-report-mes-list input[type=checkbox]'));
+  var checked = boxes.filter(function(b){ return b.checked; });
+  var label = document.getElementById('fp-report-mes-label');
+  var allBox = document.getElementById('fp-report-mes-all');
+  if(!label) return;
+  if(!boxes.length || checked.length===boxes.length){ label.textContent='Todos los meses'; if(allBox) allBox.checked=true; }
+  else if(!checked.length){ label.textContent='Ningún mes seleccionado'; if(allBox) allBox.checked=false; }
+  else if(checked.length===1){ label.textContent=checked[0].parentElement.querySelector('span').textContent; if(allBox) allBox.checked=false; }
+  else { label.textContent=checked.length+' meses seleccionados'; if(allBox) allBox.checked=false; }
+};
+/* Devuelve el arreglo de claves 'YYYY-MM' seleccionadas, o null si aplica a todos los meses
+   (ya sea porque no hay checkboxes, o porque están todos marcados) — null = sin filtro. */
+window._fpReportSelectedMonths = function(){
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#fp-report-mes-list input[type=checkbox]'));
+  if(!boxes.length) return null;
+  var checked = boxes.filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
+  if(checked.length===boxes.length) return null;
+  return checked;
+};
+document.addEventListener('click', function(e){
+  var panel=document.getElementById('fp-report-mes-panel'); if(!panel || panel.style.display!=='block') return;
+  var btn=document.getElementById('fp-report-mes-btn');
+  if(panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+  panel.style.display='none';
+});
 window._fpOpenExportReport = function(){
   var sel=document.getElementById('fp-report-site-sel');
   sel.innerHTML = '<option value="__all__">Todos los sitios</option>'+FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
+  var mesesSet={};
+  FP_LIST.forEach(function(r){ var k=_fpMonthKey(r.fecha); if(k) mesesSet[k]=true; });
+  var meses=Object.keys(mesesSet).sort().reverse();
+  var list=document.getElementById('fp-report-mes-list');
+  if(list){
+    list.innerHTML = meses.map(function(k){
+      return '<label style="display:flex;align-items:center;gap:8px;padding:4px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer">'+
+        '<input type="checkbox" value="'+k+'" checked onchange="window._fpUpdateMesLabel();window._fpRenderReportPreview()"><span>'+_fpMonthLabel(k)+'</span>'+
+      '</label>';
+    }).join('');
+  }
+  var allBox=document.getElementById('fp-report-mes-all'); if(allBox) allBox.checked=true;
+  var panel=document.getElementById('fp-report-mes-panel'); if(panel) panel.style.display='none';
+  window._fpUpdateMesLabel();
   document.getElementById('fp-report-modal').style.display='flex';
   window._fpRenderReportPreview();
 };
 window._fpRenderReportPreview = function(){
   var siteSel=(document.getElementById('fp-report-site-sel')||{}).value||'__all__';
   var sites = siteSel==='__all__' ? FP_SITES.slice() : [siteSel];
+  var mesesSel = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
   var genUser = localStorage.getItem('bess_uname') || 'Operador';
   var genDate = new Date().toLocaleString('es-MX',{ dateStyle:'long', timeStyle:'short' });
 
   var sections = sites.map(function(site){
     var hist=_fpSiteHistory(site);
-    var lt=_fpLatestForSite(site);
-    var pct=lt?lt.pct:null;
+    if(mesesSel) hist = hist.filter(function(h){ return mesesSel.indexOf(_fpMonthKey(h.fecha))>-1; });
+    var pct = hist.length ? (hist[hist.length-1].fpPeriodo!=null ? hist[hist.length-1].fpPeriodo : hist[hist.length-1].fpAcum) : null;
     var st=_fpStatus(pct);
     var rowsHtml = hist.slice().reverse().map(function(h){
       var hst=_fpStatus(h.fpPeriodo!=null?h.fpPeriodo:h.fpAcum);
@@ -30160,7 +30224,7 @@ window._fpRenderReportPreview = function(){
     }).join('');
     var chartImg = '';
     var chartInst = _fpCharts['fp-detail-chart'];
-    if(chartInst && document.getElementById('fp-detail-site-sel') && document.getElementById('fp-detail-site-sel').value===site){
+    if(!mesesSel && chartInst && document.getElementById('fp-detail-site-sel') && document.getElementById('fp-detail-site-sel').value===site){
       try{ chartImg = '<img src="'+chartInst.toBase64Image()+'" style="width:100%;max-width:700px;display:block;margin:14px auto">'; }catch(e){}
     }
     return '<div style="page-break-inside:avoid;margin-bottom:26px">'+
@@ -30193,6 +30257,7 @@ window._fpRenderReportPreview = function(){
       '</div>'+
       '<div style="text-align:right;font-size:11px;color:#6b7280;line-height:1.6">'+
         '<div><b>Sitios:</b> '+(siteSel==='__all__'?'Todos ('+sites.length+')':_fpEsc(siteSel))+'</div>'+
+        '<div><b>Meses:</b> '+(mesesSel ? _fpEsc(mesesSel.slice().sort().map(_fpMonthLabel).join(', ')) : 'Todos')+'</div>'+
         '<div><b>Generado:</b> '+_fpEsc(genDate)+'</div>'+
         '<div><b>Generado por:</b> '+_fpEsc(genUser)+'</div>'+
       '</div>'+
