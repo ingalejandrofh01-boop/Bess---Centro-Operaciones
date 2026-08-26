@@ -18387,8 +18387,8 @@ function rvStartSites(){
       _rv('rv-wizard-modal',function(e){e.classList.add('open');});
       var _fab2=document.getElementById('fab-nueva');if(_fab2)_fab2.style.display='none';
       var _sd2=document.getElementById('sd-wrap');if(_sd2)_sd2.style.display='none';
+      _rvBeginTimer(); /* arranca el cronómetro ANTES de renderizar, para que nunca dependa de que el render termine sin errores */
       rvBuildSide();rvRenderS();
-      _rvBeginTimer();
       return;
     } else { try{localStorage.removeItem('rv:draft:v1');}catch(e){} }
   }
@@ -18400,8 +18400,8 @@ function rvStartSites(){
   /* Ocultar FAB y Speed Dial para que no tapen los botones del wizard */
   var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='none';
   var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
+  _rvBeginTimer(); /* arranca el cronómetro ANTES de renderizar, para que nunca dependa de que el render termine sin errores */
   rvBuildSide();rvRenderS();
-  _rvBeginTimer();
   /* Colaboracion: mostrar barra inmediatamente y luego iniciar sesion */
   var bar=document.getElementById('collab-status-bar');
   if(bar){
@@ -18451,8 +18451,9 @@ function rvBackSites(){
   /* Ocultar FAB y Speed Dial para que no tapen los botones del wizard */
   var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='none';
   var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
-  rvW.idx=0;rvBuildSide();rvRenderS();
-  _rvBeginTimer();
+  rvW.idx=0;
+  _rvBeginTimer(); /* arranca el cronómetro ANTES de renderizar, para que nunca dependa de que el render termine sin errores */
+  rvBuildSide();rvRenderS();
 }
 
 /* SIDEBAR */
@@ -18562,9 +18563,15 @@ function rvRenderS(){
     b.style.fontWeight=''; b.style.transform=''; b.style.boxShadow='';
   });
   if(_savedBat) {
-    /* Restaurar highlight del botón correcto */
-    _rvHighlightUnified && _rvHighlightUnified(_savedBat, _savedCond);
-    _rvShowCondBanner && _rvShowCondBanner(_savedCond, _savedBat);
+    /* Restaurar highlight del botón correcto.
+       Usamos typeof (no "_rvHighlightUnified && ...") porque ese identificador vive en
+       otro bloque de <script> más adelante en el archivo: si esa sección aún no cargó
+       (red lenta, CDN bloqueado, extensión que filtra Firebase, etc.) la referencia
+       directa lanza un ReferenceError no capturado que aborta rvRenderS() a la mitad
+       — y eso, en el flujo de "Iniciar", impedía que _rvBeginTimer() llegara a
+       ejecutarse, dejando el cronómetro congelado en 00:00:00. */
+    if(typeof _rvHighlightUnified==='function') _rvHighlightUnified(_savedBat, _savedCond);
+    if(typeof _rvShowCondBanner==='function') _rvShowCondBanner(_savedCond, _savedBat);
   }
   _rv('rv-ok-ex',function(e){e.style.display=sr.bat==='ok'?'block':'none';});
   _rv('rv-alm-ex',function(e){e.style.display=sr.bat==='alarm'?'block':'none';});
@@ -26936,8 +26943,8 @@ document.addEventListener('DOMContentLoaded', function(){
         var sr = window.rvW && window.rvW.srs ? window.rvW.srs[window.rvW.idx] : null;
         if(sr && sr.bat) {
           /* Solo resaltar si el sitio ya tiene un estado guardado */
-          _rvHighlightUnified(sr.bat, sr.cond||'');
-          _rvShowCondBanner(sr.cond||'', sr.bat);
+          if(typeof _rvHighlightUnified==='function') _rvHighlightUnified(sr.bat, sr.cond||'');
+          if(typeof _rvShowCondBanner==='function') _rvShowCondBanner(sr.cond||'', sr.bat);
         } else {
           /* Sitio nuevo — limpiar todos los botones */
           document.querySelectorAll('#rv-bat-btns .rv-bat-btn').forEach(function(b){
