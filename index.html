@@ -4060,18 +4060,22 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 #rv-sum-modal.open{display:block}
 @media(max-width:768px){#rv-wizard-modal,#rv-sum-modal{left:0}}
 .rv-wiz-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0}
-.rv-wiz-body{display:grid;grid-template-columns:210px 1fr;flex:1;min-height:0;overflow:hidden}
+.rv-wiz-body{display:grid;grid-template-columns:1fr 230px;flex:1;min-height:0;overflow:hidden}
 .rv-wiz-botbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0;box-shadow:0 -2px 8px rgba(26,63,204,.06)}
 .rv-progbar{flex:1;height:5px;background:var(--b1);border-radius:3px;overflow:hidden}
 .rv-progfill{height:100%;background:linear-gradient(90deg,var(--sky-d),var(--sky),var(--sky-ll));transition:width .3s;border-radius:3px}
-.rv-sidebar{display:flex;flex-direction:column;background:var(--s1);border-right:1px solid var(--b1);overflow:hidden}
+.rv-sidebar{order:2;display:flex;flex-direction:column;background:var(--s1);border-left:1px solid var(--b1);overflow:hidden}
 .rv-sidebar-hdr{padding:10px 14px 8px;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--b1);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
 .rv-sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
 .rv-sitem{display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;border-left:3px solid transparent;font-size:11px;font-family:var(--body);color:var(--t2);white-space:nowrap;overflow:hidden;transition:background .1s}
 .rv-sitem:hover{background:var(--s2)}
 .rv-sitem.cur{background:rgba(26,63,204,.07);border-left-color:var(--sky);color:var(--sky);font-weight:600}
 .rv-sico{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:var(--mono)}
-.rv-form{overflow-y:auto;padding:24px 28px;min-width:0;background:var(--bg)}
+.rv-form{order:1;overflow-y:auto;padding:24px 28px;min-width:0;background:var(--bg)}
+.rv-sitem[draggable="true"]{cursor:grab}
+.rv-sitem.rv-dragging{opacity:.4}
+.rv-sitem.rv-drag-over{border-top:2px solid var(--sky)}
+.rv-drag-handle{flex-shrink:0;color:var(--t3);font-size:11px;letter-spacing:-2px;user-select:none;cursor:grab}
 .rv-sec{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px 18px;margin-bottom:14px}
 .rv-sec-ttl{display:block;font-family:var(--mono);font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
 .rv-extras{margin-top:12px;padding-top:12px;border-top:1px solid var(--b1)}
@@ -4814,7 +4818,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1780524974';
+  var APP_VERSION = '1787786717';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -6800,6 +6804,7 @@ async function expDoZip(mode){
     <div class="rv-progbar"><div id="rv-prog-fill" class="rv-progfill" style="width:0%"></div></div>
     <span id="rv-prog-txt" style="font-family:var(--mono);font-size:10px;color:var(--t3);white-space:nowrap;flex-shrink:0"></span>
     <span id="rv-wiz-lbl" style="font-family:var(--mono);font-size:10px;color:var(--t2);white-space:nowrap;flex-shrink:0;max-width:200px;overflow:hidden;text-overflow:ellipsis"></span>
+    <span id="rv-timer-live" style="font-family:var(--mono);font-size:11px;font-weight:800;color:var(--sky);white-space:nowrap;flex-shrink:0;padding:3px 9px;border-radius:12px;background:rgba(26,63,204,.08);border:1px solid rgba(26,63,204,.25)">⏱ 00:00:00</span>
   </div>
   <!-- Barra colaborativa RV -->
   <div id="collab-status-bar">
@@ -6903,6 +6908,23 @@ async function expDoZip(mode){
           <button class="rv-bat-btn" data-val="na" data-cond=""
             onclick="rvSetBatFull('na','')">
             <span style="color:var(--t3)">—</span> N/A
+          </button>
+
+          <!-- Fila 5: fallas de infraestructura (ampliación ronda remasterizada) -->
+          <button class="rv-bat-btn" data-val="alarm" data-cond="SIN_RED_AC"
+            onclick="rvSetBatFull('alarm','SIN_RED_AC')"
+            style="border-color:rgba(220,38,38,.3);color:var(--red)">
+            <span style="font-size:14px">🔴</span> Sin Red AC
+          </button>
+          <button class="rv-bat-btn" data-val="alarm" data-cond="FALLA_DC"
+            onclick="rvSetBatFull('alarm','FALLA_DC')"
+            style="border-color:rgba(220,38,38,.3);color:var(--red)">
+            <span style="font-size:14px">🔋</span> Falla DC
+          </button>
+          <button class="rv-bat-btn" data-val="alarm" data-cond="RACKS_FUERA"
+            onclick="rvSetBatFull('alarm','RACKS_FUERA')"
+            style="border-color:rgba(217,119,6,.3);color:var(--yellow)">
+            <span style="font-size:14px">🗄</span> Racks Fuera
           </button>
 
         </div>
@@ -7013,11 +7035,12 @@ async function expDoZip(mode){
         <button class="rv-btn-s" onclick="rvBackSites()">&#8592; Editar</button>
         <button class="rv-btn-s" onclick="window.print()">&#128424; Imprimir</button>
         <button class="rv-btn-png" onclick="rvExportPNG()">&#128247; Exportar PNG</button>
+        <button class="rv-btn-png" id="rv-btn-pdf" onclick="rvExportPDF()" style="background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">&#128196; Exportar PDF</button>
         <button class="rv-btn-p" id="rv-save-btn" onclick="rvSave()" style="padding:12px 28px;font-size:14px;box-shadow:0 6px 20px rgba(26,63,204,.35);background:linear-gradient(135deg,#059669,#065f46)">&#10003; Guardar Reporte</button>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px" id="rv-sum-stats"></div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px" id="rv-sum-stats"></div>
     <div id="rv-sum-issues"></div>
 
     <!-- Professional paper report -->
@@ -7049,6 +7072,7 @@ async function expDoZip(mode){
           <div style="text-align:right">
             <div class="rv-paper-meta" id="rv-meta1"></div>
             <div class="rv-paper-meta" id="rv-meta2"></div>
+            <div class="rv-paper-meta" id="rv-meta3" style="color:#1a3fcc;font-weight:800"></div>
           </div>
         </div>
       </div>
@@ -7062,6 +7086,7 @@ async function expDoZip(mode){
             <th style="min-width:110px">Temp. M&#225;xima &#176;C</th>
             <th style="text-align:left;min-width:180px">Comentario</th>
             <th style="min-width:120px">Responsable</th>
+            <th style="min-width:70px">Tiempo</th>
           </tr></thead>
           <tbody id="rv-sum-tbody"></tbody>
         </table>
@@ -18108,13 +18133,15 @@ function _sitesFromDB(src){
 /* RV_SITES — sincronizado automáticamente con MASTER_SITES_DB (orden SKU, sin duplicados) */
 var RV_SITES = (function(){
   var src = window._masterSitesCloud || window.MASTER_SITES_DB || [];
-  return _sitesFromDB(src);
+  var names = _sitesFromDB(src);
+  return (typeof _rvApplyCustomOrder==='function') ? _rvApplyCustomOrder(names) : names;
 })();
 /* Rebuild RV_SITES cuando la lista maestra se actualice */
 window._rebuildRvSites = function(){
   var src = window._masterSitesCloud || window.MASTER_SITES_DB || [];
   if(!src.length) return;
   var names = _sitesFromDB(src);
+  if(typeof _rvApplyCustomOrder==='function') names=_rvApplyCustomOrder(names);
   window.RV_SITES.length = 0;
   names.forEach(function(n){ window.RV_SITES.push(n); });
 };
@@ -18130,7 +18157,144 @@ function rvLoad(){
   // Firebase is synced via onSnapshot listener; localStorage is the fallback cache
 }
 function rvPersist(){try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}catch(e){}}
-function rvMkS(){return{bat:null,chg:false,soc:'',lp:false,rn:false,clk:null,dsc:null,tmp:'',racks:'',cmt:'',resp:'',skip:false};}
+function rvMkS(){return{bat:null,chg:false,soc:'',lp:false,rn:false,clk:null,dsc:null,tmp:'',racks:'',cmt:'',resp:'',skip:false,tSec:0};}
+function _rvFmtDur(sec){
+  sec=Math.max(0,Math.round(sec||0));
+  var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
+  function p2(n){return (n<10?'0':'')+n;}
+  return (h>0?(p2(h)+':'):'')+p2(m)+':'+p2(s);
+}
+function _rvTimerTick(){
+  if(!window.rvW||!rvW.tStart) return;
+  var end=rvW.tEnd||Date.now();
+  var el=document.getElementById('rv-timer-live');
+  if(el) el.textContent='⏱ '+_rvFmtDur((end-rvW.tStart)/1000);
+  if(window._rvLiveBroadcastTick) window._rvLiveBroadcastTick();
+}
+/* ══ CRONÓMETRO DE RONDA — inicio/fin general + control de pausas ══
+   rvW.tStart / rvW.tEnd delimitan la ronda. rvW._pausedAt marca el
+   instante en que se detuvo el reloj (cancelar o llegar al resumen);
+   al reanudar, ese hueco se descuenta corriendo tStart hacia delante,
+   para que "cancelar y retomar más tarde" no infle la duración total. */
+function _rvBeginTimer(){
+  if(!window.rvW) return;
+  if(!rvW.tStart){ rvW.tStart=Date.now(); }
+  else if(rvW._pausedAt){ rvW.tStart += (Date.now()-rvW._pausedAt); }
+  rvW._pausedAt=null; rvW.tEnd=null;
+  clearInterval(window._rvTimerInt);
+  window._rvTimerInt=setInterval(_rvTimerTick,1000);
+  _rvTimerTick();
+  if(window._rvBroadcastStart) window._rvBroadcastStart();
+}
+function _rvStopTimer(finalize){
+  clearInterval(window._rvTimerInt); window._rvTimerInt=null;
+  if(window.rvW){
+    if(finalize && !rvW.tEnd) rvW.tEnd=Date.now();
+    rvW._pausedAt=Date.now();
+  }
+  if(window._rvBroadcastEnd) window._rvBroadcastEnd();
+}
+function _rvClearLiveGlobal(){
+  clearInterval(window._rvTimerInt); window._rvTimerInt=null;
+  if(window._rvBroadcastClear) window._rvBroadcastClear();
+}
+
+/* ══ BANNER GLOBAL DE RONDA EN VIVO — visible en cualquier página de la app ══
+   Sincronizado vía Firestore (live_status/ronda_val) con onSnapshot, para que
+   cualquier usuario conectado (esté o no dentro de Validación) vea que hay
+   una ronda en curso, quién la hace, en qué sitio va y cuánto tiempo lleva. */
+window._rvGlobalLiveData = null;
+function _rvEnsureGlobalBanner(){
+  var el=document.getElementById('rv-global-live-banner');
+  if(el) return el;
+  el=document.createElement('div');
+  el.id='rv-global-live-banner';
+  el.onclick=function(){ if(window.goPage) goPage('repval'); };
+  el.style.cssText='display:none;position:fixed;top:var(--topbar-h,54px);left:0;right:0;z-index:520;'
+    +'background:linear-gradient(135deg,#0a1f5e,#1a3fcc);color:#fff;padding:9px 20px;align-items:center;gap:12px;'
+    +'font-family:var(--mono);font-size:11px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);white-space:nowrap;overflow:hidden';
+  el.innerHTML='<span id="rv-glb-dot" style="width:8px;height:8px;flex:none;border-radius:50%;background:#4ade80;box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:rvLivePulse 1.6s infinite"></span>'
+    +'<span id="rv-glb-txt" style="font-weight:700;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis"></span>'
+    +'<span style="margin-left:auto;opacity:.85;flex:none">Ver ronda →</span>';
+  document.body.appendChild(el);
+  if(!document.getElementById('rv-glb-style')){
+    var st=document.createElement('style');
+    st.id='rv-glb-style';
+    st.textContent='@keyframes rvLivePulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55)}70%{box-shadow:0 0 0 9px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}'
+      +'@media(max-width:768px){#rv-global-live-banner{top:var(--topbar-h,54px)}}';
+    document.head.appendChild(st);
+  }
+  return el;
+}
+function _rvRenderGlobalBanner(){
+  var d=window._rvGlobalLiveData;
+  var el=document.getElementById('rv-global-live-banner');
+  if(!d||!d.activo){ if(el) el.style.display='none'; return; }
+  el=_rvEnsureGlobalBanner();
+  /* No mostrar el banner a quien está haciendo la propia ronda — ya la ve en el wizard */
+  var isSelf = window.rvW && rvW.tStart && !rvW.tEnd && d.operador===rvW.op;
+  if(isSelf){ el.style.display='none'; return; }
+  var dur=_rvFmtDur(((d.tEnd||Date.now())-(d.tStart||Date.now()))/1000);
+  var txt='🔎 Revisión de sistemas en curso — '+(d.operador||'Operador')+' · Sitio '+((d.idx||0)+1)+'/'+(d.total||0)
+    +(d.sitioActual?(' ('+d.sitioActual+')'):'')+' · '+dur;
+  var t=document.getElementById('rv-glb-txt'); if(t) t.textContent=txt;
+  el.style.display='flex';
+}
+setInterval(_rvRenderGlobalBanner, 1000);
+
+function _rvWireLiveStatusListener(){
+  if(!window._fbFS||!window._fbDB){ setTimeout(_rvWireLiveStatusListener,400); return; }
+  var FS=window._fbFS, DB=window._fbDB;
+  try{
+    window._fbOnSnapshot(FS.doc(DB,'live_status','ronda_val'), function(snap){
+      window._rvGlobalLiveData = snap.exists() ? snap.data() : null;
+      _rvRenderGlobalBanner();
+    });
+  }catch(e){}
+}
+window.addEventListener('firebase-ready', _rvWireLiveStatusListener, {once:true});
+setTimeout(_rvWireLiveStatusListener, 2200);
+
+window._rvBroadcastStart = function(){
+  try{
+    if(window._fbFS&&window._fbDB){
+      var FS=window._fbFS, DB=window._fbDB;
+      FS.setDoc(FS.doc(DB,'live_status','ronda_val'),{
+        activo:true, operador:rvW.op||'Operador', tipo:rvW.type,
+        idx:rvW.idx, total:(window.RV_SITES||[]).length,
+        sitioActual:(window.RV_SITES||[])[rvW.idx]||'',
+        tStart:rvW.tStart, tEnd:null, updatedAt:Date.now()
+      });
+    }
+  }catch(e){}
+  if(typeof _sendPushOS==='function'){
+    _sendPushOS('Revisión de sistemas iniciada','Operador: '+(rvW.op||'—')+' · '+((window.RV_SITES||[]).length)+' sitios por revisar','ronda-inicio');
+  }
+};
+window._rvLiveBroadcastTick = function(force){
+  var now=Date.now();
+  if(!force && window._rvLastBTick && (now-window._rvLastBTick)<8000) return;
+  window._rvLastBTick=now;
+  try{
+    if(!window._fbFS||!window._fbDB||!window.rvW||!rvW.tStart) return;
+    var FS=window._fbFS, DB=window._fbDB;
+    FS.setDoc(FS.doc(DB,'live_status','ronda_val'),{
+      activo:!rvW.tEnd, operador:rvW.op||'Operador', tipo:rvW.type,
+      idx:rvW.idx, total:(window.RV_SITES||[]).length,
+      sitioActual:(window.RV_SITES||[])[rvW.idx]||'',
+      tStart:rvW.tStart, tEnd:rvW.tEnd||null, updatedAt:now
+    },{merge:true});
+  }catch(e){}
+};
+window._rvBroadcastEnd = function(){
+  try{
+    if(window._fbFS&&window._fbDB){
+      var FS=window._fbFS, DB=window._fbDB;
+      FS.setDoc(FS.doc(DB,'live_status','ronda_val'),{activo:false, updatedAt:Date.now()},{merge:true});
+    }
+  }catch(e){}
+};
+window._rvBroadcastClear = window._rvBroadcastEnd;
 function rvFd(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}
 function rvFdl(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
 function rvFt(iso){if(!iso)return'';return new Date(iso).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});}
@@ -18224,6 +18388,7 @@ function rvStartSites(){
       var _fab2=document.getElementById('fab-nueva');if(_fab2)_fab2.style.display='none';
       var _sd2=document.getElementById('sd-wrap');if(_sd2)_sd2.style.display='none';
       rvBuildSide();rvRenderS();
+      _rvBeginTimer();
       return;
     } else { try{localStorage.removeItem('rv:draft:v1');}catch(e){} }
   }
@@ -18236,6 +18401,7 @@ function rvStartSites(){
   var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='none';
   var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
   rvBuildSide();rvRenderS();
+  _rvBeginTimer();
   /* Colaboracion: mostrar barra inmediatamente y luego iniciar sesion */
   var bar=document.getElementById('collab-status-bar');
   if(bar){
@@ -18260,6 +18426,7 @@ function rvCancelWiz(){
     ? '¿Cancelar reporte? Esto terminará la sesión colaborativa para todos los participantes.'
     : '¿Cancelar reporte? El progreso se guardará como borrador.';
   if(!confirm(msg)) return;
+  _rvStopTimer(false);
   /* Guardar borrador antes de cerrar (solo si hay progreso) */
   if(window.rvW&&rvW.srs){
     var filled=rvW.srs.filter(function(s){return s.skip||s.bat;}).length;
@@ -18285,9 +18452,64 @@ function rvBackSites(){
   var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='none';
   var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
   rvW.idx=0;rvBuildSide();rvRenderS();
+  _rvBeginTimer();
 }
 
 /* SIDEBAR */
+/* ══ ORDEN PERSONALIZADO DE SITIOS (arrastrable) ══
+   El operador acomoda los sitios como los revisa realmente (igual que su
+   navegador de HMIs) y ese orden se recuerda para las siguientes rondas. */
+var RV_ORDER_SK='rv:order:v1';
+function _rvLoadOrder(){
+  try{ var d=localStorage.getItem(RV_ORDER_SK); return d?JSON.parse(d):null; }catch(e){ return null; }
+}
+function _rvPersistOrder(order){ try{ localStorage.setItem(RV_ORDER_SK, JSON.stringify(order)); }catch(e){} }
+function _rvApplyCustomOrder(names){
+  var order=_rvLoadOrder();
+  if(!order||!order.length) return names.slice();
+  var present={}; names.forEach(function(n){present[n]=true;});
+  var ordered=order.filter(function(n){return present[n];});
+  var already={}; ordered.forEach(function(n){already[n]=true;});
+  names.forEach(function(n){ if(!already[n]) ordered.push(n); }); /* sitios nuevos, al final */
+  return ordered;
+}
+function _rvEsc(s){ return String(s==null?'':s).replace(/"/g,'&quot;'); }
+var _rvDragFrom=null;
+function _rvDragStart(ev,name){
+  _rvDragFrom=name;
+  ev.currentTarget.classList.add('rv-dragging');
+  try{ ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',name); }catch(e){}
+}
+function _rvDragOverItem(ev){ ev.preventDefault(); ev.currentTarget.classList.add('rv-drag-over'); }
+function _rvDragLeaveItem(ev){ ev.currentTarget.classList.remove('rv-drag-over'); }
+function _rvDragEndItem(ev){
+  document.querySelectorAll('.rv-sitem').forEach(function(n){ n.classList.remove('rv-dragging','rv-drag-over'); });
+}
+function _rvDropItem(ev,toName){
+  ev.preventDefault();
+  document.querySelectorAll('.rv-sitem').forEach(function(n){ n.classList.remove('rv-dragging','rv-drag-over'); });
+  var fromName=_rvDragFrom; _rvDragFrom=null;
+  if(!fromName||fromName===toName) return;
+  _rvReorderSites(fromName,toName);
+}
+function _rvReorderSites(fromName,toName){
+  var names=(window.RV_SITES||[]).slice();
+  var fromI=names.indexOf(fromName), toI=names.indexOf(toName);
+  if(fromI<0||toI<0) return;
+  names.splice(fromI,1);
+  var insertAt=names.indexOf(toName);
+  names.splice(insertAt,0,fromName);
+  _rvPersistOrder(names);
+  if(!window.rvW||!rvW.srs){ return; } /* aún no hay ronda activa: solo guardamos la preferencia */
+  var curSiteAtIdx=RV_SITES[rvW.idx];
+  var nameToRec={};
+  RV_SITES.forEach(function(n,i){ nameToRec[n]=rvW.srs[i]; });
+  RV_SITES.length=0; names.forEach(function(n){ RV_SITES.push(n); });
+  rvW.srs=RV_SITES.map(function(n){ return nameToRec[n]||rvMkS(); });
+  rvW.idx=Math.max(0,RV_SITES.indexOf(curSiteAtIdx));
+  rvBuildSide(); rvRenderS();
+}
+
 var _rvAZ=false;
 function rvToggleAZ(){
   _rvAZ=!_rvAZ;
@@ -18303,10 +18525,13 @@ function rvBuildSide(){
   _rv('rv-prog-txt',function(e){e.textContent=pct+'%';});
   var items=RV_SITES.map(function(s,i){return{s:s,i:i};});
   if(_rvAZ) items=items.slice().sort(function(a,b){return a.s.localeCompare(b.s,'es',{sensitivity:'base'});});
+  var canDrag=!_rvAZ; /* el arrastre reordena RV_SITES; con A-Z activo se desactiva para no confundir */
   var h='';
   items.forEach(function(x){
-    var i=x.i; var s=x.s; var sr=rvW.srs[i];
-    h+='<div class="rv-sitem'+(i===rvW.idx?' cur':'')+'" onclick="rvJump('+i+')" style="color:'+rvSCol(sr)+'">'+
+    var i=x.i; var s=x.s; var sr=rvW.srs[i]; var esc=_rvEsc(s);
+    h+='<div class="rv-sitem'+(i===rvW.idx?' cur':'')+'" data-site="'+esc+'" onclick="rvJump('+i+')" style="color:'+rvSCol(sr)+'"'+
+       (canDrag?(' draggable="true" ondragstart="_rvDragStart(event,\''+esc.replace(/'/g,"\\'")+'\')" ondragover="_rvDragOverItem(event)" ondragleave="_rvDragLeaveItem(event)" ondrop="_rvDropItem(event,\''+esc.replace(/'/g,"\\'")+'\')" ondragend="_rvDragEndItem(event)"'):'')+'>'+
+       (canDrag?'<span class="rv-drag-handle">⠿</span>':'')+
        '<span class="rv-sico" style="background:'+rvSBg(sr)+';color:'+rvSCol(sr)+'">'+rvSIco(sr)+'</span>'+
        '<span style="overflow:hidden;text-overflow:ellipsis">'+s+'</span></div>';
   });
@@ -18323,6 +18548,8 @@ function rvJump(i){rvSync();rvW.idx=i;rvBuildSide();rvRenderS();}
 function rvRenderS(){
   var i=rvW.idx;var site=RV_SITES[i];var sr=rvW.srs[i];
   var rt=RV_TYPES[rvW.type]||RV_TYPES.matutino;
+  rvW._curEnterTs=Date.now(); /* marca de entrada al sitio actual, para el cronómetro por sitio */
+  if(window._rvLiveBroadcastTick) _rvLiveBroadcastTick(true);
   _rv('rv-wiz-lbl',function(e){e.textContent=rt.ico+' '+rt.label+' · '+rvW.op;});
   _rv('rv-site-num',function(e){e.textContent='Sitio '+(i+1)+' de '+RV_SITES.length;});
   _rv('rv-site-nm',function(e){e.textContent=site;});
@@ -18438,6 +18665,12 @@ function rvToggleChg(){
 }
 function rvSync(){
   var sr=rvW.srs[rvW.idx];
+  /* Cronómetro por sitio: acumula el tiempo desde la última marca y reinicia la marca.
+     Se llama tanto al navegar como al escribir, así que es seguro llamarlo muchas veces. */
+  if(rvW._curEnterTs){
+    sr.tSec=(sr.tSec||0)+Math.round((Date.now()-rvW._curEnterTs)/1000);
+    rvW._curEnterTs=Date.now();
+  }
   function gv(id){var e=document.getElementById(id);return e?e.value||'':'';}
   function gc(id){var e=document.getElementById(id);return e?e.checked:false;}
   sr.chg=gc('rv-chk-chg');sr.soc=gv('rv-soc-inp');sr.lp=gc('rv-chk-lp');sr.rn=gc('rv-chk-rn');
@@ -18478,6 +18711,7 @@ document.addEventListener('keydown',function(e){
 
 /* SUMMARY */
 function rvRenderSum(){
+  _rvStopTimer(true); /* congela el cronómetro al llegar a la vista previa del reporte */
   _rv('rv-wizard-modal',function(e){e.classList.remove('open');});
   _rv('rv-sum-modal',function(e){e.classList.add('open');e.scrollTop=0;});
   /* Ocultar FAB y Speed Dial para que no tapen los botones del wizard */
@@ -18489,14 +18723,25 @@ function rvRenderSum(){
   _rv('rv-sum-sub',function(e){e.textContent=rvW.op+' · '+rvFdl(rvW.date);});
   _rv('rv-meta1',function(e){e.textContent='Fecha: '+rvFd(rvW.date);});
   _rv('rv-meta2',function(e){e.textContent='No. de Reporte: '+rvFt(rvW.date)+' HRS';});
+  var _durTotalSeg=rvW.tStart?Math.round(((rvW.tEnd||Date.now())-rvW.tStart)/1000):0;
+  _rv('rv-meta3',function(e){e.textContent='Duración de la ronda: '+_rvFmtDur(_durTotalSeg);});
   _rv('rv-type-tag',function(e){e.textContent=rt.ico+' '+rt.label.toUpperCase();});
   /* stats cards */
-  var sd=[{l:'Sitios OK',v:st.ok,c:'ok'},{l:'Error Comunicación',v:st.err,c:'err'},{l:'Alarmados',v:st.alm,c:'alm'},{l:'Alta Temperatura',v:st.hot,c:'hot'}];
+  var _nRevisados=rvW.srs.filter(function(s){return !s.skip&&s.bat;}).length;
+  var _promSeg=_nRevisados?Math.round(_durTotalSeg/_nRevisados):0;
+  var sd=[{l:'Sitios OK',v:st.ok,c:'ok'},{l:'Error Comunicación',v:st.err,c:'err'},{l:'Alarmados',v:st.alm,c:'alm'},{l:'Alta Temperatura',v:st.hot,c:'hot'},
+    {l:'Duración total',v:_rvFmtDur(_durTotalSeg),c:'dur',sub:(_promSeg?('~'+_rvFmtDur(_promSeg)+'/sitio'):'')}];
   _rv('rv-sum-stats',function(e){
     e.innerHTML=sd.map(function(s){
+      var isDur = s.c==='dur';
+      var main = isDur
+        ? '<span style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--sky)">'+s.v+'</span>'
+        : (s.v>0?rvBdg(s.v,s.c):'<span style="font-family:var(--mono);font-size:20px;color:var(--t3)">0</span>');
       return'<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;text-align:center">'+
-        '<div style="margin-bottom:6px">'+(s.v>0?rvBdg(s.v,s.c):'<span style="font-family:var(--mono);font-size:20px;color:var(--t3)">0</span>')+'</div>'+
-        '<div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3)">'+s.l+'</div></div>';
+        '<div style="margin-bottom:6px">'+main+'</div>'+
+        '<div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3)">'+s.l+'</div>'+
+        (s.sub?'<div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px;opacity:.75">'+s.sub+'</div>':'')+
+        '</div>';
     }).join('');
   });
   /* issues alert */
@@ -18513,8 +18758,8 @@ function rvRenderSum(){
       issues.map(function(x){
         return'<div style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:#fff;border:1px solid rgba(217,119,6,.2);border-radius:6px;font-size:12px">'+
           '<strong>'+x.site+'</strong>'+
-          (x.sr.bat==='error'?rvBdg('Error','err'):'')+
-          (x.sr.bat==='alarm'?rvBdg('Alarma','alm'):'')+
+          (x.sr.bat==='error'?rvBdg(x.sr.batLabel||'Error','err'):'')+
+          (x.sr.bat==='alarm'?rvBdg(x.sr.batLabel||'Alarma','alm'):'')+
           (parseFloat(x.sr.tmp)>=38?rvBdg(x.sr.tmp+'°C','hot'):'')+
           (x.sr.resp?'<span style="font-size:10px;color:var(--sky)">→ '+x.sr.resp+'</span>':'')+
           '</div>';
@@ -18529,7 +18774,8 @@ function rvRenderSum(){
     'No Descarga':'var(--yellow)','Descargado':'var(--green)',
     'Fuera de Op.':'var(--red)','Mantenimiento':'cornflowerblue',
     'Libranza':'var(--yellow)','Alarmado':'var(--yellow)',
-    'Error Com.':'var(--red)','N/A':'var(--t3)','OK':'var(--green)'
+    'Error Com.':'var(--red)','N/A':'var(--t3)','OK':'var(--green)',
+    'Sin Red AC':'var(--red)','Falla DC':'var(--red)','Racks Fuera':'var(--yellow)'
   };
   _rv('rv-sum-tbody',function(e){
     e.innerHTML=RV_SITES.map(function(site,i){
@@ -18553,7 +18799,8 @@ function rvRenderSum(){
         '<td class="'+(tn>=38?'t-hot':tn>=32?'t-alm':'')+'">'+
           (sr.tmp?sr.tmp+'°C':'—')+'</td>'+
         '<td style="text-align:left;color:#444">'+( sr.cmt||'')+'</td>'+
-        '<td style="color:'+(sr.resp?'var(--sky)':'#aaa')+'">'+( sr.resp||'')+'</td></tr>';
+        '<td style="color:'+(sr.resp?'var(--sky)':'#aaa')+'">'+( sr.resp||'')+'</td>'+
+        '<td style="font-family:var(--mono);font-size:10px;color:#888">'+(sr.tSec?_rvFmtDur(sr.tSec):'—')+'</td></tr>';
     }).join('');
   });
   _rv('rv-ftr-stats',function(e){
@@ -18593,11 +18840,15 @@ function rvShowSavedBanner(label,isoDate,color){
 function rvSave(){
   rvLoad();
   var rt=RV_TYPES[rvW.type]||RV_TYPES.matutino;
+  if(!rvW.tEnd) rvW.tEnd=Date.now();
   var rep={
     id:Date.now().toString(),type:rvW.type,date:rvW.date,
     op:rvW.op,srs:JSON.parse(JSON.stringify(rvW.srs)),
+    tStart:rvW.tStart||null, tEnd:rvW.tEnd||null,
+    duracionTotalSeg: rvW.tStart ? Math.round((rvW.tEnd-rvW.tStart)/1000) : 0,
     createdAt:new Date().toISOString()
   };
+  _rvClearLiveGlobal(); /* la ronda terminó y quedó guardada — apagar el banner en vivo para todos */
   rvReps.unshift(rep);
   rvPersist(); // localStorage fallback
   // Save to Firebase — update localStorage with fbId on confirmation
@@ -19042,6 +19293,40 @@ function rvExportPNG(){
   }).catch(function(e){
     if(btn){btn.textContent='\u{1F4F7} Exportar PNG';btn.disabled=false;}
     alert('Error al exportar PNG.');
+  });
+}
+
+/* Exporta el reporte de validación como PDF formal, paginado (a4), reutilizando
+   el mismo html2canvas + jsPDF ya cargados en la app (mismo patrón que cerebroBuildPDF). */
+function rvExportPDF(){
+  var el=document.querySelector('#rv-sum-modal .rv-paper');
+  if(!el){alert('No hay reporte para exportar.');return;}
+  if(typeof html2canvas==='undefined'||!window.jspdf||!window.jspdf.jsPDF){alert('Librería de PDF no disponible.');return;}
+  var btn=event.target;if(btn){btn.textContent='Exportando...';btn.disabled=true;}
+  html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
+    var jsPDFCtor=window.jspdf.jsPDF;
+    var pdf=new jsPDFCtor({unit:'pt',format:'a4'});
+    var pageW=pdf.internal.pageSize.getWidth();
+    var pageH=pdf.internal.pageSize.getHeight();
+    var imgW=pageW;
+    var imgH=canvas.height*imgW/canvas.width;
+    var imgData=canvas.toDataURL('image/png');
+    var heightLeft=imgH, position=0;
+    pdf.addImage(imgData,'PNG',0,position,imgW,imgH);
+    heightLeft-=pageH;
+    while(heightLeft>0){
+      position=heightLeft-imgH;
+      pdf.addPage();
+      pdf.addImage(imgData,'PNG',0,position,imgW,imgH);
+      heightLeft-=pageH;
+    }
+    var rt=RV_TYPES[rvW&&rvW.type?rvW.type:'matutino']||RV_TYPES.matutino;
+    var now=new Date();
+    pdf.save('Reporte_'+rt.label.replace(/\s/g,'_')+'_'+now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate()+'.pdf');
+    if(btn){btn.textContent='\u{1F4C4} Exportar PDF';btn.disabled=false;}
+  }).catch(function(e){
+    if(btn){btn.textContent='\u{1F4C4} Exportar PDF';btn.disabled=false;}
+    alert('Error al exportar PDF.');
   });
 }
 
@@ -26533,6 +26818,9 @@ var _BAT_LABELS = {
   'na_MANTENIMIENTO':'Mantenimiento',
   'na_LIBRANZA':     'Libranza',
   'na_':             'N/A',
+  'alarm_SIN_RED_AC':  'Sin Red AC',
+  'alarm_FALLA_DC':    'Falla DC',
+  'alarm_RACKS_FUERA': 'Racks Fuera',
 };
 
 window.rvSetBatFull = function(bat, cond) {
@@ -26563,6 +26851,9 @@ var _BAT_FULL_COLORS = {
   'na_MANTENIMIENTO':{bg:'rgba(100,149,237,.1)', border:'cornflowerblue',   color:'#1e3a8a'},
   'na_LIBRANZA':    {bg:'rgba(245,158,11,.1)',   border:'var(--yellow)',    color:'#92400e'},
   'na_':            {bg:'rgba(148,163,184,.08)', border:'#94a3b8',          color:'#475569'},
+  'alarm_SIN_RED_AC':  {bg:'rgba(220,38,38,.1)', border:'var(--red)',       color:'#991b1b'},
+  'alarm_FALLA_DC':    {bg:'rgba(220,38,38,.1)', border:'var(--red)',       color:'#991b1b'},
+  'alarm_RACKS_FUERA': {bg:'rgba(217,119,6,.1)', border:'var(--yellow)',    color:'#92400e'},
 };
 
 function _rvHighlightUnified(bat, cond) {
@@ -26601,6 +26892,9 @@ var _COND_BANNERS = {
   'BALANCEANDO':  {bg:'rgba(139,92,246,.1)',   border:'rgba(139,92,246,.3)',   color:'#a78bfa',         text:'⚖️ Sistema balanceando celdas'},
   'NO_DESCARGA':  {bg:'rgba(245,158,11,.08)',  border:'rgba(245,158,11,.25)',  color:'#f59e0b',         text:'⛔ Sistema no realizó descarga en este turno'},
   'DESCARGADO':   {bg:'rgba(16,185,129,.08)',  border:'rgba(16,185,129,.25)',  color:'#10b981',         text:'✅ Descarga completada correctamente'},
+  'SIN_RED_AC':   {bg:'rgba(220,38,38,.1)',    border:'rgba(220,38,38,.3)',    color:'var(--red)',      text:'🔴 Ausencia de red AC — sitio operando en respaldo/baterías'},
+  'FALLA_DC':     {bg:'rgba(220,38,38,.1)',    border:'rgba(220,38,38,.3)',    color:'var(--red)',      text:'🔋 Falla en el bus DC — requiere revisión técnica'},
+  'RACKS_FUERA':  {bg:'rgba(217,119,6,.1)',    border:'rgba(245,158,11,.3)',   color:'#92400e',         text:'🗄 Uno o más racks fuera de operación — detallar en comentarios'},
 };
 
 function _rvShowCondBanner(cond, bat) {
