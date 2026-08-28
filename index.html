@@ -4818,7 +4818,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787902690';
+  var APP_VERSION = '1787904079';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -29973,6 +29973,112 @@ function _fpBarGradient(ctx, color){
   g.addColorStop(1, color+'8C');
   return g;
 }
+/* ══ Escala Y dinámica + título de periodo + etiquetas de valor sobre la gráfica ══
+   Antes las gráficas de "Tendencia del FP" usaban un rango fijo 80–100%, lo que aplanaba
+   visualmente cualquier variación real (el FP casi siempre se mueve en una banda angosta, p.ej.
+   95–97%) — ahora el eje se ajusta al rango real de los datos graficados (sin contar las 3 líneas
+   de referencia punteadas Ideal/Objetivo/Mínimo), con un margen proporcional para que la línea
+   nunca toque el borde y los cambios reales del periodo se noten. */
+function _fpAutoYRange(valueArrays){
+  var vals = [];
+  (valueArrays||[]).forEach(function(arr){
+    (arr||[]).forEach(function(v){ if(v!=null && isFinite(v)) vals.push(v); });
+  });
+  if(!vals.length) return { min:80, max:100 };
+  var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  if(lo===hi){ lo -= 1; hi += 1; }
+  var span = hi - lo;
+  var pad = Math.max(span*0.22, 0.4);
+  var min = Math.max(0, lo-pad), max = Math.min(100, hi+pad);
+  var step = span>15 ? 1 : (span>4 ? 0.5 : 0.1);
+  min = Math.floor(min/step)*step;
+  max = Math.ceil(max/step)*step;
+  if(min<0) min=0;
+  if(max>100) max=100;
+  if(max-min<0.5) max=min+0.5;
+  return { min:Number(min.toFixed(2)), max:Number(max.toFixed(2)) };
+}
+/* Título "Agosto 2026" o "Junio – Agosto 2026" según el rango de fechas realmente graficado —
+   así se ve de un vistazo a qué mes(es) corresponde la gráfica. */
+function _fpMonthRangeLabel(dates){
+  var keys=[]; (dates||[]).forEach(function(f){ var k=_fpMonthKey(f); if(k && keys.indexOf(k)===-1) keys.push(k); });
+  if(!keys.length) return '';
+  keys.sort();
+  var first=keys[0], last=keys[keys.length-1];
+  return first===last ? _fpMonthLabel(first) : (_fpMonthLabel(first)+' – '+_fpMonthLabel(last));
+}
+/* Con pocos puntos se etiqueta cada uno; con muchos, solo primero/último y los "quiebres" más
+   importantes (mínimos/máximos locales) — así se ve el valor exacto de cada punto clave sin
+   saturar la gráfica de texto. Con series largas y ruidosas (muchos zigzags día a día), CASI todo
+   punto puede calificar como "quiebre" — para evitarlo se limita a un puñado de los quiebres de
+   mayor magnitud (más "prominentes" frente a sus vecinos), exigiendo además una separación mínima
+   entre ellos para que no queden dos etiquetas pegadas y traslapadas. */
+function _fpPickLabelIndices(data){
+  var idxs=[];
+  for(var i=0;i<data.length;i++){ if(data[i]!=null) idxs.push(i); }
+  if(idxs.length<=10) return idxs;
+  var first=idxs[0], last=idxs[idxs.length-1];
+  var candidates=[];
+  for(var k=1;k<idxs.length-1;k++){
+    var v0=data[idxs[k-1]], v1=data[idxs[k]], v2=data[idxs[k+1]];
+    if((v1-v0)*(v2-v1)<0){
+      candidates.push({ idx:idxs[k], prom:Math.max(Math.abs(v1-v0), Math.abs(v1-v2)) });
+    }
+  }
+  candidates.sort(function(a,b){ return b.prom-a.prom; });
+  var minGap = Math.max(1, Math.floor(idxs.length/14));
+  var picked=[first,last];
+  candidates.forEach(function(c){
+    if(picked.length>=12) return;
+    var tooClose = picked.some(function(p){ return Math.abs(p-c.idx) < minGap; });
+    if(!tooClose) picked.push(c.idx);
+  });
+  var pickedSet={}; picked.forEach(function(p){ pickedSet[p]=true; });
+  return Object.keys(pickedSet).map(Number).sort(function(a,b){return a-b;});
+}
+/* Dibuja el % de FP como etiqueta permanente sobre cada punto elegido, con una placa blanca
+   detrás para que se lea aunque quede sobre la línea o el relleno — el reporte exportado es una
+   imagen estática, así que un tooltip que solo aparece al pasar el mouse ahí nunca se ve. Se
+   activa por dataset con la marca ds.fpShowValueLabels, para no aplicar a las 3 líneas de
+   referencia punteadas. */
+var FP_VALUE_LABELS_PLUGIN = {
+  id:'fpValueLabels',
+  afterDatasetsDraw:function(chart){
+    var ctx=chart.ctx, area=chart.chartArea; if(!area) return;
+    chart.data.datasets.forEach(function(ds, dsIndex){
+      if(!ds.fpShowValueLabels) return;
+      var meta=chart.getDatasetMeta(dsIndex);
+      if(!meta || meta.hidden) return;
+      var idxs=_fpPickLabelIndices(ds.data);
+      idxs.forEach(function(i){
+        var pt=meta.data[i]; if(!pt) return;
+        var v=ds.data[i]; if(v==null) return;
+        var arrow='';
+        if(ds.fpDeltas && ds.fpDeltas[i]!=null){
+          var d=ds.fpDeltas[i];
+          arrow = d>0.05?' ▲':(d<-0.05?' ▼':'');
+        }
+        var text=v.toFixed(2)+'%'+arrow;
+        ctx.save();
+        ctx.font="700 10px 'DM Mono',monospace";
+        var tw=ctx.measureText(text).width;
+        var half=tw/2+4;
+        var x=Math.min(Math.max(pt.x, area.left+half), area.right-half);
+        var y=pt.y-16;
+        if(y-8 < area.top) y = pt.y+16; /* si no cabe arriba (punto muy pegado al tope), se baja */
+        var color=(typeof ds.borderColor==='string') ? ds.borderColor : '#1a3fcc';
+        ctx.fillStyle='rgba(255,255,255,.94)';
+        ctx.fillRect(x-tw/2-4, y-8, tw+8, 15);
+        ctx.strokeStyle='rgba(10,31,94,.14)'; ctx.lineWidth=1;
+        ctx.strokeRect(x-tw/2-4, y-8, tw+8, 15);
+        ctx.fillStyle=color;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(text, x, y-0.5);
+        ctx.restore();
+      });
+    });
+  }
+};
 /* Logo de Skysense (sin modificaciones) como marca en la esquina superior derecha de cada
    gráfica — usado en las gráficas de reportes exportables.
    Ojo: el FP casi siempre anda entre 90–100%, es decir pegado al TOPE de la escala (80–100%) —
@@ -30596,8 +30702,14 @@ window._fpRenderDetail = function(){
     } else {
       ds.pointBackgroundColor = cfg.color;
     }
+    ds.fpShowValueLabels = true; /* el FP% se anota permanentemente sobre cada punto clave */
     return ds;
   });
+  /* Eje Y ajustado al rango real de los datos graficados (sin las 3 líneas de referencia) — así
+     una variación de apenas 1 o 2 puntos porcentuales se ve claramente en vez de aplanarse contra
+     un eje fijo 80–100%. */
+  var yRange = _fpAutoYRange(datasets.map(function(d){ return d.data; }));
+  var periodTitle = _fpMonthRangeLabel(allDates);
   datasets.push({ label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a99', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
   datasets.push({ label:'Objetivo (95%)', data:flat(95), borderColor:'#05966999', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
   datasets.push({ label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc262699', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
@@ -30605,12 +30717,12 @@ window._fpRenderDetail = function(){
   _fpCharts['fp-detail-chart'] = new Chart(canvas, {
     type:'line',
     data:{ labels:labels, datasets:datasets },
-    plugins:[FP_WATERMARK_PLUGIN],
+    plugins:[FP_WATERMARK_PLUGIN, FP_VALUE_LABELS_PLUGIN],
     options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
-      /* Franja vacía reservada arriba para el logo — así nunca tapa la línea de datos, que suele
-         andar pegada al tope de la escala (80–100%). */
+      /* Franja vacía reservada arriba para el logo — así nunca tapa la línea de datos. */
       layout:{ padding:{ top:FP_WATERMARK_BAND } },
       plugins:{
+        title: periodTitle ? { display:true, text:'Tendencia del FP — '+periodTitle, color:'#0a1f5e', font:{ family:"'DM Mono',monospace", size:12.5, weight:'700' }, padding:{ top:2, bottom:10 } } : { display:false },
         legend:{ position:'bottom', labels:{ boxWidth:10, usePointStyle:true, pointStyle:'circle', padding:14, font:{ family:"'DM Mono',monospace", size:9.5 } } },
         tooltip:Object.assign({}, FP_TOOLTIP_STYLE, { callbacks:{ label:function(ctx){
           var base = ctx.dataset.label+': '+(ctx.raw==null?'—':ctx.raw.toFixed(2)+'%');
@@ -30624,7 +30736,7 @@ window._fpRenderDetail = function(){
       },
       scales:{
         x:{ grid:{ display:false }, ticks:{ font:{ family:"'DM Mono',monospace", size:9.5 } } },
-        y:{ suggestedMin:80, suggestedMax:100, grid:{ color:'rgba(26,63,204,.07)' }, ticks:{ font:{ family:"'DM Mono',monospace", size:9.5 }, callback:function(v){return v+'%';} } }
+        y:{ min:yRange.min, max:yRange.max, grid:{ color:'rgba(26,63,204,.07)' }, ticks:{ font:{ family:"'DM Mono',monospace", size:9.5 }, callback:function(v){return (Math.round(v*100)/100)+'%';} } }
       }
     }
   });
@@ -31301,7 +31413,7 @@ function _fpBuildReportChartImg(seriesList){
     var dataDatasets = seriesList.map(function(s){
       var color = s.color || '#1a3fcc';
       var built = seriesFor(s);
-      var ds = { label:s.label||'FP', data:built.data,
+      var ds = { label:s.label||'FP', data:built.data, fpDeltas:built.deltas,
         borderColor:color,
         backgroundColor:function(c){ return _fpAreaGradient(c, _fpHexToRgba(color,.30), _fpHexToRgba(color,.01)); },
         borderWidth:3, spanGaps:true, tension:.35, cubicInterpolationMode:'monotone',
@@ -31324,8 +31436,11 @@ function _fpBuildReportChartImg(seriesList){
       } else {
         ds.pointBackgroundColor = color;
       }
+      ds.fpShowValueLabels = true; /* el FP% se anota permanentemente sobre cada punto clave — el reporte es una imagen estática, no hay hover */
       return ds;
     });
+    var yRange = _fpAutoYRange(dataDatasets.map(function(d){ return d.data; }));
+    var periodTitle = _fpMonthRangeLabel(allDates);
     try{
       chart = new Chart(canvas, {
         type:'line',
@@ -31334,13 +31449,16 @@ function _fpBuildReportChartImg(seriesList){
           { label:'Objetivo (95%)', data:flat(95), borderColor:'#05966999', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 },
           { label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc262699', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 }
         ])},
-        plugins:[whiteBgPlugin, FP_WATERMARK_PLUGIN],
+        plugins:[whiteBgPlugin, FP_WATERMARK_PLUGIN, FP_VALUE_LABELS_PLUGIN],
         options:{ responsive:false, animation:false, devicePixelRatio:2,
           layout:{ padding:{ top:FP_WATERMARK_BAND } },
-          plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, usePointStyle:true, pointStyle:'circle', font:{ family:'Arial', size:11 } } } },
+          plugins:{
+            title: periodTitle ? { display:true, text:'Tendencia del FP — '+periodTitle, color:'#0a1f5e', font:{ family:'Arial', size:14, weight:'bold' }, padding:{ top:2, bottom:10 } } : { display:false },
+            legend:{ position:'bottom', labels:{ boxWidth:10, usePointStyle:true, pointStyle:'circle', font:{ family:'Arial', size:11 } } }
+          },
           scales:{
             x:{ grid:{ display:false } },
-            y:{ suggestedMin:80, suggestedMax:100, grid:{ color:'rgba(26,63,204,.08)' }, ticks:{ callback:function(v){return v+'%';} } }
+            y:{ min:yRange.min, max:yRange.max, grid:{ color:'rgba(26,63,204,.08)' }, ticks:{ callback:function(v){return (Math.round(v*100)/100)+'%';} } }
           }
         }
       });
