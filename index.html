@@ -4818,7 +4818,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787899501';
+  var APP_VERSION = '1787901204';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8263,6 +8263,7 @@ async function expDoZip(mode){
         <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#7c3aed;border-radius:2px;display:inline-block;flex-shrink:0"></span>📈 Tendencia del FP</div>
         <select id="fp-detail-site-sel" onchange="window._fpRenderDetail()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
       </div>
+      <div id="fp-detail-modo-toggles" style="display:none;flex-wrap:wrap;gap:6px"></div>
       <div style="position:relative;height:280px"><canvas id="fp-detail-chart"></canvas></div>
     </div>
 
@@ -29947,6 +29948,11 @@ _fpLogoImg.src = FP_LOGO_DATAURI;
 /* ══ HELPERS DE ESTILO PARA GRAFICAS (Chart.js) ══
    Gradientes y marca de agua reutilizables, para que las graficas de FP (tendencia, resumen
    mensual y reportes exportables) se vean consistentes y profesionales. */
+function _fpHexToRgba(hex, alpha){
+  var h = String(hex).replace('#','');
+  var r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+alpha+')';
+}
 function _fpAreaGradient(ctx, colorTop, colorBottom){
   var chart = ctx.chart;
   var area = chart.chartArea;
@@ -30228,6 +30234,52 @@ function _fpApplySeedT3(){
   }catch(e){}
 }
 
+/* ══ SEED: histórico real T3 — MENSUAL / SUMATORIA (tabla de agosto que Ale compartió) ══
+   Ojo: estas fechas se traslapan con el seed de arriba (T3 instantáneo/Scheider) — son DOS series
+   totalmente distintas del mismo sitio, no un error. El medidor de sumatoria de T3 se reinicia a
+   0 el primer día de cada mes, así que cada código YA es el total acumulado del mes hasta ese
+   momento — el FP sale DIRECTO de esos valores, sin restar contra la lectura anterior (ver
+   modo:'mensual' y _fpMonthlyGroupsMensual). Por eso se guardan con modo:'mensual' explícito y se
+   comparan por fecha SOLO contra otras lecturas 'mensual' ya existentes — nunca contra las
+   'directo' del seed de arriba, aunque compartan la misma fecha. Los días 26 y 27 llevan nota de
+   los kVAr inyectados por el banco de capacitores esos días. */
+var FP_SEED_T3_MENSUAL_VERSION = '2026-08-28-v1-t3-mensual-agosto';
+var FP_SEED_T3_MENSUAL = [
+  { fecha:'2026-08-08', codigo1:311272.78, codigo5:84932.23 },
+  { fecha:'2026-08-15', codigo1:7738189,   codigo5:2178385.75 },
+  { fecha:'2026-08-20', codigo1:8156314.5, codigo5:2297170.5 },
+  { fecha:'2026-08-21', codigo1:8222133.5, codigo5:2316725.25 },
+  { fecha:'2026-08-22', codigo1:8291854.5, codigo5:2338286.5 },
+  { fecha:'2026-08-24', codigo1:8457099,   codigo5:2390591.5 },
+  { fecha:'2026-08-25', codigo1:8541419,   codigo5:2415224.5 },
+  { fecha:'2026-08-26', codigo1:8621020,   codigo5:2421722,   nota:'kVAr inyectados: -900' },
+  { fecha:'2026-08-27', codigo1:8700835,   codigo5:2423082.5, nota:'kVAr inyectados: -900' }
+];
+function _fpApplySeedT3Mensual(){
+  try{
+    var ver = localStorage.getItem('bess:fp_seed_t3_mensual_ver');
+    if(ver === FP_SEED_T3_MENSUAL_VERSION) return;
+    if(FP_SITES.indexOf('T3')===-1){ FP_SITES.push('T3'); _fpPersistSites(); }
+    var existing = {};
+    FP_LIST.forEach(function(r){ if(r.sitio==='T3' && _fpReadingModo(r)==='mensual') existing[r.fecha]=true; });
+    var added=0;
+    FP_SEED_T3_MENSUAL.forEach(function(row){
+      if(existing[row.fecha]) return; /* respeta cualquier lectura mensual que el equipo ya haya capturado a mano para esa fecha */
+      FP_LIST.push({
+        id:_fpUid(), sitio:'T3', fecha:row.fecha, codigo1:row.codigo1, codigo5:row.codigo5,
+        modo:'mensual', nota:row.nota||'', createdAt:Date.now(), seeded:true
+      });
+      added++;
+    });
+    localStorage.setItem('bess:fp_seed_t3_mensual_ver', FP_SEED_T3_MENSUAL_VERSION);
+    if(added){
+      _fpPersistList();
+      window._fpForceSeedThisLoad = true;
+      console.log('[Factor de Potencia] Se importaron '+added+' lectura(s) mensuales historicas de T3 (version '+FP_SEED_T3_MENSUAL_VERSION+').');
+    }
+  }catch(e){}
+}
+
 /* ══ DATOS DERIVADOS ══ */
 /* modoFiltro opcional: si se pasa 'directo' o 'acumulado', solo regresa lecturas de ESE tipo
    (para el filtro de "instantáneo / mensual" del histórico, resumen mensual y exportación). */
@@ -30394,34 +30446,92 @@ function _fpRenderDetailSiteSelect(){
   sel.innerHTML = FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
   if(cur && FP_SITES.indexOf(cur)>-1) sel.value=cur; else if(FP_SITES.length) sel.value=FP_SITES[0];
 }
+/* Chips para elegir qué tipo(s) de lectura graficar en "Tendencia del FP" — solo se muestran si
+   el sitio tiene MÁS DE UN tipo guardado (p.ej. T3 con instantáneo + mensual); si solo usa uno no
+   hace falta molestar al usuario. Se puede activar más de un tipo a la vez, cada uno se dibuja
+   como su propia línea de color — así se evita la línea "mezclada" que saltaba entre valores de
+   naturaleza distinta (kW instantáneo vs. sumatoria kWh del mes) y que se veía como un brinco raro. */
+function _fpRenderDetailModoToggles(site, modosDisponibles){
+  var box=document.getElementById('fp-detail-modo-toggles'); if(!box) return;
+  if(modosDisponibles.length<2){ box.style.display='none'; box.innerHTML=''; return; }
+  window._fpDetailActiveModos = window._fpDetailActiveModos || {};
+  if(!window._fpDetailActiveModos[site]){
+    window._fpDetailActiveModos[site] = {};
+    modosDisponibles.forEach(function(m){ window._fpDetailActiveModos[site][m]=true; });
+  }
+  var active = window._fpDetailActiveModos[site];
+  box.style.display='flex';
+  box.innerHTML = modosDisponibles.map(function(m){
+    var cfg = FP_MODO_BADGE_CFG[m];
+    var isOn = !!active[m];
+    var bg = isOn ? _fpHexToRgba(cfg.color,.1) : 'var(--s2)';
+    var bd = isOn ? cfg.color : 'var(--b2)';
+    var fg = isOn ? cfg.color : 'var(--t3)';
+    return '<button type="button" onclick="window._fpToggleDetailModo(\''+_fpEsc(site).replace(/'/g,"\\'")+'\',\''+m+'\')" style="padding:5px 11px;border-radius:20px;border:1.5px solid '+bd+';background:'+bg+';color:'+fg+';font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">'+cfg.label+'</button>';
+  }).join('');
+}
+window._fpToggleDetailModo = function(site, modo){
+  window._fpDetailActiveModos = window._fpDetailActiveModos || {};
+  if(!window._fpDetailActiveModos[site]) window._fpDetailActiveModos[site] = {};
+  var cur = window._fpDetailActiveModos[site];
+  var activeCount = Object.keys(cur).filter(function(k){ return cur[k]; }).length;
+  if(cur[modo] && activeCount<=1) return; /* no dejar el gráfico sin ninguna línea activa */
+  cur[modo] = !cur[modo];
+  window._fpRenderDetail();
+};
 window._fpRenderDetail = function(){
   var sel=document.getElementById('fp-detail-site-sel'); if(!sel) return;
   var site=sel.value;
   var canvas=document.getElementById('fp-detail-chart');
   if(!canvas || typeof Chart==='undefined') return;
   if(_fpCharts['fp-detail-chart']){ try{ _fpCharts['fp-detail-chart'].destroy(); }catch(e){} }
-  var hist=_fpSiteHistory(site);
-  var labels=hist.map(function(h){ return _fpFechaCorta(h.fecha); });
-  /* FP vigente: en modo 'acumulado' (T4) es la diferencia contra la lectura anterior; en modo
-     'directo' (T3) es el FP de esa lectura. Antes se dibujaba también una segunda línea con el FP
-     acumulado crudo del medidor de referencia, pero ese número no refleja el desempeño real (es
-     el promedio de toda la vida del medidor) y solo generaba confusión — se dejó una sola línea,
-     la que sí importa operativamente. */
-  var vigente=hist.map(function(h){ return h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum; });
+
+  /* Sitios con más de un tipo de lectura (p.ej. T3): se grafica cada tipo activo como su propia
+     línea, en vez de mezclar cronológicamente valores de naturaleza distinta en una sola línea. */
+  var modosDisponibles = ['directo','acumulado','mensual'].filter(function(m){ return _fpSiteReadings(site,m).length>0; });
+  _fpRenderDetailModoToggles(site, modosDisponibles);
+  var activeModos;
+  if(modosDisponibles.length<2){
+    activeModos = modosDisponibles.length ? modosDisponibles : ['acumulado'];
+  } else {
+    var activeMap = (window._fpDetailActiveModos && window._fpDetailActiveModos[site]) || {};
+    activeModos = modosDisponibles.filter(function(m){ return activeMap[m]; });
+    if(!activeModos.length) activeModos = modosDisponibles.slice();
+  }
+
+  var histByModo = {};
+  activeModos.forEach(function(m){ histByModo[m] = _fpSiteHistory(site, m); });
+  var allDatesSet = {};
+  activeModos.forEach(function(m){ histByModo[m].forEach(function(h){ allDatesSet[h.fecha]=true; }); });
+  var allDates = Object.keys(allDatesSet).sort();
+  var labels = allDates.map(function(f){ return _fpFechaCorta(f); });
   function flat(v){ return labels.map(function(){ return v; }); }
+  /* FP vigente: en modo 'acumulado' (T4) es la diferencia contra la lectura anterior; en modo
+     'directo' o 'mensual' es el FP directo de esa lectura. Antes se dibujaba también una segunda
+     línea con el FP acumulado crudo del medidor de referencia, pero ese número no refleja el
+     desempeño real y solo generaba confusión — se dejó fuera. */
+  function seriesFor(m){
+    var byDate = {};
+    histByModo[m].forEach(function(h){ byDate[h.fecha] = h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum; });
+    return allDates.map(function(f){ return byDate.hasOwnProperty(f) ? byDate[f] : null; });
+  }
+
+  var datasets = activeModos.map(function(m){
+    var cfg = FP_MODO_BADGE_CFG[m];
+    return { label: modosDisponibles.length>1 ? cfg.label : 'FP', data:seriesFor(m),
+      borderColor:cfg.color,
+      backgroundColor:function(c){ return _fpAreaGradient(c, _fpHexToRgba(cfg.color,.30), _fpHexToRgba(cfg.color,.01)); },
+      borderWidth:3, spanGaps:true, tension:.35, cubicInterpolationMode:'monotone',
+      pointRadius:4, pointHoverRadius:7, pointBackgroundColor:cfg.color, pointBorderColor:'#ffffff', pointBorderWidth:2,
+      pointHoverBorderWidth:3, fill: activeModos.length===1, order:0 };
+  });
+  datasets.push({ label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a99', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
+  datasets.push({ label:'Objetivo (95%)', data:flat(95), borderColor:'#05966999', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
+  datasets.push({ label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc262699', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
+
   _fpCharts['fp-detail-chart'] = new Chart(canvas, {
     type:'line',
-    data:{ labels:labels, datasets:[
-      { label:'FP', data:vigente,
-        borderColor:'#1a3fcc',
-        backgroundColor:function(c){ return _fpAreaGradient(c, 'rgba(26,63,204,.30)', 'rgba(26,63,204,.01)'); },
-        borderWidth:3, spanGaps:true, tension:.35, cubicInterpolationMode:'monotone',
-        pointRadius:4, pointHoverRadius:7, pointBackgroundColor:'#1a3fcc', pointBorderColor:'#ffffff', pointBorderWidth:2,
-        pointHoverBorderWidth:3, fill:true, order:0 },
-      { label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a99', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 },
-      { label:'Objetivo (95%)', data:flat(95), borderColor:'#05966999', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 },
-      { label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc262699', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 }
-    ]},
+    data:{ labels:labels, datasets:datasets },
     plugins:[FP_WATERMARK_PLUGIN],
     options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
       /* Franja vacía reservada arriba para el logo — así nunca tapa la línea de datos, que suele
@@ -31070,19 +31180,31 @@ window._fpOpenExportReport = function(){
    sin depender de qué sitio esté seleccionado en la pestaña "Tendencia del FP". */
 var _fpReportRenderToken = 0;
 var _fpReportChartsPromise = null;
-function _fpBuildReportChartImg(hist){
+/* seriesList: [{ modo, label, hist }] — una o más series a graficar juntas. Cuando el reporte
+   filtra a un solo tipo (o el sitio nunca mezcló tipos) llega una sola serie, igual que antes.
+   Cuando se piden "Todos los tipos" en un sitio mixto (p.ej. T3 con instantáneo + mensual)
+   llegan varias series, una línea de color por tipo — así se evita mezclar valores de naturaleza
+   distinta en una sola línea que salta de forma confusa. */
+function _fpBuildReportChartImg(seriesList){
   return new Promise(function(resolve){
-    if(!hist.length || typeof Chart==='undefined'){ resolve(''); return; }
+    seriesList = (seriesList||[]).filter(function(s){ return s.hist && s.hist.length; });
+    if(!seriesList.length || typeof Chart==='undefined'){ resolve(''); return; }
     var canvas = document.createElement('canvas');
     canvas.width = 900; canvas.height = 340;
     canvas.style.position='fixed'; canvas.style.left='-99999px'; canvas.style.top='0';
     canvas.style.width='900px'; canvas.style.height='340px';
     document.body.appendChild(canvas);
-    var labels = hist.map(function(h){ return _fpFechaCorta(h.fecha); });
-    /* FP vigente (ver _fpRenderDetail): una sola línea, la que refleja el desempeño real —
-       sin la línea de "FP acumulado" crudo que solo confundía. */
-    var vigente = hist.map(function(h){ return h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum; });
+    var allDatesSet = {};
+    seriesList.forEach(function(s){ s.hist.forEach(function(h){ allDatesSet[h.fecha]=true; }); });
+    var allDates = Object.keys(allDatesSet).sort();
+    var labels = allDates.map(function(f){ return _fpFechaCorta(f); });
     function flat(v){ return labels.map(function(){ return v; }); }
+    /* FP vigente (ver _fpRenderDetail): sin la línea de "FP acumulado" crudo que solo confundía. */
+    function seriesFor(s){
+      var byDate = {};
+      s.hist.forEach(function(h){ byDate[h.fecha] = h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum; });
+      return allDates.map(function(f){ return byDate.hasOwnProperty(f) ? byDate[f] : null; });
+    }
     var whiteBgPlugin = { id:'fpWhiteBg', beforeDraw:function(c){ var ctx=c.ctx; ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,c.width,c.height); ctx.restore(); } };
     var chart=null;
     function cleanupAndResolve(img){
@@ -31090,19 +31212,22 @@ function _fpBuildReportChartImg(hist){
       try{ document.body.removeChild(canvas); }catch(e){}
       resolve(img||'');
     }
+    var dataDatasets = seriesList.map(function(s){
+      var color = s.color || '#1a3fcc';
+      return { label:s.label||'FP', data:seriesFor(s),
+        borderColor:color,
+        backgroundColor:function(c){ return _fpAreaGradient(c, _fpHexToRgba(color,.30), _fpHexToRgba(color,.01)); },
+        borderWidth:3, spanGaps:true, tension:.35, cubicInterpolationMode:'monotone',
+        pointRadius:4, pointBackgroundColor:color, pointBorderColor:'#ffffff', pointBorderWidth:2, fill:seriesList.length===1, order:0 };
+    });
     try{
       chart = new Chart(canvas, {
         type:'line',
-        data:{ labels:labels, datasets:[
-          { label:'FP', data:vigente,
-            borderColor:'#1a3fcc',
-            backgroundColor:function(c){ return _fpAreaGradient(c, 'rgba(26,63,204,.30)', 'rgba(26,63,204,.01)'); },
-            borderWidth:3, spanGaps:true, tension:.35, cubicInterpolationMode:'monotone',
-            pointRadius:4, pointBackgroundColor:'#1a3fcc', pointBorderColor:'#ffffff', pointBorderWidth:2, fill:true, order:0 },
+        data:{ labels:labels, datasets: dataDatasets.concat([
           { label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a99', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 },
           { label:'Objetivo (95%)', data:flat(95), borderColor:'#05966999', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 },
           { label:'Mínimo CFE (90%)', data:flat(90), borderColor:'#dc262699', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 }
-        ]},
+        ])},
         plugins:[whiteBgPlugin, FP_WATERMARK_PLUGIN],
         options:{ responsive:false, animation:false, devicePixelRatio:2,
           layout:{ padding:{ top:FP_WATERMARK_BAND } },
@@ -31168,8 +31293,21 @@ window._fpRenderReportPreview = function(){
       '</tr>';
     }).join('');
     var chartId = 'fp-report-chart-'+idx;
-    if(hist.length) chartTargets.push({ id:chartId, hist:hist });
-    var chartPlaceholder = hist.length ? ('<div id="'+chartId+'" style="min-height:4px;margin-bottom:10px;border-radius:10px;overflow:hidden"></div>') : '';
+    /* Cuando el sitio mezcla tipos y se pidió "Todos", la gráfica del reporte grafica CADA tipo
+       como su propia línea de color (igual que "Tendencia del FP" en la app) — nunca una sola
+       línea mezclando valores de naturaleza distinta. Con un solo tipo filtrado, una sola línea. */
+    var chartSeriesList;
+    if(mixedInSection){
+      chartSeriesList = ['directo','acumulado','mensual'].map(function(m){
+        var h = _fpSiteReadings(site, m).length ? _fpSiteHistory(site, m) : [];
+        if(mesesSel) h = h.filter(function(x){ return mesesSel.indexOf(_fpMonthKey(x.fecha))>-1; });
+        return { modo:m, label:_fpModoLabel(m), color:(FP_MODO_BADGE_CFG[m]||{}).color, hist:h };
+      }).filter(function(s){ return s.hist.length; });
+    } else {
+      chartSeriesList = hist.length ? [{ modo:modoEfectivo, label: modoEfectivo ? _fpModoLabel(modoEfectivo) : 'FP', color:'#1a3fcc', hist:hist }] : [];
+    }
+    if(chartSeriesList.length) chartTargets.push({ id:chartId, seriesList:chartSeriesList });
+    var chartPlaceholder = chartSeriesList.length ? ('<div id="'+chartId+'" style="min-height:4px;margin-bottom:10px;border-radius:10px;overflow:hidden"></div>') : '';
     var tipoBadgeHeader = mixedInSection ? '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">TIPO</th>' : '';
     var tipoHeaderNotMixed = (!mixedInSection && modoFiltro==='todos') ? (' <span style="font-weight:400;color:#9ca3af">('+_fpModoLabel(_fpSiteMode(site))+')</span>') : '';
     return '<div style="page-break-inside:avoid;margin-bottom:38px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(10,31,94,.08)">'+
@@ -31223,7 +31361,7 @@ window._fpRenderReportPreview = function(){
   document.getElementById('fp-report-print').innerHTML = html;
 
   _fpReportChartsPromise = Promise.all(chartTargets.map(function(t){
-    return _fpBuildReportChartImg(t.hist).then(function(img){
+    return _fpBuildReportChartImg(t.seriesList).then(function(img){
       if(myToken !== _fpReportRenderToken) return; /* el usuario ya cambió el filtro — descarta este resultado viejo */
       var el = document.getElementById(t.id);
       if(el && img) el.innerHTML = '<img src="'+img+'" style="width:100%;max-width:700px;display:block;margin:14px auto">';
@@ -31420,6 +31558,7 @@ _fpLoadLocal();
 window._fpLoaded = true;
 _fpApplySeedT4();
 _fpApplySeedT3();
+_fpApplySeedT3Mensual();
 _fpPullCloud(function(){
   /* Si el Reporte de Medidores ya está abierto cuando llega la respuesta de la nube, se refresca
      para que la columna de FP no se quede con datos viejos. */

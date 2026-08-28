@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1787899501_bess_v23_fp_mensual_sin_resta';
+const DEPLOY_TS  = '1787901204_bess_v25_fp_grafica_por_tipo';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
