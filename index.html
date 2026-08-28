@@ -486,6 +486,22 @@ window._fb = {
     const cSnap = await getDocs(collection(fbDB, 'docs_bess_v2', id, 'chunks'));
     for(const c of cSnap.docs) await deleteDoc(c.ref);
     await deleteDoc(doc(fbDB, 'docs_bess_v2', id));
+  },
+
+  /* ── CARPETAS PERSONALIZADAS DE DOCUMENTOS ── */
+  // Metadata pura (nombre, icono, carpeta padre) — sin binarios, así que no necesita el troceo
+  // en chunks que sí usa docsSave.
+  async foldersGetAll(){
+    const q = query(collection(fbDB, 'doc_folders_v1'), orderBy('createdAt','asc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ ...d.data(), _id: d.id }));
+  },
+  async foldersSave(meta){
+    const ref = await addDoc(collection(fbDB, 'doc_folders_v1'), { ...meta, createdAt: meta.createdAt||Date.now() });
+    return ref.id;
+  },
+  async foldersDelete(id){
+    await deleteDoc(doc(fbDB, 'doc_folders_v1', id));
   }
 };
 
@@ -506,12 +522,134 @@ const DCATS=[
 const DSITES=Array.from({length:20},(_,i)=>`BESS-${String(i+1).padStart(2,'0')}`);
 
 // ── Helpers ──
-let _all=[],_cur=null,_fcat='all',_zoom=1,_pdf=null,_pn=1,_pp=0;
+let _all=[],_cur=null,_zoom=1,_pdf=null,_pn=1,_pp=0;
 let _don=false,_dc='#E63946',_ds=3,_dn=false,_dlx=0,_dly=0,_mon=false;
 const $=id=>document.getElementById(id);
+const _esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtSz=b=>!b?'—':b>1048576?(b/1048576).toFixed(1)+' MB':(b/1024).toFixed(0)+' KB';
 const fmtDt=ts=>!ts?'—':new Date(ts).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'});
 const cat=id=>DCATS.find(c=>c.id===id)||DCATS[4];
+
+// ══ NAVEGACIÓN DE CARPETAS — tarjetas visuales + drill-down (estilo Drive/Finder) ══
+// _dNav guarda dónde está parado el usuario: raíz (ve todas las carpetas), dentro de una carpeta
+// (ve sus subcarpetas + archivos propios), o dentro de una subcarpeta (solo archivos — un único
+// nivel de anidamiento, a propósito, para no complicar la navegación). Nunca se persiste: cada vez
+// que se entra a la sección de Documentos se parte de la raíz, como en Drive.
+let _dNav={folderId:null,subId:null};
+
+// Carpetas personalizadas creadas por el equipo — metadata pura (nombre, icono, carpeta padre),
+// persistida en Firestore (colección doc_folders_v1) con un espejo en localStorage como respaldo
+// si Firestore tarda o falla, igual que el resto de la app.
+let _dfolders=[];
+try{ _dfolders=JSON.parse(localStorage.getItem('bess_docs_folders_cache')||'[]'); }catch(e){ _dfolders=[]; }
+const _dfoldersCacheSave=()=>{ try{ localStorage.setItem('bess_docs_folders_cache', JSON.stringify(_dfolders)); }catch(e){} };
+
+// ── Sugerencia automática de icono según el nombre de la carpeta (editable después desde la
+// paleta) — cubre el vocabulario típico de operación BESS/CFE del equipo. ──
+const DFICON_RULES=[
+  [/cfe|recibo|factura|luz|el[eé]ctric/i,'⚡'],
+  [/medidor|c[oó]digo|contador/i,'🔢'],
+  [/manual|t[eé]cnico/i,'📘'],
+  [/procedimiento|\bsop\b|protocolo/i,'📋'],
+  [/sitio|instalaci[oó]n|planta/i,'📍'],
+  [/contrato|legal|licencia|permiso/i,'📜'],
+  [/garant[ií]a/i,'✅'],
+  [/seguridad|epp|riesgo/i,'🦺'],
+  [/mantenimiento|reparaci[oó]n|falla/i,'🔧'],
+  [/capacitor|bater[ií]a|\bbess\b|celda/i,'🔋'],
+  [/plano|diagrama|layout/i,'🗺️'],
+  [/foto|imagen|evidencia/i,'🖼️'],
+  [/reporte|informe|\bkpi\b/i,'📈'],
+  [/respaldo|backup/i,'💾'],
+  [/red|network|comunicaci[oó]n/i,'🌐'],
+  [/calibraci[oó]n|inspecci[oó]n|auditor[ií]a/i,'🔍'],
+  [/capacitaci[oó]n|curso|entrenamiento/i,'🎓'],
+  [/finanza|pago|costo|presupuesto/i,'💰'],
+  [/personal|\brh\b|recursos humanos|equipo/i,'👥'],
+  [/skysense|documentaci[oó]n/i,'📚'],
+  [/seguro|p[oó]liza/i,'🛡️'],
+];
+const _dfSuggestIcon=name=>{
+  const n=(name||'').trim();
+  if(!n) return '📁';
+  for(const [re,ico] of DFICON_RULES) if(re.test(n)) return ico;
+  return '📁';
+};
+const DFICON_PALETTE=['📁','📘','📋','📍','⚡','🧾','🔢','📜','✅','🦺','🔧','🔋','🗺️','🖼️','📈','💾','🌐','🔍','🎓','💰','👥','📚','🛡️','📎','🗂️','📅','🔑','⚙️','🏆','📦'];
+
+// Paleta de colores para carpetas personalizadas — determinística según el id de la carpeta (sin
+// selector manual de color, tal como se acordó: el icono es lo que distingue cada carpeta).
+const DFCOLOR_PALETTE=[
+  {color:'#1a3fcc',bg:'rgba(26,63,204,.12)'},{color:'#0891b2',bg:'rgba(8,145,178,.12)'},
+  {color:'#7c3aed',bg:'rgba(124,58,237,.12)'},{color:'#d97706',bg:'rgba(217,119,6,.12)'},
+  {color:'#059669',bg:'rgba(5,150,105,.12)'},{color:'#db2777',bg:'rgba(219,39,119,.12)'},
+  {color:'#475569',bg:'rgba(100,116,139,.12)'},{color:'#dc2626',bg:'rgba(220,38,38,.12)'},
+];
+const _hashStr=s=>{let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return Math.abs(h);};
+const _dfColorFor=id=>DFCOLOR_PALETTE[_hashStr(String(id))%DFCOLOR_PALETTE.length];
+
+// Vista unificada de "carpetas de primer nivel": las categorías fijas del sistema (Manuales,
+// Procedimientos, Docs por Sitio, Recibos CFE) + las carpetas personalizadas creadas por el
+// equipo — todas se navegan exactamente igual.
+const _dAllTopFolders=()=>{
+  const sys=DCATS.filter(c=>c.id!=='otros').map(c=>({id:c.id,name:c.label,icon:c.emoji,color:c.color,bg:c.bg,system:true}));
+  const custom=_dfolders.filter(f=>!f.parentId).map(f=>{
+    const pal=_dfColorFor(f._id);
+    return {id:f._id,name:f.name,icon:f.icon||'📁',color:pal.color,bg:pal.bg,system:false};
+  });
+  return sys.concat(custom);
+};
+const _dFolderById=id=>_dAllTopFolders().find(f=>f.id===id)||null;
+const _dSubfoldersOf=parentId=>_dfolders.filter(f=>f.parentId===parentId).map(f=>{
+  const pal=_dfColorFor(f._id);
+  return {id:f._id,name:f.name,icon:f.icon||'📁',color:pal.color,bg:pal.bg};
+});
+// Carpeta efectiva de un documento: los nuevos documentos ya traen folderId explícito; los
+// documentos viejos (antes de este rediseño) solo tenían themeCat, y los de 'otros' con
+// customName se migran una vez a una carpeta real (ver _dMigrateLegacyOtros) y quedan con
+// folderId asignado desde entonces.
+const _dFolderIdOf=d=>{
+  if(d.folderId) return d.folderId;
+  const tc=d.themeCat||'otros';
+  return tc==='otros' ? null : tc;
+};
+const _dSubIdOf=d=>d.subId||null;
+
+const fbFoldersGetAll=async()=>{ await _waitFBDocs(); return window._fb.foldersGetAll(); };
+const fbFoldersSave=async(meta)=>{ await _waitFBDocs(); return window._fb.foldersSave(meta); };
+const fbFoldersDelete=async(id)=>{ await _waitFBDocs(); return window._fb.foldersDelete(id); };
+
+// Migración única: documentos guardados antes de este rediseño con themeCat='otros' y un
+// customName libre (p.ej. "Códigos Medidor") se agrupaban solo por texto, sin ser carpetas reales.
+// Aquí se crea (una sola vez, reutilizando si ya existe) una carpeta de verdad por cada nombre
+// distinto encontrado, y se vincula cada documento a ella — así entran de lleno al nuevo sistema
+// de carpetas sin que el equipo pierda esa organización que ya tenía.
+const _dMigrateLegacyOtros=async()=>{
+  const seen={}; _dfolders.forEach(f=>{ if(!f.parentId) seen[f.name.trim().toLowerCase()]=f; });
+  const toCreate=[];
+  _all.forEach(d=>{
+    if((d.themeCat||'otros')==='otros' && d.customName && !d.folderId){
+      const key=d.customName.trim().toLowerCase();
+      if(key && !seen[key] && !toCreate.find(t=>t.key===key)) toCreate.push({key,name:d.customName.trim()});
+    }
+  });
+  for(const t of toCreate){
+    try{
+      const icon=_dfSuggestIcon(t.name);
+      const id=await fbFoldersSave({name:t.name,icon,parentId:null});
+      const created={_id:id,name:t.name,icon,parentId:null,createdAt:Date.now()};
+      _dfolders.push(created);
+      seen[t.key]=created;
+    }catch(e){ console.warn('[DOCS] migración de carpeta legacy falló:',e); }
+  }
+  if(toCreate.length) _dfoldersCacheSave();
+  _all.forEach(d=>{
+    if((d.themeCat||'otros')==='otros' && d.customName && !d.folderId){
+      const f=seen[d.customName.trim().toLowerCase()];
+      if(f) d.folderId=f._id;
+    }
+  });
+};
 // Devuelve label visible: si es 'otros' y tiene customName, lo usa
 const catLabel=(d)=>{
   if((d.themeCat||'otros')==='otros' && d.customName) return d.customName;
@@ -551,131 +689,207 @@ const fbDocsDeleteMeta=async(id)=>{
 const dLoad=async()=>{
   try{_all=await fbDocsGetAll();}catch(e){console.error('dLoad:',e);_all=[];}
   window._docsAll=_all;
+  try{
+    _dfolders=await fbFoldersGetAll();
+    _dfoldersCacheSave();
+  }catch(e){ console.warn('dLoad: carpetas remotas no disponibles, usando caché local:',e); }
+  try{ await _dMigrateLegacyOtros(); }catch(e){ console.warn('dLoad: migración de carpetas legacy falló:',e); }
   dRender();
 };
 
-// ── Render sidebar ──
-window.docsSetFilter=(c,el)=>{
-  _fcat=c;
-  document.querySelectorAll('.dpill').forEach(p=>p.classList.remove('active'));
-  if(el)el.classList.add('active');
-  dRender();
+// Se usa solo al ENTRAR a la sección de Documentos (nunca al refrescar tras subir/borrar un
+// archivo) — así siempre se parte de la raíz, como en Drive, sin perder la carpeta en la que
+// el usuario está trabajando cuando sube o elimina un archivo.
+const dEnterDocs=async()=>{
+  _dNav={folderId:null,subId:null};
+  await dLoad();
 };
 
-const dRender=()=>{
-  const q=($('dSearchInp')||{value:''}).value.toLowerCase();
-  let list=q?_all.filter(d=>(d.name||'').toLowerCase().includes(q)||(d.site||'').toLowerCase().includes(q)):[..._all];
-  if(_fcat!=='all')list=list.filter(d=>(d.themeCat||'otros')===_fcat);
-  const el=$('dCatList');if(!el)return;
-  const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
-  set('dStatTotal',_all.length);set('dStatPdf',_all.filter(d=>d.ext==='pdf').length);set('dStatSitios',_all.filter(d=>d.themeCat==='sitios').length);
-  if(!list.length){
-    el.innerHTML=`<div style="padding:32px 16px;text-align:center;color:var(--text3);font-size:12px;line-height:1.8">${_all.length?'Sin resultados.':'📂 Sin documentos aún.<br>Sube tu primer archivo ↑'}</div>`;
-    return;
-  }
-
-  // Grupos fijos (no-otros)
-  const g={};DCATS.filter(c=>c.id!=='otros').forEach(c=>g[c.id]=[]);
-  // Grupos dinámicos para 'otros': agrupados por customName
-  const otrosGrupos={}; // key: customName||'Otros'
-  list.forEach(d=>{
-    const k=d.themeCat||'otros';
-    if(k==='otros'){
-      const gk=d.customName||'Otros';
-      (otrosGrupos[gk]||(otrosGrupos[gk]=[])).push(d);
-    }else{
-      (g[k]||(g[k]=[])).push(d);
-    }
-  });
-
-  const mkDocRow=d=>{
-    const ext=(d.ext||'').toLowerCase();
-    const ecl=ext==='pdf'?'dep':['html','htm'].includes(ext)?'deh':'deo';
-    const act=_cur&&_cur._id===d._id;
-    return`<div class="dfi${act?' act':''}" onclick="docsOpen('${d._id}')">
+// ── Fila de un documento (compartida por todas las vistas) ──
+const _dMkDocRow=d=>{
+  const ext=(d.ext||'').toLowerCase();
+  const ecl=ext==='pdf'?'dep':['html','htm'].includes(ext)?'deh':'deo';
+  const act=_cur&&_cur._id===d._id;
+  return`<div class="dfi${act?' act':''}" onclick="docsOpen('${d._id}')">
   <div class="dext ${ecl}">${(d.ext||'—').toUpperCase()}</div>
   <div style="flex:1;min-width:0">
-    ${d.site?`<div style="font-size:9px;font-weight:800;color:var(--accent);background:rgba(26,63,204,.09);border-radius:3px;padding:1px 5px;display:inline-block;margin-bottom:2px">${d.site}</div>`:''}
-    <div style="font-size:11.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.name||''}">${d.name||'Sin nombre'}</div>
+    ${d.site?`<div style="font-size:9px;font-weight:800;color:var(--accent);background:rgba(26,63,204,.09);border-radius:3px;padding:1px 5px;display:inline-block;margin-bottom:2px">${_esc(d.site)}</div>`:''}
+    <div style="font-size:11.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc(d.name||'')}">${_esc(d.name||'Sin nombre')}</div>
     <div style="font-size:9.5px;color:var(--text3);margin-top:1px">${fmtSz(d.size)} · ${fmtDt(d.savedAt)}</div>
   </div>
   <button class="ddel" onclick="event.stopPropagation();docsDelete('${d._id}')">✕</button>
 </div>`;
-  };
+};
 
-  const fixedHTML=DCATS.filter(c=>c.id!=='otros'&&g[c.id]?.length).map(c=>`
-<div class="dg open" id="dg-${c.id}">
-  <div class="dg-h" onclick="this.closest('.dg').classList.toggle('open')">
-    <span style="font-size:15px;margin-right:7px;flex-shrink:0">${c.emoji}</span>
-    <span style="flex:1;font-size:12px;font-weight:700;color:var(--text)">${c.label}</span>
-    <span style="font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:10px;margin-right:5px;background:${c.bg};color:${c.color}">${g[c.id].length}</span>
-    <svg style="width:12px;height:12px;color:var(--text3);transition:transform .2s;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-  </div>
-  <div class="dg-b">${g[c.id].map(mkDocRow).join('')}</div>
-</div>`).join('');
+// ── Migas de pan (breadcrumb) con botón "← Volver" ──
+const _dBreadcrumbHtml=(folderId,subId)=>{
+  const f=_dFolderById(folderId);
+  if(!f) return '';
+  let trail=`<span class="d-bc-item" onclick="window._dNavRoot()">📄 Documentos</span>`;
+  if(subId){
+    const sub=_dSubfoldersOf(folderId).find(s=>s.id===subId);
+    trail+=`<span class="d-bc-sep">›</span><span class="d-bc-item" onclick="window._dNavInto('${folderId}')">${f.icon} ${_esc(f.name)}</span>`;
+    trail+=`<span class="d-bc-sep">›</span><span class="d-bc-item current">${sub?sub.icon:'📁'} ${_esc(sub?sub.name:'')}</span>`;
+  }else{
+    trail+=`<span class="d-bc-sep">›</span><span class="d-bc-item current">${f.icon} ${_esc(f.name)}</span>`;
+  }
+  return `<div class="d-bc"><span class="d-bc-back" onclick="window._dNavBack()">← Volver</span><span class="d-bc-trail">${trail}</span></div>`;
+};
 
-  const co=DCATS[4]; // 'otros' config
-  const otrosHTML=Object.keys(otrosGrupos).sort().map(gk=>{
-    const gid='dg-otros-'+gk.replace(/[^a-z0-9]/gi,'_');
-    const docs=otrosGrupos[gk];
-    return`<div class="dg open" id="${gid}">
-  <div class="dg-h" onclick="this.closest('.dg').classList.toggle('open')">
-    <span style="font-size:15px;margin-right:7px;flex-shrink:0">${co.emoji}</span>
-    <span style="flex:1;font-size:12px;font-weight:700;color:var(--text)">${gk}</span>
-    <span style="font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:10px;margin-right:5px;background:${co.bg};color:${co.color}">${docs.length}</span>
-    <svg style="width:12px;height:12px;color:var(--text3);transition:transform .2s;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-  </div>
-  <div class="dg-b">${docs.map(mkDocRow).join('')}</div>
+// ── Vista raíz: tarjetas de todas las carpetas de primer nivel ──
+const _dRenderRootView=()=>{
+  const folders=_dAllTopFolders();
+  const cards=folders.map((f,i)=>{
+    const count=_all.filter(d=>_dFolderIdOf(d)===f.id).length;
+    const subCount=_dSubfoldersOf(f.id).length;
+    return `<div class="dfcard" style="--i:${i};--cc:${f.color};--cb:${f.bg}" onclick="window._dNavInto('${f.id}')" title="${_esc(f.name)}">
+  <div class="dfcard-ico">${f.icon}</div>
+  <div class="dfcard-name">${_esc(f.name)}</div>
+  <div class="dfcard-count">${count} archivo${count===1?'':'s'}${subCount?' · '+subCount+' subcarpeta'+(subCount===1?'':'s'):''}</div>
 </div>`;
   }).join('');
-
-  el.innerHTML=fixedHTML+otrosHTML;
+  const newCard=`<div class="dfcard dfcard-new" style="--i:${folders.length}" onclick="window._dfOpenNewFolder(null)">
+  <div class="dfcard-new-ico">+</div>
+  <div class="dfcard-name">Nueva carpeta</div>
+</div>`;
+  if(!_all.length && !folders.some(f=>!f.system)){
+    return `<div class="dfgrid">${cards}${newCard}</div><div class="d-files-empty">📂 Sin documentos aún.<br>Sube tu primer archivo ↑</div>`;
+  }
+  return `<div class="dfgrid">${cards}${newCard}</div>`;
 };
 
-// ── Upload modal ──
+// ── Vista de carpeta: subcarpetas + archivos propios ──
+const _dRenderFolderView=folderId=>{
+  const f=_dFolderById(folderId);
+  if(!f){ _dNav.folderId=null; return _dRenderRootView(); }
+  const subs=_dSubfoldersOf(folderId);
+  const ownFiles=_all.filter(d=>_dFolderIdOf(d)===folderId && !_dSubIdOf(d));
+  const subCards=subs.map((s,i)=>{
+    const count=_all.filter(d=>_dFolderIdOf(d)===folderId&&_dSubIdOf(d)===s.id).length;
+    return `<div class="dfcard dfcard-sub" style="--i:${i};--cc:${s.color};--cb:${s.bg}" onclick="window._dNavIntoSub('${folderId}','${s.id}')" title="${_esc(s.name)}">
+  <div class="dfcard-ico">${s.icon}</div>
+  <div class="dfcard-name">${_esc(s.name)}</div>
+  <div class="dfcard-count">${count} archivo${count===1?'':'s'}</div>
+</div>`;
+  }).join('');
+  const newSubCard=`<div class="dfcard dfcard-new dfcard-sub" style="--i:${subs.length}" onclick="window._dfOpenNewFolder('${folderId}')">
+  <div class="dfcard-new-ico">+</div>
+  <div class="dfcard-name">Nueva subcarpeta</div>
+</div>`;
+  const filesHtml = ownFiles.length
+    ? `<div class="d-files-label">Archivos en ${_esc(f.name)}</div>${ownFiles.map(_dMkDocRow).join('')}`
+    : `<div class="d-files-empty">📂 Sin archivos en esta carpeta aún.<br>Sube uno ↑</div>`;
+  return `${_dBreadcrumbHtml(folderId,null)}<div class="dfgrid dfgrid-sub">${subCards}${newSubCard}</div>${filesHtml}`;
+};
+
+// ── Vista de subcarpeta: solo archivos (un único nivel de anidamiento) ──
+const _dRenderSubfolderView=(folderId,subId)=>{
+  const f=_dFolderById(folderId);
+  const sub=f?_dSubfoldersOf(folderId).find(s=>s.id===subId):null;
+  if(!f||!sub){ _dNav.subId=null; return _dRenderFolderView(folderId); }
+  const files=_all.filter(d=>_dFolderIdOf(d)===folderId&&_dSubIdOf(d)===subId);
+  const body=files.length?files.map(_dMkDocRow).join(''):`<div class="d-files-empty">📂 Sin archivos en esta subcarpeta aún.<br>Sube uno ↑</div>`;
+  return `${_dBreadcrumbHtml(folderId,subId)}${body}`;
+};
+
+// ── Resultados de búsqueda: planos, cruzando todas las carpetas, con su ruta ──
+const _dRenderSearchResults=q=>{
+  const list=_all.filter(d=>(d.name||'').toLowerCase().includes(q)||(d.site||'').toLowerCase().includes(q));
+  if(!list.length) return `<div style="padding:32px 16px;text-align:center;color:var(--text3);font-size:12px;line-height:1.8">Sin resultados.</div>`;
+  return list.map(d=>{
+    const fid=_dFolderIdOf(d), sid=_dSubIdOf(d);
+    const f=fid?_dFolderById(fid):null;
+    const sub=(fid&&sid)?_dSubfoldersOf(fid).find(s=>s.id===sid):null;
+    const path=f?(f.icon+' '+_esc(f.name)+(sub?' › '+sub.icon+' '+_esc(sub.name):'')):'📁 Sin carpeta';
+    return `<div style="font-size:9px;color:var(--text3);font-weight:700;padding:4px 10px 0">${path}</div>${_dMkDocRow(d)}`;
+  }).join('');
+};
+
+// ── Render sidebar (dispatcher) ──
+const dRender=()=>{
+  const q=($('dSearchInp')||{value:''}).value.trim().toLowerCase();
+  const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+  set('dStatTotal',_all.length);set('dStatPdf',_all.filter(d=>d.ext==='pdf').length);set('dStatSitios',_all.filter(d=>_dFolderIdOf(d)==='sitios').length);
+  const el=$('dCatList');if(!el)return;
+  if(q){ el.innerHTML=_dRenderSearchResults(q); return; }
+  if(_dNav.subId){ el.innerHTML=_dRenderSubfolderView(_dNav.folderId,_dNav.subId); return; }
+  if(_dNav.folderId){ el.innerHTML=_dRenderFolderView(_dNav.folderId); return; }
+  el.innerHTML=_dRenderRootView();
+};
+
+// ── Navegación animada (fade + slide, con entrada escalonada de tarjetas vía --i) ──
+const dRenderAnimated=dir=>{
+  const el=$('dCatList');
+  if(!el){ dRender(); return; }
+  el.style.animation='none';
+  void el.offsetWidth; // forzar reflow para reiniciar la animación
+  dRender();
+  el.style.animation = dir==='back' ? 'dSlideInLeft .22s ease' : 'dSlideInRight .22s ease';
+};
+window._dNavRoot=()=>{ _dNav={folderId:null,subId:null}; dRenderAnimated('back'); };
+window._dNavInto=folderId=>{ _dNav={folderId,subId:null}; dRenderAnimated('fwd'); };
+window._dNavIntoSub=(folderId,subId)=>{ _dNav={folderId,subId}; dRenderAnimated('fwd'); };
+window._dNavBack=()=>{
+  if(_dNav.subId) _dNav={folderId:_dNav.folderId,subId:null};
+  else _dNav={folderId:null,subId:null};
+  dRenderAnimated('back');
+};
+
+// ── Modal "¿Dónde guardar?": lista dinámica de carpetas (sistema + personalizadas) ──
+const _dRenderCatModalFolders=()=>{
+  const el=$('dCatBtns'); if(!el) return;
+  const folders=_dAllTopFolders();
+  el.innerHTML = folders.map(f=>`
+    <button class="dcat-btn${window._dSelFolder===f.id?' sel':''}" onclick="window._dModalSelFolder('${f.id}',this)" data-cat="${f.id}" style="--cc:${f.color};--cb:${f.bg}">
+      <div class="dcat-ico">${f.icon}</div>
+      <div class="dcat-lbl">${_esc(f.name)}</div>
+      <div class="dcat-sub">${f.id==='sitios'?'Por instalación BESS':(f.system?'':'Carpeta personalizada')}</div>
+    </button>`).join('')
+    + `<button class="dcat-btn dcat-btn-new" onclick="window._dfOpenNewFolder(null,true)" style="--cc:#1a3fcc;--cb:rgba(26,63,204,.08);grid-column:span 2">
+      <div class="dcat-ico">➕</div>
+      <div class="dcat-lbl">Nueva carpeta</div>
+      <div class="dcat-sub">Créala y sube tu archivo directo ahí</div>
+    </button>`;
+};
+window._dModalSelFolder=(folderId,btn)=>{
+  window._dSelFolder=folderId;
+  document.querySelectorAll('#dCatBtns .dcat-btn').forEach(o=>o.classList.remove('sel'));
+  if(btn) btn.classList.add('sel');
+  else{ const b=document.querySelector(`#dCatBtns .dcat-btn[data-cat="${folderId}"]`); if(b) b.classList.add('sel'); }
+  const siteRow=$('dSiteRow');
+  if(siteRow) siteRow.style.display = folderId==='sitios' ? 'block' : 'none';
+  if(folderId==='sitios'){
+    const siteSel=$('dSiteSel');
+    if(siteSel && siteSel.options.length<=1){ DSITES.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;siteSel.appendChild(o);}); }
+  }
+  const okBtn=$('dUpBtn'); if(okBtn) okBtn.disabled=false;
+};
+
+// ── Upload: si se está navegando dentro de una carpeta se sube directo ahí (sin preguntar);
+// desde la raíz — o dentro de "Docs por Sitio", que siempre necesita elegir el sitio — se
+// muestra el modal "¿Dónde guardar?" ──
 const dShowPanel=files=>{
+  window._dPendingFiles=Array.from(files);
+  if(_dNav.folderId && _dNav.folderId!=='sitios'){
+    const folderId=_dNav.folderId, subId=_dNav.subId;
+    const pending=window._dPendingFiles; window._dPendingFiles=null;
+    (async()=>{ for(const f of pending) await dUpload(f,folderId,subId,''); })();
+    return;
+  }
   const modal=$('dCatModal'); if(!modal) return;
   modal.style.display='flex';
-  window._dPendingFiles=Array.from(files);
   const fn=$('dUpFname'); if(fn) fn.textContent=files.length===1?files[0].name:`${files.length} archivos seleccionados`;
-  // Reset
-  document.querySelectorAll('.dcat-btn').forEach(o=>o.classList.remove('sel'));
-  window._dSelCat=null;
-  const siteRow=$('dSiteRow'); if(siteRow) siteRow.style.display='none';
-  const customRow=$('dCustomRow'); if(customRow) customRow.style.display='none';
-  const customInp=$('dCustomName'); if(customInp) customInp.value='';
-  window._dCustomName='';
+  window._dSelFolder = _dNav.folderId==='sitios' ? 'sitios' : null;
+  _dRenderCatModalFolders();
+  const siteRow=$('dSiteRow'); if(siteRow) siteRow.style.display = window._dSelFolder==='sitios' ? 'block' : 'none';
   const siteSel=$('dSiteSel'); if(siteSel) siteSel.value='';
-  const okBtn=$('dUpBtn')||$('dCatOkBtn'); if(okBtn) okBtn.disabled=true;
+  if(siteSel && siteSel.options.length<=1){ DSITES.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;siteSel.appendChild(o);}); }
+  const okBtn=$('dUpBtn'); if(okBtn) okBtn.disabled = window._dSelFolder!=='sitios';
 };
-
-// Aliases para coincidir con el HTML del modal (dSelCat, dCancelUp, dConfirmUp)
-window.dSelCat=(cat,btn)=>{
-  document.querySelectorAll('.dcat-btn').forEach(o=>o.classList.remove('sel'));
-  if(btn) btn.classList.add('sel');
-  window._dSelCat=cat;
-  const siteRow=$('dSiteRow');
-  if(siteRow) siteRow.style.display=cat==='sitios'?'block':'none';
-  const customRow=$('dCustomRow');
-  if(customRow) customRow.style.display=cat==='otros'?'block':'none';
-  if(cat==='otros'){
-    const inp=$('dCustomName');
-    if(inp) setTimeout(()=>inp.focus(),50);
-  }
-  // Populate site selector if needed
-  const siteSel=$('dSiteSel');
-  if(siteSel && siteSel.options.length<=1){
-    DSITES.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;siteSel.appendChild(o);});
-  }
-  const okBtn=$('dUpBtn')||$('dCatOkBtn');
-  if(okBtn) okBtn.disabled=false;
-};
-// Keep old name as alias too
-window.dCatSel=(btn,cat)=>window.dSelCat(cat,btn);
 
 window.dCancelUp=()=>{
   const modal=$('dCatModal'); if(modal) modal.style.display='none';
-  window._dPendingFiles=null;
+  window._dPendingFiles=null; window._dSelFolder=null;
 };
 window.dCatCancel=window.dCancelUp;
 
@@ -683,27 +897,94 @@ window.dConfirmUp=async()=>{
   const modal=$('dCatModal'); if(modal) modal.style.display='none';
   const files=window._dPendingFiles||[];
   window._dPendingFiles=null;
-  if(!files.length||!window._dSelCat) return;
+  const folderId=window._dSelFolder;
+  if(!files.length||!folderId) return;
   const siteSel=$('dSiteSel');
-  const site=window._dSelCat==='sitios'?(siteSel?siteSel.value:''):'';
-  const customName=(window._dCustomName||'').trim();
-  for(const f of files) await dUpload(f,window._dSelCat,site,customName);
+  const site=folderId==='sitios'?(siteSel?siteSel.value:''):'';
+  for(const f of files) await dUpload(f,folderId,null,site);
 };
 window.dCatConfirm=window.dConfirmUp;
 
+// ── Crear carpeta / subcarpeta (icono sugerido automáticamente, editable desde la paleta) ──
+window._dfOpenNewFolder=(parentId,forUpload)=>{
+  window._dfNewFolderCtx={parentId:parentId||null,icon:'📁',iconManual:false,forUpload:!!forUpload};
+  const modal=$('dNewFolderModal'); if(!modal) return;
+  modal.style.display='flex';
+  const inp=$('dfNewName'); if(inp){ inp.value=''; setTimeout(()=>inp.focus(),60); }
+  const prev=$('dfNewIconPreview'); if(prev) prev.textContent='📁';
+  const picker=$('dfIconPicker'); if(picker) picker.style.display='none';
+  const title=$('dfNewFolderTitle'); if(title) title.textContent = parentId ? 'Nueva subcarpeta' : 'Nueva carpeta';
+  const okBtn=$('dfNewOkBtn'); if(okBtn) okBtn.disabled=true;
+};
+window._dfCancelNewFolder=()=>{
+  const modal=$('dNewFolderModal'); if(modal) modal.style.display='none';
+  window._dfNewFolderCtx=null;
+};
+window._dfOnNameInput=()=>{
+  const inp=$('dfNewName'); const ctx=window._dfNewFolderCtx; if(!inp||!ctx) return;
+  const name=inp.value.trim();
+  const okBtn=$('dfNewOkBtn'); if(okBtn) okBtn.disabled=!name;
+  if(!ctx.iconManual){
+    const ico=_dfSuggestIcon(name);
+    ctx.icon=ico;
+    const prev=$('dfNewIconPreview'); if(prev) prev.textContent=ico;
+  }
+};
+window._dfTogglePicker=()=>{
+  const picker=$('dfIconPicker'); if(!picker) return;
+  if(picker.style.display==='grid'){ picker.style.display='none'; return; }
+  picker.innerHTML=DFICON_PALETTE.map(ic=>`<div class="dfico-opt" onclick="window._dfPickIcon('${ic}')">${ic}</div>`).join('');
+  picker.style.display='grid';
+};
+window._dfPickIcon=icon=>{
+  const ctx=window._dfNewFolderCtx; if(!ctx) return;
+  ctx.icon=icon; ctx.iconManual=true;
+  const prev=$('dfNewIconPreview'); if(prev) prev.textContent=icon;
+  const picker=$('dfIconPicker'); if(picker) picker.style.display='none';
+};
+window._dfConfirmCreate=async()=>{
+  const ctx=window._dfNewFolderCtx; if(!ctx) return;
+  const inp=$('dfNewName'); const name=(inp?inp.value:'').trim();
+  if(!name) return;
+  const okBtn=$('dfNewOkBtn'); if(okBtn){ okBtn.disabled=true; okBtn.textContent='Creando…'; }
+  try{
+    const meta={name,icon:ctx.icon||'📁',parentId:ctx.parentId||null};
+    const id=await fbFoldersSave(meta);
+    _dfolders.push({_id:id,...meta,createdAt:Date.now()});
+    _dfoldersCacheSave();
+    const modal=$('dNewFolderModal'); if(modal) modal.style.display='none';
+    window._dfNewFolderCtx=null;
+    if(ctx.forUpload){
+      _dRenderCatModalFolders();
+      window._dModalSelFolder(id);
+    }else if(ctx.parentId){
+      window._dNavIntoSub(ctx.parentId,id);
+    }else{
+      window._dNavInto(id);
+    }
+  }catch(e){
+    toast('Error al crear carpeta: '+e.message);
+  }finally{
+    if(okBtn){ okBtn.disabled=false; okBtn.textContent='Crear carpeta'; }
+  }
+};
+
 // ── Upload → Firestore base64 (Spark) ──
-const dUpload=async(file,themeCat,site,customName)=>{
+const dUpload=async(file,folderId,subId,site)=>{
   const pid='up'+Date.now();
   const prog=document.createElement('div');
   prog.id=pid;
-  const c=cat(themeCat);
+  const f=_dFolderById(folderId)||{icon:'📁',name:'Documentos',color:'#475569',bg:'rgba(100,116,139,.12)',system:true};
+  const sub=(folderId&&subId)?_dSubfoldersOf(folderId).find(s=>s.id===subId):null;
+  const pathLabel=f.name+(sub?' › '+sub.name:'');
+  const dispIco=sub?sub.icon:f.icon;
   prog.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);z-index:99999;min-width:300px;max-width:360px;font-family:var(--body);transition:all .3s';
   prog.innerHTML=`
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-  <div style="width:42px;height:42px;border-radius:11px;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${c.emoji}</div>
+  <div style="width:42px;height:42px;border-radius:11px;background:${f.bg};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${dispIco}</div>
   <div style="flex:1;min-width:0">
-    <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${file.name}</div>
-    <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${c.label}${site?' · '+site:''} · ${fmtSz(file.size)}</div>
+    <div style="font-size:12.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(file.name)}</div>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${_esc(pathLabel)}${site?' · '+site:''} · ${fmtSz(file.size)}</div>
   </div>
 </div>
 <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px">
@@ -720,7 +1001,7 @@ const dUpload=async(file,themeCat,site,customName)=>{
     const uid='d'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
     // Sanitize filename: remove accents/spaces for Storage path
     const safeName=file.name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
-    const storagePath=`docs_bess/${themeCat}/${uid}_${safeName}`;
+    const storagePath=`docs_bess/${folderId}/${uid}_${safeName}`;
 
     lbl('Leyendo archivo…'); bar(30);
 
@@ -738,14 +1019,17 @@ const dUpload=async(file,themeCat,site,customName)=>{
 
     bar(85); lbl('Registrando en Firestore…');
 
-    // Save metadata to Firestore
+    // Save metadata to Firestore — folderId/subId son la fuente de verdad; themeCat se mantiene
+    // solo por compatibilidad con lecturas antiguas (ver _dFolderIdOf).
     const meta={
       name:file.name,
       ext,
       size:file.size,
-      themeCat,
+      folderId,
+      subId:subId||'',
+      themeCat: folderId==='sitios' ? 'sitios' : (f.system ? folderId : 'otros'),
       site:site||'',
-      customName:customName||'',
+      customName:'',
       storagePath,
       downloadURL,
       savedAt:Date.now()
@@ -763,8 +1047,8 @@ const dUpload=async(file,themeCat,site,customName)=>{
   <div style="width:46px;height:46px;border-radius:13px;background:rgba(22,163,74,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px">✅</div>
   <div style="flex:1;min-width:0">
     <div style="font-size:13px;font-weight:800;color:#16a34a;margin-bottom:2px">¡Guardado en Firestore!</div>
-    <div style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${file.name}</div>
-    <div style="font-size:10px;color:var(--text3);margin-top:2px">${c.emoji} ${c.label}${site?' · '+site:''} · ${fmtSz(file.size)}</div>
+    <div style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${_esc(file.name)}</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:2px">${dispIco} ${_esc(pathLabel)}${site?' · '+site:''} · ${fmtSz(file.size)}</div>
   </div>
 </div>`;
     await dLoad();
@@ -828,11 +1112,14 @@ window.docsOpen=async id=>{
   const d=_all.find(x=>x._id===id);if(!d){toast('No encontrado');return;}
   _cur=d;_zoom=1;_pdf=null;_pn=1;_pp=0;
   dRender();drawOff();magOff();
-  const c=cat(d.themeCat||'otros');
-  const folderLabel=(d.themeCat||'otros')==='otros'&&d.customName ? d.customName : c.label;
+  const dFid=_dFolderIdOf(d), dSid=_dSubIdOf(d);
+  const dFld=dFid?_dFolderById(dFid):null;
+  const dSub=(dFid&&dSid)?_dSubfoldersOf(dFid).find(s=>s.id===dSid):null;
+  const dFldEmoji=dSub?dSub.icon:(dFld?dFld.icon:'📁');
+  const folderLabel=dFld?(dFld.name+(dSub?' › '+dSub.name:'')):'Sin carpeta';
   const tf=$('dTopFile');if(tf)tf.style.display='flex';
   const fn=$('dTopFname');if(fn)fn.textContent=(d.site?d.site+' · ':'')+d.name;
-  const fm=$('dTopMeta');if(fm)fm.textContent=c.emoji+' '+folderLabel+' · '+fmtSz(d.size)+' · '+fmtDt(d.savedAt);
+  const fm=$('dTopMeta');if(fm)fm.textContent=dFldEmoji+' '+folderLabel+' · '+fmtSz(d.size)+' · '+fmtDt(d.savedAt);
   const dl=$('dDlBtn');if(dl)dl.style.display='';
   const pb=$('dBtnPresent');if(pb)pb.style.display='flex';
   const zv=$('dZoomVal');if(zv)zv.textContent='100%';
@@ -881,7 +1168,7 @@ window.docsOpen=async id=>{
       const url=URL.createObjectURL(new Blob([buf]));
       const w=document.createElement('div');
       w.style.cssText='display:flex;flex-direction:column;align-items:center;gap:18px;padding:70px 40px;text-align:center';
-      w.innerHTML=`<div style="font-size:64px">${c.emoji}</div><div style="font-size:16px;font-weight:700">${d.name}</div><div style="font-size:12px;color:var(--text3)">${fmtSz(d.size)}</div><a href="${url}" download="${d.name}" style="padding:12px 30px;background:var(--accent);color:#fff;border-radius:10px;text-decoration:none;font-size:14px;font-weight:700">⬇ Descargar</a>`;
+      w.innerHTML=`<div style="font-size:64px">${dFldEmoji}</div><div style="font-size:16px;font-weight:700">${_esc(d.name)}</div><div style="font-size:12px;color:var(--text3)">${fmtSz(d.size)}</div><a href="${url}" download="${d.name}" style="padding:12px 30px;background:var(--accent);color:#fff;border-radius:10px;text-decoration:none;font-size:14px;font-weight:700">⬇ Descargar</a>`;
       s.insertBefore(w,s.firstChild);$('dPageLbl').textContent=(d.ext||'?').toUpperCase();
     }
   }catch(err){
@@ -1060,6 +1347,37 @@ css.textContent=`
 #dSiteRow{display:none;margin-bottom:12px}
 #dSiteRow select{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--body);font-size:12px;color:var(--text);background:var(--bg);outline:none}
 #dSiteRow select:focus{border-color:var(--accent)}
+/* ── Carpetas: grid de tarjetas + drill-down (rediseño) ── */
+.dfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;padding:8px 4px 14px}
+.dfgrid-sub{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.dfcard{--cc:var(--accent);--cb:rgba(26,63,204,.1);display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;text-align:center;opacity:0;animation:dCardIn .35s ease forwards;animation-delay:calc(var(--i,0) * 35ms)}
+.dfcard:hover{transform:translateY(-3px);border-color:var(--cc);box-shadow:0 8px 24px rgba(0,0,0,.1)}
+.dfcard-ico{width:44px;height:44px;border-radius:12px;background:var(--cb);display:flex;align-items:center;justify-content:center;font-size:22px;transition:transform .2s}
+.dfcard:hover .dfcard-ico{transform:scale(1.1) rotate(-4deg)}
+.dfcard-name{font-size:11.5px;font-weight:800;color:var(--text);line-height:1.25;word-break:break-word}
+.dfcard-count{font-size:9px;color:var(--text3);font-weight:600}
+.dfcard-new{border-style:dashed;border-color:var(--border);background:transparent}
+.dfcard-new:hover{border-color:var(--accent);background:rgba(26,63,204,.04)}
+.dfcard-new-ico{width:44px;height:44px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:var(--text3);transition:all .2s}
+.dfcard-new:hover .dfcard-new-ico{background:rgba(26,63,204,.12);color:var(--accent);transform:rotate(90deg)}
+.dfcard-sub{padding:12px 6px 10px}
+.dfcard-sub .dfcard-ico,.dfcard-sub .dfcard-new-ico{width:36px;height:36px;font-size:18px}
+@keyframes dCardIn{from{opacity:0;transform:translateY(8px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes dSlideInRight{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+@keyframes dSlideInLeft{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:translateX(0)}}
+/* Migas de pan */
+.d-bc{display:flex;align-items:center;gap:10px;padding:4px 6px 10px;flex-wrap:wrap}
+.d-bc-back{font-size:10.5px;font-weight:800;color:var(--accent);cursor:pointer;padding:3px 9px;border-radius:20px;background:rgba(26,63,204,.08);transition:all .15s;white-space:nowrap}
+.d-bc-back:hover{background:rgba(26,63,204,.16)}
+.d-bc-trail{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:10.5px}
+.d-bc-item{color:var(--text3);font-weight:700;cursor:pointer}
+.d-bc-item:hover{color:var(--accent)}
+.d-bc-item.current{color:var(--text);cursor:default}
+.d-bc-sep{color:var(--text3);opacity:.5}
+.d-files-label{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:2px 6px 6px}
+.d-files-empty{padding:26px 12px;text-align:center;color:var(--text3);font-size:11.5px;line-height:1.7}
+.dfico-opt{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:18px;border-radius:8px;cursor:pointer;transition:all .12s;background:var(--surface)}
+.dfico-opt:hover{background:rgba(26,63,204,.14);transform:scale(1.15)}
 `;
 document.head.appendChild(css);
 
@@ -1087,12 +1405,12 @@ const wireInput=()=>{
   const docsPage=$('page-docs');
   if(docsPage){
     new MutationObserver(()=>{
-      if(docsPage.classList.contains('active')) dLoad();
+      if(docsPage.classList.contains('active')) dEnterDocs();
     }).observe(docsPage,{attributeFilter:['class']});
   }
 
   // Load after Firebase is ready
-  window.addEventListener('firebase-ready',()=>dLoad(),{once:true});
+  window.addEventListener('firebase-ready',()=>dEnterDocs(),{once:true});
   console.log('✅ DOCS v7 — Firestore base64 (Spark) listo');
 };
 
@@ -4818,7 +5136,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787906235';
+  var APP_VERSION = '1787958900';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8545,41 +8863,9 @@ async function expDoZip(mode){
         </div>
         <button onclick="dCancelUp()" style="width:30px;height:30px;border:none;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:14px;color:var(--text3);display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
       </div>
-      <!-- Category buttons -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px" id="dCatBtns">
-        <button class="dcat-btn" onclick="dSelCat('manuales',this)" data-cat="manuales" style="--cc:#1a3fcc;--cb:rgba(26,63,204,.1)">
-          <div class="dcat-ico">📘</div>
-          <div class="dcat-lbl">Manuales</div>
-          <div class="dcat-sub">Técnicos y de equipo</div>
-        </button>
-        <button class="dcat-btn" onclick="dSelCat('procedimientos',this)" data-cat="procedimientos" style="--cc:#0891b2;--cb:rgba(8,145,178,.1)">
-          <div class="dcat-ico">📋</div>
-          <div class="dcat-lbl">Procedimientos</div>
-          <div class="dcat-sub">SOPs y protocolos</div>
-        </button>
-        <button class="dcat-btn" onclick="dSelCat('sitios',this)" data-cat="sitios" style="--cc:#7c3aed;--cb:rgba(124,58,237,.1)">
-          <div class="dcat-ico">📍</div>
-          <div class="dcat-lbl">Docs por Sitio</div>
-          <div class="dcat-sub">Por instalación BESS</div>
-        </button>
-        <button class="dcat-btn" onclick="dSelCat('cfe',this)" data-cat="cfe" style="--cc:#d97706;--cb:rgba(217,119,6,.1)">
-          <div class="dcat-ico">⚡</div>
-          <div class="dcat-lbl">Recibos CFE</div>
-          <div class="dcat-sub">Facturas eléctricas</div>
-        </button>
-        <button class="dcat-btn" onclick="dSelCat('otros',this)" data-cat="otros" style="--cc:#475569;--cb:rgba(100,116,139,.1);grid-column:span 2">
-          <div class="dcat-ico">📁</div>
-          <div class="dcat-lbl">Carpeta personalizada</div>
-          <div class="dcat-sub">Escribe el nombre de la carpeta</div>
-        </button>
-      </div>
-      <!-- Custom folder name (only for otros) -->
-      <div id="dCustomRow" style="display:none;margin-bottom:14px">
-        <label style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px">📁 Nombre de la carpeta</label>
-        <input id="dCustomName" type="text" placeholder="Ej: Contratos, Informes 2025, Garantías…"
-          oninput="window._dCustomName=this.value.trim()"
-          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--body);font-size:13px;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s;box-sizing:border-box">
-      </div>
+      <!-- Category buttons — poblado dinámicamente por _dRenderCatModalFolders() con todas las
+           carpetas (sistema + personalizadas) más la opción "+ Nueva carpeta" -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px" id="dCatBtns"></div>
       <!-- Site selector (only for sitios) -->
       <div id="dSiteRow" style="display:none;margin-bottom:14px">
         <label style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px">📍 Selecciona el sitio</label>
@@ -8597,6 +8883,31 @@ async function expDoZip(mode){
       </div>
     </div>
   </div>
+
+  <!-- MODAL NUEVA CARPETA / SUBCARPETA -->
+  <div id="dNewFolderModal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(10,18,50,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.28);padding:26px;width:380px;max-width:94vw;animation:dModalIn .2s ease">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+        <div id="dfNewFolderTitle" style="flex:1;font-size:15px;font-weight:800;color:var(--text)">Nueva carpeta</div>
+        <button onclick="window._dfCancelNewFolder()" style="width:30px;height:30px;border:none;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:14px;color:var(--text3);display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div id="dfNewIconPreview" onclick="window._dfTogglePicker()" style="width:56px;height:56px;border-radius:14px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;border:1.5px dashed var(--border);flex-shrink:0" title="Clic para elegir otro icono">📁</div>
+        <div style="flex:1;min-width:0">
+          <label style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px">Nombre</label>
+          <input id="dfNewName" type="text" placeholder="Ej: Contratos, Garantías…" oninput="window._dfOnNameInput()"
+            style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--body);font-size:13px;color:var(--text);background:var(--bg);outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="font-size:9.5px;color:var(--text3);margin:-8px 0 14px 2px">💡 El icono se sugiere solo según el nombre — toca el icono para elegir otro.</div>
+      <div id="dfIconPicker" style="display:none;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:16px;padding:10px;background:var(--bg);border-radius:10px;border:1px solid var(--border)"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="window._dfCancelNewFolder()" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:11px;background:var(--bg);color:var(--text2);font-family:var(--body);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+        <button id="dfNewOkBtn" onclick="window._dfConfirmCreate()" disabled style="flex:2;padding:12px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-family:var(--body);font-size:13px;font-weight:800;cursor:pointer">Crear carpeta</button>
+      </div>
+    </div>
+  </div>
+
   <style>
   @keyframes dModalIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
   .dcat-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:14px 16px;border:2px solid var(--border);border-radius:14px;cursor:pointer;transition:all .18s;background:var(--bg);font-family:var(--body);text-align:left;position:relative;overflow:hidden}
@@ -8605,12 +8916,16 @@ async function expDoZip(mode){
   .dcat-btn:hover::before{opacity:1}
   .dcat-btn.sel{border-color:var(--cc);background:var(--cb);box-shadow:0 0 0 3px color-mix(in srgb,var(--cc) 20%,transparent),0 6px 20px rgba(0,0,0,.1)}
   .dcat-btn.sel::before{opacity:1}
+  .dcat-btn-new{border-style:dashed}
   .dcat-ico{font-size:26px;margin-bottom:4px;position:relative;z-index:1}
   .dcat-lbl{font-size:13px;font-weight:800;color:var(--text);position:relative;z-index:1}
   .dcat-sub{font-size:10px;color:var(--text3);font-weight:500;position:relative;z-index:1}
   .dcat-btn.sel .dcat-lbl{color:var(--cc)}
   #dUpBtn:disabled{opacity:.4;cursor:not-allowed}
   #dUpBtn:not(:disabled):hover{opacity:.9;transform:translateY(-1px);box-shadow:0 6px 20px rgba(26,63,204,.35)}
+  #dfNewOkBtn:disabled{opacity:.4;cursor:not-allowed}
+  #dfNewOkBtn:not(:disabled):hover{opacity:.9;transform:translateY(-1px)}
+  #dfNewIconPreview:hover{border-color:var(--accent);background:rgba(26,63,204,.08)}
   </style>
 
   <!-- SIDEBAR -->
@@ -8643,14 +8958,6 @@ async function expDoZip(mode){
       <input class="d-sinp" id="dSearchInp" type="text" placeholder="Buscar documentos…">
     </div>
 
-    <div class="d-pills">
-      <span class="dpill active" onclick="docsSetFilter('all',this)">Todos</span>
-      <span class="dpill" onclick="docsSetFilter('manuales',this)">📘 Manual</span>
-      <span class="dpill" onclick="docsSetFilter('procedimientos',this)">📋 Proc.</span>
-      <span class="dpill" onclick="docsSetFilter('sitios',this)">📍 Sitios</span>
-      <span class="dpill" onclick="docsSetFilter('cfe',this)">⚡ CFE</span>
-      <span class="dpill" onclick="docsSetFilter('otros',this)">📁 Otros</span>
-    </div>
 
     <div class="d-list" id="dCatList">
       <div style="padding:30px 16px;text-align:center;color:var(--text3);font-size:11.5px">Cargando…</div>
