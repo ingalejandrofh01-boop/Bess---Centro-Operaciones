@@ -4818,7 +4818,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787786717';
+  var APP_VERSION = '1787881826';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8270,7 +8270,13 @@ async function expDoZip(mode){
     <div style="flex-shrink:0;border:1px solid var(--b1);border-radius:12px;background:var(--s1);padding:14px 18px;display:flex;flex-direction:column;gap:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#ea6c00;border-radius:2px;display:inline-block;flex-shrink:0"></span>📅 Resumen mensual</div>
-        <select id="fp-month-site-sel" onchange="window._fpRenderMonthly()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="fp-month-modo-sel" onchange="window._fpRenderMonthly()" title="Tipo de cálculo" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;display:none">
+            <option value="directo">⚡ Instantáneo</option>
+            <option value="acumulado">📊 Mensual (acumulado)</option>
+          </select>
+          <select id="fp-month-site-sel" onchange="window._fpRenderMonthly()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
+        </div>
       </div>
       <div id="fp-month-explainer" style="font-family:var(--mono);font-size:9px;color:var(--t3)">FP del mes = diferencia de Código 1 y Código 5 entre el cierre de este mes y el cierre del mes anterior (mismo método que la hoja de cálculo del equipo). Un mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga datos.</div>
       <div style="position:relative;height:200px"><canvas id="fp-month-chart"></canvas></div>
@@ -8303,6 +8309,11 @@ async function expDoZip(mode){
       <select id="fp-hist-filter-mes" onchange="window._fpRenderHist()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
         <option value="">Todos los meses</option>
       </select>
+      <select id="fp-hist-filter-modo" onchange="window._fpRenderHist()" title="Tipo de lectura" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+        <option value="">Todos los tipos</option>
+        <option value="directo">⚡ Instantáneo</option>
+        <option value="acumulado">📊 Mensual (acumulado)</option>
+      </select>
       <input type="date" id="fp-hist-filter-desde" onchange="window._fpRenderHist()" title="Desde" style="padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
       <span style="color:var(--t3);font-family:var(--mono);font-size:10px">—</span>
       <input type="date" id="fp-hist-filter-hasta" onchange="window._fpRenderHist()" title="Hasta" style="padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
@@ -8319,6 +8330,7 @@ async function expDoZip(mode){
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh / ΔkVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Tipo</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Acciones</th>
           </tr>
         </thead>
@@ -8339,11 +8351,20 @@ async function expDoZip(mode){
       <div style="display:flex;flex-direction:column;gap:12px">
         <input type="hidden" id="fp-edit-id" value="">
         <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Sitio
-          <select id="fp-in-sitio" onchange="window._fpLiveCheck()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px"></select>
+          <select id="fp-in-sitio" onchange="window._fpOnSiteChange()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px"></select>
         </label>
         <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Fecha de lectura
           <input type="date" id="fp-in-fecha" onchange="window._fpLiveCheck()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
         </label>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tipo de lectura</div>
+          <input type="hidden" id="fp-in-modo" value="acumulado">
+          <div style="display:flex;gap:6px">
+            <button type="button" id="fp-modo-btn-directo" onclick="window._fpSetModo('directo')" style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">⚡ Instantáneo</button>
+            <button type="button" id="fp-modo-btn-acumulado" onclick="window._fpSetModo('acumulado')" style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">📊 Mensual (acumulado)</button>
+          </div>
+          <div style="font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-top:4px">Instantáneo: el panel ya entrega kW/kVAr del momento (p.ej. T3). Mensual: el medidor entrega un código acumulado y el FP sale de la diferencia contra la lectura anterior de ese mismo tipo (p.ej. T4).</div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px"><span id="fp-lbl-c1">Código 1 — kWh</span>
             <input type="number" step="any" id="fp-in-c1" oninput="window._fpLiveCheck()" placeholder="p.ej. 23270" style="padding:9px 12px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:12px">
@@ -8386,7 +8407,12 @@ async function expDoZip(mode){
       <div style="padding:14px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">📄 Exportar Reporte de FP</div>
-          <select id="fp-report-site-sel" onchange="window._fpRenderReportPreview()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
+          <select id="fp-report-site-sel" onchange="window._fpOnReportSiteChange()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
+          <select id="fp-report-modo-sel" onchange="window._fpRenderReportPreview()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px">
+            <option value="todos">Todos los tipos</option>
+            <option value="directo">⚡ Instantáneo</option>
+            <option value="acumulado">📊 Mensual (acumulado)</option>
+          </select>
           <div style="position:relative">
             <button type="button" id="fp-report-mes-btn" onclick="window._fpToggleMesPicker()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px">📅 <span id="fp-report-mes-label">Todos los meses</span> ▾</button>
             <div id="fp-report-mes-panel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9400;background:var(--s1);border:1px solid var(--b1);border-radius:10px;box-shadow:0 10px 30px rgba(3,8,24,.45);padding:10px;min-width:190px;width:max-content;max-height:260px;overflow:auto">
@@ -29858,6 +29884,26 @@ function _fpCapacitorInfo(site){ return FP_SITE_CAPACITOR.hasOwnProperty(site) ?
      con lectura diaria/semanal). */
 var FP_SITE_MODE = { 'T3': 'directo' };
 function _fpSiteMode(site){ return FP_SITE_MODE.hasOwnProperty(site) ? FP_SITE_MODE[site] : 'acumulado'; }
+/* Modo de UNA lectura en particular. Antes el modo era fijo por sitio (T3 siempre 'directo',
+   T4 siempre 'acumulado'); ahora cualquier sitio puede tener lecturas mezcladas — p.ej. T3
+   capturando algunas instantáneas (panel Schneider) y otras por código acumulado, igual que T4.
+   Las lecturas guardadas ANTES de este cambio no tienen r.modo — para esas se usa el modo fijo
+   del sitio de siempre, así el histórico existente no cambia de significado. */
+function _fpReadingModo(r){ return (r && r.modo) ? r.modo : _fpSiteMode(r ? r.sitio : null); }
+var FP_MODO_LABELS = { directo:'Instantáneo', acumulado:'Mensual (acumulado)' };
+function _fpModoLabel(m){ return FP_MODO_LABELS[m] || m; }
+function _fpModoBadge(m){
+  var esDirecto = m==='directo';
+  var color = esDirecto ? '#7c3aed' : '#1a3fcc';
+  return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;background:'+color+'1A;color:'+color+';font-family:var(--mono);font-size:9px;font-weight:700;white-space:nowrap">'+(esDirecto?'⚡ Instantáneo':'📊 Mensual')+'</span>';
+}
+/* ¿Este sitio tiene lecturas de ambos tipos guardadas? Sirve para decidir si vale la pena
+   mostrarle al usuario el filtro de tipo (si un sitio solo usa un modo, no hace falta molestarlo). */
+function _fpSiteHasMixedModos(site){
+  var modos={};
+  FP_LIST.forEach(function(r){ if(r.sitio===site) modos[_fpReadingModo(r)]=true; });
+  return Object.keys(modos).length>1;
+}
 /* Unidades correctas según el modo del sitio: en modo 'directo' (T3) el panel entrega potencia
    INSTANTÁNEA — kW de potencia activa y kVAr de potencia reactiva, sin hora — mientras que en
    modo 'acumulado' (T4) los códigos del medidor son energía acumulada — kWh y kVArh, con hora. */
@@ -30165,31 +30211,37 @@ function _fpApplySeedT3(){
 }
 
 /* ══ DATOS DERIVADOS ══ */
-function _fpSiteReadings(site){
-  return FP_LIST.filter(function(r){ return r.sitio===site; })
+/* modoFiltro opcional: si se pasa 'directo' o 'acumulado', solo regresa lecturas de ESE tipo
+   (para el filtro de "instantáneo / mensual" del histórico, resumen mensual y exportación). */
+function _fpSiteReadings(site, modoFiltro){
+  return FP_LIST.filter(function(r){ return r.sitio===site && (!modoFiltro || _fpReadingModo(r)===modoFiltro); })
     .slice()
     .sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||'') || (a.createdAt||0)-(b.createdAt||0); });
 }
-/* Devuelve las lecturas de un sitio ya anotadas con fpAcum, fpPeriodo, deltaC1, deltaC5 */
-function _fpSiteHistory(site){
-  var modo = _fpSiteMode(site);
-  var list = _fpSiteReadings(site);
+/* Devuelve las lecturas de un sitio ya anotadas con fpAcum, fpPeriodo, deltaC1, deltaC5.
+   El delta de modo 'acumulado' se encadena SOLO contra la lectura anterior del MISMO modo —
+   así, si un sitio tiene lecturas instantáneas y acumuladas mezcladas (p.ej. T3 con ambas),
+   una lectura instantánea de por medio no rompe ni ensucia la cadena de códigos acumulados. */
+function _fpSiteHistory(site, modoFiltro){
+  var list = _fpSiteReadings(site, modoFiltro);
   var out = [];
-  var prev = null;
+  var prevByModo = {};
   list.forEach(function(r){
+    var modo = _fpReadingModo(r);
+    var prev = prevByModo[modo] || null;
     var fpAcum = _fpCalc(r.codigo1, r.codigo5);
     var fpPeriodo = null, deltaC1 = null, deltaC5 = null;
-    /* Modo 'directo' (p.ej. T3): codigo1/codigo5 YA son kW/kVAr instantáneos, no un acumulado
-       de medidor — no tiene sentido restar contra la lectura anterior, cada lectura trae su
-       propio FP ya "listo". Solo el modo 'acumulado' (T4) calcula el delta contra la anterior. */
+    /* Modo 'directo': codigo1/codigo5 YA son kW/kVAr instantáneos, no un acumulado de medidor —
+       no tiene sentido restar contra la lectura anterior, cada lectura trae su propio FP ya
+       "listo". Solo el modo 'acumulado' calcula el delta contra la anterior del mismo modo. */
     if(prev && modo==='acumulado'){
       deltaC1 = r.codigo1 - prev.codigo1;
       deltaC5 = r.codigo5 - prev.codigo5;
       if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
       /* si el delta es negativo probablemente el medidor se reinició — no se calcula FP de periodo, se deja el acumulado */
     }
-    out.push(Object.assign({}, r, { fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5 }));
-    prev = r;
+    out.push(Object.assign({}, r, { modo:modo, fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5 }));
+    prevByModo[modo] = r;
   });
   return out;
 }
@@ -30377,7 +30429,7 @@ function _fpMonthLabel(key){ var p=key.split('-'); return FP_MESES[Number(p[1])-
 
 /* ══ RENDER: HISTORIAL ══ */
 window._fpClearHistFilters = function(){
-  ['fp-hist-search','fp-hist-filter-estado','fp-hist-filter-mes','fp-hist-filter-desde','fp-hist-filter-hasta'].forEach(function(id){
+  ['fp-hist-search','fp-hist-filter-estado','fp-hist-filter-mes','fp-hist-filter-modo','fp-hist-filter-desde','fp-hist-filter-hasta'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
   window._fpRenderHist();
@@ -30386,6 +30438,7 @@ window._fpRenderHist = function(){
   var tbody=document.getElementById('fp-hist-tbody'); if(!tbody) return;
   var search=(document.getElementById('fp-hist-search')||{}).value||'';
   var filterEstado=(document.getElementById('fp-hist-filter-estado')||{}).value||'';
+  var filterModo=(document.getElementById('fp-hist-filter-modo')||{}).value||'';
   var mesSel=document.getElementById('fp-hist-filter-mes');
   var filterDesde=(document.getElementById('fp-hist-filter-desde')||{}).value||'';
   var filterHasta=(document.getElementById('fp-hist-filter-hasta')||{}).value||'';
@@ -30406,18 +30459,18 @@ window._fpRenderHist = function(){
   rows.sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || (b.createdAt||0)-(a.createdAt||0); });
   if(search) rows = rows.filter(function(r){ return r.sitio.toLowerCase().indexOf(search.toLowerCase())>-1; });
   if(filterEstado) rows = rows.filter(function(r){ var pct=r.fpPeriodo!=null?r.fpPeriodo:r.fpAcum; return _fpStatus(pct).key===filterEstado; });
+  if(filterModo) rows = rows.filter(function(r){ return r.modo===filterModo; });
   if(filterMes) rows = rows.filter(function(r){ return _fpMonthKey(r.fecha)===filterMes; });
   if(filterDesde) rows = rows.filter(function(r){ return (r.fecha||'') >= filterDesde; });
   if(filterHasta) rows = rows.filter(function(r){ return (r.fecha||'') <= filterHasta; });
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas que coincidan</td></tr>';
+    tbody.innerHTML='<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas que coincidan</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(function(r){
     var pct = r.fpPeriodo!=null ? r.fpPeriodo : r.fpAcum;
     var st = _fpStatus(pct);
-    var modoR = _fpSiteMode(r.sitio);
-    var delta = modoR==='directo'
+    var delta = r.modo==='directo'
       ? '<span style="color:var(--t3)">lectura directa</span>'
       : ((r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh'));
     return '<tr style="border-bottom:1px solid var(--b1)">'+
@@ -30428,6 +30481,7 @@ window._fpRenderHist = function(){
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+delta+'</td>'+
       '<td style="padding:8px 10px;text-align:center">'+_fpBadge(pct)+'</td>'+
       '<td style="padding:8px 10px;text-align:center"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+st.color+'"></span></td>'+
+      '<td style="padding:8px 10px;text-align:center">'+_fpModoBadge(r.modo)+'</td>'+
       '<td style="padding:8px 10px;text-align:center;white-space:nowrap">'+
         '<button onclick="window._fpOpenForm(\''+r.id+'\')" title="Editar" style="background:none;border:1px solid var(--b1);border-radius:5px;color:var(--t2);cursor:pointer;padding:4px 7px;font-size:11px;margin-right:4px">✏️</button>'+
         '<button onclick="window._fpDeleteReading(\''+r.id+'\')" title="Eliminar" style="background:none;border:1px solid rgba(220,38,38,.3);border-radius:5px;color:var(--red);cursor:pointer;padding:4px 7px;font-size:11px">🗑</button>'+
@@ -30479,9 +30533,9 @@ function _fpMonthlyGroupsDirecto(hist){
    datos. El primer mes con datos de un sitio queda marcado "sin datos suficientes".
    'directo' (T3) — ver _fpMonthlyGroupsDirecto: promedio simple de los FP ya calculados de cada
    lectura del mes, destacando la mejor lectura. */
-function _fpMonthlyGroups(site){
-  var modo = _fpSiteMode(site);
-  var hist = _fpSiteReadings(site);
+function _fpMonthlyGroups(site, modoOverride){
+  var modo = modoOverride || _fpSiteMode(site);
+  var hist = _fpSiteReadings(site, modo); /* siempre filtrado al modo resuelto — nunca mezcla directo+acumulado en una misma cadena */
   if(!hist.length) return [];
   if(modo==='directo') return _fpMonthlyGroupsDirecto(hist);
   var monthsWithData = {};
@@ -30514,8 +30568,16 @@ function _fpMonthlyGroups(site){
 window._fpRenderMonthly = function(){
   var sel=document.getElementById('fp-month-site-sel'); if(!sel) return;
   var site=sel.value;
-  var modo=_fpSiteMode(site);
-  var groups=_fpMonthlyGroups(site);
+  /* El selector de Tipo solo se muestra si el sitio tiene lecturas de ambos modos guardadas —
+     si solo usa uno, no hace falta molestar al usuario con una elección obvia. */
+  var modoSel=document.getElementById('fp-month-modo-sel');
+  var mixed=_fpSiteHasMixedModos(site);
+  if(modoSel){
+    modoSel.style.display = mixed ? '' : 'none';
+    if(mixed && !modoSel.value) modoSel.value=_fpSiteMode(site);
+  }
+  var modo = (mixed && modoSel && modoSel.value) ? modoSel.value : _fpSiteMode(site);
+  var groups=_fpMonthlyGroups(site, modo);
   /* comparación contra el último mes VÁLIDO anterior (no necesariamente el inmediato) */
   var lastValid=null;
   groups.forEach(function(g){
@@ -30650,13 +30712,33 @@ window._fpOpenForm = function(editId, presetSite){
   } else if(presetSite){
     sel.value=presetSite;
   }
-  window._fpLiveCheck();
+  var modoInicial = editId ? _fpReadingModo(FP_LIST.find(function(r){ return r.id===editId; })) : _fpSiteMode(sel.value);
+  window._fpSetModo(modoInicial);
   document.getElementById('fp-form-modal').style.display='flex';
+};
+/* Botones de Tipo de lectura (Instantáneo / Mensual-acumulado) del formulario */
+window._fpSetModo = function(m){
+  var hidden=document.getElementById('fp-in-modo'); if(hidden) hidden.value=m;
+  var bD=document.getElementById('fp-modo-btn-directo'), bA=document.getElementById('fp-modo-btn-acumulado');
+  [bD,bA].forEach(function(b){ if(!b) return; b.style.background='var(--s2)'; b.style.borderColor='var(--b2)'; b.style.color='var(--t2)'; });
+  var sel = m==='directo' ? bD : bA;
+  if(sel){
+    var col = m==='directo' ? '#7c3aed' : 'var(--sky)';
+    sel.style.background = m==='directo' ? 'rgba(124,58,237,.12)' : 'rgba(26,63,204,.1)';
+    sel.style.borderColor = col; sel.style.color = col;
+  }
+  window._fpLiveCheck();
+};
+/* Al cambiar de sitio en el formulario, el Tipo vuelve al que ese sitio usa por defecto —
+   el usuario lo puede cambiar después con los botones si esa lectura es del otro tipo. */
+window._fpOnSiteChange = function(){
+  window._fpSetModo(_fpSiteMode(document.getElementById('fp-in-sitio').value));
 };
 window._fpLiveCheck = function(){
   var box=document.getElementById('fp-live-preview');
   var site=document.getElementById('fp-in-sitio').value;
-  var modo=_fpSiteMode(site);
+  var modoInp=document.getElementById('fp-in-modo');
+  var modo=(modoInp&&modoInp.value)||_fpSiteMode(site);
   var lblC1=document.getElementById('fp-lbl-c1'), lblC5=document.getElementById('fp-lbl-c5');
   var inC1=document.getElementById('fp-in-c1'), inC5=document.getElementById('fp-in-c5');
   if(modo==='directo'){
@@ -30686,9 +30768,9 @@ window._fpLiveCheck = function(){
     pctShow = fpAcum;
     st = _fpStatus(pctShow);
     metaWarn = _fpMetaWarning(pctShow);
-    extraLine = '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">Lectura directa — no se compara contra la anterior (este sitio no usa código acumulado de medidor).</div>';
+    extraLine = '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">Lectura instantánea — no se compara contra la anterior.</div>';
   } else {
-    var hist = _fpSiteHistory(site);
+    var hist = _fpSiteHistory(site, 'acumulado'); /* solo lecturas 'acumulado' de este sitio, para no comparar contra una instantánea */
     var editId = document.getElementById('fp-edit-id').value;
     var prevList = hist.filter(function(h){ return h.id!==editId; });
     var prev = prevList.length ? prevList[prevList.length-1] : null;
@@ -30727,14 +30809,15 @@ window._fpSaveForm = function(){
   var c1 = _fpNum(document.getElementById('fp-in-c1').value);
   var c5 = _fpNum(document.getElementById('fp-in-c5').value);
   var nota = document.getElementById('fp-in-nota').value||'';
+  var modo = (document.getElementById('fp-in-modo')||{}).value || _fpSiteMode(sitio);
   if(!sitio){ alert('Selecciona un sitio.'); return; }
   if(!fecha){ alert('Selecciona la fecha de la lectura.'); return; }
   if(c1==null || c5==null || c1<0 || c5<0){ alert('Captura Código 1 y Código 5 (números válidos, no negativos).'); return; }
   if(editId){
     var rec = FP_LIST.find(function(r){ return r.id===editId; });
-    if(rec){ rec.sitio=sitio; rec.fecha=fecha; rec.codigo1=c1; rec.codigo5=c5; rec.nota=nota; rec.updatedAt=Date.now(); }
+    if(rec){ rec.sitio=sitio; rec.fecha=fecha; rec.codigo1=c1; rec.codigo5=c5; rec.nota=nota; rec.modo=modo; rec.updatedAt=Date.now(); }
   } else {
-    FP_LIST.push({ id:_fpUid(), sitio:sitio, fecha:fecha, codigo1:c1, codigo5:c5, nota:nota, createdAt:Date.now() });
+    FP_LIST.push({ id:_fpUid(), sitio:sitio, fecha:fecha, codigo1:c1, codigo5:c5, nota:nota, modo:modo, createdAt:Date.now() });
   }
   _fpPersistList();
   document.getElementById('fp-form-modal').style.display='none';
@@ -30818,9 +30901,11 @@ window._fpSyncCloud = function(silent){
 function _fpReportFilenameBase(){
   var site=(document.getElementById('fp-report-site-sel')||{}).value||'todos';
   if(site==='__all__') site='todos';
+  var modo=(document.getElementById('fp-report-modo-sel')||{}).value||'todos';
+  var modoSuf = modo==='todos' ? '' : ('_'+modo);
   var meses = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
   var suf = (meses && meses.length) ? ('_'+meses.slice().sort().join('_')) : '';
-  return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+suf+'_'+_fpToday();
+  return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+modoSuf+suf+'_'+_fpToday();
 }
 /* ══ FILTRO DE MESES DEL REPORTE ══
    Permite exportar el reporte de FP con uno, varios, o todos los meses — no siempre hace
@@ -30860,9 +30945,18 @@ document.addEventListener('click', function(e){
   if(panel.contains(e.target) || (btn && btn.contains(e.target))) return;
   panel.style.display='none';
 });
+window._fpOnReportSiteChange = function(){
+  var siteSel=(document.getElementById('fp-report-site-sel')||{}).value||'__all__';
+  var modoSel=document.getElementById('fp-report-modo-sel');
+  if(modoSel){
+    modoSel.value = (siteSel!=='__all__' && !_fpSiteHasMixedModos(siteSel)) ? _fpSiteMode(siteSel) : 'todos';
+  }
+  window._fpRenderReportPreview();
+};
 window._fpOpenExportReport = function(){
   var sel=document.getElementById('fp-report-site-sel');
   sel.innerHTML = '<option value="__all__">Todos los sitios</option>'+FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
+  var modoSel=document.getElementById('fp-report-modo-sel'); if(modoSel) modoSel.value='todos';
   var mesesSet={};
   FP_LIST.forEach(function(r){ var k=_fpMonthKey(r.fecha); if(k) mesesSet[k]=true; });
   var meses=Object.keys(mesesSet).sort().reverse();
@@ -30945,6 +31039,7 @@ function _fpBuildReportChartImg(hist){
 
 window._fpRenderReportPreview = function(){
   var siteSel=(document.getElementById('fp-report-site-sel')||{}).value||'__all__';
+  var modoFiltro=(document.getElementById('fp-report-modo-sel')||{}).value||'todos';
   var sites = siteSel==='__all__' ? FP_SITES.slice() : [siteSel];
   var mesesSel = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
   var genUser = localStorage.getItem('bess_uname') || 'Operador';
@@ -30953,11 +31048,18 @@ window._fpRenderReportPreview = function(){
   var chartTargets = [];
 
   var sections = sites.map(function(site, idx){
-    var hist=_fpSiteHistory(site);
+    var hist=_fpSiteHistory(site, modoFiltro==='todos' ? null : modoFiltro);
     if(mesesSel) hist = hist.filter(function(h){ return mesesSel.indexOf(_fpMonthKey(h.fecha))>-1; });
     var pct = hist.length ? (hist[hist.length-1].fpPeriodo!=null ? hist[hist.length-1].fpPeriodo : hist[hist.length-1].fpAcum) : null;
     var st=_fpStatus(pct);
-    var modoSite = _fpSiteMode(site);
+    /* Cuando el reporte se filtra a un solo tipo (o el sitio nunca mezcló tipos), los
+       encabezados reflejan ese tipo de lectura. Si se piden "Todos los tipos" en un sitio
+       que sí mezcla instantáneo y mensual, se usan encabezados genéricos y se añade una
+       columna "Tipo" por renglón para no confundir un valor con otro. */
+    var mixedInSection = modoFiltro==='todos' && _fpSiteHasMixedModos(site);
+    var modoEfectivo = modoFiltro!=='todos' ? modoFiltro : (mixedInSection ? null : _fpSiteMode(site));
+    var lbl1 = modoEfectivo==='directo' ? 'KW' : (modoEfectivo==='acumulado' ? 'CÓD. 1 (kWh)' : 'VALOR 1');
+    var lbl2 = modoEfectivo==='directo' ? 'KVAR' : (modoEfectivo==='acumulado' ? 'CÓD. 5 (kVArh)' : 'VALOR 2');
     /* Una sola columna de FP para todos los sitios: el "FP acumulado" crudo del medidor no
        refleja el desempeño real (es el promedio desde que se instaló el medidor) y solo generaba
        confusión al mostrarse junto al FP que sí importa — se dejó fuera del reporte. */
@@ -30967,6 +31069,7 @@ window._fpRenderReportPreview = function(){
       var zebra = ridx%2===1 ? 'background:#f9fafb;' : '';
       return '<tr style="'+zebra+'">'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb">'+_fpEsc(_fpFechaCorta(h.fecha))+'</td>'+
+        (mixedInSection ? ('<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpModoBadge(h.modo)+'</td>') : '')+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo1)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo5)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(pctRow)+'</td>'+
@@ -30978,9 +31081,11 @@ window._fpRenderReportPreview = function(){
     var chartId = 'fp-report-chart-'+idx;
     if(hist.length) chartTargets.push({ id:chartId, hist:hist });
     var chartPlaceholder = hist.length ? ('<div id="'+chartId+'" style="min-height:4px;margin-bottom:10px;border-radius:10px;overflow:hidden"></div>') : '';
+    var tipoBadgeHeader = mixedInSection ? '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">TIPO</th>' : '';
+    var tipoHeaderNotMixed = (!mixedInSection && modoFiltro==='todos') ? (' <span style="font-weight:400;color:#9ca3af">('+_fpModoLabel(_fpSiteMode(site))+')</span>') : '';
     return '<div style="page-break-inside:avoid;margin-bottom:38px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(10,31,94,.08)">'+
       '<div data-pdf-avoid-break="1" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">'+
-        '<div style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.3px">'+_fpEsc(site)+'</div>'+
+        '<div style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.3px">'+_fpEsc(site)+tipoHeaderNotMixed+'</div>'+
         '<div style="text-align:right">'+
           '<div style="font-size:24px;font-weight:900;color:#ffffff">'+(pct==null?'—':pct.toFixed(2)+'%')+'</div>'+
           '<div style="font-size:10px;color:rgba(255,255,255,.85);font-weight:700;letter-spacing:.5px;text-transform:uppercase">'+st.label+'</div>'+
@@ -30991,8 +31096,9 @@ window._fpRenderReportPreview = function(){
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#eef2fb">'+
           '<th style="padding:12px;text-align:left;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FECHA</th>'+
-          '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KW':'CÓD. 1 (kWh)')+'</th>'+
-          '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+(modoSite==='directo'?'KVAR':'CÓD. 5 (kVArh)')+'</th>'+
+          tipoBadgeHeader+
+          '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+lbl1+'</th>'+
+          '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+lbl2+'</th>'+
           '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FP</th>'+
           '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">ESTADO</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
@@ -31001,6 +31107,7 @@ window._fpRenderReportPreview = function(){
     '</div>';
   }).join('');
 
+  var modoLabelResumen = modoFiltro==='todos' ? 'Todos' : _fpModoLabel(modoFiltro);
   var html = '<div style="font-family:Arial,Helvetica,sans-serif;color:#111827;max-width:980px;margin:0 auto;padding:32px 30px">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3fcc;padding-bottom:16px;margin-bottom:20px">'+
       '<div>'+
@@ -31009,6 +31116,7 @@ window._fpRenderReportPreview = function(){
       '</div>'+
       '<div style="text-align:right;font-size:11px;color:#6b7280;line-height:1.6">'+
         '<div><b>Sitios:</b> '+(siteSel==='__all__'?'Todos ('+sites.length+')':_fpEsc(siteSel))+'</div>'+
+        '<div><b>Tipo:</b> '+_fpEsc(modoLabelResumen)+'</div>'+
         '<div><b>Meses:</b> '+(mesesSel ? _fpEsc(mesesSel.slice().sort().map(_fpMonthLabel).join(', ')) : 'Todos')+'</div>'+
         '<div><b>Generado:</b> '+_fpEsc(genDate)+'</div>'+
         '<div><b>Generado por:</b> '+_fpEsc(genUser)+'</div>'+
