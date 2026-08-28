@@ -4818,7 +4818,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787881826';
+  var APP_VERSION = '1787899501';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8273,7 +8273,8 @@ async function expDoZip(mode){
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <select id="fp-month-modo-sel" onchange="window._fpRenderMonthly()" title="Tipo de cálculo" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;display:none">
             <option value="directo">⚡ Instantáneo</option>
-            <option value="acumulado">📊 Mensual (acumulado)</option>
+            <option value="acumulado">📊 Acumulado (delta)</option>
+            <option value="mensual">🗓️ Mensual (sumatoria)</option>
           </select>
           <select id="fp-month-site-sel" onchange="window._fpRenderMonthly()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
         </div>
@@ -8312,7 +8313,8 @@ async function expDoZip(mode){
       <select id="fp-hist-filter-modo" onchange="window._fpRenderHist()" title="Tipo de lectura" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
         <option value="">Todos los tipos</option>
         <option value="directo">⚡ Instantáneo</option>
-        <option value="acumulado">📊 Mensual (acumulado)</option>
+        <option value="acumulado">📊 Acumulado (delta)</option>
+        <option value="mensual">🗓️ Mensual (sumatoria)</option>
       </select>
       <input type="date" id="fp-hist-filter-desde" onchange="window._fpRenderHist()" title="Desde" style="padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
       <span style="color:var(--t3);font-family:var(--mono);font-size:10px">—</span>
@@ -8337,7 +8339,7 @@ async function expDoZip(mode){
         <tbody id="fp-hist-tbody"></tbody>
       </table>
     </div>
-    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP = en sitios con código acumulado (p.ej. T4) es la diferencia contra la lectura anterior del mismo sitio; en sitios de lectura directa (p.ej. T3, donde kWh/kVAr ya vienen del periodo) es el FP de esa lectura. Es el valor que dispara las alertas de color.</div>
+    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP = en lecturas 📊 Acumulado (p.ej. T4, el código nunca se reinicia) es la diferencia contra la lectura anterior del mismo tipo; en lecturas ⚡ Instantáneo o 🗓️ Mensual (p.ej. T3) es el FP directo de esa lectura, sin restar nada — Instantáneo porque no hay nada que restar, y Mensual porque el código ya se reinició a 0 al empezar el mes. Es el valor que dispara las alertas de color.</div>
 
   </div>
 
@@ -8361,9 +8363,10 @@ async function expDoZip(mode){
           <input type="hidden" id="fp-in-modo" value="acumulado">
           <div style="display:flex;gap:6px">
             <button type="button" id="fp-modo-btn-directo" onclick="window._fpSetModo('directo')" style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">⚡ Instantáneo</button>
-            <button type="button" id="fp-modo-btn-acumulado" onclick="window._fpSetModo('acumulado')" style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">📊 Mensual (acumulado)</button>
+            <button type="button" id="fp-modo-btn-acumulado" onclick="window._fpSetModo('acumulado')" style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">📊 Acumulado</button>
+            <button type="button" id="fp-modo-btn-mensual" onclick="window._fpSetModo('mensual')" style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">🗓️ Mensual</button>
           </div>
-          <div style="font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-top:4px">Instantáneo: el panel ya entrega kW/kVAr del momento (p.ej. T3). Mensual: el medidor entrega un código acumulado y el FP sale de la diferencia contra la lectura anterior de ese mismo tipo (p.ej. T4).</div>
+          <div style="font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-top:4px">⚡ Instantáneo: kW/kVAr del momento, sin comparar con nada (panel de T3). 📊 Acumulado: código de medidor que NUNCA se reinicia — el FP sale de la diferencia contra la lectura anterior (T4, quincenal). 🗓️ Mensual: código que se reinicia a 0 cada mes — el FP sale directo del acumulado del mes, sin restar nada (sumatoria mensual de T3).</div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px"><span id="fp-lbl-c1">Código 1 — kWh</span>
@@ -8411,7 +8414,8 @@ async function expDoZip(mode){
           <select id="fp-report-modo-sel" onchange="window._fpRenderReportPreview()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px">
             <option value="todos">Todos los tipos</option>
             <option value="directo">⚡ Instantáneo</option>
-            <option value="acumulado">📊 Mensual (acumulado)</option>
+            <option value="acumulado">📊 Acumulado (delta)</option>
+            <option value="mensual">🗓️ Mensual (sumatoria)</option>
           </select>
           <div style="position:relative">
             <button type="button" id="fp-report-mes-btn" onclick="window._fpToggleMesPicker()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px">📅 <span id="fp-report-mes-label">Todos los meses</span> ▾</button>
@@ -29890,12 +29894,23 @@ function _fpSiteMode(site){ return FP_SITE_MODE.hasOwnProperty(site) ? FP_SITE_M
    Las lecturas guardadas ANTES de este cambio no tienen r.modo — para esas se usa el modo fijo
    del sitio de siempre, así el histórico existente no cambia de significado. */
 function _fpReadingModo(r){ return (r && r.modo) ? r.modo : _fpSiteMode(r ? r.sitio : null); }
-var FP_MODO_LABELS = { directo:'Instantáneo', acumulado:'Mensual (acumulado)' };
+/* Tres tipos de lectura posibles:
+   'directo'   — ⚡ Instantáneo: el panel entrega kW/kVAr del momento, sin acumular nada (T3).
+   'acumulado' — 📊 Acumulado (delta): código de medidor que JAMÁS se reinicia; el FP del periodo
+                  sale de la diferencia contra la lectura anterior del mismo tipo (T4, quincenal).
+   'mensual'   — 🗓️ Mensual (sumatoria): código que se REINICIA a 0 cada mes; cada lectura ya es
+                  el total acumulado del mes hasta ese momento, así que el FP sale DIRECTO de esos
+                  valores, sin restar contra la lectura anterior (T3, sumatoria mensual). */
+var FP_MODO_LABELS = { directo:'Instantáneo', acumulado:'Acumulado (delta)', mensual:'Mensual (sumatoria)' };
 function _fpModoLabel(m){ return FP_MODO_LABELS[m] || m; }
+var FP_MODO_BADGE_CFG = {
+  directo:  { color:'#7c3aed', label:'⚡ Instantáneo' },
+  acumulado:{ color:'#1a3fcc', label:'📊 Acumulado' },
+  mensual:  { color:'#0d9488', label:'🗓️ Mensual' }
+};
 function _fpModoBadge(m){
-  var esDirecto = m==='directo';
-  var color = esDirecto ? '#7c3aed' : '#1a3fcc';
-  return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;background:'+color+'1A;color:'+color+';font-family:var(--mono);font-size:9px;font-weight:700;white-space:nowrap">'+(esDirecto?'⚡ Instantáneo':'📊 Mensual')+'</span>';
+  var c = FP_MODO_BADGE_CFG[m] || { color:'#6b7280', label:m };
+  return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;background:'+c.color+'1A;color:'+c.color+';font-family:var(--mono);font-size:9px;font-weight:700;white-space:nowrap">'+c.label+'</span>';
 }
 /* ¿Este sitio tiene lecturas de ambos tipos guardadas? Sirve para decidir si vale la pena
    mostrarle al usuario el filtro de tipo (si un sitio solo usa un modo, no hace falta molestarlo). */
@@ -29904,11 +29919,14 @@ function _fpSiteHasMixedModos(site){
   FP_LIST.forEach(function(r){ if(r.sitio===site) modos[_fpReadingModo(r)]=true; });
   return Object.keys(modos).length>1;
 }
-/* Unidades correctas según el modo del sitio: en modo 'directo' (T3) el panel entrega potencia
-   INSTANTÁNEA — kW de potencia activa y kVAr de potencia reactiva, sin hora — mientras que en
-   modo 'acumulado' (T4) los códigos del medidor son energía acumulada — kWh y kVArh, con hora. */
-function _fpUnitLabels(site){
-  return _fpSiteMode(site)==='directo' ? { c1:'kW', c5:'kVAr' } : { c1:'kWh', c5:'kVArh' };
+/* Unidades correctas según el TIPO de lectura: 'directo' es potencia INSTANTÁNEA — kW de potencia
+   activa y kVAr de potencia reactiva, sin hora — mientras que 'acumulado' y 'mensual' son energía
+   acumulada de medidor — kWh y kVArh, con hora (la diferencia entre esos dos es si el código se
+   reinicia cada mes o nunca, no la unidad). Acepta un nombre de sitio (usa su modo por default)
+   o directamente un valor de modo ('directo'/'acumulado'/'mensual'). */
+function _fpUnitLabels(siteOrModo){
+  var modo = (siteOrModo==='directo'||siteOrModo==='acumulado'||siteOrModo==='mensual') ? siteOrModo : _fpSiteMode(siteOrModo);
+  return modo==='directo' ? { c1:'kW', c5:'kVAr' } : { c1:'kWh', c5:'kVArh' };
 }
 
 /* Meta acordada con el equipo: cualquier FP por debajo de 98% se marca en amarillo con
@@ -30337,12 +30355,12 @@ function _fpRenderSiteGrid(){
       '</div>'+
       '<div style="display:flex;align-items:baseline;gap:8px">'+
         '<span style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:28px;color:'+st.color+'">'+(pct==null?'—':pct.toFixed(1)+'%')+'</span>'+
-        '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.esPeriodo?'FP del periodo':(_fpSiteMode(site)==='directo'?'FP':'FP (primera lectura)')):'sin lecturas')+'</span>'+
+        '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.esPeriodo?'FP del periodo':((lt.rec.modo==='directo'||lt.rec.modo==='mensual')?'FP':'FP (primera lectura)')):'sin lecturas')+'</span>'+
       '</div>'+
       '<div style="font-family:var(--body);font-size:11px;color:'+st.color+';font-weight:600">'+st.label+'</div>'+
       metaWarnHtml+
       capLine+
-      (lt ? '<div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Última lectura: '+_fpFechaCorta(lt.rec.fecha)+' · Cód.1 '+_fpFmtNum(lt.rec.codigo1)+' '+_fpUnitLabels(site).c1+' · Cód.5 '+_fpFmtNum(lt.rec.codigo5)+' '+_fpUnitLabels(site).c5+'</div>' : '')+
+      (lt ? '<div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Última lectura: '+_fpFechaCorta(lt.rec.fecha)+' · Cód.1 '+_fpFmtNum(lt.rec.codigo1)+' '+_fpUnitLabels(lt.rec.modo).c1+' · Cód.5 '+_fpFmtNum(lt.rec.codigo5)+' '+_fpUnitLabels(lt.rec.modo).c5+'</div>' : '')+
       staleWarn+
       '<div style="position:relative;height:52px;margin-top:2px"><canvas id="'+sparkId+'"></canvas></div>'+
       '<button onclick="document.getElementById(\'fp-detail-site-sel\').value=\''+_fpEsc(site).replace(/'/g,"\\'")+'\';window._fpRenderDetail();document.getElementById(\'fp-detail-site-sel\').scrollIntoView({behavior:\'smooth\',block:\'center\'})" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t2);font-family:var(--mono);font-size:9.5px;font-weight:700;cursor:pointer;padding:6px 10px;align-self:flex-start">Ver tendencia completa →</button>'+
@@ -30472,7 +30490,9 @@ window._fpRenderHist = function(){
     var st = _fpStatus(pct);
     var delta = r.modo==='directo'
       ? '<span style="color:var(--t3)">lectura directa</span>'
-      : ((r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh'));
+      : r.modo==='mensual'
+        ? '<span style="color:var(--t3)">sumatoria del mes (sin resta)</span>'
+        : ((r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh'));
     return '<tr style="border-bottom:1px solid var(--b1)">'+
       '<td style="padding:8px 10px;font-weight:700;font-family:var(--body);font-size:11.5px;color:var(--text)">'+_fpEsc(r.sitio)+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFechaCorta(r.fecha)+'</td>'+
@@ -30524,7 +30544,26 @@ function _fpMonthlyGroupsDirecto(hist){
       fp:avg, bestReading:best, bestFp:best.fpAcum, note:'' };
   });
 }
-/* Calcula el FP de cada mes calendario. Dos modos, según el sitio (ver FP_SITE_MODE):
+/* Sitios en modo 'mensual' (p.ej. T3, sumatoria): el código kWh/kVArh se REINICIA a 0 cada mes,
+   así que cada lectura YA es el total acumulado del mes hasta ese momento — no hay nada que restar
+   entre lecturas ni entre meses. El "FP del mes" es el de la ÚLTIMA lectura capturada ese mes (el
+   FP vigente, con todo lo consumido hasta ahora), y el resto de lecturas del mes queda disponible
+   para ver el progreso — el objetivo es ir bajando el kVAr acumulado conforme avanza el mes. */
+function _fpMonthlyGroupsMensual(hist){
+  var monthsWithData = {};
+  hist.forEach(function(h){ var k=_fpMonthKey(h.fecha); if(k) monthsWithData[k]=true; });
+  var monthKeys = Object.keys(monthsWithData).sort();
+  return monthKeys.map(function(key){
+    var inMonth = hist.filter(function(h){ return _fpMonthKey(h.fecha)===key; })
+      .map(function(h){ return Object.assign({}, h, { fpAcum:_fpCalc(h.codigo1,h.codigo5) }); });
+    var last = inMonth[inMonth.length-1];
+    var first = inMonth[0];
+    return { key:key, label:_fpMonthLabel(key), modo:'mensual', readings:inMonth,
+      fp:last.fpAcum, lastReading:last, firstReading:first,
+      trendVsFirst: inMonth.length>1 ? (last.fpAcum-first.fpAcum) : null, note:'' };
+  });
+}
+/* Calcula el FP de cada mes calendario. Tres modos, según el tipo de lectura (ver FP_MODO_LABELS):
    'acumulado' (T4) — MISMA lógica que la hoja de cálculo del equipo: FP del mes = diferencia de
    Código 1 y Código 5 entre la ÚLTIMA lectura de ese mes (o la más reciente disponible, si el mes
    sigue en curso) y la ÚLTIMA lectura del mes anterior — "cuánto avanzamos código contra código
@@ -30532,12 +30571,15 @@ function _fpMonthlyGroupsDirecto(hist){
    mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga
    datos. El primer mes con datos de un sitio queda marcado "sin datos suficientes".
    'directo' (T3) — ver _fpMonthlyGroupsDirecto: promedio simple de los FP ya calculados de cada
-   lectura del mes, destacando la mejor lectura. */
+   lectura del mes, destacando la mejor lectura.
+   'mensual' (T3, sumatoria) — ver _fpMonthlyGroupsMensual: el FP del mes es el de la última
+   lectura capturada ese mes (código que se reinicia cada mes, sin restar nada). */
 function _fpMonthlyGroups(site, modoOverride){
   var modo = modoOverride || _fpSiteMode(site);
-  var hist = _fpSiteReadings(site, modo); /* siempre filtrado al modo resuelto — nunca mezcla directo+acumulado en una misma cadena */
+  var hist = _fpSiteReadings(site, modo); /* siempre filtrado al modo resuelto — nunca mezcla tipos en una misma cadena */
   if(!hist.length) return [];
   if(modo==='directo') return _fpMonthlyGroupsDirecto(hist);
+  if(modo==='mensual') return _fpMonthlyGroupsMensual(hist);
   var monthsWithData = {};
   hist.forEach(function(h){ var k=_fpMonthKey(h.fecha); if(k) monthsWithData[k]=true; });
   var monthKeys = Object.keys(monthsWithData).sort();
@@ -30590,6 +30632,10 @@ window._fpRenderMonthly = function(){
     if(explainer) explainer.textContent='FP del mes = promedio de los FP ya calculados de cada lectura del mes (aquí kW y kVAr son la potencia instantánea que entrega el panel, no un código acumulado). Se destaca la mejor lectura del mes.';
     if(th2) th2.textContent='Lecturas';
     if(th3) th3.textContent='Mejor lectura';
+  } else if(modo==='mensual'){
+    if(explainer) explainer.textContent='FP del mes = se calcula DIRECTO sobre el código acumulado del mes (kWh/kVArh), sin restar contra la lectura anterior — el medidor se reinicia a 0 cada mes, así que cada lectura ya es el total del mes hasta ese momento. La última lectura registrada es el FP vigente del mes; las demás muestran el progreso durante el mes.';
+    if(th2) th2.textContent='Lecturas';
+    if(th3) th3.textContent='Progreso en el mes';
   } else {
     if(explainer) explainer.textContent='FP del mes = diferencia de Código 1 y Código 5 entre el cierre de este mes y el cierre del mes anterior (mismo método que la hoja de cálculo del equipo). Un mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga datos.';
     if(th2) th2.textContent='ΔkWh';
@@ -30649,6 +30695,35 @@ window._fpRenderMonthly = function(){
         '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t2)">'+bestHtml+'</td>'+
         '<td style="padding:7px 8px;text-align:center">'+_fpBadge(g.fp)+warnCellD+'</td>'+
         '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px">'+cmpD+'</td>'+
+      '</tr>';
+    }
+    if(g.modo==='mensual'){
+      /* FP del mes = FP de la última lectura del mes (código que se reinicia cada mes, sin
+         restar nada). La columna "Progreso en el mes" muestra cómo cambió desde la primera
+         lectura del mes hasta la última — así se ve si se fue mejorando el kVAr consumido. */
+      var cmpM = '<span style="color:var(--t3)">— sin dato previo</span>';
+      if(g.diffVsPrev!=null){
+        var colM = g.diffVsPrev>0.05 ? '#059669' : (g.diffVsPrev<-0.05 ? '#dc2626' : 'var(--t3)');
+        var arrowM = g.diffVsPrev>0.05 ? '▲' : (g.diffVsPrev<-0.05 ? '▼' : '≈');
+        cmpM = '<span style="color:'+colM+';font-weight:700">'+arrowM+' '+(g.diffVsPrev>=0?'+':'')+g.diffVsPrev.toFixed(2)+' pp</span>';
+      }
+      var metaWarnM = _fpMetaWarning(g.fp);
+      var warnCellM = metaWarnM ? '<div style="font-family:var(--mono);font-size:8.5px;font-weight:700;color:'+metaWarnM.color+';margin-top:3px;white-space:nowrap">⚠️ Revisar — meta '+FP_META_OBJETIVO+'%</div>' : '';
+      var progHtml;
+      if(g.trendVsFirst!=null){
+        var colP = g.trendVsFirst>0.05 ? '#059669' : (g.trendVsFirst<-0.05 ? '#dc2626' : 'var(--t3)');
+        var arrowP = g.trendVsFirst>0.05 ? '▲' : (g.trendVsFirst<-0.05 ? '▼' : '≈');
+        progHtml = _fpFechaCorta(g.firstReading.fecha)+' → '+_fpFechaCorta(g.lastReading.fecha)+
+          '<div style="font-family:var(--mono);font-size:9px;color:'+colP+';font-weight:700;margin-top:1px">'+arrowP+' '+(g.trendVsFirst>=0?'+':'')+g.trendVsFirst.toFixed(2)+' pp en el mes</div>';
+      } else {
+        progHtml = '<span style="color:var(--t3)">Única lectura del mes</span>';
+      }
+      return '<tr style="border-bottom:1px solid var(--b1);'+(metaWarnM?'background:'+metaWarnM.bg+';':'')+'">'+
+        '<td style="padding:7px 8px;vertical-align:top"><div style="font-weight:700;font-family:var(--body);font-size:11px;color:var(--text)">'+_fpEsc(g.label)+'</div></td>'+
+        '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+g.readings.length+'</td>'+
+        '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t2)">'+progHtml+'</td>'+
+        '<td style="padding:7px 8px;text-align:center">'+_fpBadge(g.fp)+warnCellM+'</td>'+
+        '<td style="padding:7px 8px;text-align:center;font-family:var(--mono);font-size:10px">'+cmpM+'</td>'+
       '</tr>';
     }
     if(g.fp==null){
@@ -30716,15 +30791,16 @@ window._fpOpenForm = function(editId, presetSite){
   window._fpSetModo(modoInicial);
   document.getElementById('fp-form-modal').style.display='flex';
 };
-/* Botones de Tipo de lectura (Instantáneo / Mensual-acumulado) del formulario */
+/* Botones de Tipo de lectura (Instantáneo / Acumulado / Mensual) del formulario */
 window._fpSetModo = function(m){
   var hidden=document.getElementById('fp-in-modo'); if(hidden) hidden.value=m;
-  var bD=document.getElementById('fp-modo-btn-directo'), bA=document.getElementById('fp-modo-btn-acumulado');
-  [bD,bA].forEach(function(b){ if(!b) return; b.style.background='var(--s2)'; b.style.borderColor='var(--b2)'; b.style.color='var(--t2)'; });
-  var sel = m==='directo' ? bD : bA;
+  var btns = { directo:document.getElementById('fp-modo-btn-directo'), acumulado:document.getElementById('fp-modo-btn-acumulado'), mensual:document.getElementById('fp-modo-btn-mensual') };
+  Object.keys(btns).forEach(function(k){ var b=btns[k]; if(!b) return; b.style.background='var(--s2)'; b.style.borderColor='var(--b2)'; b.style.color='var(--t2)'; });
+  var sel = btns[m];
   if(sel){
-    var col = m==='directo' ? '#7c3aed' : 'var(--sky)';
-    sel.style.background = m==='directo' ? 'rgba(124,58,237,.12)' : 'rgba(26,63,204,.1)';
+    var col = m==='directo' ? '#7c3aed' : (m==='mensual' ? '#0d9488' : 'var(--sky)');
+    var bg = m==='directo' ? 'rgba(124,58,237,.12)' : (m==='mensual' ? 'rgba(13,148,136,.12)' : 'rgba(26,63,204,.1)');
+    sel.style.background = bg;
     sel.style.borderColor = col; sel.style.color = col;
   }
   window._fpLiveCheck();
@@ -30746,6 +30822,11 @@ window._fpLiveCheck = function(){
     if(lblC5) lblC5.textContent='kVAr (potencia reactiva)';
     if(inC1) inC1.placeholder='p.ej. 3255.79';
     if(inC5) inC5.placeholder='p.ej. 1039.13';
+  } else if(modo==='mensual'){
+    if(lblC1) lblC1.textContent='kWh — sumatoria del mes';
+    if(lblC5) lblC5.textContent='kVArh — sumatoria del mes';
+    if(inC1) inC1.placeholder='p.ej. 8700835';
+    if(inC5) inC5.placeholder='p.ej. 2423082.5';
   } else {
     if(lblC1) lblC1.textContent='Código 1 — kWh';
     if(lblC5) lblC5.textContent='Código 5 — kVArh';
@@ -30769,6 +30850,14 @@ window._fpLiveCheck = function(){
     st = _fpStatus(pctShow);
     metaWarn = _fpMetaWarning(pctShow);
     extraLine = '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">Lectura instantánea — no se compara contra la anterior.</div>';
+  } else if(modo==='mensual'){
+    /* Modo mensual (T3, sumatoria): el código se reinicia a 0 cada mes, así que esta lectura YA
+       es el total acumulado del mes hasta este momento — el FP sale directo de esos valores,
+       igual que en modo directo, sin restar contra la lectura anterior. */
+    pctShow = fpAcum;
+    st = _fpStatus(pctShow);
+    metaWarn = _fpMetaWarning(pctShow);
+    extraLine = '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3);margin-top:2px">Sumatoria del mes — el código se reinicia cada mes, este es el FP vigente del mes con lo acumulado hasta esta lectura.</div>';
   } else {
     var hist = _fpSiteHistory(site, 'acumulado'); /* solo lecturas 'acumulado' de este sitio, para no comparar contra una instantánea */
     var editId = document.getElementById('fp-edit-id').value;
@@ -31058,8 +31147,8 @@ window._fpRenderReportPreview = function(){
        columna "Tipo" por renglón para no confundir un valor con otro. */
     var mixedInSection = modoFiltro==='todos' && _fpSiteHasMixedModos(site);
     var modoEfectivo = modoFiltro!=='todos' ? modoFiltro : (mixedInSection ? null : _fpSiteMode(site));
-    var lbl1 = modoEfectivo==='directo' ? 'KW' : (modoEfectivo==='acumulado' ? 'CÓD. 1 (kWh)' : 'VALOR 1');
-    var lbl2 = modoEfectivo==='directo' ? 'KVAR' : (modoEfectivo==='acumulado' ? 'CÓD. 5 (kVArh)' : 'VALOR 2');
+    var lbl1 = modoEfectivo==='directo' ? 'KW' : (modoEfectivo==='acumulado' ? 'CÓD. 1 (kWh)' : (modoEfectivo==='mensual' ? 'KWH (MES)' : 'VALOR 1'));
+    var lbl2 = modoEfectivo==='directo' ? 'KVAR' : (modoEfectivo==='acumulado' ? 'CÓD. 5 (kVArh)' : (modoEfectivo==='mensual' ? 'KVARH (MES)' : 'VALOR 2'));
     /* Una sola columna de FP para todos los sitios: el "FP acumulado" crudo del medidor no
        refleja el desempeño real (es el promedio desde que se instaló el medidor) y solo generaba
        confusión al mostrarse junto al FP que sí importa — se dejó fuera del reporte. */
