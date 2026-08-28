@@ -4818,7 +4818,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787901204';
+  var APP_VERSION = '1787902690';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8264,6 +8264,7 @@ async function expDoZip(mode){
         <select id="fp-detail-site-sel" onchange="window._fpRenderDetail()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px"></select>
       </div>
       <div id="fp-detail-modo-toggles" style="display:none;flex-wrap:wrap;gap:6px"></div>
+      <div id="fp-detail-progress" style="display:none;flex-wrap:wrap;gap:8px"></div>
       <div style="position:relative;height:280px"><canvas id="fp-detail-chart"></canvas></div>
     </div>
 
@@ -8332,6 +8333,7 @@ async function expDoZip(mode){
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kVAr / kVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh / ΔkVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)" title="Variación del FP contra la lectura anterior del mismo sitio y tipo">Variación</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Tipo</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Acciones</th>
@@ -8340,7 +8342,7 @@ async function expDoZip(mode){
         <tbody id="fp-hist-tbody"></tbody>
       </table>
     </div>
-    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP = en lecturas 📊 Acumulado (p.ej. T4, el código nunca se reinicia) es la diferencia contra la lectura anterior del mismo tipo; en lecturas ⚡ Instantáneo o 🗓️ Mensual (p.ej. T3) es el FP directo de esa lectura, sin restar nada — Instantáneo porque no hay nada que restar, y Mensual porque el código ya se reinició a 0 al empezar el mes. Es el valor que dispara las alertas de color.</div>
+    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP = en lecturas 📊 Acumulado (p.ej. T4, el código nunca se reinicia) es la diferencia contra la lectura anterior del mismo tipo; en lecturas ⚡ Instantáneo o 🗓️ Mensual (p.ej. T3) es el FP directo de esa lectura, sin restar nada — Instantáneo porque no hay nada que restar, y Mensual porque el código ya se reinició a 0 al empezar el mes. Es el valor que dispara las alertas de color. Variación = cuánto subió o bajó el FP contra la lectura anterior del mismo sitio y tipo, en puntos porcentuales.</div>
 
   </div>
 
@@ -30288,10 +30290,13 @@ function _fpSiteReadings(site, modoFiltro){
     .slice()
     .sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||'') || (a.createdAt||0)-(b.createdAt||0); });
 }
-/* Devuelve las lecturas de un sitio ya anotadas con fpAcum, fpPeriodo, deltaC1, deltaC5.
-   El delta de modo 'acumulado' se encadena SOLO contra la lectura anterior del MISMO modo —
-   así, si un sitio tiene lecturas instantáneas y acumuladas mezcladas (p.ej. T3 con ambas),
-   una lectura instantánea de por medio no rompe ni ensucia la cadena de códigos acumulados. */
+/* Devuelve las lecturas de un sitio ya anotadas con fpAcum, fpPeriodo, deltaC1, deltaC5, pctRow
+   (el % de FP que en verdad aplica para ese renglón) y fpDeltaVsPrev (cuánto subió o bajó el FP
+   contra la lectura ANTERIOR del mismo sitio+tipo, en puntos porcentuales — para tablas, tooltips
+   y para colorear la gráfica según si fue mejorando o empeorando registro a registro).
+   El encadenado (tanto el delta de código de modo 'acumulado' como fpDeltaVsPrev) va SOLO contra
+   la lectura anterior del MISMO modo — así, si un sitio tiene lecturas de varios tipos mezcladas
+   (p.ej. T3 con instantáneo + mensual), una lectura de un tipo no ensucia la cadena del otro. */
 function _fpSiteHistory(site, modoFiltro){
   var list = _fpSiteReadings(site, modoFiltro);
   var out = [];
@@ -30310,10 +30315,25 @@ function _fpSiteHistory(site, modoFiltro){
       if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
       /* si el delta es negativo probablemente el medidor se reinició — no se calcula FP de periodo, se deja el acumulado */
     }
-    out.push(Object.assign({}, r, { modo:modo, fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5 }));
-    prevByModo[modo] = r;
+    var pctRow = fpPeriodo!=null ? fpPeriodo : fpAcum;
+    var fpDeltaVsPrev = (prev && prev.pctRow!=null && pctRow!=null) ? (pctRow - prev.pctRow) : null;
+    var enriched = Object.assign({}, r, { modo:modo, fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5, pctRow:pctRow, fpDeltaVsPrev:fpDeltaVsPrev });
+    out.push(enriched);
+    prevByModo[modo] = enriched;
   });
   return out;
+}
+/* Chip HTML reutilizable "▲/▼/≈ +X.XX pp" para mostrar una variación de FP — usado en tablas,
+   resúmenes de progreso y captions de reporte. threshold evita que ruido de +/-0.05pp se marque
+   como subida o bajada real. */
+function _fpDeltaChip(delta, opts){
+  opts = opts || {};
+  var threshold = opts.threshold!=null ? opts.threshold : 0.05;
+  var size = opts.size || 10;
+  if(delta==null) return '<span style="color:var(--t3);font-family:var(--mono);font-size:'+size+'px">'+(opts.emptyLabel||'— sin dato previo')+'</span>';
+  var col = delta>threshold ? '#059669' : (delta<-threshold ? '#dc2626' : (opts.flatColor||'var(--t3)'));
+  var arrow = delta>threshold ? '▲' : (delta<-threshold ? '▼' : '≈');
+  return '<span style="color:'+col+';font-weight:700;font-family:var(--mono);font-size:'+size+'px;white-space:nowrap">'+arrow+' '+(delta>=0?'+':'')+delta.toFixed(2)+' pp</span>';
 }
 /* FP "vigente" de un sitio: el del periodo de la última lectura si existe, si no el acumulado */
 function _fpLatestForSite(site){
@@ -30479,6 +30499,33 @@ window._fpToggleDetailModo = function(site, modo){
   cur[modo] = !cur[modo];
   window._fpRenderDetail();
 };
+/* Franja de progreso arriba de la gráfica: "primer registro → último registro" con la variación
+   total en pp, por cada tipo activo. Así se ve de un vistazo si se fue mejorando o empeorando en
+   el periodo mostrado, sin tener que leer la gráfica punto por punto. */
+function _fpRenderDetailProgress(site, activeModos, histByModo, modosDisponibles){
+  var box=document.getElementById('fp-detail-progress'); if(!box) return;
+  var chips = activeModos.map(function(m){
+    var hist = histByModo[m];
+    if(!hist.length || hist[0].pctRow==null) return null;
+    var first = hist[0], last = hist[hist.length-1];
+    var cfg = FP_MODO_BADGE_CFG[m];
+    var tag = modosDisponibles.length>1 ? ('<span style="font-weight:700;color:'+cfg.color+'">'+cfg.label+':</span> ') : '';
+    if(hist.length<2 || last.pctRow==null){
+      return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;color:var(--t2);background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 10px">'+
+        tag+'Único registro: '+_fpFechaCorta(first.fecha)+' — '+_fpFmtPct(first.pctRow)+
+      '</div>';
+    }
+    var delta = last.pctRow - first.pctRow;
+    return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;color:var(--t2);background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 10px">'+
+      tag+
+      _fpFechaCorta(first.fecha)+' ('+first.pctRow.toFixed(2)+'%) → '+_fpFechaCorta(last.fecha)+' ('+last.pctRow.toFixed(2)+'%)&nbsp;&nbsp;'+
+      _fpDeltaChip(delta,{size:10.5})+
+    '</div>';
+  }).filter(Boolean);
+  if(!chips.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='flex';
+  box.innerHTML = chips.join('');
+}
 window._fpRenderDetail = function(){
   var sel=document.getElementById('fp-detail-site-sel'); if(!sel) return;
   var site=sel.value;
@@ -30501,6 +30548,7 @@ window._fpRenderDetail = function(){
 
   var histByModo = {};
   activeModos.forEach(function(m){ histByModo[m] = _fpSiteHistory(site, m); });
+  _fpRenderDetailProgress(site, activeModos, histByModo, modosDisponibles);
   var allDatesSet = {};
   activeModos.forEach(function(m){ histByModo[m].forEach(function(h){ allDatesSet[h.fecha]=true; }); });
   var allDates = Object.keys(allDatesSet).sort();
@@ -30511,19 +30559,44 @@ window._fpRenderDetail = function(){
      línea con el FP acumulado crudo del medidor de referencia, pero ese número no refleja el
      desempeño real y solo generaba confusión — se dejó fuera. */
   function seriesFor(m){
-    var byDate = {};
-    histByModo[m].forEach(function(h){ byDate[h.fecha] = h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum; });
-    return allDates.map(function(f){ return byDate.hasOwnProperty(f) ? byDate[f] : null; });
+    var byDate = {}, deltaByDate = {};
+    histByModo[m].forEach(function(h){ byDate[h.fecha] = h.pctRow; deltaByDate[h.fecha] = h.fpDeltaVsPrev; });
+    return {
+      data: allDates.map(function(f){ return byDate.hasOwnProperty(f) ? byDate[f] : null; }),
+      deltas: allDates.map(function(f){ return deltaByDate.hasOwnProperty(f) ? deltaByDate[f] : null; })
+    };
   }
 
+  var singleSeries = activeModos.length===1;
   var datasets = activeModos.map(function(m){
     var cfg = FP_MODO_BADGE_CFG[m];
-    return { label: modosDisponibles.length>1 ? cfg.label : 'FP', data:seriesFor(m),
+    var s = seriesFor(m);
+    var ds = { label: modosDisponibles.length>1 ? cfg.label : 'FP', data:s.data, fpDeltas:s.deltas,
       borderColor:cfg.color,
       backgroundColor:function(c){ return _fpAreaGradient(c, _fpHexToRgba(cfg.color,.30), _fpHexToRgba(cfg.color,.01)); },
       borderWidth:3, spanGaps:true, tension:.35, cubicInterpolationMode:'monotone',
-      pointRadius:4, pointHoverRadius:7, pointBackgroundColor:cfg.color, pointBorderColor:'#ffffff', pointBorderWidth:2,
-      pointHoverBorderWidth:3, fill: activeModos.length===1, order:0 };
+      pointRadius:4, pointHoverRadius:7, pointBorderColor:'#ffffff', pointBorderWidth:2,
+      pointHoverBorderWidth:3, fill: singleSeries, order:0 };
+    if(singleSeries){
+      /* Con un solo tipo activo, cada tramo y cada punto se colorea de verde si el FP subió vs.
+         el registro anterior, o de rojo si bajó — así la línea "cuenta la historia" del periodo
+         en vez de verse plana, sin perder de vista el color base del tipo cuando el cambio es
+         insignificante (±0.05pp, ruido de redondeo). */
+      ds.segment = { borderColor: function(ctx){
+        var y0=ctx.p0.parsed.y, y1=ctx.p1.parsed.y;
+        if(y0==null || y1==null) return cfg.color;
+        var d=y1-y0;
+        return d>0.05 ? '#059669' : (d<-0.05 ? '#dc2626' : cfg.color);
+      } };
+      ds.pointBackgroundColor = function(ctx){
+        var d = s.deltas[ctx.dataIndex];
+        if(d==null) return cfg.color;
+        return d>0.05 ? '#059669' : (d<-0.05 ? '#dc2626' : cfg.color);
+      };
+    } else {
+      ds.pointBackgroundColor = cfg.color;
+    }
+    return ds;
   });
   datasets.push({ label:'Ideal (98%)', data:flat(98), borderColor:'#00a97a99', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
   datasets.push({ label:'Objetivo (95%)', data:flat(95), borderColor:'#05966999', borderWidth:1.25, borderDash:[3,4], pointRadius:0, fill:false, order:3 });
@@ -30539,7 +30612,15 @@ window._fpRenderDetail = function(){
       layout:{ padding:{ top:FP_WATERMARK_BAND } },
       plugins:{
         legend:{ position:'bottom', labels:{ boxWidth:10, usePointStyle:true, pointStyle:'circle', padding:14, font:{ family:"'DM Mono',monospace", size:9.5 } } },
-        tooltip:Object.assign({}, FP_TOOLTIP_STYLE, { callbacks:{ label:function(ctx){ return ctx.dataset.label+': '+(ctx.raw==null?'—':ctx.raw.toFixed(2)+'%'); } } })
+        tooltip:Object.assign({}, FP_TOOLTIP_STYLE, { callbacks:{ label:function(ctx){
+          var base = ctx.dataset.label+': '+(ctx.raw==null?'—':ctx.raw.toFixed(2)+'%');
+          var deltas = ctx.dataset.fpDeltas, d = deltas ? deltas[ctx.dataIndex] : null;
+          if(d!=null){
+            var arrow = d>0.05?'▲':(d<-0.05?'▼':'≈');
+            base += '   '+arrow+' '+(d>=0?'+':'')+d.toFixed(2)+' pp vs. anterior';
+          }
+          return base;
+        } } })
       },
       scales:{
         x:{ grid:{ display:false }, ticks:{ font:{ family:"'DM Mono',monospace", size:9.5 } } },
@@ -30592,7 +30673,7 @@ window._fpRenderHist = function(){
   if(filterDesde) rows = rows.filter(function(r){ return (r.fecha||'') >= filterDesde; });
   if(filterHasta) rows = rows.filter(function(r){ return (r.fecha||'') <= filterHasta; });
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas que coincidan</td></tr>';
+    tbody.innerHTML='<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas que coincidan</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(function(r){
@@ -30610,6 +30691,7 @@ window._fpRenderHist = function(){
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo5)+'</td>'+
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+delta+'</td>'+
       '<td style="padding:8px 10px;text-align:center">'+_fpBadge(pct)+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+_fpDeltaChip(r.fpDeltaVsPrev,{size:9.5,emptyLabel:'— primer registro'})+'</td>'+
       '<td style="padding:8px 10px;text-align:center"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+st.color+'"></span></td>'+
       '<td style="padding:8px 10px;text-align:center">'+_fpModoBadge(r.modo)+'</td>'+
       '<td style="padding:8px 10px;text-align:center;white-space:nowrap">'+
@@ -31201,9 +31283,12 @@ function _fpBuildReportChartImg(seriesList){
     function flat(v){ return labels.map(function(){ return v; }); }
     /* FP vigente (ver _fpRenderDetail): sin la línea de "FP acumulado" crudo que solo confundía. */
     function seriesFor(s){
-      var byDate = {};
-      s.hist.forEach(function(h){ byDate[h.fecha] = h.fpPeriodo!=null ? h.fpPeriodo : h.fpAcum; });
-      return allDates.map(function(f){ return byDate.hasOwnProperty(f) ? byDate[f] : null; });
+      var byDate = {}, deltaByDate = {};
+      s.hist.forEach(function(h){ byDate[h.fecha] = h.pctRow; deltaByDate[h.fecha] = h.fpDeltaVsPrev; });
+      return {
+        data: allDates.map(function(f){ return byDate.hasOwnProperty(f) ? byDate[f] : null; }),
+        deltas: allDates.map(function(f){ return deltaByDate.hasOwnProperty(f) ? deltaByDate[f] : null; })
+      };
     }
     var whiteBgPlugin = { id:'fpWhiteBg', beforeDraw:function(c){ var ctx=c.ctx; ctx.save(); ctx.globalCompositeOperation='destination-over'; ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,c.width,c.height); ctx.restore(); } };
     var chart=null;
@@ -31212,13 +31297,34 @@ function _fpBuildReportChartImg(seriesList){
       try{ document.body.removeChild(canvas); }catch(e){}
       resolve(img||'');
     }
+    var singleSeries = seriesList.length===1;
     var dataDatasets = seriesList.map(function(s){
       var color = s.color || '#1a3fcc';
-      return { label:s.label||'FP', data:seriesFor(s),
+      var built = seriesFor(s);
+      var ds = { label:s.label||'FP', data:built.data,
         borderColor:color,
         backgroundColor:function(c){ return _fpAreaGradient(c, _fpHexToRgba(color,.30), _fpHexToRgba(color,.01)); },
         borderWidth:3, spanGaps:true, tension:.35, cubicInterpolationMode:'monotone',
-        pointRadius:4, pointBackgroundColor:color, pointBorderColor:'#ffffff', pointBorderWidth:2, fill:seriesList.length===1, order:0 };
+        pointRadius:4, pointBorderColor:'#ffffff', pointBorderWidth:2, fill:singleSeries, order:0 };
+      if(singleSeries){
+        /* Igual que en "Tendencia del FP" de la app: con un solo tipo, cada tramo y cada punto se
+           colorea de verde (subió) o rojo (bajó) contra el registro anterior — para que la línea
+           del reporte exportado cuente la misma historia visual que la app, no una línea plana. */
+        ds.segment = { borderColor: function(ctx){
+          var y0=ctx.p0.parsed.y, y1=ctx.p1.parsed.y;
+          if(y0==null || y1==null) return color;
+          var d=y1-y0;
+          return d>0.05 ? '#059669' : (d<-0.05 ? '#dc2626' : color);
+        } };
+        ds.pointBackgroundColor = function(ctx){
+          var d = built.deltas[ctx.dataIndex];
+          if(d==null) return color;
+          return d>0.05 ? '#059669' : (d<-0.05 ? '#dc2626' : color);
+        };
+      } else {
+        ds.pointBackgroundColor = color;
+      }
+      return ds;
     });
     try{
       chart = new Chart(canvas, {
@@ -31251,6 +31357,34 @@ function _fpBuildReportChartImg(seriesList){
   });
 }
 
+/* Chip de variación con estilo fijo (Arial, colores planos) para el reporte exportable — el
+   reporte tiene su propio look claro e independiente del tema vivo de la app, así que no usa las
+   variables CSS del tema (a diferencia de _fpDeltaChip, pensado para la UI de la app). */
+function _fpReportDeltaChip(delta){
+  if(delta==null) return '<span style="color:#9ca3af;font-size:9.5px">—</span>';
+  var col = delta>0.05?'#059669':(delta<-0.05?'#dc2626':'#6b7280');
+  var arrow = delta>0.05?'▲':(delta<-0.05?'▼':'≈');
+  return '<span style="color:'+col+';font-weight:700;font-size:10px;white-space:nowrap">'+arrow+' '+(delta>=0?'+':'')+delta.toFixed(2)+' pp</span>';
+}
+/* Caption "primer registro → último registro" con la variación total del periodo, para que el
+   reporte impreso cuente la misma historia de progreso que la app en vez de solo listar números. */
+function _fpReportProgressCaption(histArr, opts){
+  opts = opts || {};
+  if(!histArr.length || histArr[0].pctRow==null) return '';
+  var first = histArr[0], last = histArr[histArr.length-1];
+  var tagHtml = opts.tag ? ('<b style="color:'+(opts.tagColor||'#374151')+'">'+_fpEsc(opts.tag)+':</b> ') : '';
+  if(histArr.length<2 || last.pctRow==null){
+    return '<div style="font-family:Arial,Helvetica,sans-serif;font-size:10.5px;color:#6b7280;margin-bottom:8px">'+tagHtml+'Único registro del periodo: '+_fpFechaCorta(first.fecha)+' — '+first.pctRow.toFixed(2)+'%</div>';
+  }
+  var delta = last.pctRow - first.pctRow;
+  var col = delta>0.05?'#059669':(delta<-0.05?'#dc2626':'#6b7280');
+  var arrow = delta>0.05?'▲':(delta<-0.05?'▼':'≈');
+  return '<div style="font-family:Arial,Helvetica,sans-serif;font-size:10.5px;color:#374151;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+    tagHtml+
+    '<span>Progreso del periodo: '+_fpFechaCorta(first.fecha)+' ('+first.pctRow.toFixed(2)+'%) → '+_fpFechaCorta(last.fecha)+' ('+last.pctRow.toFixed(2)+'%)</span>'+
+    '<span style="font-weight:700;color:'+col+'">'+arrow+' '+(delta>=0?'+':'')+delta.toFixed(2)+' pp</span>'+
+  '</div>';
+}
 window._fpRenderReportPreview = function(){
   var siteSel=(document.getElementById('fp-report-site-sel')||{}).value||'__all__';
   var modoFiltro=(document.getElementById('fp-report-modo-sel')||{}).value||'todos';
@@ -31287,6 +31421,7 @@ window._fpRenderReportPreview = function(){
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo1)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo5)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(pctRow)+'</td>'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpReportDeltaChip(h.fpDeltaVsPrev)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+
           '<span style="display:inline-block;padding:2px 9px;border-radius:10px;background:'+hst.color+'1A;color:'+hst.color+';font-size:9.5px;font-weight:700">'+hst.short+'</span>'+
         '</td>'+
@@ -31310,6 +31445,12 @@ window._fpRenderReportPreview = function(){
     var chartPlaceholder = chartSeriesList.length ? ('<div id="'+chartId+'" style="min-height:4px;margin-bottom:10px;border-radius:10px;overflow:hidden"></div>') : '';
     var tipoBadgeHeader = mixedInSection ? '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">TIPO</th>' : '';
     var tipoHeaderNotMixed = (!mixedInSection && modoFiltro==='todos') ? (' <span style="font-weight:400;color:#9ca3af">('+_fpModoLabel(_fpSiteMode(site))+')</span>') : '';
+    /* "Progreso del periodo" — mismo mensaje que la franja de la app: primer registro → último
+       registro y cuánto mejoró o empeoró en total. En un sitio mixto con "Todos" se muestra un
+       renglón por cada tipo (cada uno tiene su propia historia), igual que en la app. */
+    var progressCaptionHtml = mixedInSection
+      ? chartSeriesList.map(function(cs){ return _fpReportProgressCaption(cs.hist, { tag:cs.label, tagColor:cs.color }); }).join('')
+      : _fpReportProgressCaption(hist, {});
     return '<div style="page-break-inside:avoid;margin-bottom:38px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(10,31,94,.08)">'+
       '<div data-pdf-avoid-break="1" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">'+
         '<div style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.3px">'+_fpEsc(site)+tipoHeaderNotMixed+'</div>'+
@@ -31319,6 +31460,7 @@ window._fpRenderReportPreview = function(){
         '</div>'+
       '</div>'+
       '<div style="padding:16px 20px 20px">'+
+      progressCaptionHtml+
       chartPlaceholder+
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#eef2fb">'+
@@ -31327,6 +31469,7 @@ window._fpRenderReportPreview = function(){
           '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+lbl1+'</th>'+
           '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+lbl2+'</th>'+
           '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FP</th>'+
+          '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px" title="Variación del FP contra la lectura anterior del mismo tipo">VARIACIÓN</th>'+
           '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">ESTADO</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
         : '<div style="color:#9ca3af;font-size:11px;padding:10px 0">Sin lecturas registradas.</div>')+
