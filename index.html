@@ -4818,7 +4818,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787904079';
+  var APP_VERSION = '1787905786';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8290,7 +8290,7 @@ async function expDoZip(mode){
               <th style="padding:6px 8px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mes</th>
               <th id="fp-month-th-2" style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh</th>
               <th id="fp-month-th-3" style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkVArh</th>
-              <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP del mes</th>
+              <th id="fp-month-th-4" style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP del mes</th>
               <th style="padding:6px 8px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Vs. mes anterior</th>
             </tr>
           </thead>
@@ -8342,7 +8342,7 @@ async function expDoZip(mode){
         <tbody id="fp-hist-tbody"></tbody>
       </table>
     </div>
-    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP = en lecturas 📊 Acumulado (p.ej. T4, el código nunca se reinicia) es la diferencia contra la lectura anterior del mismo tipo; en lecturas ⚡ Instantáneo o 🗓️ Mensual (p.ej. T3) es el FP directo de esa lectura, sin restar nada — Instantáneo porque no hay nada que restar, y Mensual porque el código ya se reinició a 0 al empezar el mes. Es el valor que dispara las alertas de color. Variación = cuánto subió o bajó el FP contra la lectura anterior del mismo sitio y tipo, en puntos porcentuales.</div>
+    <div style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3)">FP = en lecturas 📊 Acumulado (p.ej. T4, el código nunca se reinicia) es la diferencia contra la lectura anterior del mismo tipo; en lecturas ⚡ Instantáneo o 🗓️ Mensual (p.ej. T3) es el FP directo de esa lectura, sin restar nada — Instantáneo porque no hay nada que restar, y Mensual porque el código ya se reinició a 0 al empezar el mes. Es el valor que dispara las alertas de color. Variación = cuánto subió o bajó el FP contra la lectura anterior del mismo sitio y tipo, en puntos porcentuales. En lecturas 🗓️ Mensual, la columna ΔkWh/ΔkVArh SÍ muestra cuánto se consumió entre esta lectura y la anterior del mismo mes (esto no cambia el cálculo del FP, solo informa el consumo del tramo) — junto con el ritmo de kVArh por día y si ese ritmo va mejorando (bajando) o empeorando (subiendo) frente al tramo anterior, para dar seguimiento a la meta de bajar el kVAr consumido día a día.</div>
 
   </div>
 
@@ -30421,13 +30421,59 @@ function _fpSiteHistory(site, modoFiltro){
       if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
       /* si el delta es negativo probablemente el medidor se reinició — no se calcula FP de periodo, se deja el acumulado */
     }
+    /* Modo 'mensual' (T3): el código se reinicia a 0 cada mes, así que NUNCA se resta para el FP
+       (ver fpPeriodo arriba, que se queda null a propósito). Pero cuánto aumentó el kWh/kVArh
+       ENTRE dos lecturas del mismo mes sí es un dato útil aparte — no cambia el cálculo del FP,
+       solo informa cuánto se consumió en ese tramo y qué tan rápido, en kVArh por día, para ver
+       si se está logrando bajar el consumo de kVAr día a día (el objetivo del equipo). Si la
+       lectura anterior es de OTRO mes (el medidor ya se reinició) no hay nada que comparar.
+       mesKvarhDiaDelta compara el ritmo (kVArh/día) de este tramo contra el ritmo del tramo
+       anterior — negativo es mejora (se está bajando el consumo diario), positivo es retroceso. */
+    var mesIncKwh = null, mesIncKvarh = null, mesDias = null, mesKvarhDia = null, mesKvarhDiaDelta = null;
+    if(prev && modo==='mensual' && _fpMonthKey(prev.fecha)===_fpMonthKey(r.fecha)){
+      var incKwh = r.codigo1 - prev.codigo1, incKvarh = r.codigo5 - prev.codigo5;
+      if(incKwh>=0 && incKvarh>=0){
+        mesIncKwh = incKwh; mesIncKvarh = incKvarh;
+        var dias = _fpDiasEntre(prev.fecha, r.fecha);
+        if(dias>0){
+          mesDias = dias; mesKvarhDia = incKvarh/dias;
+          if(prev.mesKvarhDia!=null) mesKvarhDiaDelta = mesKvarhDia - prev.mesKvarhDia;
+        }
+      }
+    }
     var pctRow = fpPeriodo!=null ? fpPeriodo : fpAcum;
     var fpDeltaVsPrev = (prev && prev.pctRow!=null && pctRow!=null) ? (pctRow - prev.pctRow) : null;
-    var enriched = Object.assign({}, r, { modo:modo, fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5, pctRow:pctRow, fpDeltaVsPrev:fpDeltaVsPrev });
+    var enriched = Object.assign({}, r, { modo:modo, fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5, pctRow:pctRow, fpDeltaVsPrev:fpDeltaVsPrev,
+      mesIncKwh:mesIncKwh, mesIncKvarh:mesIncKvarh, mesDias:mesDias, mesKvarhDia:mesKvarhDia, mesKvarhDiaDelta:mesKvarhDiaDelta });
     out.push(enriched);
     prevByModo[modo] = enriched;
   });
   return out;
+}
+/* Celda "cuánto aumentó" para lecturas 'mensual' (T3) — kWh y kVArh consumidos ENTRE esta lectura
+   y la anterior del mismo mes, más el ritmo diario de kVArh y si ese ritmo está mejorando
+   (bajando) o empeorando (subiendo) frente al tramo anterior. hex=true usa colores planos en vez
+   de variables CSS (para el reporte exportable, que tiene su propio tema claro fijo). */
+function _fpMesIncrementoHtml(h, hex){
+  var t3 = hex ? '#9ca3af' : 'var(--t3)';
+  var flat = hex ? '#6b7280' : 'var(--t3)';
+  var strong = hex ? '#111827' : 'var(--text)';
+  if(h.mesIncKwh==null) return '<span style="color:'+t3+';font-size:9.5px">— primera lectura del mes</span>';
+  var rateHtml = '';
+  if(h.mesKvarhDia!=null){
+    var trendHtml = '';
+    if(h.mesKvarhDiaDelta!=null){
+      var relThresh = Math.max(Math.abs(h.mesKvarhDia)*0.02, 1);
+      var d = h.mesKvarhDiaDelta;
+      var col = d < -relThresh ? '#059669' : (d > relThresh ? '#dc2626' : flat);
+      var arrow = d < -relThresh ? '▼ mejorando' : (d > relThresh ? '▲ empeorando' : '≈ estable');
+      trendHtml = ' <span style="color:'+col+';font-weight:700">'+arrow+'</span>';
+    }
+    rateHtml = '<div style="margin-top:2px;color:'+flat+'">'+_fpFmtNum(h.mesKvarhDia)+' kVArh/día'+trendHtml+'</div>';
+  }
+  return '<div style="color:'+strong+'">Δ +'+_fpFmtNum(h.mesIncKwh)+' kWh</div>'+
+    '<div style="color:'+strong+'">Δ +'+_fpFmtNum(h.mesIncKvarh)+' kVArh</div>'+
+    rateHtml;
 }
 /* Chip HTML reutilizable "▲/▼/≈ +X.XX pp" para mostrar una variación de FP — usado en tablas,
    resúmenes de progreso y captions de reporte. threshold evita que ruido de +/-0.05pp se marque
@@ -30452,6 +30498,11 @@ function _fpDiasDesde(fecha){
   if(!fecha) return null;
   var d0 = new Date(fecha+'T00:00:00'), d1 = new Date(_fpToday()+'T00:00:00');
   return Math.round((d1-d0)/86400000);
+}
+function _fpDiasEntre(f1, f2){
+  if(!f1 || !f2) return null;
+  var d1 = new Date(f1+'T00:00:00'), d2 = new Date(f2+'T00:00:00');
+  return Math.round((d2-d1)/86400000);
 }
 
 /* ══ RENDER: STATS ══ */
@@ -30533,7 +30584,7 @@ function _fpRenderSiteGrid(){
       '</div>'+
       '<div style="display:flex;align-items:baseline;gap:8px">'+
         '<span style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:28px;color:'+st.color+'">'+(pct==null?'—':pct.toFixed(1)+'%')+'</span>'+
-        '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.esPeriodo?'FP del periodo':((lt.rec.modo==='directo'||lt.rec.modo==='mensual')?'FP':'FP (primera lectura)')):'sin lecturas')+'</span>'+
+        '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.rec.modo==='mensual'?'FP actual del mes':(lt.esPeriodo?'FP del periodo':(lt.rec.modo==='directo'?'FP':'FP (primera lectura)'))):'sin lecturas')+'</span>'+
       '</div>'+
       '<div style="font-family:var(--body);font-size:11px;color:'+st.color+';font-weight:600">'+st.label+'</div>'+
       metaWarnHtml+
@@ -30794,7 +30845,7 @@ window._fpRenderHist = function(){
     var delta = r.modo==='directo'
       ? '<span style="color:var(--t3)">lectura directa</span>'
       : r.modo==='mensual'
-        ? '<span style="color:var(--t3)">sumatoria del mes (sin resta)</span>'
+        ? _fpMesIncrementoHtml(r, false)
         : ((r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh'));
     return '<tr style="border-bottom:1px solid var(--b1)">'+
       '<td style="padding:8px 10px;font-weight:700;font-family:var(--body);font-size:11.5px;color:var(--text)">'+_fpEsc(r.sitio)+'</td>'+
@@ -30802,7 +30853,7 @@ window._fpRenderHist = function(){
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo1)+'</td>'+
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFmtNum(r.codigo5)+'</td>'+
       '<td style="padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+delta+'</td>'+
-      '<td style="padding:8px 10px;text-align:center">'+_fpBadge(pct)+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+_fpBadge(pct)+(r.modo==='mensual'?'<div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px;white-space:nowrap">actual del mes</div>':'')+'</td>'+
       '<td style="padding:8px 10px;text-align:center">'+_fpDeltaChip(r.fpDeltaVsPrev,{size:9.5,emptyLabel:'— primer registro'})+'</td>'+
       '<td style="padding:8px 10px;text-align:center"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+st.color+'"></span></td>'+
       '<td style="padding:8px 10px;text-align:center">'+_fpModoBadge(r.modo)+'</td>'+
@@ -30931,19 +30982,22 @@ window._fpRenderMonthly = function(){
     if(g.fp!=null) lastValid=g.fp;
   });
   var explainer=document.getElementById('fp-month-explainer');
-  var th2=document.getElementById('fp-month-th-2'), th3=document.getElementById('fp-month-th-3');
+  var th2=document.getElementById('fp-month-th-2'), th3=document.getElementById('fp-month-th-3'), th4=document.getElementById('fp-month-th-4');
   if(modo==='directo'){
     if(explainer) explainer.textContent='FP del mes = promedio de los FP ya calculados de cada lectura del mes (aquí kW y kVAr son la potencia instantánea que entrega el panel, no un código acumulado). Se destaca la mejor lectura del mes.';
     if(th2) th2.textContent='Lecturas';
     if(th3) th3.textContent='Mejor lectura';
+    if(th4) th4.textContent='FP promedio del mes';
   } else if(modo==='mensual'){
-    if(explainer) explainer.textContent='FP del mes = se calcula DIRECTO sobre el código acumulado del mes (kWh/kVArh), sin restar contra la lectura anterior — el medidor se reinicia a 0 cada mes, así que cada lectura ya es el total del mes hasta ese momento. La última lectura registrada es el FP vigente del mes; las demás muestran el progreso durante el mes.';
+    if(explainer) explainer.textContent='FP actual del mes = se calcula DIRECTO sobre el código acumulado del mes (kWh/kVArh), sin restar contra la lectura anterior — el medidor se reinicia a 0 cada mes, así que cada lectura ya es el total del mes hasta ese momento. La última lectura registrada es el FP actual del mes (el vigente); las demás muestran el progreso durante el mes.';
     if(th2) th2.textContent='Lecturas';
     if(th3) th3.textContent='Progreso en el mes';
+    if(th4) th4.textContent='FP actual del mes';
   } else {
     if(explainer) explainer.textContent='FP del mes = diferencia de Código 1 y Código 5 entre el cierre de este mes y el cierre del mes anterior (mismo método que la hoja de cálculo del equipo). Un mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga datos.';
     if(th2) th2.textContent='ΔkWh';
     if(th3) th3.textContent='ΔkVArh';
+    if(th4) th4.textContent='FP del mes';
   }
   var canvas=document.getElementById('fp-month-chart');
   if(canvas && typeof Chart!=='undefined'){
@@ -31484,6 +31538,18 @@ function _fpReportDeltaChip(delta){
   var arrow = delta>0.05?'▲':(delta<-0.05?'▼':'≈');
   return '<span style="color:'+col+';font-weight:700;font-size:10px;white-space:nowrap">'+arrow+' '+(delta>=0?'+':'')+delta.toFixed(2)+' pp</span>';
 }
+/* Columna "Incremento del periodo" del reporte — para 🗓️ Mensual (T3) usa _fpMesIncrementoHtml
+   (kWh/kVArh consumidos desde la lectura anterior del mismo mes + ritmo de kVArh/día y si va
+   mejorando); para 📊 Acumulado (T4) reutiliza el mismo Δ que ya se calcula para el FP de periodo;
+   para ⚡ Instantáneo no aplica (no hay código acumulado que incrementar). */
+function _fpReportDeltaColHtml(h){
+  if(h.modo==='mensual') return _fpMesIncrementoHtml(h, true);
+  if(h.modo==='acumulado'){
+    if(h.deltaC1==null) return '<span style="color:#9ca3af;font-size:9.5px">— primera lectura</span>';
+    return '<div style="color:#111827">Δ +'+_fpFmtNum(h.deltaC1)+' kWh</div><div style="color:#111827">Δ +'+_fpFmtNum(h.deltaC5)+' kVArh</div>';
+  }
+  return '<span style="color:#9ca3af;font-size:9.5px">—</span>';
+}
 /* Caption "primer registro → último registro" con la variación total del periodo, para que el
    reporte impreso cuente la misma historia de progreso que la app en vez de solo listar números. */
 function _fpReportProgressCaption(histArr, opts){
@@ -31538,6 +31604,7 @@ window._fpRenderReportPreview = function(){
         (mixedInSection ? ('<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpModoBadge(h.modo)+'</td>') : '')+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo1)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo5)+'</td>'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:10px;line-height:1.5">'+_fpReportDeltaColHtml(h)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:'+hst.color+'">'+_fpFmtPct(pctRow)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpReportDeltaChip(h.fpDeltaVsPrev)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+
@@ -31562,6 +31629,10 @@ window._fpRenderReportPreview = function(){
     if(chartSeriesList.length) chartTargets.push({ id:chartId, seriesList:chartSeriesList });
     var chartPlaceholder = chartSeriesList.length ? ('<div id="'+chartId+'" style="min-height:4px;margin-bottom:10px;border-radius:10px;overflow:hidden"></div>') : '';
     var tipoBadgeHeader = mixedInSection ? '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">TIPO</th>' : '';
+    /* En un sitio de un solo tipo 'mensual' (T3), la columna de FP se etiqueta explícitamente
+       como "FP ACTUAL MES" — no es un valor final, es el FP vigente hasta la última lectura del
+       mes. En un sitio mixto queda "FP" genérico porque cada fila ya trae su propia columna TIPO. */
+    var fpColHeader = (!mixedInSection && modoEfectivo==='mensual') ? 'FP ACTUAL MES' : 'FP';
     var tipoHeaderNotMixed = (!mixedInSection && modoFiltro==='todos') ? (' <span style="font-weight:400;color:#9ca3af">('+_fpModoLabel(_fpSiteMode(site))+')</span>') : '';
     /* "Progreso del periodo" — mismo mensaje que la franja de la app: primer registro → último
        registro y cuánto mejoró o empeoró en total. En un sitio mixto con "Todos" se muestra un
@@ -31574,7 +31645,7 @@ window._fpRenderReportPreview = function(){
         '<div style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.3px">'+_fpEsc(site)+tipoHeaderNotMixed+'</div>'+
         '<div style="text-align:right">'+
           '<div style="font-size:24px;font-weight:900;color:#ffffff">'+(pct==null?'—':pct.toFixed(2)+'%')+'</div>'+
-          '<div style="font-size:10px;color:rgba(255,255,255,.85);font-weight:700;letter-spacing:.5px;text-transform:uppercase">'+st.label+'</div>'+
+          '<div style="font-size:10px;color:rgba(255,255,255,.85);font-weight:700;letter-spacing:.5px;text-transform:uppercase">'+st.label+(modoEfectivo==='mensual'?' · FP actual del mes':'')+'</div>'+
         '</div>'+
       '</div>'+
       '<div style="padding:16px 20px 20px">'+
@@ -31586,7 +31657,8 @@ window._fpRenderReportPreview = function(){
           tipoBadgeHeader+
           '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+lbl1+'</th>'+
           '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+lbl2+'</th>'+
-          '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FP</th>'+
+          '<th style="padding:12px;text-align:right;font-size:9.5px;color:#4b5563;letter-spacing:.5px" title="Cuánto se consumió desde la lectura anterior del mismo mes, y el ritmo de kVArh por día">INCREMENTO DEL PERIODO</th>'+
+          '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">'+fpColHeader+'</th>'+
           '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px" title="Variación del FP contra la lectura anterior del mismo tipo">VARIACIÓN</th>'+
           '<th style="padding:12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">ESTADO</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody></table>')
