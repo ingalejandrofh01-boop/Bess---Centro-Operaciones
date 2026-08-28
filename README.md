@@ -1,4 +1,4 @@
-# Centro de Operaciones BESS — Skysense Energy
+# Centro de Operaciones BESS — Skysense
 
 Sitio web desplegado en GitHub Pages.
 
