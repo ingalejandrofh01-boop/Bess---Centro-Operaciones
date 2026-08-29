@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1787960400_bess_v33_dashboard_remaster';
+const DEPLOY_TS  = '1787966800_bess_v37_bugsweep_titulos_medidor_hist';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
