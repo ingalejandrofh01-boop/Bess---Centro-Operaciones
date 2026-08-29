@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787966800';
+  var APP_VERSION = '1787968400';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -29131,7 +29131,7 @@ function _mbRenderStats(){
     else if(r.estado==='near') sitiosCerca[r.sitio]=1;
   });
   function card(label,val,color){
-    return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 14px">'+
+    return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 14px;box-shadow:0 1px 4px rgba(26,63,204,.05)">'+
       '<div style="font-family:var(--mono);font-size:8.5px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">'+label+'</div>'+
       '<div style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:19px;color:'+color+';margin-top:2px">'+val+'</div></div>';
   }
@@ -29183,7 +29183,7 @@ function _mbRenderSummaryGrid(){
   });
   var sites=Object.keys(bySite).sort(function(a,b){ return a.localeCompare(b,'es',{sensitivity:'base'}); });
   if(!sites.length){
-    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--t3);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sin lecturas registradas para '+_mbMesLabel(mk)+'</div>';
+    grid.innerHTML='<div class="dash-empty" style="grid-column:1/-1;padding:26px 16px"><div class="dash-empty-ico">🗓</div><div>Sin lecturas registradas para <b>'+_mbMesLabel(mk)+'</b>.</div><div>Captúralas arriba en "Captura rápida".</div></div>';
     return;
   }
   grid.innerHTML = sites.map(function(sitio){
@@ -29204,7 +29204,7 @@ function _mbRenderSummaryGrid(){
     else if(q1 && q2) veredicto = '✅ Mes limpio — sin excedencias en ninguna quincena';
     else veredicto = '🕒 Falta registrar la '+(q1?'2ª':'1ª')+' quincena';
     var bd = worst==='over'?'rgba(220,38,38,.35)':worst==='near'?'rgba(234,108,0,.35)':'var(--b1)';
-    return '<div style="background:var(--s1);border:1px solid '+bd+';border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px">'+
+    return '<div style="background:var(--s1);border:1px solid '+bd+';border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 4px rgba(26,63,204,.05)">'+
       '<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text)">'+_mbEsc(sitio)+'</span>'+_mbEstadoBadge(worst)+'</div>'+
       '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">Quincenas registradas: '+(q1?'1ª ✓':'1ª ✗')+' · '+(q2?'2ª ✓':'2ª ✗')+'</div>'+
       '<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">Máx. demanda: <b style="color:var(--text)">'+maxKw+' kW</b>'+(dc?' / contrato '+dc+' kW':' — sin demanda contratada configurada')+'</div>'+
@@ -29237,7 +29237,7 @@ function _mbRenderHist(){
     })
     .sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || (b.savedAt||0)-(a.savedAt||0); });
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--t3);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sin lecturas — agrega una con "+ Nueva Lectura"</td></tr>';
+    tbody.innerHTML='<tr><td colspan="10"><div class="dash-empty" style="padding:26px 16px"><div class="dash-empty-ico">🔌</div><div>Sin lecturas todavía.</div><div>Agrega una con <b>+ Nueva Lectura</b>.</div></div></td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(function(r){
@@ -29270,7 +29270,7 @@ function _mbRenderExceedTable(){
     .filter(function(r){ return r.estado==='over'; })
     .sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase">✅ Sin excedencias registradas</td></tr>';
+    tbody.innerHTML='<tr><td colspan="5"><div class="dash-empty" style="padding:20px 16px"><div class="dash-empty-ico">✅</div><div>Sin excedencias registradas.</div></div></td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(function(r){
@@ -30859,7 +30859,7 @@ function _fpRenderStats(){
     else if(st==='critico') enCritico++;
   });
   function card(label,val,color){
-    return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 14px">'+
+    return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 14px;box-shadow:0 1px 4px rgba(26,63,204,.05)">'+
       '<div style="font-family:var(--mono);font-size:8.5px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase">'+label+'</div>'+
       '<div style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:19px;color:'+color+';margin-top:2px">'+val+'</div></div>';
   }
