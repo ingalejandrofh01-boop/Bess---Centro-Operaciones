@@ -2286,15 +2286,16 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 }
 
 /* ══ TREND CHART ══════════════════════════════════════════════ */
-.trend-wrap{background:#fff;border:1px solid var(--b1);border-radius:8px;padding:14px 16px;margin-bottom:12px}
-.trend-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.trend-wrap{background:#fff;border:1px solid var(--b1);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(26,63,204,.05)}
+.trend-title{font-family:var(--body);font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
 .trend-canvas-wrap{position:relative;width:100%;height:120px}
 .trend-canvas-wrap canvas{width:100%!important;height:100%!important}
 .trend-legend{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
 .trend-leg-item{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;color:var(--t2);letter-spacing:.5px}
 .trend-leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 /* ══ COVERAGE ══════════════════════════════════════════════════ */
-.coverage-wrap{background:rgba(26,63,204,.04);border:1px solid rgba(26,63,204,.12);border-radius:8px;padding:12px 14px;margin-bottom:12px}
+.coverage-wrap{background:#fff;border:1px solid var(--b1);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(26,63,204,.05)}
+.coverage-wrap-title{font-family:var(--body);font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:7px}
 .coverage-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .coverage-site{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text);letter-spacing:.3px}
 .coverage-pct{font-family:var(--disp);font-size:16px;font-weight:900;letter-spacing:-1px}
@@ -2302,17 +2303,20 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .coverage-bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.4,0,.2,1)}
 .coverage-days{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.5px}
 /* ══ COMPARE TABLE ══════════════════════════════════════════════ */
-.compare-wrap{background:#fff;border:1px solid var(--b1);border-radius:8px;overflow:hidden;margin-bottom:12px}
-.compare-hdr{background:linear-gradient(135deg,#06112e,#0a1f5e);padding:10px 14px;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.7);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+.compare-wrap{background:#fff;border:1px solid var(--b1);border-radius:12px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 4px rgba(26,63,204,.05)}
+.compare-hdr{background:linear-gradient(135deg,#06112e,#0a1f5e);padding:12px 16px;font-family:var(--disp);font-size:12.5px;font-weight:700;letter-spacing:.2px;color:#fff;display:flex;align-items:center;justify-content:space-between}
+.compare-hdr span{display:flex;align-items:center;gap:7px}
 .compare-table{width:100%;border-collapse:collapse}
-.compare-table th{padding:7px 10px;font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--b1);background:var(--s2);text-align:left}
-.compare-table td{padding:7px 10px;font-family:var(--mono);font-size:10px;color:var(--text);border-bottom:1px solid var(--s3)}
+.compare-table th{padding:10px 14px;font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1.5px solid var(--b1);background:var(--s2);text-align:left}
+.compare-table td{padding:10px 14px;font-family:var(--mono);font-size:11px;color:var(--text);border-bottom:1px solid var(--s3)}
 .compare-table tr:last-child td{border-bottom:none}
-.compare-table tr:hover td{background:rgba(26,63,204,.03)}
-.ctd-site{font-weight:700;display:flex;align-items:center;gap:6px}
-.ctd-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.ctd-bar{height:4px;background:var(--s3);border-radius:2px;margin-top:3px;overflow:hidden}
-.ctd-bar-fill{height:100%;border-radius:2px}
+.compare-table tbody tr:nth-child(even) td{background:rgba(26,63,204,.015)}
+.compare-table tr:hover td{background:rgba(26,63,204,.05)}
+.compare-table td:nth-child(2),.compare-table td:nth-child(4),.compare-table td:nth-child(5){text-align:center}
+.ctd-site{font-weight:700;display:flex;align-items:center;gap:7px}
+.ctd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ctd-bar{height:5px;background:var(--s3);border-radius:3px;margin-top:4px;overflow:hidden;max-width:140px}
+.ctd-bar-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
 /* ══ REPORTE PDF MODAL ══════════════════════════════════════════ */
 #report-modal{position:fixed;inset:0;z-index:8500;background:rgba(6,17,46,.9);backdrop-filter:blur(10px);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px}
 #report-modal.open{display:flex}
@@ -2380,7 +2384,7 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--b1);border-bottom:1px solid var(--b1);flex-shrink:0}
 .dash-kpi{
   background:linear-gradient(135deg,var(--s1) 0%,var(--s2) 100%);
-  padding:18px 22px;
+  padding:18px 50px 18px 22px;
   display:flex;flex-direction:column;gap:6px;
   border:1px solid var(--b1);
   border-left:3px solid transparent;
@@ -2407,9 +2411,15 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .kpi-val.co{color:var(--orange);text-shadow:0 0 20px rgba(255,140,0,.3)}
 .kpi-sub{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.5px;display:flex;align-items:center;gap:4px}
 .dash-kpi:hover .kpi-label::before{background:var(--sky)}
+.kpi-ico{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+.kpi-ico svg{width:15px;height:15px}
+.dash-kpi:hover .kpi-ico{transform:scale(1.08) rotate(-3deg)}
 .dash-body{padding:20px 24px;display:grid;grid-template-columns:1fr 300px;gap:18px;flex:1;overflow-y:auto;min-height:0}
 @media(max-width:1000px){.dash-body{grid-template-columns:1fr}}
 .dash-section-title{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--t3);text-transform:uppercase;margin-bottom:10px}
+.dash-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:34px 16px;text-align:center;color:var(--t3);font-family:var(--body);font-size:12px;line-height:1.6}
+.dash-empty-ico{font-size:26px;opacity:.6;margin-bottom:2px}
+.dash-empty b{color:var(--t2);font-weight:700}
 .site-card{background:#fff;border:1px solid var(--b1);box-shadow:0 1px 4px rgba(26,63,204,.05);border-radius:8px;padding:14px 16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:12px;margin-bottom:8px;border-left:3px solid transparent}
 .site-card:hover{border-color:rgba(26,63,204,.25);border-left-color:var(--sky);background:linear-gradient(90deg,rgba(26,63,204,.04),transparent);transform:translateX(4px);box-shadow:0 4px 16px rgba(26,63,204,.1)}
 .sc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
@@ -2432,8 +2442,9 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .dash-tpl-section-hdr::after{content:'';flex:1;height:1px;background:var(--b1)}
 .dash-tpl-section-hdr.winter{color:var(--winter)}
 .dash-tpl-section-hdr.summer{color:var(--summer)}
-.dash-card{background:#fff;border:1px solid var(--b1);box-shadow:0 1px 4px rgba(26,63,204,.05);border-radius:8px;padding:14px 16px;margin-bottom:12px}
-.dash-card-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;margin-bottom:10px}
+.dash-card{background:#fff;border:1px solid var(--b1);box-shadow:0 1px 4px rgba(26,63,204,.05);border-radius:12px;padding:16px 18px;margin-bottom:14px;transition:box-shadow .2s,border-color .2s}
+.dash-card:hover{box-shadow:0 4px 16px rgba(26,63,204,.08);border-color:rgba(26,63,204,.18)}
+.dash-card-title{font-family:var(--body);font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:12px}
 .recent-item{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:5px;cursor:pointer;transition:all .15s;margin-bottom:5px}
 .recent-item:hover{border-color:rgba(26,63,204,.25);background:var(--s2)}
 .ri-thumb{width:34px;height:26px;object-fit:contain;background:#fff;border-radius:3px;flex-shrink:0}
@@ -4251,7 +4262,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 .tpl-edit-save{background:linear-gradient(135deg,var(--sky),var(--sky-d));color:#fff;font-weight:700}
 .tpl-edit-save:hover{box-shadow:0 4px 16px rgba(26,63,204,.35)}
 .tpl-edit-cancel{background:var(--s2);color:var(--t2);border:1px solid var(--b1) !important}
-.dash-no-templates{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1.5px;padding:14px 0;text-transform:uppercase}
+.dash-no-templates{font-family:var(--body);font-size:12px;color:var(--t3);padding:14px 0;line-height:1.6}
 
 /* ── Template two-column grid ── */
 .dtpl-grid{display:flex;flex-direction:column;gap:0}
@@ -5136,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1787958900';
+  var APP_VERSION = '1787960400';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -5760,26 +5771,31 @@ if('serviceWorker' in navigator){
   </div>
   <div class="dash-grid">
     <div class="dash-kpi" style="border-left-color:var(--sky)">
+      <div class="kpi-ico" style="background:rgba(26,63,204,.1);color:var(--sky)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
       <div class="kpi-label" style="color:var(--sky)">Sitios registrados</div>
       <div class="kpi-val ca" id="kpi-sites">0</div>
       <div class="kpi-sub">📍 sitios con bitácoras</div>
     </div>
     <div class="dash-kpi" style="border-left-color:#a78bfa">
+      <div class="kpi-ico" style="background:rgba(167,139,250,.12);color:#a78bfa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
       <div class="kpi-label" style="color:#a78bfa">Total bitácoras</div>
       <div class="kpi-val" style="color:#a78bfa;text-shadow:0 0 20px rgba(167,139,250,.3)" id="kpi-total">0</div>
       <div class="kpi-sub">🗂 imágenes archivadas</div>
     </div>
     <div class="dash-kpi" style="border-left-color:var(--green)">
+      <div class="kpi-ico" style="background:rgba(5,150,105,.1);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
       <div class="kpi-label" style="color:var(--green)">Este mes</div>
       <div class="kpi-val cg" id="kpi-month">0</div>
       <div class="kpi-sub" id="kpi-month-lbl">📅 —</div>
     </div>
     <div class="dash-kpi" style="border-left-color:var(--orange)">
+      <div class="kpi-ico" style="background:rgba(255,140,0,.1);color:var(--orange)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
       <div class="kpi-label" style="color:var(--orange)">Último registro</div>
       <div class="kpi-val co" id="kpi-last">—</div>
       <div class="kpi-sub" id="kpi-last-site">⏱ —</div>
     </div>
     <div class="dash-kpi" style="border-left-color:var(--green)">
+      <div class="kpi-ico" id="kpi-status-ico" style="background:rgba(5,150,105,.1);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
       <div class="kpi-label">Estado global</div>
       <div class="kpi-val" id="kpi-status" style="font-size:16px;margin-top:4px">✅</div>
       <div class="kpi-sub" id="kpi-status-sub">—</div>
@@ -5802,25 +5818,16 @@ if('serviceWorker' in navigator){
       <!-- COMPARE TABLE -->
       <div class="compare-wrap">
         <div class="compare-hdr">
-          <span>⚡ Comparativa de sitios — mes actual</span>
-          <button onclick="renderCompareTable()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;color:rgba(255,255,255,.7);font-family:var(--mono);font-size:8px;padding:3px 8px;cursor:pointer;letter-spacing:1px">↺</button>
+          <span>⚡ Comparativa de sitios · mes actual</span>
+          <button onclick="renderCompareTable()" title="Actualizar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:20px;color:rgba(255,255,255,.85);font-family:var(--mono);font-size:11px;width:26px;height:26px;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">↺</button>
         </div>
         <table class="compare-table"><thead>
         <tr>
-          <th id="ml-th-sku" onclick="window._mlSort('sku')" style="position:sticky;top:0;z-index:20;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);left:0px;text-align:left;color:var(--t3);">SKU <span id="ml-arr-sku"></span></th>
-          <th id="ml-th-sitio" onclick="window._mlSort('sitio')" style="position:sticky;top:0;z-index:20;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);left:50px;text-align:left;color:var(--t3);">Sitio <span id="ml-arr-sitio"></span></th>
-          <th id="ml-th-cliente" onclick="window._mlSort('cliente')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Cliente <span id="ml-arr-cliente"></span></th>
-          <th id="ml-th-ciudad" onclick="window._mlSort('ciudad')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Ciudad <span id="ml-arr-ciudad"></span></th>
-          <th id="ml-th-marca" onclick="window._mlSort('marca')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Marca <span id="ml-arr-marca"></span></th>
-          <th id="ml-th-plat" onclick="window._mlSort('plat')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:left;color:var(--t3);">Plataforma <span id="ml-arr-plat"></span></th>
-          <th id="ml-th-numRacks" onclick="window._mlSort('numRacks')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Racks <span id="ml-arr-numRacks"></span></th>
-          <th id="ml-th-powCarga" onclick="window._mlSort('powCarga')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Carga <span id="ml-arr-powCarga"></span></th>
-          <th id="ml-th-horasCarga" onclick="window._mlSort('horasCarga')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Hrs Carga <span id="ml-arr-horasCarga"></span></th>
-          <th id="ml-th-kwhTotal" onclick="window._mlSort('kwhTotal')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kWh Total <span id="ml-arr-kwhTotal"></span></th>
-          <th id="ml-th-powSummer" onclick="window._mlSort('powSummer')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Verano <span id="ml-arr-powSummer"></span></th>
-          <th id="ml-th-powWinter" onclick="window._mlSort('powWinter')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">kW Invierno <span id="ml-arr-powWinter"></span></th>
-          <th id="ml-th-energiaBESS" onclick="window._mlSort('energiaBESS')" style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);">Energía BESS kWh <span id="ml-arr-energiaBESS"></span></th>
-          <th style="position:sticky;top:0;z-index:10;padding:10px 12px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;background:var(--s2);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18);text-align:center;color:var(--t3);cursor:default;">Acciones</th>
+          <th style="text-align:left">Sitio</th>
+          <th style="text-align:center">Eventos</th>
+          <th style="text-align:left">Días con registro</th>
+          <th style="text-align:center">Estado</th>
+          <th style="text-align:center">Temporada</th>
         </tr>
       </thead><tbody id="compare-tbody"></tbody></table>
       </div>
@@ -5850,7 +5857,7 @@ if('serviceWorker' in navigator){
       </div>
       <!-- COVERAGE -->
       <div class="coverage-wrap">
-        <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;margin-bottom:10px">📅 Cobertura del mes actual</div>
+        <div class="coverage-wrap-title">📅 Cobertura del mes actual</div>
         <div id="coverage-content"></div>
       </div>
       <!-- ALERTS -->
@@ -14274,9 +14281,14 @@ function renderDash(){
     document.getElementById('kpi-status').textContent=hF?'⚠️ Falla':hW?'⚠ Advertencia':'✅ Operativo';
     document.getElementById('kpi-status').style.color=hF?'var(--red)':hW?'var(--yellow)':'var(--green)';
     document.getElementById('kpi-status-sub').textContent=`${ccRecords.length} registros analizados`;
+    const stIco=document.getElementById('kpi-status-ico');
+    if(stIco){
+      stIco.style.background=hF?'rgba(220,38,38,.1)':hW?'rgba(217,119,6,.12)':'rgba(5,150,105,.1)';
+      stIco.style.color=hF?'var(--red)':hW?'var(--yellow)':'var(--green)';
+    }
   }
   const sl=document.getElementById('dash-sites');
-  if(!ccSites.length){sl.innerHTML='<div style="font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:2px;padding:20px;text-align:center;text-transform:uppercase">Aún no hay bitácoras guardadas.<br>Genera una desde la pestaña Bitácora.</div>';return}
+  if(!ccSites.length){sl.innerHTML='<div class="dash-empty"><div class="dash-empty-ico">🗂</div><div>Aún no hay <b>bitácoras guardadas</b>.</div><div>Genera la primera desde la pestaña Bitácora.</div></div>';return}
   sl.innerHTML=ccSites.map(s=>{
     const months=[...new Set(s.recs.map(r=>r.monthKey))].length;
     const lr=[...s.recs].sort((a,b)=>(b.date||b.monthKey||'').localeCompare(a.date||a.monthKey||''))[0];
@@ -14294,10 +14306,10 @@ function renderDash(){
   }).join('');
   const rl=document.getElementById('dash-recent');
   const recent=[...ccRecords].sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).slice(0,5);
-  rl.innerHTML=recent.map(r=>`<div class="recent-item" onclick="openLbSingle('${r.id}')">
+  rl.innerHTML=recent.length?recent.map(r=>`<div class="recent-item" onclick="openLbSingle('${r.id}')">
     <img class="ri-thumb" src="${r.dataUrl}" alt="">
     <div class="ri-info"><div class="ri-name">${esc(r.name||'')} </div><div class="ri-meta">${esc(r.site||'')} · ${r.date||r.monthKey||''}</div></div>
-  </div>`).join('');
+  </div>`).join(''):'<div class="dash-empty" style="padding:10px 4px">Sin actividad reciente aún</div>';
   renderDashTemplates();
   renderDashEnhancements();
   // new widgets
@@ -14466,7 +14478,7 @@ function renderDashEnhancements(){
   // Site distribution bars
   const barsEl = document.getElementById('dash-site-bars');
   if(!barsEl) return;
-  if(!ccSites.length){barsEl.innerHTML='<div style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1.5px;padding:8px 0">Sin registros aún</div>';return;}
+  if(!ccSites.length){barsEl.innerHTML='<div class="dash-empty" style="padding:14px 8px">Sin registros aún</div>';return;}
   const maxCount = Math.max(...ccSites.map(s=>s.count));
   barsEl.innerHTML = ccSites.slice(0,8).map(s=>{
     const col = ccColor(s.name);
@@ -16202,7 +16214,7 @@ function renderCoverage(){
   const now=new Date(),y=now.getFullYear(),m=now.getMonth();
   const mk=`${y}-${String(m+1).padStart(2,'0')}`;
   const daysInMonth=new Date(y,m+1,0).getDate();const elapsed=now.getDate();
-  if(!ccSites.length){el.innerHTML='<div style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1.5px">Sin sitios registrados</div>';return;}
+  if(!ccSites.length){el.innerHTML='<div class="dash-empty" style="padding:10px 4px">Sin sitios registrados</div>';return;}
   el.innerHTML=ccSites.map(s=>{
     const sRecs=s.recs.filter(r=>r.monthKey===mk);
     const days=new Set(sRecs.map(r=>r.date).filter(Boolean)).size;
@@ -16241,7 +16253,7 @@ function renderCompareTable(){
   const tbody=document.getElementById('compare-tbody');if(!tbody)return;
   const now=new Date(),y=now.getFullYear(),m=now.getMonth();
   const mk=`${y}-${String(m+1).padStart(2,'0')}`;
-  if(!ccSites.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:14px;font-family:var(--mono);font-size:9px;color:var(--t3)">Sin datos este mes</td></tr>';return;}
+  if(!ccSites.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:26px 14px;font-family:var(--body);font-size:12px;color:var(--t3)">Sin datos este mes</td></tr>';return;}
   tbody.innerHTML=ccSites.map(s=>{
     const sRecs=s.recs.filter(r=>r.monthKey===mk);
     const days=new Set(sRecs.map(r=>r.date).filter(Boolean)).size;
