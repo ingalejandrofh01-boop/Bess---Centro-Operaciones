@@ -32295,5 +32295,349 @@ setTimeout(_fpPatchMedidorReport, 2500);
   else initNavFlyout();
 })();
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ROBOT DE AUTO-LOGIN (Skysense) — genera un userscript de
+     Tampermonkey que re-loguea automáticamente los paneles BESS
+     (100.96.x.x) cuando la sesión caduca. 100% local: nada se
+     manda a ningún servidor, las credenciales solo viven en el
+     navegador de quien lo genera.
+     ══════════════════════════════════════════════════════════════ -->
+<style>
+.al-fab{position:fixed;right:22px;bottom:22px;width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,var(--sky-l),var(--sky-d));border:none;cursor:pointer;
+  box-shadow:0 6px 22px rgba(26,63,204,.45),0 0 0 4px rgba(74,120,245,.12);
+  z-index:9998;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+.al-fab:hover{transform:scale(1.08)}
+.al-fab-ico{font-size:26px;line-height:1}
+
+.al-modal{display:none;position:fixed;inset:0;background:rgba(6,16,30,.55);backdrop-filter:blur(2px);
+  z-index:9999;align-items:center;justify-content:center;padding:20px}
+.al-modal.show{display:flex}
+.al-modal-card{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
+  max-width:560px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(6,16,30,.35)}
+.al-modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
+  border-bottom:1.5px solid var(--border);position:sticky;top:0;background:var(--surface);border-radius:16px 16px 0 0}
+.al-modal-title{font-family:var(--disp);font-weight:800;font-size:17px;color:var(--text)}
+.al-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--t3);padding:4px 8px;border-radius:8px}
+.al-close:hover{background:var(--s2);color:var(--text)}
+.al-modal-body{padding:18px 20px 22px}
+.al-p{font-size:13px;line-height:1.55;color:var(--t2);margin-bottom:16px}
+.al-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px}
+.al-step-n{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;
+  font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.al-step-txt{font-size:12.5px;line-height:1.5;color:var(--text)}
+.al-link{display:inline-block;margin-top:4px;color:var(--accent);font-weight:700;font-size:12px;text-decoration:none}
+.al-link:hover{text-decoration:underline}
+.al-form{background:var(--s2);border-radius:12px;padding:14px;margin:6px 0 16px}
+.al-lbl{display:block;font-size:11px;font-weight:700;color:var(--t2);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.4px}
+.al-lbl:first-child{margin-top:0}
+.al-input{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;
+  font-family:var(--mono);font-size:13px;background:var(--s1);color:var(--text);outline:none}
+.al-input:focus{border-color:var(--accent)}
+.al-ex-row{display:flex;gap:6px;margin-bottom:6px}
+.al-ex-row input{flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;
+  font-family:var(--mono);font-size:12px;background:var(--s1);color:var(--text);min-width:0}
+.al-ex-del{background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 6px;flex-shrink:0}
+.al-add{background:none;border:1.5px dashed var(--b2);border-radius:8px;padding:7px 12px;font-size:12px;
+  font-weight:700;color:var(--accent);cursor:pointer;margin-top:4px}
+.al-add:hover{border-color:var(--accent);background:rgba(26,63,204,.05)}
+.al-generate{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:10px;
+  font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px}
+.al-generate:hover{background:var(--sky-d)}
+.al-result{margin-bottom:16px}
+.al-output{width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--mono);
+  font-size:10.5px;background:#06101e;color:#a8c4ff;resize:vertical}
+.al-result-actions{display:flex;gap:8px;margin-top:8px}
+.al-btn{flex:1;padding:9px;background:var(--s2);border:1.5px solid var(--border);border-radius:8px;
+  font-size:12px;font-weight:700;color:var(--text);cursor:pointer}
+.al-btn:hover{border-color:var(--accent);color:var(--accent)}
+.al-note{font-size:11.5px;line-height:1.5;color:var(--t3);background:var(--s2);border-radius:10px;
+  padding:10px 12px;margin-top:10px}
+.al-note-warn{color:#9a3412;background:rgba(234,108,0,.09)}
+@media (max-width:480px){.al-modal-card{max-height:94vh}}
+</style>
+
+<button id="alFab" class="al-fab" title="Robot de Auto-Login" onclick="alOpen()">
+  <span class="al-fab-ico">🤖</span>
+</button>
+
+<div id="alModal" class="al-modal">
+  <div class="al-modal-card">
+    <div class="al-modal-head">
+      <div class="al-modal-title">🤖 Robot de Auto-Login</div>
+      <button class="al-close" onclick="alClose()">✕</button>
+    </div>
+    <div class="al-modal-body">
+      <p class="al-p">Cuando un panel (red 100.96.x.x) se desloguea, este robot lo detecta solo y vuelve a iniciar sesión — sin que tengas que ir sitio por sitio a escribir usuario y contraseña. Corre dentro de tu navegador con <b>Tampermonkey</b> (gratis), no tiene costo ni caducidad, y no manda nada a ningún servidor: todo se queda en tu computadora.</p>
+
+      <div class="al-step">
+        <div class="al-step-n">1</div>
+        <div class="al-step-txt">Instala la extensión <b>Tampermonkey</b> en Chrome (gratis, un clic).<br>
+          <a class="al-link" href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener">Abrir Chrome Web Store ↗</a>
+        </div>
+      </div>
+
+      <div class="al-step">
+        <div class="al-step-n">2</div>
+        <div class="al-step-txt">Escribe abajo las credenciales que usan los sitios. Se guardan solo en este navegador (nunca se suben a ningún lado) y se usan para armar tu script personal.</div>
+      </div>
+
+      <div class="al-form">
+        <label class="al-lbl">Usuario por defecto</label>
+        <input id="alUser" class="al-input" type="text" placeholder="admin">
+        <label class="al-lbl">Contraseña por defecto</label>
+        <input id="alPass" class="al-input" type="text" placeholder="Contraseña que usan la mayoría de los sitios">
+
+        <label class="al-lbl">Excepciones (sitios con otra contraseña) — opcional</label>
+        <div id="alExList"></div>
+        <button class="al-add" onclick="alAddException()">+ Agregar excepción</button>
+      </div>
+
+      <div class="al-step">
+        <div class="al-step-n">3</div>
+        <div class="al-step-txt">Genera tu script personalizado:</div>
+      </div>
+      <button class="al-generate" onclick="alGenerate()">⚙ Generar script</button>
+
+      <div id="alResult" class="al-result" style="display:none">
+        <textarea id="alOutput" class="al-output" readonly rows="10"></textarea>
+        <div class="al-result-actions">
+          <button class="al-btn" onclick="alCopy(this)">📋 Copiar</button>
+          <button class="al-btn" onclick="alDownload()">⬇ Descargar .user.js</button>
+        </div>
+      </div>
+
+      <div class="al-step">
+        <div class="al-step-n">4</div>
+        <div class="al-step-txt">En Tampermonkey (ícono de la extensión en la barra) → <b>Crear un nuevo script</b> → borra el contenido de ejemplo → pega el script generado arriba → <code>Ctrl+S</code> para guardar.</div>
+      </div>
+
+      <div class="al-step">
+        <div class="al-step-n">5</div>
+        <div class="al-step-txt">Verifica en <code>chrome://extensions</code> → Tampermonkey → Detalles → <b>Acceso al sitio = "En todos los sitios"</b>. Si no, el script no se activará solo.</div>
+      </div>
+
+      <div class="al-note">
+        💡 Tip: con más de 40 pestañas abiertas, desactiva el "Ahorro de memoria" de Chrome (Configuración → Rendimiento) para que las pestañas en segundo plano no se "duerman" — así el robot reacciona al instante en cuanto un sitio se desloguea, sin que tengas que abrir esa pestaña primero.
+      </div>
+      <div class="al-note al-note-warn">
+        🔒 El script generado incluye tus contraseñas en texto plano. Queda solo en tu computadora (Tampermonkey) — no lo compartas fuera del equipo ni lo subas a repositorios públicos de código.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var AL_STORAGE_KEY = 'skysenseAutoLoginPrefs_v1';
+
+  function alLoadPrefs(){
+    try{
+      var raw = localStorage.getItem(AL_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function alSavePrefs(prefs){
+    try{ localStorage.setItem(AL_STORAGE_KEY, JSON.stringify(prefs)); }catch(e){}
+  }
+
+  window.alOpen = function(){
+    document.getElementById('alModal').classList.add('show');
+    var prefs = alLoadPrefs();
+    var list = document.getElementById('alExList');
+    list.innerHTML = ''; // evita duplicar filas si se reabre en la misma sesión
+    if(prefs){
+      document.getElementById('alUser').value = prefs.user || '';
+      document.getElementById('alPass').value = prefs.pass || '';
+      (prefs.exceptions||[]).forEach(function(ex){ alAddException(ex.host, ex.user, ex.pass); });
+    }
+  };
+  window.alClose = function(){
+    document.getElementById('alModal').classList.remove('show');
+  };
+
+  window.alAddException = function(host, user, pass){
+    var list = document.getElementById('alExList');
+    var row = document.createElement('div');
+    row.className = 'al-ex-row';
+    var hi = document.createElement('input'); hi.className='al-ex-host'; hi.placeholder='IP:puerto (ej. 100.96.4.2:7000)'; hi.value = host||'';
+    var ui = document.createElement('input'); ui.className='al-ex-user'; ui.placeholder='usuario'; ui.value = user||'';
+    var pi = document.createElement('input'); pi.className='al-ex-pass'; pi.placeholder='contraseña'; pi.value = pass||'';
+    var del = document.createElement('button'); del.className='al-ex-del'; del.type='button'; del.textContent='✕';
+    del.onclick = function(){ row.remove(); };
+    row.appendChild(hi); row.appendChild(ui); row.appendChild(pi); row.appendChild(del);
+    list.appendChild(row);
+  };
+
+  function alCollectExceptions(){
+    var rows = document.querySelectorAll('#alExList .al-ex-row');
+    var out = [];
+    rows.forEach(function(r){
+      var host = r.querySelector('.al-ex-host').value.trim();
+      var user = r.querySelector('.al-ex-user').value.trim();
+      var pass = r.querySelector('.al-ex-pass').value.trim();
+      if(host && user && pass) out.push({host:host,user:user,pass:pass});
+    });
+    return out;
+  }
+
+  function alBuildScript(defUser, defPass, exceptions){
+    var overridesBody = exceptions.map(function(e){
+      return '    ' + JSON.stringify(e.host) + ': { user: ' + JSON.stringify(e.user) + ', pass: ' + JSON.stringify(e.pass) + ' },';
+    }).join('\n');
+
+    var lines = [
+'// ==UserScript==',
+'// @name         Skysense BESS - Auto Login',
+'// @namespace    skysense-bess-autologin',
+'// @version      1.2.0',
+'// @description  Rellena usuario/contrasena y da clic en el boton de login automaticamente cuando cualquier panel BESS (red 100.96.x.x) se desloguea.',
+'// @author       Skysense',
+'// @match        *://*/*',
+'// @run-at       document-idle',
+'// @grant        none',
+'// ==/UserScript==',
+'',
+'(function () {',
+"  'use strict';",
+'',
+"  var TAG = '[BESS-AutoLogin]';",
+'',
+'  if (!/^100\\.96\\.\\d{1,3}\\.\\d{1,3}$/.test(location.hostname)) return;',
+'',
+'  var DEFAULT_CREDS = { user: ' + JSON.stringify(defUser) + ', pass: ' + JSON.stringify(defPass) + ' };',
+'  var OVERRIDES = {',
+overridesBody,
+'  };',
+'  function getCreds(){ return OVERRIDES[location.host] || DEFAULT_CREDS; }',
+'',
+'  function setNativeValue(el, value) {',
+"    var proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;",
+"    var desc = Object.getOwnPropertyDescriptor(proto, 'value');",
+'    desc.set.call(el, value);',
+"    el.dispatchEvent(new Event('input', { bubbles: true }));",
+"    el.dispatchEvent(new Event('change', { bubbles: true }));",
+'  }',
+'',
+'  function labelOf(el) {',
+"    if (el.tagName === 'INPUT') return (el.value || el.getAttribute('value') || '').trim();",
+"    return (el.textContent || '').trim();",
+'  }',
+'',
+'  function collectButtons(scope) {',
+'    return Array.prototype.slice.call(scope.querySelectorAll(',
+'      \'button, input[type="submit"], input[type="button"], input[type="image"], a.btn, .btn, [role="button"], .v-btn, a[href="#"], a[href="javascript:void(0)"]\'',
+'    ));',
+'  }',
+'',
+'  var SUBMIT_TEXT = /login|iniciar|sign\\s*in|entrar|conectar|acceder/i;',
+'',
+'  function findSubmit(form) {',
+'    var scopes = [];',
+'    if (form) scopes.push(form);',
+'    scopes.push(document);',
+'    for (var i=0;i<scopes.length;i++) {',
+'      var candidates = collectButtons(scopes[i]);',
+'      for (var j=0;j<candidates.length;j++){',
+'        if (SUBMIT_TEXT.test(labelOf(candidates[j]))) return candidates[j];',
+'      }',
+'    }',
+'    var formCandidates = form ? collectButtons(form) : [];',
+'    if (formCandidates.length === 1) return formCandidates[0];',
+'    return null;',
+'  }',
+'',
+'  var done = false;',
+'',
+'  function tryLogin() {',
+'    if (done) return;',
+'    var userInput = document.querySelector(\'#username, input[name="username"]\');',
+'    var passInput = document.querySelector(\'#password, input[name="password"], input[type="password"]\');',
+'    if (!userInput || !passInput) return;',
+'    done = true;',
+'    var creds = getCreds();',
+'    setNativeValue(userInput, creds.user);',
+'    setNativeValue(passInput, creds.pass);',
+'    setTimeout(function() {',
+"      var form = userInput.closest('form');",
+'      var btn = findSubmit(form);',
+'      if (btn) { btn.click(); }',
+"      else if (form) { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); }",
+'    }, 400);',
+'  }',
+'',
+'  var observer = new MutationObserver(tryLogin);',
+'  observer.observe(document.documentElement, { childList: true, subtree: true });',
+'',
+'  var attempts = 0;',
+'  var poll = setInterval(function() {',
+'    attempts++;',
+'    tryLogin();',
+'    if (done || attempts > 40) clearInterval(poll);',
+'  }, 250);',
+'})();'
+    ];
+    return lines.join('\n');
+  }
+
+  window.alGenerate = function(){
+    var user = document.getElementById('alUser').value.trim() || 'admin';
+    var pass = document.getElementById('alPass').value.trim();
+    if(!pass){
+      alert('Escribe la contraseña por defecto antes de generar el script.');
+      return;
+    }
+    var exceptions = alCollectExceptions();
+    var script = alBuildScript(user, pass, exceptions);
+    document.getElementById('alOutput').value = script;
+    document.getElementById('alResult').style.display = 'block';
+    alSavePrefs({ user: user, pass: pass, exceptions: exceptions });
+  };
+
+  window.alCopy = function(btn){
+    var out = document.getElementById('alOutput');
+    out.select();
+    function flash(){
+      if(!btn) return;
+      var original = btn.textContent;
+      btn.textContent = '✓ Copiado';
+      setTimeout(function(){ btn.textContent = original; }, 1500);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(out.value).then(flash).catch(function(){
+        document.execCommand('copy'); flash();
+      });
+    } else {
+      document.execCommand('copy'); flash();
+    }
+  };
+
+  window.alDownload = function(){
+    var content = document.getElementById('alOutput').value;
+    if(!content) return;
+    var blob = new Blob([content], {type:'text/javascript'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'skysense-bess-autologin.user.js';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  };
+
+  document.addEventListener('click', function(e){
+    var modal = document.getElementById('alModal');
+    if(e.target === modal) alClose();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') alClose();
+  });
+})();
+</script>
+<!-- ══════════════ fin ROBOT DE AUTO-LOGIN ══════════════ -->
+
 </body>
 </html>
