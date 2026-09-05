@@ -32299,9 +32299,12 @@ setTimeout(_fpPatchMedidorReport, 2500);
 <!-- ══════════════════════════════════════════════════════════════
      ROBOT DE AUTO-LOGIN (Skysense) — genera un userscript de
      Tampermonkey que re-loguea automáticamente los paneles BESS
-     (100.96.x.x) cuando la sesión caduca. 100% local: nada se
-     manda a ningún servidor, las credenciales solo viven en el
-     navegador de quien lo genera.
+     registrados en la lista de abajo, cuando la sesión caduca.
+     100% local: nada se manda a ningún servidor, las credenciales
+     solo viven en el navegador de quien lo genera. La lista de
+     sitios (nombre + IP) sí viene pre-cargada de fábrica — pero
+     nunca las contraseñas reales, que cada quien escribe una sola
+     vez en su propio navegador.
      ══════════════════════════════════════════════════════════════ -->
 <style>
 .al-fab{position:fixed;right:22px;bottom:22px;width:56px;height:56px;border-radius:50%;
@@ -32315,9 +32318,9 @@ setTimeout(_fpPatchMedidorReport, 2500);
   z-index:9999;align-items:center;justify-content:center;padding:20px}
 .al-modal.show{display:flex}
 .al-modal-card{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
-  max-width:560px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(6,16,30,.35)}
+  max-width:620px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(6,16,30,.35)}
 .al-modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
-  border-bottom:1.5px solid var(--border);position:sticky;top:0;background:var(--surface);border-radius:16px 16px 0 0}
+  border-bottom:1.5px solid var(--border);position:sticky;top:0;background:var(--surface);border-radius:16px 16px 0 0;z-index:2}
 .al-modal-title{font-family:var(--disp);font-weight:800;font-size:17px;color:var(--text)}
 .al-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--t3);padding:4px 8px;border-radius:8px}
 .al-close:hover{background:var(--s2);color:var(--text)}
@@ -32332,15 +32335,20 @@ setTimeout(_fpPatchMedidorReport, 2500);
 .al-form{background:var(--s2);border-radius:12px;padding:14px;margin:6px 0 16px}
 .al-lbl{display:block;font-size:11px;font-weight:700;color:var(--t2);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.4px}
 .al-lbl:first-child{margin-top:0}
+.al-sub{font-size:10.5px;color:var(--t3);margin:-2px 0 6px;font-weight:500;text-transform:none;letter-spacing:0}
 .al-input{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;
   font-family:var(--mono);font-size:13px;background:var(--s1);color:var(--text);outline:none}
 .al-input:focus{border-color:var(--accent)}
-.al-ex-row{display:flex;gap:6px;margin-bottom:6px}
-.al-ex-row input{flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;
-  font-family:var(--mono);font-size:12px;background:var(--s1);color:var(--text);min-width:0}
-.al-ex-del{background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 6px;flex-shrink:0}
+.al-site-list{max-height:280px;overflow-y:auto;padding-right:2px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;background:var(--s1)}
+.al-site-row{display:flex;flex-wrap:wrap;gap:5px;padding:6px;border-bottom:1px solid var(--border)}
+.al-site-row:last-child{border-bottom:none}
+.al-site-row input{flex:1 1 90px;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:7px;
+  font-family:var(--mono);font-size:11.5px;background:var(--bg);color:var(--text)}
+.al-site-row .al-site-name{flex:1 1 110px}
+.al-site-row .al-site-host{flex:1 1 140px}
+.al-site-del{background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0}
 .al-add{background:none;border:1.5px dashed var(--b2);border-radius:8px;padding:7px 12px;font-size:12px;
-  font-weight:700;color:var(--accent);cursor:pointer;margin-top:4px}
+  font-weight:700;color:var(--accent);cursor:pointer;margin-top:2px}
 .al-add:hover{border-color:var(--accent);background:rgba(26,63,204,.05)}
 .al-generate{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:10px;
   font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px}
@@ -32355,6 +32363,7 @@ setTimeout(_fpPatchMedidorReport, 2500);
 .al-note{font-size:11.5px;line-height:1.5;color:var(--t3);background:var(--s2);border-radius:10px;
   padding:10px 12px;margin-top:10px}
 .al-note-warn{color:#9a3412;background:rgba(234,108,0,.09)}
+.al-count{font-size:10.5px;color:var(--t3);font-weight:600;margin-bottom:6px}
 @media (max-width:480px){.al-modal-card{max-height:94vh}}
 </style>
 
@@ -32369,7 +32378,7 @@ setTimeout(_fpPatchMedidorReport, 2500);
       <button class="al-close" onclick="alClose()">✕</button>
     </div>
     <div class="al-modal-body">
-      <p class="al-p">Cuando un panel (red 100.96.x.x) se desloguea, este robot lo detecta solo y vuelve a iniciar sesión — sin que tengas que ir sitio por sitio a escribir usuario y contraseña. Corre dentro de tu navegador con <b>Tampermonkey</b> (gratis), no tiene costo ni caducidad, y no manda nada a ningún servidor: todo se queda en tu computadora.</p>
+      <p class="al-p">Cuando un panel de la lista se desloguea, este robot lo detecta solo y vuelve a iniciar sesión — sin que tengas que ir sitio por sitio a escribir usuario y contraseña. Corre dentro de tu navegador con <b>Tampermonkey</b> (gratis), no tiene costo ni caducidad, y no manda nada a ningún servidor: todo se queda en tu computadora. Solo actúa en los sitios que estén registrados en la lista de abajo — si un sitio no está ahí, el robot lo ignora.</p>
 
       <div class="al-step">
         <div class="al-step-n">1</div>
@@ -32380,18 +32389,25 @@ setTimeout(_fpPatchMedidorReport, 2500);
 
       <div class="al-step">
         <div class="al-step-n">2</div>
-        <div class="al-step-txt">Escribe abajo las credenciales que usan los sitios. Se guardan solo en este navegador (nunca se suben a ningún lado) y se usan para armar tu script personal.</div>
+        <div class="al-step-txt">Revisa la lista de sitios (ya viene con los tuyos) y escribe las contraseñas. Todo se guarda solo en este navegador — nunca se sube a ningún lado.</div>
       </div>
 
       <div class="al-form">
         <label class="al-lbl">Usuario por defecto</label>
         <input id="alUser" class="al-input" type="text" placeholder="admin">
         <label class="al-lbl">Contraseña por defecto</label>
-        <input id="alPass" class="al-input" type="text" placeholder="Contraseña que usan la mayoría de los sitios">
+        <input id="alPass" class="al-input" type="text" placeholder="La contraseña que usan la mayoría de los sitios">
+        <div class="al-sub">Esta contraseña se usa para cualquier sitio de la lista cuyas casillas de usuario/contraseña dejes vacías.</div>
 
-        <label class="al-lbl">Excepciones (sitios con otra contraseña) — opcional</label>
-        <div id="alExList"></div>
-        <button class="al-add" onclick="alAddException()">+ Agregar excepción</button>
+        <label class="al-lbl">Sitios registrados</label>
+        <div class="al-sub">Un sitio = una fila. Si un sitio usa el usuario/contraseña de arriba, deja esas dos casillas vacías en su fila. Si tiene otro usuario/contraseña, escríbelo ahí y tiene prioridad. Para agregar un sitio nuevo (aunque use la contraseña normal), dale "+ Agregar sitio" y pon su IP.</div>
+        <input id="alSiteFilter" class="al-input" type="text" placeholder="🔎 Buscar por nombre o IP..." oninput="alFilterSites()" style="margin-bottom:8px">
+        <div id="alSiteCount" class="al-count"></div>
+        <div id="alSiteList" class="al-site-list"></div>
+        <button class="al-add" onclick="alAddSite()">+ Agregar sitio</button>
+
+        <label class="al-lbl">Recargar solo en segundo plano cada (minutos, 0 = desactivado)</label>
+        <input id="alBgReload" class="al-input" type="number" min="0" step="1" placeholder="10" style="max-width:100px">
       </div>
 
       <div class="al-step">
@@ -32410,7 +32426,7 @@ setTimeout(_fpPatchMedidorReport, 2500);
 
       <div class="al-step">
         <div class="al-step-n">4</div>
-        <div class="al-step-txt">En Tampermonkey (ícono de la extensión en la barra) → <b>Crear un nuevo script</b> → borra el contenido de ejemplo → pega el script generado arriba → <code>Ctrl+S</code> para guardar.</div>
+        <div class="al-step-txt">En Tampermonkey (ícono de la extensión en la barra) → <b>Crear un nuevo script</b> → borra el contenido de ejemplo → pega el script generado arriba → <code>Ctrl+S</code> para guardar. Si ya tenías uno instalado, abre ese mismo, selecciona todo (<code>Ctrl+A</code>) y pega encima.</div>
       </div>
 
       <div class="al-step">
@@ -32419,7 +32435,10 @@ setTimeout(_fpPatchMedidorReport, 2500);
       </div>
 
       <div class="al-note">
-        💡 Tip: con más de 40 pestañas abiertas, desactiva el "Ahorro de memoria" de Chrome (Configuración → Rendimiento) para que las pestañas en segundo plano no se "duerman" — así el robot reacciona al instante en cuanto un sitio se desloguea, sin que tengas que abrir esa pestaña primero.
+        💡 Tip 1: con más de 40 pestañas abiertas, desactiva el "Ahorro de memoria" de Chrome (Configuración → Rendimiento) para que las pestañas en segundo plano no se "duerman" del todo.
+      </div>
+      <div class="al-note">
+        💡 Tip 2: el campo de "Recargar en segundo plano" de arriba hace que cada pestaña se refresque sola cada X minutos <b>mientras no la estés viendo</b>, para forzar la revisión de sesión aunque nunca entres a esa pestaña. Déjalo en 0 si prefieres que no recargue nada por su cuenta.
       </div>
       <div class="al-note al-note-warn">
         🔒 El script generado incluye tus contraseñas en texto plano. Queda solo en tu computadora (Tampermonkey) — no lo compartas fuera del equipo ni lo subas a repositorios públicos de código.
@@ -32432,6 +32451,58 @@ setTimeout(_fpPatchMedidorReport, 2500);
 (function(){
   'use strict';
   var AL_STORAGE_KEY = 'skysenseAutoLoginPrefs_v1';
+
+  // Catálogo de sitios conocidos (solo nombre + IP:puerto — SIN contraseñas)
+  // para que la lista venga pre-cargada la primera vez que alguien abre el
+  // panel. Para agregar un sitio nuevo de forma permanente para todo el
+  // equipo, agrega una línea aquí; para agregar uno solo para ti, usa el
+  // botón "+ Agregar sitio" dentro del panel.
+  var SEED_SITES = [
+    ['ALMACEN','100.96.1.146:7000'],
+    ['ALPHA','100.96.3.146:7000'],
+    ['ALYSA','100.96.4.82:7000'],
+    ['Atotonilco','100.96.5.114:7000'],
+    ['BHS','100.96.3.18:7000'],
+    ['Bidasoa','100.96.3.226:7000'],
+    ['BOCAR','100.96.2.210:6000'],
+    ['BROM','100.96.3.194:7000'],
+    ['CBE','100.96.5.2:7000'],
+    ['CHIHUAHUA','100.96.1.34:7000'],
+    ['COMEDOR','100.96.1.130:7000'],
+    ['COZUMEL','100.96.4.242:7000'],
+    ['DESA','100.96.5.130:7000'],
+    ['DISEKO','100.96.2.98:7000'],
+    ['DURANGO','100.96.1.114:7000'],
+    ['FBO','100.96.1.18:7000'],
+    ['FISFIBER','100.96.5.82:7000'],
+    ['FM BOCA DEL RIO','100.96.2.82:5900'],
+    ['HUATULCO 1','100.96.2.66:7000'],
+    ['HUATULCO 2','100.96.2.34:7000'],
+    ['IPASA','100.96.1.66:5900'],
+    ['LG','100.96.4.210:7010'],
+    ['LUNA','100.96.4.178:7000'],
+    ['MINATITLAN','100.96.1.242:7000'],
+    ['PLASTI 1','100.96.5.18:7000'],
+    ['PLASTI 3','100.96.5.34:7000'],
+    ['PTAR','100.96.4.66:7000'],
+    ['REGIO PET','100.96.2.246:7000'],
+    ['RESIDEO','100.96.4.2:7000'],
+    ['SOL','100.96.4.162:7000'],
+    ['T&T','100.96.3.242:7000'],
+    ['T2','100.96.1.178:7000'],
+    ['T4','100.96.1.226:7000'],
+    ['THOR','100.96.4.130:7000'],
+    ['TORREON','100.96.2.50:7000'],
+    ['TOTIS','100.96.2.2:7000'],
+    ['Tugal','100.96.5.162:7000'],
+    ['Tuk','100.96.5.66:7000'],
+    ['Vallarta','100.96.5.98:7000'],
+    ['VERACRUZ','100.96.2.146:7000'],
+    ['VESTA','100.96.4.18:7000'],
+    ['VITROGENERA','100.96.4.146:7000'],
+    ['ZACATECAS','100.96.2.162:7000'],
+    ['ZIHUATANEJO','100.96.1.210:7000']
+  ];
 
   function alLoadPrefs(){
     try{
@@ -32446,54 +32517,92 @@ setTimeout(_fpPatchMedidorReport, 2500);
   window.alOpen = function(){
     document.getElementById('alModal').classList.add('show');
     var prefs = alLoadPrefs();
-    var list = document.getElementById('alExList');
+    var list = document.getElementById('alSiteList');
     list.innerHTML = ''; // evita duplicar filas si se reabre en la misma sesión
+
     if(prefs){
       document.getElementById('alUser').value = prefs.user || '';
       document.getElementById('alPass').value = prefs.pass || '';
-      (prefs.exceptions||[]).forEach(function(ex){ alAddException(ex.host, ex.user, ex.pass); });
+      document.getElementById('alBgReload').value = (prefs.bgReloadMin != null ? prefs.bgReloadMin : 10);
+      (prefs.sites||[]).forEach(function(s){ alAddSite(s.name, s.host, s.user, s.pass); });
+    } else {
+      document.getElementById('alBgReload').value = 10;
+      SEED_SITES.forEach(function(s){ alAddSite(s[0], s[1], '', ''); });
     }
+    alUpdateSiteCount();
   };
   window.alClose = function(){
     document.getElementById('alModal').classList.remove('show');
   };
 
-  window.alAddException = function(host, user, pass){
-    var list = document.getElementById('alExList');
+  window.alAddSite = function(name, host, user, pass){
+    var list = document.getElementById('alSiteList');
     var row = document.createElement('div');
-    row.className = 'al-ex-row';
-    var hi = document.createElement('input'); hi.className='al-ex-host'; hi.placeholder='IP:puerto (ej. 100.96.4.2:7000)'; hi.value = host||'';
-    var ui = document.createElement('input'); ui.className='al-ex-user'; ui.placeholder='usuario'; ui.value = user||'';
-    var pi = document.createElement('input'); pi.className='al-ex-pass'; pi.placeholder='contraseña'; pi.value = pass||'';
-    var del = document.createElement('button'); del.className='al-ex-del'; del.type='button'; del.textContent='✕';
-    del.onclick = function(){ row.remove(); };
-    row.appendChild(hi); row.appendChild(ui); row.appendChild(pi); row.appendChild(del);
+    row.className = 'al-site-row';
+    var ni = document.createElement('input'); ni.className='al-site-name'; ni.placeholder='Nombre del sitio'; ni.value = name||'';
+    var hi = document.createElement('input'); hi.className='al-site-host'; hi.placeholder='IP:puerto (ej. 100.96.4.2:7000)'; hi.value = host||'';
+    var ui = document.createElement('input'); ui.className='al-site-user'; ui.placeholder='usuario (vacío = el de arriba)'; ui.value = user||'';
+    var pi = document.createElement('input'); pi.className='al-site-pass'; pi.placeholder='contraseña (vacío = la de arriba)'; pi.value = pass||'';
+    var del = document.createElement('button'); del.className='al-site-del'; del.type='button'; del.textContent='✕';
+    del.title = 'Quitar este sitio de la lista';
+    del.onclick = function(){ row.remove(); alUpdateSiteCount(); };
+    [ni, hi, ui, pi].forEach(function(inp){ inp.addEventListener('input', alUpdateSiteCount); });
+    row.appendChild(ni); row.appendChild(hi); row.appendChild(ui); row.appendChild(pi); row.appendChild(del);
     list.appendChild(row);
+    alUpdateSiteCount();
   };
 
-  function alCollectExceptions(){
-    var rows = document.querySelectorAll('#alExList .al-ex-row');
+  function alUpdateSiteCount(){
+    var el = document.getElementById('alSiteCount');
+    if(!el) return;
+    var total = document.querySelectorAll('#alSiteList .al-site-row').length;
+    var visible = document.querySelectorAll('#alSiteList .al-site-row:not([style*="display: none"])').length;
+    el.textContent = (visible === total)
+      ? total + ' sitio' + (total===1?'':'s') + ' en la lista'
+      : visible + ' de ' + total + ' sitios (filtrados)';
+  }
+
+  window.alFilterSites = function(){
+    var q = document.getElementById('alSiteFilter').value.trim().toLowerCase();
+    document.querySelectorAll('#alSiteList .al-site-row').forEach(function(row){
+      var name = row.querySelector('.al-site-name').value.toLowerCase();
+      var host = row.querySelector('.al-site-host').value.toLowerCase();
+      var match = !q || name.indexOf(q) !== -1 || host.indexOf(q) !== -1;
+      row.style.display = match ? '' : 'none';
+    });
+    alUpdateSiteCount();
+  };
+
+  function alCollectSites(){
+    var rows = document.querySelectorAll('#alSiteList .al-site-row');
     var out = [];
     rows.forEach(function(r){
-      var host = r.querySelector('.al-ex-host').value.trim();
-      var user = r.querySelector('.al-ex-user').value.trim();
-      var pass = r.querySelector('.al-ex-pass').value.trim();
-      if(host && user && pass) out.push({host:host,user:user,pass:pass});
+      var name = r.querySelector('.al-site-name').value.trim();
+      var host = r.querySelector('.al-site-host').value.trim();
+      var user = r.querySelector('.al-site-user').value.trim();
+      var pass = r.querySelector('.al-site-pass').value.trim();
+      if(host) out.push({name:name, host:host, user:user, pass:pass});
     });
     return out;
   }
 
-  function alBuildScript(defUser, defPass, exceptions){
-    var overridesBody = exceptions.map(function(e){
-      return '    ' + JSON.stringify(e.host) + ': { user: ' + JSON.stringify(e.user) + ', pass: ' + JSON.stringify(e.pass) + ' },';
+  function alBuildScript(defUser, defPass, sites, bgReloadMin){
+    var sitesBody = sites.map(function(s){
+      var u = s.user || defUser;
+      var p = s.pass || defPass;
+      var comment = s.name ? ' // ' + s.name : '';
+      return '    ' + JSON.stringify(s.host) + ': { user: ' + JSON.stringify(u) + ', pass: ' + JSON.stringify(p) + ' },' + comment;
     }).join('\n');
+
+    var reloadMin = parseInt(bgReloadMin, 10);
+    if (isNaN(reloadMin) || reloadMin < 0) reloadMin = 0;
 
     var lines = [
 '// ==UserScript==',
 '// @name         Skysense BESS - Auto Login',
 '// @namespace    skysense-bess-autologin',
-'// @version      1.2.0',
-'// @description  Rellena usuario/contrasena y da clic en el boton de login automaticamente cuando cualquier panel BESS (red 100.96.x.x) se desloguea.',
+'// @version      1.4.0',
+'// @description  Rellena usuario/contrasena y da clic en el boton de login automaticamente en los sitios registrados (lista SITES) cuando la sesion caduca. Incluye recarga periodica en segundo plano.',
 '// @author       Skysense',
 '// @match        *://*/*',
 '// @run-at       document-idle',
@@ -32505,13 +32614,14 @@ setTimeout(_fpPatchMedidorReport, 2500);
 '',
 "  var TAG = '[BESS-AutoLogin]';",
 '',
-'  if (!/^100\\.96\\.\\d{1,3}\\.\\d{1,3}$/.test(location.hostname)) return;',
-'',
-'  var DEFAULT_CREDS = { user: ' + JSON.stringify(defUser) + ', pass: ' + JSON.stringify(defPass) + ' };',
-'  var OVERRIDES = {',
-overridesBody,
+'  // Solo estos sitios (host:puerto exacto). Si tu sitio no aparece aqui,',
+'  // el robot no hace nada en el (agrega el sitio desde el panel de la app).',
+'  var SITES = {',
+sitesBody,
 '  };',
-'  function getCreds(){ return OVERRIDES[location.host] || DEFAULT_CREDS; }',
+'',
+'  var MY_CREDS = SITES[location.host];',
+'  if (!MY_CREDS) return;',
 '',
 '  function setNativeValue(el, value) {',
 "    var proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;",
@@ -32557,9 +32667,8 @@ overridesBody,
 '    var passInput = document.querySelector(\'#password, input[name="password"], input[type="password"]\');',
 '    if (!userInput || !passInput) return;',
 '    done = true;',
-'    var creds = getCreds();',
-'    setNativeValue(userInput, creds.user);',
-'    setNativeValue(passInput, creds.pass);',
+'    setNativeValue(userInput, MY_CREDS.user);',
+'    setNativeValue(passInput, MY_CREDS.pass);',
 '    setTimeout(function() {',
 "      var form = userInput.closest('form');",
 '      var btn = findSubmit(form);',
@@ -32576,9 +32685,20 @@ overridesBody,
 '    attempts++;',
 '    tryLogin();',
 '    if (done || attempts > 40) clearInterval(poll);',
-'  }, 250);',
-'})();'
+'  }, 250);'
     ];
+
+    if (reloadMin > 0) {
+      lines.push('');
+      lines.push('  // Recarga la pestaña sola cada ' + reloadMin + ' min, pero SOLO si está en segundo');
+      lines.push('  // plano (document.hidden), para forzar una revision de sesion aunque nunca');
+      lines.push('  // entres a esta pestana. Si la ves activa, no interrumpe nada.');
+      lines.push('  setInterval(function () {');
+      lines.push('    if (document.hidden) { location.reload(); }');
+      lines.push('  }, ' + (reloadMin * 60 * 1000) + ');');
+    }
+
+    lines.push('})();');
     return lines.join('\n');
   }
 
@@ -32589,11 +32709,17 @@ overridesBody,
       alert('Escribe la contraseña por defecto antes de generar el script.');
       return;
     }
-    var exceptions = alCollectExceptions();
-    var script = alBuildScript(user, pass, exceptions);
+    var sites = alCollectSites();
+    if(!sites.length){
+      alert('Agrega al menos un sitio (con su IP:puerto) antes de generar el script.');
+      return;
+    }
+    var bgReloadMin = document.getElementById('alBgReload').value.trim();
+    if (bgReloadMin === '') bgReloadMin = 10;
+    var script = alBuildScript(user, pass, sites, bgReloadMin);
     document.getElementById('alOutput').value = script;
     document.getElementById('alResult').style.display = 'block';
-    alSavePrefs({ user: user, pass: pass, exceptions: exceptions });
+    alSavePrefs({ user: user, pass: pass, sites: sites, bgReloadMin: bgReloadMin });
   };
 
   window.alCopy = function(btn){
