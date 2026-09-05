@@ -32516,17 +32516,20 @@ setTimeout(_fpPatchMedidorReport, 2500);
 
   window.alOpen = function(){
     document.getElementById('alModal').classList.add('show');
-    var prefs = alLoadPrefs();
+    var prefs = alLoadPrefs() || {};
     var list = document.getElementById('alSiteList');
     list.innerHTML = ''; // evita duplicar filas si se reabre en la misma sesión
 
-    if(prefs){
-      document.getElementById('alUser').value = prefs.user || '';
-      document.getElementById('alPass').value = prefs.pass || '';
-      document.getElementById('alBgReload').value = (prefs.bgReloadMin != null ? prefs.bgReloadMin : 10);
-      (prefs.sites||[]).forEach(function(s){ alAddSite(s.name, s.host, s.user, s.pass); });
+    document.getElementById('alUser').value = prefs.user || 'admin';
+    document.getElementById('alPass').value = prefs.pass || '';
+    document.getElementById('alBgReload').value = (prefs.bgReloadMin != null ? prefs.bgReloadMin : 10);
+
+    // Si no hay sitios guardados todavia (primera vez, o quedo vacio por
+    // una version anterior del panel), se precarga el catalogo conocido.
+    var savedSites = prefs.sites || [];
+    if (savedSites.length) {
+      savedSites.forEach(function(s){ alAddSite(s.name, s.host, s.user, s.pass); });
     } else {
-      document.getElementById('alBgReload').value = 10;
       SEED_SITES.forEach(function(s){ alAddSite(s[0], s[1], '', ''); });
     }
     alUpdateSiteCount();
