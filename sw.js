@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1788920000_bess_v39_fp_t3_acumulado_fix';
+const DEPLOY_TS  = '1788921000_bess_v40_restaura_robot_autologin';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
