@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1788922000';
+  var APP_VERSION = '1788924000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8663,8 +8663,8 @@ async function expDoZip(mode){
           <tr>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Fecha</th>
-            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kWh / kW</th>
-            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kVAr / kVArh</th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kWh / kW<br><span style="font-weight:400;font-size:8px;letter-spacing:0;text-transform:none;opacity:.75">T4: Código 1</span></th>
+            <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">kVAr / kVArh<br><span style="font-weight:400;font-size:8px;letter-spacing:0;text-transform:none;opacity:.75">T4: Código 5</span></th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">ΔkWh / ΔkVArh</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">FP</th>
             <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:8px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)" title="Variación del FP contra la lectura anterior del mismo sitio y tipo">Variación</th>
@@ -32216,6 +32216,21 @@ window._fpDownloadReportPDF = async function(){
       y = candidate;
     }
 
+    /* Evita una última hoja casi vacía: si lo único que sobró después del corte final es
+       poco (por ejemplo, nada más el pie de página "Generado automáticamente…" con su
+       margen), no vale la pena una hoja aparte para eso. Se fusiona con la hoja anterior
+       y esa hoja se reduce levemente (nunca más de ~15%) para que quepa completa — un
+       poquito más chica se nota menos que una hoja entera en blanco. */
+    while(breaks.length > 2){
+      var lastN = breaks.length - 1;
+      var tailH = breaks[lastN].y - breaks[lastN-1].y;
+      var prevH = breaks[lastN-1].y - breaks[lastN-2].y;
+      var mergedH = tailH + prevH;
+      if(tailH < usableHeightPx * 0.35 && mergedH <= usableHeightPx * 1.15){
+        breaks.splice(lastN-1, 1); /* quita el corte intermedio: la última hoja absorbe el resto */
+      } else break;
+    }
+
     /* Gancho de depuración opcional (no afecta producción): permite verificar en pruebas que
        ninguna fila queda partida por un salto de página. */
     if(window.__FP_PDF_DEBUG__){
@@ -32242,7 +32257,19 @@ window._fpDownloadReportPDF = async function(){
 
       var imgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
       if(p>0) doc.addPage();
-      doc.addImage(imgData, 'JPEG', margin, margin, pageW - margin*2, sliceCanvas.height/pxPerPt);
+      /* Caso normal: la hoja cabe 1:1 (así se calcularon los cortes). Caso fusionado (ver
+         bloque arriba): la imagen queda un poco más alta que lo disponible — se reduce
+         proporcionalmente (ancho y alto igual) hasta que quepa, y se centra. */
+      var naturalH = sliceCanvas.height / pxPerPt;
+      var maxH = pageH - margin*2;
+      if(naturalH <= maxH + 0.5){
+        doc.addImage(imgData, 'JPEG', margin, margin, pageW - margin*2, naturalH);
+      } else {
+        var fitScale = maxH / naturalH;
+        var drawW = (pageW - margin*2) * fitScale;
+        var drawX = margin + ((pageW - margin*2) - drawW) / 2;
+        doc.addImage(imgData, 'JPEG', drawX, margin, drawW, maxH);
+      }
     }
     doc.save(_fpReportFilenameBase()+'.pdf');
     _fpToast('✅ PDF descargado');
