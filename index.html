@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1788925000';
+  var APP_VERSION = '1788926000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -32101,19 +32101,41 @@ window._fpRenderReportPreview = function(){
     if(dayRange.hasta) out = out.filter(function(h){ return (h.fecha||'') <= dayRange.hasta; });
     return out;
   }
+  /* Cuando se filtra a uno o varios meses, el primer dato que se ve en la tabla/gráfica no debe
+     ser la primera lectura DENTRO del mes — debe ser la lectura de cierre del mes anterior, la
+     misma que ya se usa como apertura para calcular el FP del mes (ver "Resumen por mes"). Sin
+     esto, la tabla arrancaba a medio periodo y no se veía de dónde salía el primer delta. Solo
+     aplica a 'acumulado' (código que nunca se reinicia) — 'directo'/'mensual' no tienen este
+     concepto de apertura encadenada. fullList = TODO el historial del sitio, sin filtrar por
+     mes, para poder ubicar esa lectura aunque quede fuera del rango elegido. */
+  function _fpReportPrependMonthAnchor(fullList, filteredList, modo){
+    if(!mesesSel || !mesesSel.length || modo!=='acumulado' || !filteredList.length) return filteredList;
+    var minKey = mesesSel.slice().sort()[0];
+    var candidate = null;
+    for(var ai=0; ai<fullList.length; ai++){
+      var k = _fpMonthKey(fullList[ai].fecha);
+      if(k && k < minKey) candidate = fullList[ai];
+    }
+    if(!candidate) return filteredList;
+    if(filteredList.some(function(h){ return h.id===candidate.id; })) return filteredList;
+    var tagged = Object.assign({}, candidate, { _fpAnchorRef:true });
+    return filteredList.concat([tagged]).sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||'') || (a.createdAt||0)-(b.createdAt||0); });
+  }
 
   var sections = sites.map(function(site, idx){
-    var hist=_fpSiteHistory(site, modoFiltro==='todos' ? null : modoFiltro);
-    if(mesesSel) hist = hist.filter(function(h){ return mesesSel.indexOf(_fpMonthKey(h.fecha))>-1; });
-    hist = _fpReportApplyDayRange(hist);
-    var pct = hist.length ? (hist[hist.length-1].fpPeriodo!=null ? hist[hist.length-1].fpPeriodo : hist[hist.length-1].fpAcum) : null;
-    var st=_fpStatus(pct);
+    var fullHist=_fpSiteHistory(site, modoFiltro==='todos' ? null : modoFiltro);
     /* Cuando el reporte se filtra a un solo tipo (o el sitio nunca mezcló tipos), los
        encabezados reflejan ese tipo de lectura. Si se piden "Todos los tipos" en un sitio
        que sí mezcla instantáneo y mensual, se usan encabezados genéricos y se añade una
        columna "Tipo" por renglón para no confundir un valor con otro. */
     var mixedInSection = modoFiltro==='todos' && _fpSiteHasMixedModos(site);
     var modoEfectivo = modoFiltro!=='todos' ? modoFiltro : (mixedInSection ? null : _fpSiteMode(site));
+    var hist = fullHist;
+    if(mesesSel) hist = hist.filter(function(h){ return mesesSel.indexOf(_fpMonthKey(h.fecha))>-1; });
+    if(!mixedInSection) hist = _fpReportPrependMonthAnchor(fullHist, hist, modoEfectivo);
+    hist = _fpReportApplyDayRange(hist);
+    var pct = hist.length ? (hist[hist.length-1].fpPeriodo!=null ? hist[hist.length-1].fpPeriodo : hist[hist.length-1].fpAcum) : null;
+    var st=_fpStatus(pct);
     var lbl1 = modoEfectivo==='directo' ? 'KW' : (modoEfectivo==='acumulado' ? (_fpSiteUsaCodigo(site) ? 'CÓD. 1 (kWh)' : 'KWH') : 'VALOR 1');
     var lbl2 = modoEfectivo==='directo' ? 'KVAR' : (modoEfectivo==='acumulado' ? (_fpSiteUsaCodigo(site) ? 'CÓD. 5 (kVArh)' : 'KVARH') : 'VALOR 2');
     /* Una sola columna de FP para todos los sitios: el "FP acumulado" crudo del medidor no
@@ -32123,8 +32145,10 @@ window._fpRenderReportPreview = function(){
       var pctRow = h.fpPeriodo!=null?h.fpPeriodo:h.fpAcum;
       var hst=_fpStatus(pctRow);
       var zebra = ridx%2===1 ? 'background:#f9fafb;' : '';
-      return '<tr style="'+zebra+'">'+
-        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb">'+_fpEsc(_fpFechaCorta(h.fecha))+'</td>'+
+      return '<tr style="'+zebra+(h._fpAnchorRef?'background:#f8f9fc;':'')+'">'+
+        '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb">'+_fpEsc(_fpFechaCorta(h.fecha))+
+          (h._fpAnchorRef ? '<div style="font-size:8.5px;color:#9ca3af;font-weight:400;margin-top:1px">cierre del mes anterior</div>' : '')+
+        '</td>'+
         (mixedInSection ? ('<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:center">'+_fpModoBadge(h.modo)+'</td>') : '')+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo1)+'</td>'+
         '<td style="padding:11px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums">'+_fpFmtNum(h.codigo5)+'</td>'+
@@ -32143,8 +32167,10 @@ window._fpRenderReportPreview = function(){
     var chartSeriesList;
     if(mixedInSection){
       chartSeriesList = ['directo','acumulado','mensual'].map(function(m){
-        var h = _fpSiteReadings(site, m).length ? _fpSiteHistory(site, m) : [];
+        var hFull = _fpSiteReadings(site, m).length ? _fpSiteHistory(site, m) : [];
+        var h = hFull;
         if(mesesSel) h = h.filter(function(x){ return mesesSel.indexOf(_fpMonthKey(x.fecha))>-1; });
+        h = _fpReportPrependMonthAnchor(hFull, h, m);
         h = _fpReportApplyDayRange(h);
         return { modo:m, label:_fpModoLabel(m), color:(FP_MODO_BADGE_CFG[m]||{}).color, hist:h };
       }).filter(function(s){ return s.hist.length; });

@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1788925000_bess_v44_reporte_resumen_mensual_y_filtro_dia';
+const DEPLOY_TS  = '1788926000_bess_v45_reporte_incluye_ancla_mes_anterior';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
