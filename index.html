@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1788924000';
+  var APP_VERSION = '1788925000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8754,11 +8754,20 @@ async function expDoZip(mode){
           </select>
           <div style="position:relative">
             <button type="button" id="fp-report-mes-btn" onclick="window._fpToggleMesPicker()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px">📅 <span id="fp-report-mes-label">Todos los meses</span> ▾</button>
-            <div id="fp-report-mes-panel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9400;background:var(--s1);border:1px solid var(--b1);border-radius:10px;box-shadow:0 10px 30px rgba(3,8,24,.45);padding:10px;min-width:190px;width:max-content;max-height:260px;overflow:auto">
+            <div id="fp-report-mes-panel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9400;background:var(--s1);border:1px solid var(--b1);border-radius:10px;box-shadow:0 10px 30px rgba(3,8,24,.45);padding:10px;min-width:230px;width:max-content;max-height:380px;overflow:auto">
               <label style="display:flex;align-items:center;gap:8px;padding:5px 4px 9px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;border-bottom:1px solid var(--b1);margin-bottom:5px;font-weight:700;white-space:nowrap">
                 <input type="checkbox" id="fp-report-mes-all" checked onchange="window._fpMesToggleAll(this.checked)"> Todos los meses
               </label>
-              <div id="fp-report-mes-list" style="display:flex;flex-direction:column;gap:2px;white-space:nowrap"></div>
+              <div id="fp-report-mes-list" style="display:flex;flex-direction:column;gap:1px;white-space:nowrap"></div>
+              <div style="border-top:1px solid var(--b1);margin-top:8px;padding-top:8px">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Afinar por día (opcional)</div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <input type="date" id="fp-report-filter-desde" onchange="window._fpRenderReportPreview()" title="Desde" style="padding:7px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px;width:100%">
+                  <input type="date" id="fp-report-filter-hasta" onchange="window._fpRenderReportPreview()" title="Hasta" style="padding:7px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px;width:100%">
+                  <button type="button" onclick="window._fpReportClearDayRange()" style="padding:6px 8px;background:none;border:1px solid var(--b1);border-radius:6px;color:var(--t3);font-family:var(--mono);font-size:9.5px;cursor:pointer">✕ Quitar rango de días</button>
+                </div>
+                <div style="font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-top:6px;line-height:1.4">Esto solo recorta qué lecturas sueltas se listan. El "Resumen por mes" siempre usa el cierre real del mes anterior, aunque quede fuera de este rango.</div>
+              </div>
             </div>
           </div>
         </div>
@@ -31769,7 +31778,9 @@ function _fpReportFilenameBase(){
   var modoSuf = modo==='todos' ? '' : ('_'+modo);
   var meses = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
   var suf = (meses && meses.length) ? ('_'+meses.slice().sort().join('_')) : '';
-  return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+modoSuf+suf+'_'+_fpToday();
+  var dayRange = window._fpReportSelectedDayRange ? window._fpReportSelectedDayRange() : null;
+  var daySuf = dayRange ? ('_'+(dayRange.desde||'inicio')+'_a_'+(dayRange.hasta||'hoy')) : '';
+  return 'Reporte_FP_'+site.replace(/[^a-z0-9]/gi,'_')+modoSuf+suf+daySuf+'_'+_fpToday();
 }
 /* ══ FILTRO DE MESES DEL REPORTE ══
    Permite exportar el reporte de FP con uno, varios, o todos los meses — no siempre hace
@@ -31791,7 +31802,7 @@ window._fpUpdateMesLabel = function(){
   if(!label) return;
   if(!boxes.length || checked.length===boxes.length){ label.textContent='Todos los meses'; if(allBox) allBox.checked=true; }
   else if(!checked.length){ label.textContent='Ningún mes seleccionado'; if(allBox) allBox.checked=false; }
-  else if(checked.length===1){ label.textContent=checked[0].parentElement.querySelector('span').textContent; if(allBox) allBox.checked=false; }
+  else if(checked.length===1){ label.textContent=_fpMonthLabel(checked[0].value); if(allBox) allBox.checked=false; }
   else { label.textContent=checked.length+' meses seleccionados'; if(allBox) allBox.checked=false; }
 };
 /* Devuelve el arreglo de claves 'YYYY-MM' seleccionadas, o null si aplica a todos los meses
@@ -31802,6 +31813,21 @@ window._fpReportSelectedMonths = function(){
   var checked = boxes.filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
   if(checked.length===boxes.length) return null;
   return checked;
+};
+/* Rango de día opcional, para afinar DENTRO de los meses elegidos (o de todo el historial, si
+   no se filtró por mes). Solo recorta qué lecturas sueltas se listan/grafican — nunca afecta el
+   "Resumen por mes" (ver _fpReportMonthlySummaryHtml), que siempre usa el mes completo con su
+   cierre anterior real, esté o no ese cierre dentro de este rango. null = sin recorte. */
+window._fpReportSelectedDayRange = function(){
+  var desde=(document.getElementById('fp-report-filter-desde')||{}).value||'';
+  var hasta=(document.getElementById('fp-report-filter-hasta')||{}).value||'';
+  if(!desde && !hasta) return null;
+  return { desde:desde||null, hasta:hasta||null };
+};
+window._fpReportClearDayRange = function(){
+  var d=document.getElementById('fp-report-filter-desde'); if(d) d.value='';
+  var h=document.getElementById('fp-report-filter-hasta'); if(h) h.value='';
+  window._fpRenderReportPreview();
 };
 document.addEventListener('click', function(e){
   var panel=document.getElementById('fp-report-mes-panel'); if(!panel || panel.style.display!=='block') return;
@@ -31824,15 +31850,30 @@ window._fpOpenExportReport = function(){
   var mesesSet={};
   FP_LIST.forEach(function(r){ var k=_fpMonthKey(r.fecha); if(k) mesesSet[k]=true; });
   var meses=Object.keys(mesesSet).sort().reverse();
+  /* Agrupado por año (Año → Mes) en vez de una sola lista larga — más fácil de ubicar un mes
+     puntual cuando el historial ya abarca varios años. El año más reciente arranca expandido. */
+  var byYear={};
+  meses.forEach(function(k){ var y=k.slice(0,4); (byYear[y]=byYear[y]||[]).push(k); });
+  var years=Object.keys(byYear).sort().reverse();
+  var MES_CORTO=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   var list=document.getElementById('fp-report-mes-list');
   if(list){
-    list.innerHTML = meses.map(function(k){
-      return '<label style="display:flex;align-items:center;gap:8px;padding:4px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer">'+
-        '<input type="checkbox" value="'+k+'" checked onchange="window._fpUpdateMesLabel();window._fpRenderReportPreview()"><span>'+_fpMonthLabel(k)+'</span>'+
-      '</label>';
+    list.innerHTML = years.map(function(y, yi){
+      var monthsHtml = byYear[y].map(function(k){
+        var mi = Number(k.slice(5,7))-1;
+        return '<label style="display:flex;align-items:center;gap:8px;padding:4px 4px 4px 22px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer">'+
+          '<input type="checkbox" value="'+k+'" checked onchange="window._fpUpdateMesLabel();window._fpRenderReportPreview()"><span>'+(MES_CORTO[mi]||k)+'</span>'+
+        '</label>';
+      }).join('');
+      return '<details'+(yi===0?' open':'')+' style="margin-bottom:2px">'+
+        '<summary style="cursor:pointer;font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--sky);padding:5px 4px">'+y+' <span style="font-weight:400;color:var(--t3)">('+byYear[y].length+')</span></summary>'+
+        monthsHtml+
+      '</details>';
     }).join('');
   }
   var allBox=document.getElementById('fp-report-mes-all'); if(allBox) allBox.checked=true;
+  var desdeInp=document.getElementById('fp-report-filter-desde'); if(desdeInp) desdeInp.value='';
+  var hastaInp=document.getElementById('fp-report-filter-hasta'); if(hastaInp) hastaInp.value='';
   var panel=document.getElementById('fp-report-mes-panel'); if(panel) panel.style.display='none';
   window._fpUpdateMesLabel();
   document.getElementById('fp-report-modal').style.display='flex';
@@ -31986,19 +32027,85 @@ function _fpReportProgressCaption(histArr, opts){
     '<span style="font-weight:700;color:'+col+'">'+arrow+' '+(delta>=0?'+':'')+delta.toFixed(2)+' pp</span>'+
   '</div>';
 }
+/* ══ RESUMEN POR MES DEL REPORTE — "el FP final de cada mes" ══
+   Lo que el equipo pide una y otra vez: no basta con ver cada lectura suelta, hace falta que
+   el reporte impreso diga, sin ambigüedad, cuál fue el FP FINAL de cada mes. Usa EXACTAMENTE
+   la misma lógica que la pestaña "Resumen Mensual" (_fpMonthlyGroups): para sitios de código
+   acumulado (T4, y T3 desde que se corrigió) el mes abre con el cierre del mes anterior —
+   aunque esa lectura de apertura esté fechada en el mes de atrás, sí se usa — y cierra con la
+   última lectura propia del mes; eso es justo "cuánto se acumuló durante el mes". Si el sitio
+   mezcla tipos (p.ej. T3 con lecturas instantáneas antiguas y acumuladas nuevas) se arma un
+   bloque por tipo, igual que ya hace la gráfica y la tabla de detalle del reporte. */
+function _fpReportMonthRowHtml(g){
+  var st = g.fp!=null ? _fpStatus(g.fp) : null;
+  var fpCell = g.fp!=null
+    ? ('<span style="font-weight:800;font-size:13px;color:'+st.color+'">'+_fpFmtPct(g.fp)+'</span>'+
+       '<div style="font-size:8.5px;color:'+st.color+';font-weight:700;text-transform:uppercase;letter-spacing:.3px">'+st.label+'</div>')
+    : ('<span style="color:#9ca3af;font-style:italic;font-size:10px">'+_fpEsc(g.note||'Sin datos suficientes')+'</span>');
+  var infoCell = '';
+  if(g.modo==='directo'){
+    infoCell = g.readings.length+' lectura'+(g.readings.length===1?'':'s')+' · promedio del mes'+
+      (g.bestReading ? '<div style="font-size:9px;color:#9ca3af;margin-top:2px">🏆 mejor lectura: '+_fpFechaCorta(g.bestReading.fecha)+' ('+_fpFmtPct(g.bestFp)+')</div>' : '');
+  } else if(g.modo==='mensual'){
+    infoCell = g.fp!=null ? ('FP vigente al '+_fpFechaCorta(g.lastReading.fecha)+' · código reiniciado a 0 al empezar el mes') : '';
+  } else if(g.fp!=null){
+    infoCell = _fpFechaCorta(g.openReading.fecha)+' → '+_fpFechaCorta(g.closeReading.fecha)+
+      '<div style="font-size:9px;color:#9ca3af;margin-top:2px">Δ'+_fpFmtNum(g.deltaC1)+' kWh / Δ'+_fpFmtNum(g.deltaC5)+' kVArh</div>';
+  }
+  return '<tr>'+
+    '<td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#111827;vertical-align:top;white-space:nowrap">'+_fpEsc(g.label)+'</td>'+
+    '<td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;color:#4b5563;font-size:10.5px;vertical-align:top">'+infoCell+'</td>'+
+    '<td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:top;white-space:nowrap">'+fpCell+'</td>'+
+  '</tr>';
+}
+/* groupsWithMeta: [{modo,label,color,groups}] — una entrada si el sitio no mezcla tipos, una
+   por tipo si sí los mezcla. Cada .groups ya viene filtrado a los meses elegidos en el reporte,
+   pero el cálculo interno de cada mes (_fpMonthlyGroups) siempre usó TODAS las lecturas del
+   sitio para ubicar el cierre del mes anterior — filtrar después no afecta ese resultado. */
+function _fpReportMonthlySummaryHtml(groupsWithMeta){
+  var blocks = groupsWithMeta.map(function(gm){
+    if(!gm.groups.length) return '';
+    var tagHtml = gm.label ? ('<div style="font-family:Arial,Helvetica,sans-serif;font-size:10.5px;font-weight:700;color:'+gm.color+';margin:10px 0 4px">'+_fpEsc(gm.label)+'</div>') : '';
+    return tagHtml+'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px">'+
+      '<thead><tr style="background:#eef2fb">'+
+        '<th style="padding:9px 12px;text-align:left;font-size:9.5px;color:#4b5563;letter-spacing:.5px">MES</th>'+
+        '<th style="padding:9px 12px;text-align:left;font-size:9.5px;color:#4b5563;letter-spacing:.5px">PERIODO</th>'+
+        '<th style="padding:9px 12px;text-align:center;font-size:9.5px;color:#4b5563;letter-spacing:.5px">FP DEL MES</th>'+
+      '</tr></thead><tbody>'+gm.groups.map(_fpReportMonthRowHtml).join('')+'</tbody></table>';
+  }).join('');
+  if(!blocks) return '';
+  return '<div style="margin-bottom:14px">'+
+    '<div style="font-family:Arial,Helvetica,sans-serif;font-size:12.5px;font-weight:800;color:#111827;margin-bottom:8px;display:flex;align-items:center;gap:6px">'+
+      '<span style="width:4px;height:14px;background:#1a3fcc;border-radius:2px;display:inline-block"></span>Resumen por mes — FP final de cada mes'+
+    '</div>'+
+    blocks+
+  '</div>';
+}
 window._fpRenderReportPreview = function(){
   var siteSel=(document.getElementById('fp-report-site-sel')||{}).value||'__all__';
   var modoFiltro=(document.getElementById('fp-report-modo-sel')||{}).value||'todos';
   var sites = siteSel==='__all__' ? FP_SITES.slice() : [siteSel];
   var mesesSel = window._fpReportSelectedMonths ? window._fpReportSelectedMonths() : null;
+  var dayRange = window._fpReportSelectedDayRange ? window._fpReportSelectedDayRange() : null;
   var genUser = localStorage.getItem('bess_uname') || 'Operador';
   var genDate = new Date().toLocaleString('es-MX',{ dateStyle:'long', timeStyle:'short' });
   var myToken = ++_fpReportRenderToken;
   var chartTargets = [];
+  /* El rango de días (si se puso) SOLO recorta qué lecturas sueltas se listan/grafican — el
+     "Resumen por mes" de abajo (monthlyGroupsWithMeta) nunca lo usa: ese siempre calcula el
+     mes completo con su cierre anterior real, aunque quede fuera de este rango. */
+  function _fpReportApplyDayRange(list){
+    if(!dayRange) return list;
+    var out = list;
+    if(dayRange.desde) out = out.filter(function(h){ return (h.fecha||'') >= dayRange.desde; });
+    if(dayRange.hasta) out = out.filter(function(h){ return (h.fecha||'') <= dayRange.hasta; });
+    return out;
+  }
 
   var sections = sites.map(function(site, idx){
     var hist=_fpSiteHistory(site, modoFiltro==='todos' ? null : modoFiltro);
     if(mesesSel) hist = hist.filter(function(h){ return mesesSel.indexOf(_fpMonthKey(h.fecha))>-1; });
+    hist = _fpReportApplyDayRange(hist);
     var pct = hist.length ? (hist[hist.length-1].fpPeriodo!=null ? hist[hist.length-1].fpPeriodo : hist[hist.length-1].fpAcum) : null;
     var st=_fpStatus(pct);
     /* Cuando el reporte se filtra a un solo tipo (o el sitio nunca mezcló tipos), los
@@ -32038,6 +32145,7 @@ window._fpRenderReportPreview = function(){
       chartSeriesList = ['directo','acumulado','mensual'].map(function(m){
         var h = _fpSiteReadings(site, m).length ? _fpSiteHistory(site, m) : [];
         if(mesesSel) h = h.filter(function(x){ return mesesSel.indexOf(_fpMonthKey(x.fecha))>-1; });
+        h = _fpReportApplyDayRange(h);
         return { modo:m, label:_fpModoLabel(m), color:(FP_MODO_BADGE_CFG[m]||{}).color, hist:h };
       }).filter(function(s){ return s.hist.length; });
     } else {
@@ -32057,6 +32165,15 @@ window._fpRenderReportPreview = function(){
     var progressCaptionHtml = mixedInSection
       ? chartSeriesList.map(function(cs){ return _fpReportProgressCaption(cs.hist, { tag:cs.label, tagColor:cs.color }); }).join('')
       : _fpReportProgressCaption(hist, {});
+    /* Resumen por mes: mismos tipos que chartSeriesList, pero recalculando los meses SIN el
+       filtro de fecha/mes aplicado a `hist` — así el mes seleccionado siempre usa el cierre
+       real del mes anterior como apertura, aunque esa lectura no esté entre las filtradas. */
+    var monthlyGroupsWithMeta = chartSeriesList.map(function(cs){
+      var allGroups = _fpMonthlyGroups(site, cs.modo);
+      var filtGroups = mesesSel ? allGroups.filter(function(g){ return mesesSel.indexOf(g.key)>-1; }) : allGroups;
+      return { modo:cs.modo, label: mixedInSection ? cs.label : null, color:cs.color, groups: filtGroups.slice().reverse() };
+    });
+    var monthlySummaryHtml = _fpReportMonthlySummaryHtml(monthlyGroupsWithMeta);
     return '<div style="page-break-inside:avoid;margin-bottom:38px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(10,31,94,.08)">'+
       '<div data-pdf-avoid-break="1" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">'+
         '<div style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.3px">'+_fpEsc(site)+tipoHeaderNotMixed+'</div>'+
@@ -32067,6 +32184,7 @@ window._fpRenderReportPreview = function(){
       '</div>'+
       '<div style="padding:16px 20px 20px">'+
       progressCaptionHtml+
+      monthlySummaryHtml+
       chartPlaceholder+
       (hist.length ? ('<table style="width:100%;border-collapse:collapse;font-size:11px">'+
         '<thead><tr style="background:#eef2fb">'+
