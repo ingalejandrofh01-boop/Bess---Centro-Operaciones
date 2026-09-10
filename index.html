@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1788921000';
+  var APP_VERSION = '1788922000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -8624,27 +8624,38 @@ async function expDoZip(mode){
     </div>
 
     <!-- Historial -->
-    <div style="flex-shrink:0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <input type="text" id="fp-hist-search" oninput="window._fpRenderHist()" placeholder="🔍 Buscar sitio…" style="flex:1;min-width:160px;padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
-      <select id="fp-hist-filter-estado" onchange="window._fpRenderHist()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
-        <option value="">Todos los estados</option>
-        <option value="ideal">✅ Ideal (≥98%)</option>
-        <option value="bueno">🟢 Bueno (95–97.9%)</option>
-        <option value="alerta">⚠️ Alerta (90–94.9%)</option>
-        <option value="critico">🚨 Crítico (&lt;90%)</option>
-      </select>
-      <select id="fp-hist-filter-mes" onchange="window._fpRenderHist()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
-        <option value="">Todos los meses</option>
-      </select>
-      <select id="fp-hist-filter-modo" onchange="window._fpRenderHist()" title="Tipo de lectura" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
-        <option value="">Todos los tipos</option>
-        <option value="directo">⚡ Instantáneo</option>
-        <option value="acumulado">📊 Acumulado (delta)</option>
-      </select>
-      <input type="date" id="fp-hist-filter-desde" onchange="window._fpRenderHist()" title="Desde" style="padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
-      <span style="color:var(--t3);font-family:var(--mono);font-size:10px">—</span>
-      <input type="date" id="fp-hist-filter-hasta" onchange="window._fpRenderHist()" title="Hasta" style="padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
-      <button onclick="window._fpClearHistFilters()" style="padding:9px 12px;background:none;border:1px solid var(--b1);border-radius:8px;color:var(--t3);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Limpiar</button>
+    <div style="flex-shrink:0;border:1px solid var(--b1);border-radius:12px;background:var(--s1);box-shadow:0 1px 4px rgba(26,63,204,.05);padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#1a3fcc;border-radius:2px;display:inline-block;flex-shrink:0"></span>🔍 Filtrar registros</div>
+        <div id="fp-hist-count" style="font-family:var(--mono);font-size:10px;color:var(--t3);font-weight:600"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="fp-hist-filter-site" onchange="window._fpRenderHist()" title="Sitio" style="padding:9px 12px;border-radius:8px;border:1.5px solid var(--sky);background:rgba(26,63,204,.06);color:var(--text);font-family:var(--mono);font-size:11px;font-weight:700;min-width:140px">
+          <option value="">📍 Todos los sitios</option>
+        </select>
+        <select id="fp-hist-filter-estado" onchange="window._fpRenderHist()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+          <option value="">Todos los estados</option>
+          <option value="ideal">✅ Ideal (≥98%)</option>
+          <option value="bueno">🟢 Bueno (95–97.9%)</option>
+          <option value="alerta">⚠️ Alerta (90–94.9%)</option>
+          <option value="critico">🚨 Crítico (&lt;90%)</option>
+        </select>
+        <select id="fp-hist-filter-modo" onchange="window._fpRenderHist()" title="Tipo de lectura" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+          <option value="">Todos los tipos</option>
+          <option value="directo">⚡ Instantáneo</option>
+          <option value="acumulado">📊 Acumulado (delta)</option>
+        </select>
+        <select id="fp-hist-filter-mes" onchange="window._fpRenderHist()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+          <option value="">Todos los meses</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="fp-hist-search" oninput="window._fpRenderHist()" placeholder="🔎 Buscar por nota…" style="flex:1;min-width:160px;padding:9px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
+        <input type="date" id="fp-hist-filter-desde" onchange="window._fpRenderHist()" title="Desde" style="padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+        <span style="color:var(--t3);font-family:var(--mono);font-size:10px">—</span>
+        <input type="date" id="fp-hist-filter-hasta" onchange="window._fpRenderHist()" title="Hasta" style="padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">
+        <button onclick="window._fpClearHistFilters()" style="padding:9px 12px;background:none;border:1px solid var(--b1);border-radius:8px;color:var(--t3);font-family:var(--mono);font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Limpiar</button>
+      </div>
     </div>
     <div style="flex-shrink:0;border:1px solid var(--b1);border-radius:12px;background:var(--s1);overflow:auto;max-height:460px">
       <table style="width:100%;border-collapse:collapse;min-width:920px">
@@ -30779,19 +30790,47 @@ function _fpSiteHistory(site, modoFiltro){
   var list = _fpSiteReadings(site, modoFiltro);
   var out = [];
   var prevByModo = {};
+  /* Ancla del mes para el modo 'acumulado': el FP de CADA lectura de ese mes se calcula contra el
+     cierre del mes anterior CON DATOS — la MISMA ancla fija que usa el Resumen Mensual (ver
+     _fpMonthlyGroups, que ya sigue exactamente la lógica de la hoja de cálculo del equipo) — en
+     vez de contra la lectura inmediatamente anterior. Antes, con varias lecturas dentro del mismo
+     mes (p.ej. T3 capturando día a día), cada una se restaba contra la de un día antes, lo que
+     daba un FP casi perfecto y sin sentido ("de hoy contra ayer") en vez de "lo que llevamos de
+     este mes contra el cierre del mes pasado". Con la ancla fija, TODAS las lecturas de un mes
+     comparan contra el mismo punto de partida — así se ve el progreso real del mes conforme
+     avanza, y la ÚLTIMA lectura del mes coincide exactamente con el "FP del mes" final del
+     Resumen Mensual (igual que T4 en la hoja del equipo: diciembre = cierre de diciembre menos
+     cierre de noviembre, sin importar cuántas lecturas intermedias haya). */
+  var monthOpenCache = null;
+  function monthOpenFor(fecha){
+    var mk = _fpMonthKey(fecha);
+    if(!mk) return null;
+    if(monthOpenCache===null){
+      monthOpenCache = {};
+      _fpMonthlyGroups(site, 'acumulado').forEach(function(g){ monthOpenCache[g.key] = g.openReading; });
+    }
+    return monthOpenCache.hasOwnProperty(mk) ? monthOpenCache[mk] : null;
+  }
   list.forEach(function(r){
     var modo = _fpReadingModo(r);
     var prev = prevByModo[modo] || null;
     var fpAcum = _fpCalc(r.codigo1, r.codigo5);
     var fpPeriodo = null, deltaC1 = null, deltaC5 = null;
     /* Modo 'directo': codigo1/codigo5 YA son kW/kVAr instantáneos, no un acumulado de medidor —
-       no tiene sentido restar contra la lectura anterior, cada lectura trae su propio FP ya
-       "listo". Solo el modo 'acumulado' calcula el delta contra la anterior del mismo modo. */
-    if(prev && modo==='acumulado'){
-      deltaC1 = r.codigo1 - prev.codigo1;
-      deltaC5 = r.codigo5 - prev.codigo5;
-      if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
-      /* si el delta es negativo probablemente el medidor se reinició — no se calcula FP de periodo, se deja el acumulado */
+       no tiene sentido restar contra nada, cada lectura trae su propio FP ya "listo". Solo el
+       modo 'acumulado' calcula el delta, y lo hace contra la ancla del mes (arriba), no contra
+       la lectura anterior. */
+    if(modo==='acumulado'){
+      var anchor = monthOpenFor(r.fecha);
+      if(anchor){
+        deltaC1 = r.codigo1 - anchor.codigo1;
+        deltaC5 = r.codigo5 - anchor.codigo5;
+        if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
+        /* si el delta es negativo probablemente el medidor se reinició — no se calcula FP de periodo, se deja el acumulado */
+      }
+      /* si no hay ancla (primer mes de datos del sitio, sin mes anterior con qué comparar) el FP
+         de periodo se queda null a propósito, igual que el Resumen Mensual marca ese primer mes
+         como "sin datos suficientes". */
     }
     /* Modo 'mensual' (T3): el código se reinicia a 0 cada mes, así que NUNCA se resta para el FP
        (ver fpPeriodo arriba, que se queda null a propósito). Pero cuánto aumentó el kWh/kVArh
@@ -30956,7 +30995,7 @@ function _fpRenderSiteGrid(){
       '</div>'+
       '<div style="display:flex;align-items:baseline;gap:8px">'+
         '<span style="font-family:\'Syne\',sans-serif;font-weight:900;font-size:28px;color:'+st.color+'">'+(pct==null?'—':pct.toFixed(1)+'%')+'</span>'+
-        '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.rec.modo==='mensual'?'FP actual del mes':(lt.esPeriodo?'FP del periodo':(lt.rec.modo==='directo'?'FP':'FP (primera lectura)'))):'sin lecturas')+'</span>'+
+        '<span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+(lt?(lt.esPeriodo?(_fpMonthKey(lt.rec.fecha)===_fpMonthKey(_fpToday())?'FP del mes (en curso)':'FP del mes'):(lt.rec.modo==='directo'?'FP':'primer mes — sin datos aún')):'sin lecturas')+'</span>'+
       '</div>'+
       '<div style="font-family:var(--body);font-size:11px;color:'+st.color+';font-weight:600">'+st.label+'</div>'+
       metaWarnHtml+
@@ -31173,7 +31212,7 @@ function _fpMonthLabel(key){ var p=key.split('-'); return FP_MESES[Number(p[1])-
 
 /* ══ RENDER: HISTORIAL ══ */
 window._fpClearHistFilters = function(){
-  ['fp-hist-search','fp-hist-filter-estado','fp-hist-filter-mes','fp-hist-filter-modo','fp-hist-filter-desde','fp-hist-filter-hasta'].forEach(function(id){
+  ['fp-hist-search','fp-hist-filter-site','fp-hist-filter-estado','fp-hist-filter-mes','fp-hist-filter-modo','fp-hist-filter-desde','fp-hist-filter-hasta'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
   window._fpRenderHist();
@@ -31181,15 +31220,24 @@ window._fpClearHistFilters = function(){
 window._fpRenderHist = function(){
   var tbody=document.getElementById('fp-hist-tbody'); if(!tbody) return;
   var search=(document.getElementById('fp-hist-search')||{}).value||'';
+  var siteSel=document.getElementById('fp-hist-filter-site');
   var filterEstado=(document.getElementById('fp-hist-filter-estado')||{}).value||'';
   var filterModo=(document.getElementById('fp-hist-filter-modo')||{}).value||'';
   var mesSel=document.getElementById('fp-hist-filter-mes');
   var filterDesde=(document.getElementById('fp-hist-filter-desde')||{}).value||'';
   var filterHasta=(document.getElementById('fp-hist-filter-hasta')||{}).value||'';
-  var rows=[];
+  var allRows=[];
   FP_SITES.forEach(function(site){
-    _fpSiteHistory(site).forEach(function(h){ rows.push(h); });
+    _fpSiteHistory(site).forEach(function(h){ allRows.push(h); });
   });
+  var filterSite='';
+  if(siteSel){
+    var curSite=siteSel.value;
+    siteSel.innerHTML = '<option value="">📍 Todos los sitios</option>'+FP_SITES.map(function(s){ return '<option value="'+_fpEsc(s)+'">'+_fpEsc(s)+'</option>'; }).join('');
+    if(FP_SITES.indexOf(curSite)>-1) siteSel.value=curSite;
+    filterSite = siteSel.value;
+  }
+  var rows = filterSite ? allRows.filter(function(r){ return r.sitio===filterSite; }) : allRows.slice();
   var filterMes='';
   if(mesSel){
     var mesesSet={};
@@ -31201,12 +31249,14 @@ window._fpRenderHist = function(){
     filterMes = mesSel.value;
   }
   rows.sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||'') || (b.createdAt||0)-(a.createdAt||0); });
-  if(search) rows = rows.filter(function(r){ return r.sitio.toLowerCase().indexOf(search.toLowerCase())>-1; });
+  if(search) rows = rows.filter(function(r){ return (r.nota||'').toLowerCase().indexOf(search.toLowerCase())>-1; });
   if(filterEstado) rows = rows.filter(function(r){ var pct=r.fpPeriodo!=null?r.fpPeriodo:r.fpAcum; return _fpStatus(pct).key===filterEstado; });
   if(filterModo) rows = rows.filter(function(r){ return r.modo===filterModo; });
   if(filterMes) rows = rows.filter(function(r){ return _fpMonthKey(r.fecha)===filterMes; });
   if(filterDesde) rows = rows.filter(function(r){ return (r.fecha||'') >= filterDesde; });
   if(filterHasta) rows = rows.filter(function(r){ return (r.fecha||'') <= filterHasta; });
+  var countEl=document.getElementById('fp-hist-count');
+  if(countEl) countEl.textContent = rows.length+' de '+allRows.length+' registro'+(allRows.length===1?'':'s')+(filterSite?' · '+filterSite:'');
   if(!rows.length){
     tbody.innerHTML='<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--t3);font-family:var(--mono);font-size:10px">Sin lecturas que coincidan</td></tr>';
     return;
