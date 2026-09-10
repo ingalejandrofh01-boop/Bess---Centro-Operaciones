@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1788926000';
+  var APP_VERSION = '1789077000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -7660,6 +7660,7 @@ async function expDoZip(mode){
         <button class="op-btn-s" onclick="opBackSites()">← Editar</button>
         <button class="op-btn-s" onclick="window.print()">🖨 Imprimir</button>
         <button class="op-btn-png" onclick="opExportPNG()">📷 Exportar PNG</button>
+        <button class="op-btn-p" onclick="window._opOpenProReport()" style="background:linear-gradient(135deg,#0a1f4a,#1a3fcc);box-shadow:0 6px 20px rgba(26,63,204,.35)">🚀 Reporte Profesional</button>
         <button class="op-btn-p" id="op-save-btn" onclick="opSave()" style="padding:10px 26px;font-size:14px;background:linear-gradient(135deg,#059669,#065f46);box-shadow:0 6px 20px rgba(5,150,105,.3)">✓ Guardar Reporte</button>
       </div>
     </div>
@@ -7686,6 +7687,23 @@ async function expDoZip(mode){
     <div style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:24px">
       <button class="op-btn-s" onclick="opBackSites()">← Editar</button>
       <button class="op-btn-p" id="op-save-btn2" onclick="opSave()" style="font-size:14px;padding:12px 32px;background:linear-gradient(135deg,#059669,#065f46);box-shadow:0 4px 18px rgba(5,150,105,.3)">✓ Guardar Reporte Operativo</button>
+    </div>
+  </div>
+</div>
+
+<!-- OP-PRO — REPORTE PROFESIONAL "Reporte Diario de Descarga BESS" -->
+<div id="op-pro-modal" style="display:none;position:fixed;inset:0;z-index:9350;background:rgba(3,6,18,.85);align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:1620px;width:100%;max-height:96vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">🚀 Reporte Diario de Descarga BESS — Profesional</div>
+      <div style="display:flex;gap:8px">
+        <button id="op-pro-btn-png" onclick="window._opProDownloadPNG()" style="padding:8px 16px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);border-radius:7px;color:#059669;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">🖼️ Descargar PNG</button>
+        <button id="op-pro-btn-pdf" onclick="window._opProDownloadPDF()" style="padding:8px 16px;background:linear-gradient(135deg,#0a1f4a,#1a3fcc);border:none;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">📄 Descargar PDF</button>
+        <button onclick="window._opProClose()" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t3);font-size:13px;cursor:pointer;padding:8px 12px">✕ Cerrar</button>
+      </div>
+    </div>
+    <div style="overflow:auto;flex:1;background:#0d1830;padding:14px">
+      <div id="op-pro-print" style="max-width:1580px;margin:0 auto"></div>
     </div>
   </div>
 </div>
@@ -33015,6 +33033,480 @@ sitesBody,
 })();
 </script>
 <!-- ══════════════ fin ROBOT DE AUTO-LOGIN ══════════════ -->
+
+<!-- ══════════════ REPORTE OPERATIVO PROFESIONAL — "Reporte Diario de Descarga BESS" ══════════════ -->
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Plantilla ejecutiva, con branding Skysense, para el export PDF/PNG del
+   Reporte Operativo. NO reemplaza el papel simple existente (#op-paper-content,
+   opBuildSum) — es un export adicional, pensado como entregable diario a
+   clientes (ASUR / OMA / Industria / Park Royal).
+
+   v2 (remasterización pedida por el usuario sobre la v1):
+   - TODO cabe en UNA sola hoja compacta (sin paginación tipo libro): se
+     renderiza denso, tipo dashboard de una sola pantalla, y al exportar a
+     PDF se ajusta ("fit to page") en una hoja A4 horizontal — nunca corta
+     contenido a la mitad ni deja hojas de más.
+   - El Handoff NO va aquí — ya se maneja aparte (ver _injectHandoffSummaryInPaper /
+     showHandoffBriefing más abajo en el archivo); este reporte no lo duplica.
+   - Se agregan SOC Final y DOD (profundidad de descarga) por sitio, y una
+     estimación de energía descargada/aprovechamiento de capacidad usando la
+     capacidad real de cada sitio (energiaBESS / kwhTotal de la lista maestra)
+     multiplicada por el DOD reportado — NO es un dato inventado, es capacidad
+     real × profundidad de descarga real.
+   - Estilo "cristal": tarjetas translúcidas sobre fondo degradado azul, con
+     acentos de color por región/estatus — más vívido que la v1.
+   - Los sitios por región se muestran en "vista compacta" (primeros N, con
+     "…X sitios más" si no caben) para que la hoja no se desborde aunque haya
+     70-80+ sitios: la tabla completa sigue disponible en el papel simple
+     existente (#op-paper-content) y en Guardar Reporte.
+══════════════════════════════════════════════════════════════════════════ */
+
+var OPPRO_REGION_ORDER = ['ASUR','OMA','Industria','Park Royal'];
+var OPPRO_REGION_COLOR = {ASUR:'#3b82f6', OMA:'#10b981', Industria:'#f59e0b', 'Park Royal':'#a855f7'};
+var OPPRO_REGION_GRAD  = {
+  ASUR:        'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+  OMA:         'linear-gradient(135deg,#047857,#10b981)',
+  Industria:   'linear-gradient(135deg,#b45309,#f59e0b)',
+  'Park Royal':'linear-gradient(135deg,#6d28d9,#a855f7)'
+};
+var OPPRO_PARK_ROYAL_HINTS = ['luna','sol','cozumel','cbe'];
+var OPPRO_MAX_ROWS_PER_REGION = 6; /* "vista compacta": filas visibles antes de "...N sitios más" */
+
+var OPPRO_STATUS_ORDER = ['PÉRDIDA TOTAL','NO OPERATIVO','DESCONECTADO','INCOMPLETO','MANTENIMIENTO','OK'];
+var OPPRO_STATUS_LABEL = {
+  'OK':            {txt:'OK',                 short:'✓', color:'#16a34a', bg:'rgba(34,197,94,.16)',  dot:'#22c55e'},
+  'INCOMPLETO':    {txt:'PARCIAL',             short:'✓!', color:'#b45309', bg:'rgba(245,158,11,.18)', dot:'#f59e0b'},
+  'NO OPERATIVO':  {txt:'FUERA DE OPERACIÓN',  short:'✕', color:'#dc2626', bg:'rgba(239,68,68,.18)',  dot:'#ef4444'},
+  'DESCONECTADO':  {txt:'SIN COMUNICACIÓN',    short:'—', color:'#64748b', bg:'rgba(148,163,184,.22)',dot:'#94a3b8'},
+  'MANTENIMIENTO': {txt:'MANTENIMIENTO',       short:'⚙', color:'#7c3aed', bg:'rgba(139,92,246,.18)', dot:'#8b5cf6'},
+  'PÉRDIDA TOTAL': {txt:'PÉRDIDA TOTAL',       short:'💀', color:'#991b1b', bg:'rgba(127,29,29,.22)',  dot:'#7f1d1d'}
+};
+
+function _oppEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _oppNum(v){ if(v===''||v==null) return null; var n=parseFloat(v); return isFinite(n)?n:null; }
+function _oppKey(name){ try{ return typeof _normSiteKey==='function' ? _normSiteKey(name) : String(name||'').toLowerCase().trim(); }catch(e){ return String(name||'').toLowerCase().trim(); } }
+
+function _oppMasterFor(siteName){
+  var key = _oppKey(siteName);
+  var src = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+  for(var i=0;i<src.length;i++){ if(_oppKey(src[i].sitio)===key) return src[i]; }
+  return null;
+}
+function _oppRegionFor(siteName){
+  var master = _oppMasterFor(siteName);
+  var cliente = master ? master.cliente : null;
+  if(cliente === 'Industria'){
+    var nameLc = String(siteName||'').toLowerCase();
+    for(var k=0;k<OPPRO_PARK_ROYAL_HINTS.length;k++){
+      if(nameLc.indexOf(OPPRO_PARK_ROYAL_HINTS[k]) !== -1) return 'Park Royal';
+    }
+  }
+  return cliente || 'Industria';
+}
+function _oppDOD(sr){
+  var ini=_oppNum(sr.socIni), fin=_oppNum(sr.soc);
+  if(ini==null || fin==null) return null;
+  return ini - fin;
+}
+/* Capacidad real del sitio en kWh, desde la lista maestra (energiaBESS es la
+   capacidad instalada del banco; si no existe se usa kwhTotal como respaldo). */
+function _oppCapacityKwh(master){
+  if(!master) return null;
+  var v = _oppNum(master.energiaBESS);
+  if(v!=null) return v;
+  v = _oppNum(master.kwhTotal);
+  return v;
+}
+
+/* ── Construcción del contenido ── */
+var _opProChartsPromise = null;
+
+function _opProKpiCard(icon,label,value,sub,accent){
+  return '<div data-pdf-avoid-break class="oppc-kpi">'
+    +'<div class="oppc-kpi-ico" style="background:'+accent+'22;color:'+accent+'">'+icon+'</div>'
+    +'<div style="min-width:0">'
+      +'<div class="oppc-kpi-lbl">'+_oppEsc(label)+'</div>'
+      +'<div class="oppc-kpi-val" style="color:'+accent+'">'+_oppEsc(value)+'</div>'
+      +(sub?'<div class="oppc-kpi-sub">'+_oppEsc(sub)+'</div>':'')
+    +'</div>'
+  +'</div>';
+}
+function _opProHeaderHtml(meta,total){
+  return '<div class="oppc-hdr">'
+    +'<div style="display:flex;align-items:center;gap:12px;min-width:0">'
+      +'<div class="oppc-hdr-badge">⚡</div>'
+      +'<div style="min-width:0">'
+        +'<div class="oppc-hdr-title">REPORTE DIARIO DE DESCARGA BESS</div>'
+        +'<div class="oppc-hdr-sub">Operación y desempeño de '+total+' sitio'+(total===1?'':'s')+'</div>'
+      +'</div>'
+    +'</div>'
+    +'<div class="oppc-hdr-chips">'
+      +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">📅</span><div><div class="oppc-hdr-chip-lbl">Fecha</div><div class="oppc-hdr-chip-val">'+_oppEsc(opFd(meta.date))+'</div></div></div>'
+      +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">⏱</span><div><div class="oppc-hdr-chip-lbl">Ventana</div><div class="oppc-hdr-chip-val">'+_oppEsc(meta.period)+'</div></div></div>'
+      +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">👤</span><div><div class="oppc-hdr-chip-lbl">Operador</div><div class="oppc-hdr-chip-val">'+_oppEsc(meta.op)+'</div></div></div>'
+      +(window.SKYSENSE_LOGO_B64 ? '<img src="'+window.SKYSENSE_LOGO_B64+'" class="oppc-hdr-logo" alt="Skysense">' : '')
+    +'</div>'
+  +'</div>';
+}
+function _opProKpiHtml(k){
+  var cards = [
+    _opProKpiCard('✅','Sitios OK', k.ok+' / '+k.total, k.total?Math.round(k.ok/k.total*100)+'%':'', '#22c55e'),
+    _opProKpiCard('⚠️','Descarga parcial', k.par+' / '+k.total, k.total?Math.round(k.par/k.total*100)+'%':'', '#f59e0b'),
+    _opProKpiCard('⛔','No operativo', k.crit+' / '+k.total, k.total?Math.round(k.crit/k.total*100)+'%':'', '#ef4444'),
+    _opProKpiCard('📡','Sin comunicación', k.discom+' / '+k.total, k.total?Math.round(k.discom/k.total*100)+'%':'', '#64748b'),
+    _opProKpiCard('🔋','Energía descargada (est.)', (k.energyMwh!=null?k.energyMwh.toFixed(1):'—')+' MWh', k.capMwh!=null?('de '+k.capMwh.toFixed(1)+' MWh instalados'):'', '#3b82f6'),
+    _opProKpiCard('🎯','Aprovechamiento capacidad', k.aprovPct!=null?k.aprovPct.toFixed(1)+'%':'—', 'DOD prom. '+(k.dodAvg!=null?(Math.round(k.dodAvg*10)/10)+'%':'—'), '#0ea875')
+  ];
+  return '<div class="oppc-kpi-row">'+cards.join('')+'</div>';
+}
+function _opProChartsRowHtml(){
+  return '<div class="oppc-card" data-pdf-avoid-break style="margin-bottom:8px">'
+    +'<div class="oppc-card-ttl">📊 Distribución de estatus</div>'
+    +'<div style="display:flex;align-items:center;gap:14px">'
+      +'<div style="flex:1"><canvas id="oppro-status-bar" height="46"></canvas></div>'
+      +'<div style="width:110px;height:110px;position:relative;flex-shrink:0"><canvas id="oppro-donut-status"></canvas></div>'
+    +'</div>'
+  +'</div>';
+}
+function _opProRegionCardHtml(g){
+  var visible = g.rows.slice(0, OPPRO_MAX_ROWS_PER_REGION);
+  var restN = g.rows.length - visible.length;
+  var rowsHtml = visible.map(function(r){
+    var st = OPPRO_STATUS_LABEL[r.sr.status] || {short:'·', color:'#94a3b8', dot:'#c2cadb'};
+    return '<div class="oppc-row">'
+      +'<span class="oppc-dot" style="background:'+st.dot+'"></span>'
+      +'<span class="oppc-row-name" title="'+_oppEsc(r.name)+'">'+_oppEsc(r.name)+'</span>'
+      +'<span class="oppc-row-soc">'+(_oppNum(r.sr.socIni)!=null?_oppNum(r.sr.socIni)+'%':'—')+'</span>'
+      +'<span class="oppc-row-arrow">→</span>'
+      +'<span class="oppc-row-soc">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</span>'
+      +'<span class="oppc-row-dod" style="color:'+(r.dod!=null?OPPRO_REGION_COLOR[g.name]:'#c2cadb')+'">'+(r.dod!=null?(Math.round(r.dod*10)/10)+'%':'—')+'</span>'
+    +'</div>';
+  }).join('');
+  return '<div class="oppc-card oppc-region" data-pdf-avoid-break style="border-top:3px solid '+OPPRO_REGION_COLOR[g.name]+'">'
+    +'<div class="oppc-region-hdr" style="background:'+OPPRO_REGION_GRAD[g.name]+'">'
+      +'<span>'+_oppEsc(g.name.toUpperCase())+'</span>'
+      +'<span class="oppc-region-hdr-n">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
+    +'</div>'
+    +'<div class="oppc-region-cols"><span></span><span>Sitio</span><span>Inic.</span><span></span><span>Final</span><span>DOD</span></div>'
+    +rowsHtml
+    +(restN>0 ? '<div class="oppc-more">… '+restN+' sitio'+(restN===1?'':'s')+' más</div>' : '')
+    +'<div class="oppc-region-ftr">'+g.ok+'/'+g.total+' OK'+(g.dodAvg!=null?' · DOD prom. '+(Math.round(g.dodAvg*10)/10)+'%':'')+'</div>'
+  +'</div>';
+}
+function _opProRegionsHtml(regionGroups){
+  return '<div class="oppc-region-grid">'+regionGroups.map(_opProRegionCardHtml).join('')+'</div>';
+}
+function _opProWatchlistHtml(watchlist){
+  var body;
+  if(!watchlist.length){
+    body = '<div class="oppc-empty-ok">✅ Sin incidencias — todos los sitios reportados operan con normalidad.</div>';
+  } else {
+    body = watchlist.slice(0,8).map(function(r){
+      var st = OPPRO_STATUS_LABEL[r.sr.status] || {txt:r.sr.status||'—', color:'#64748b', bg:'rgba(148,163,184,.15)', dot:'#94a3b8'};
+      return '<div class="oppc-watch-row">'
+        +'<span class="oppc-dot" style="background:'+st.dot+'"></span>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div class="oppc-watch-name">'+_oppEsc(r.name)+' <span class="oppc-watch-region">· '+_oppEsc(r.region)+'</span></div>'
+          +(r.sr.obs ? '<div class="oppc-watch-obs">'+_oppEsc(r.sr.obs)+'</div>' : '')
+        +'</div>'
+        +'<span class="oppc-badge" style="color:'+st.color+';background:'+st.bg+'">'+_oppEsc(st.txt)+'</span>'
+      +'</div>';
+    }).join('') + (watchlist.length>8 ? '<div class="oppc-more">… '+(watchlist.length-8)+' más</div>' : '');
+  }
+  return '<div class="oppc-card oppc-watchcard" data-pdf-avoid-break>'
+    +'<div class="oppc-card-ttl" style="color:#dc2626">🔺 Sitios en seguimiento ('+watchlist.length+')</div>'
+    +body
+  +'</div>';
+}
+function _opProDodChartHtml(){
+  return '<div class="oppc-card" data-pdf-avoid-break>'
+    +'<div class="oppc-card-ttl">🔋 DOD promedio por región</div>'
+    +'<div style="height:150px;position:relative"><canvas id="oppro-bar-dod"></canvas></div>'
+  +'</div>';
+}
+function _opProObsHtml(o){
+  var bullets = [];
+  if(o.totalReportados>0){
+    var pct = Math.round(o.okCount/o.totalReportados*100);
+    bullets.push('La flota operó con normalidad en el '+pct+'% de los sitios reportados ('+o.okCount+'/'+o.totalReportados+').');
+  }
+  if(o.critCount>0) bullets.push(o.critCount+' sitio'+(o.critCount>1?'s':'')+' fuera de operación o con pérdida total — ver panel de seguimiento.');
+  if(o.parCount>0) bullets.push(o.parCount+' sitio'+(o.parCount>1?'s':'')+' con descarga parcial.');
+  if(o.discomCount>0) bullets.push(o.discomCount+' sitio'+(o.discomCount>1?'s':'')+' sin comunicación al corte.');
+  if(o.mantCount>0) bullets.push(o.mantCount+' sitio'+(o.mantCount>1?'s':'')+' en mantenimiento programado.');
+  if(o.dodAvg!=null) bullets.push('DOD promedio general del turno: '+(Math.round(o.dodAvg*10)/10)+'%.');
+  var rs = o.regionGroups.filter(function(g){return g.dodAvg!=null;}).slice().sort(function(a,b){return b.dodAvg-a.dodAvg;});
+  if(rs.length>1) bullets.push('Mayor descarga: '+rs[0].name+' ('+(Math.round(rs[0].dodAvg*10)/10)+'%) · Menor: '+rs[rs.length-1].name+' ('+(Math.round(rs[rs.length-1].dodAvg*10)/10)+'%).');
+  if(!bullets.length) bullets.push('Sin observaciones relevantes para este turno.');
+  return '<div class="oppc-card" data-pdf-avoid-break>'
+    +'<div class="oppc-card-ttl">📝 Observaciones generales</div>'
+    +'<ul class="oppc-obs-list">'+bullets.slice(0,6).map(function(b){return '<li>'+_oppEsc(b)+'</li>';}).join('')+'</ul>'
+  +'</div>';
+}
+function _opProFooterHtml(meta){
+  return '<div class="oppc-ftr">'
+    +'<span>⚡ Skysense · Centro de Operaciones BESS</span>'
+    +'<span>Generado '+_oppEsc(new Date().toLocaleString('es-MX'))+' · '+_oppEsc(meta.op)+'</span>'
+  +'</div>';
+}
+
+var OPPRO_STYLE = ''
++'.oppc-root{font-family:"Inter","Segoe UI",Arial,sans-serif;background:linear-gradient(160deg,#0b1f4d,#13327a 45%,#1a3fcc 100%);padding:16px;border-radius:14px;color:#0f1c3d}'
++'.oppc-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px 16px;margin-bottom:10px}'
++'.oppc-hdr-badge{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#facc15,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;box-shadow:0 4px 14px rgba(245,158,11,.4)}'
++'.oppc-hdr-title{font-family:"Syne",sans-serif;font-weight:900;font-size:17px;color:#fff;letter-spacing:.2px;line-height:1.15}'
++'.oppc-hdr-sub{font-size:10.5px;color:#c7d6ff;margin-top:2px;font-weight:600}'
++'.oppc-hdr-chips{display:flex;align-items:center;gap:10px;flex-wrap:wrap}'
++'.oppc-hdr-chip{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:5px 10px}'
++'.oppc-hdr-chip-ico{font-size:13px}'
++'.oppc-hdr-chip-lbl{font-size:7.5px;letter-spacing:1px;text-transform:uppercase;color:#a9bdf0;font-weight:700}'
++'.oppc-hdr-chip-val{font-size:10.5px;color:#fff;font-weight:800}'
++'.oppc-hdr-logo{height:24px;margin-left:2px}'
++'.oppc-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px}'
++'.oppc-kpi{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.88);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.6);border-radius:11px;padding:9px 11px;box-shadow:0 4px 14px rgba(10,20,60,.12)}'
++'.oppc-kpi-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}'
++'.oppc-kpi-lbl{font-size:7.6px;letter-spacing:.6px;text-transform:uppercase;color:#64748b;font-weight:800;white-space:nowrap}'
++'.oppc-kpi-val{font-family:"Syne",sans-serif;font-size:16px;font-weight:900;line-height:1.2;white-space:nowrap}'
++'.oppc-kpi-sub{font-size:8.5px;color:#8899bb;font-weight:600;white-space:nowrap}'
++'.oppc-card{background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.6);border-radius:12px;padding:11px 13px;box-shadow:0 4px 14px rgba(10,20,60,.12)}'
++'.oppc-card-ttl{font-family:"Syne",sans-serif;font-size:11px;font-weight:900;color:#132449;margin-bottom:8px;display:flex;align-items:center;gap:6px}'
++'.oppc-region-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}'
++'.oppc-region{padding:0;overflow:hidden}'
++'.oppc-region-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;color:#fff;font-family:"Syne",sans-serif;font-weight:800;font-size:10px;letter-spacing:.3px}'
++'.oppc-region-hdr-n{font-family:var(--mono,monospace);font-weight:700;font-size:8.5px;color:rgba(255,255,255,.9)}'
++'.oppc-region-cols{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;padding:5px 9px 3px;font-size:7px;letter-spacing:.4px;text-transform:uppercase;color:#94a3b8;font-weight:800}'
++'.oppc-row{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;align-items:center;padding:3.5px 9px;border-top:1px solid #eef2fb}'
++'.oppc-dot{width:6.5px;height:6.5px;border-radius:50%;flex-shrink:0}'
++'.oppc-row-name{font-size:9px;font-weight:700;color:#132449;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
++'.oppc-row-soc{font-family:var(--mono,monospace);font-size:8px;color:#5b6b8c;text-align:right}'
++'.oppc-row-arrow{font-size:7px;color:#c2cadb;text-align:center}'
++'.oppc-row-dod{font-family:var(--mono,monospace);font-size:8.5px;font-weight:800;text-align:right}'
++'.oppc-more{font-size:8px;color:#94a3b8;padding:4px 9px;font-style:italic;border-top:1px solid #eef2fb}'
++'.oppc-region-ftr{font-family:var(--mono,monospace);font-size:7.5px;color:#5b6b8c;padding:5px 9px;background:#f4f7fd;border-top:1px solid #eef2fb;font-weight:700}'
++'.oppc-bottom-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px}'
++'.oppc-watchcard{border-left:3px solid #ef4444}'
++'.oppc-watch-row{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-top:1px solid #fde2e2}'
++'.oppc-watch-row:first-of-type{border-top:none}'
++'.oppc-watch-name{font-size:9.5px;font-weight:800;color:#132449}'
++'.oppc-watch-region{font-weight:600;color:#94a3b8;font-size:8.5px}'
++'.oppc-watch-obs{font-size:8.5px;color:#5b6b8c;margin-top:1px}'
++'.oppc-badge{font-family:var(--mono,monospace);font-size:7.5px;font-weight:800;padding:2px 7px;border-radius:9px;white-space:nowrap;align-self:center}'
++'.oppc-empty-ok{font-size:10px;color:#166534;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:8px 10px}'
++'.oppc-obs-list{margin:0;padding-left:15px;font-size:9.5px;color:#2a3a5c;line-height:1.55}'
++'.oppc-obs-list li{margin-bottom:2px}'
++'.oppc-ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:8px;color:#c7d6ff;font-weight:600;padding:0 2px}'
++'@media(max-width:1100px){.oppc-kpi-row{grid-template-columns:repeat(3,1fr)}.oppc-region-grid{grid-template-columns:repeat(2,1fr)}.oppc-bottom-grid{grid-template-columns:1fr}}';
+
+function _opProDrawCharts(byStatus, regionGroups){
+  return new Promise(function(resolve){
+    try{
+      if(typeof Chart==='undefined'){ resolve(); return; }
+      var barStatusEl = document.getElementById('oppro-status-bar');
+      var donutEl = document.getElementById('oppro-donut-status');
+      var dodEl = document.getElementById('oppro-bar-dod');
+      if(window._opProCharts){
+        ['statusBar','donut','dod'].forEach(function(k){
+          try{ if(window._opProCharts[k]) window._opProCharts[k].destroy(); }catch(e){}
+        });
+      }
+      window._opProCharts = {};
+      var labels=[], data=[], colors=[];
+      OPPRO_STATUS_ORDER.forEach(function(s){
+        if(byStatus[s]){ labels.push(OPPRO_STATUS_LABEL[s]?OPPRO_STATUS_LABEL[s].txt:s); data.push(byStatus[s]); colors.push(OPPRO_STATUS_LABEL[s]?OPPRO_STATUS_LABEL[s].dot:'#999'); }
+      });
+      var total = data.reduce(function(a,b){return a+b;},0) || 1;
+
+      if(barStatusEl && labels.length){
+        window._opProCharts.statusBar = new Chart(barStatusEl, {
+          type:'bar',
+          data:{ labels:['Estatus'], datasets: labels.map(function(l,i){
+            return { label:l, data:[data[i]], backgroundColor:colors[i], barPercentage:0.9 };
+          }) },
+          options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:false,
+            plugins:{ legend:{ position:'bottom', labels:{ boxWidth:8, font:{size:8}, padding:6 } },
+              tooltip:{ callbacks:{ label:function(ctx){ var v=ctx.raw; return ctx.dataset.label+': '+v+' ('+Math.round(v/total*100)+'%)'; } } } },
+            scales:{ x:{ stacked:true, display:false }, y:{ stacked:true, display:false } } }
+        });
+      }
+      if(donutEl && labels.length){
+        window._opProCharts.donut = new Chart(donutEl, {
+          type:'doughnut',
+          data:{ labels:labels, datasets:[{ data:data, backgroundColor:colors, borderColor:'#fff', borderWidth:2 }] },
+          options:{ responsive:true, maintainAspectRatio:false, animation:false, cutout:'62%',
+            plugins:{ legend:{ display:false } } }
+        });
+      }
+      if(dodEl && regionGroups.length){
+        window._opProCharts.dod = new Chart(dodEl, {
+          type:'bar',
+          data:{ labels: regionGroups.map(function(g){return g.name;}),
+            datasets:[{ label:'DOD %', data: regionGroups.map(function(g){return g.dodAvg!=null?Math.round(g.dodAvg*10)/10:0;}),
+              backgroundColor: regionGroups.map(function(g){return OPPRO_REGION_COLOR[g.name]||'#1a3fcc';}), borderRadius:5, maxBarThickness:38 }] },
+          options:{ responsive:true, maintainAspectRatio:false, animation:false,
+            plugins:{ legend:{display:false} },
+            scales:{ y:{ beginAtZero:true, ticks:{font:{size:8}} }, x:{ ticks:{font:{size:8.5}} } } }
+        });
+      }
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ resolve(); }); });
+    }catch(e){ console.warn('[OP-PRO] chart error', e); resolve(); }
+  });
+}
+
+function _opProRender(){
+  var srs = (window.opW && window.opW.srs) || [];
+  var sites = window.OP_SITES || [];
+  var container = document.getElementById('op-pro-print');
+  if(!container) return;
+
+  var rows = sites.map(function(name,i){
+    var sr = srs[i] || opMkS();
+    var master = _oppMasterFor(name);
+    var capKwh = _oppCapacityKwh(master);
+    var dod = _oppDOD(sr);
+    var energyKwh = (dod!=null && capKwh!=null) ? (dod/100)*capKwh : null;
+    return { name:name, sr:sr, region:_oppRegionFor(name), dod:dod, capKwh:capKwh, energyKwh:energyKwh };
+  });
+  var filled = rows.filter(function(r){ return !r.sr.skip && r.sr.status; });
+
+  var byStatus = {};
+  filled.forEach(function(r){ byStatus[r.sr.status] = (byStatus[r.sr.status]||0)+1; });
+  var totalSitios = rows.length;
+  var totalReportados = filled.length;
+  var okCount = byStatus['OK']||0;
+  var parCount = byStatus['INCOMPLETO']||0;
+  var critCount = (byStatus['NO OPERATIVO']||0)+(byStatus['PÉRDIDA TOTAL']||0);
+  var discomCount = byStatus['DESCONECTADO']||0;
+  var mantCount = byStatus['MANTENIMIENTO']||0;
+  var dodVals = filled.map(function(r){return r.dod;}).filter(function(v){return v!=null;});
+  var dodAvg = dodVals.length ? (dodVals.reduce(function(a,b){return a+b;},0)/dodVals.length) : null;
+
+  var energyKwhVals = filled.map(function(r){return r.energyKwh;}).filter(function(v){return v!=null;});
+  var capKwhVals = filled.map(function(r){return r.capKwh;}).filter(function(v){return v!=null;});
+  var totalEnergyKwh = energyKwhVals.length ? energyKwhVals.reduce(function(a,b){return a+b;},0) : null;
+  var totalCapKwh = capKwhVals.length ? capKwhVals.reduce(function(a,b){return a+b;},0) : null;
+  var aprovPct = (totalEnergyKwh!=null && totalCapKwh) ? (totalEnergyKwh/totalCapKwh*100) : null;
+
+  var regionGroups = OPPRO_REGION_ORDER.map(function(reg){
+    var regRows = rows.filter(function(r){ return r.region===reg; });
+    var regFilled = regRows.filter(function(r){ return !r.sr.skip && r.sr.status; });
+    var regDodVals = regFilled.map(function(r){return r.dod;}).filter(function(v){return v!=null;});
+    var regDodAvg = regDodVals.length ? (regDodVals.reduce(function(a,b){return a+b;},0)/regDodVals.length) : null;
+    var regOk = regFilled.filter(function(r){return r.sr.status==='OK';}).length;
+    /* No OK / con seguimiento primero dentro de cada tarjeta de región — así la
+       "vista compacta" (primeras N filas) muestra lo relevante, no solo los OK. */
+    var sortedRows = regRows.slice().sort(function(a,b){
+      var oa = a.sr.status && a.sr.status!=='OK' ? 0 : 1;
+      var ob = b.sr.status && b.sr.status!=='OK' ? 0 : 1;
+      return oa-ob;
+    });
+    return { name:reg, rows:sortedRows, total:regRows.length, ok:regOk, dodAvg:regDodAvg };
+  }).filter(function(g){ return g.total>0; });
+
+  var watchlist = filled.filter(function(r){ return r.sr.status && r.sr.status!=='OK'; });
+  watchlist.sort(function(a,b){
+    var oa=OPPRO_STATUS_ORDER.indexOf(a.sr.status), ob=OPPRO_STATUS_ORDER.indexOf(b.sr.status);
+    if(oa<0) oa=99; if(ob<0) ob=99;
+    return oa-ob;
+  });
+
+  var meta = {
+    date: (window.opW && window.opW.date) || new Date().toISOString(),
+    period: (window.opW && window.opW.period) || '',
+    op: (window.opW && window.opW.op) || (localStorage.getItem('bess_uname')||'Operador')
+  };
+
+  var html = '<style>'+OPPRO_STYLE+'</style>'
+    + '<div class="oppc-root">'
+    + _opProHeaderHtml(meta,totalSitios)
+    + _opProKpiHtml({total:totalReportados, ok:okCount, par:parCount, crit:critCount, discom:discomCount, mant:mantCount, dodAvg:dodAvg,
+                      energyMwh: totalEnergyKwh!=null?totalEnergyKwh/1000:null, capMwh: totalCapKwh!=null?totalCapKwh/1000:null, aprovPct:aprovPct})
+    + _opProChartsRowHtml()
+    + _opProRegionsHtml(regionGroups)
+    + '<div class="oppc-bottom-grid">'
+      + _opProWatchlistHtml(watchlist)
+      + _opProDodChartHtml()
+      + _opProObsHtml({totalReportados:totalReportados, okCount:okCount, parCount:parCount, critCount:critCount, discomCount:discomCount, mantCount:mantCount, watchlist:watchlist, regionGroups:regionGroups, dodAvg:dodAvg})
+    + '</div>'
+    + _opProFooterHtml(meta)
+    + '</div>';
+
+  container.innerHTML = html;
+  _opProChartsPromise = _opProDrawCharts(byStatus, regionGroups);
+}
+
+window._opOpenProReport = function(){
+  var modal = document.getElementById('op-pro-modal');
+  if(!modal){ alert('No se encontró el módulo de reporte profesional.'); return; }
+  if(!window.opW || !window.opW.srs){ alert('Primero completa o abre un reporte operativo.'); return; }
+  modal.style.display='flex';
+  _opProRender();
+};
+window._opProClose = function(){
+  var modal = document.getElementById('op-pro-modal');
+  if(modal) modal.style.display='none';
+};
+
+function _opProFilenameBase(){
+  var d = (window.opW && window.opW.date) ? new Date(window.opW.date) : new Date();
+  var ds = isNaN(d.getTime()) ? new Date().toISOString().slice(0,10) : d.toISOString().slice(0,10);
+  return 'BESS_ReporteDescarga_'+ds;
+}
+
+window._opProDownloadPNG = async function(){
+  var el = document.getElementById('op-pro-print');
+  if(!el || !window.html2canvas){ alert('⚠️ No se pudo generar el PNG.'); return; }
+  var btn = document.getElementById('op-pro-btn-png'); var origText = btn?btn.textContent:'';
+  if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
+  try{
+    if(_opProChartsPromise){ try{ await _opProChartsPromise; }catch(e){} }
+    var canvas = await html2canvas(el, { scale:2.2, backgroundColor:'#0b1f4d', useCORS:true, logging:false });
+    var a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=_opProFilenameBase()+'.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if(typeof showToast==='function') showToast('✅ PNG descargado');
+  }catch(err){ console.error('[OP-PRO] Error generando PNG:', err); alert('❌ No se pudo generar el PNG.'); }
+  if(btn){ btn.textContent=origText; btn.disabled=false; }
+};
+
+/* Exporta TODO en una sola hoja A4 horizontal: se captura el dashboard completo
+   y se ajusta ("fit to page", manteniendo proporción) — nunca pagina a la FP,
+   porque este reporte está diseñado para caber compacto en una sola hoja. */
+window._opProDownloadPDF = async function(){
+  var el = document.getElementById('op-pro-print');
+  var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+  if(!el || !window.html2canvas || !jsPDFCtor){ alert('⚠️ Las librerías necesarias no están disponibles en este momento.'); return; }
+  var btn = document.getElementById('op-pro-btn-pdf'); var origText = btn?btn.textContent:'';
+  if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
+  try{
+    if(_opProChartsPromise){ try{ await _opProChartsPromise; }catch(e){} }
+    var canvas = await html2canvas(el, { scale:2.2, backgroundColor:'#0b1f4d', useCORS:true, logging:false });
+
+    var doc = new jsPDFCtor({ unit:'pt', format:'a4', orientation:'landscape' });
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var margin = 18;
+    var availW = pageW - margin*2, availH = pageH - margin*2;
+    var imgRatio = canvas.width / canvas.height;
+    var drawW = availW, drawH = drawW / imgRatio;
+    if(drawH > availH){ drawH = availH; drawW = drawH * imgRatio; }
+    var drawX = margin + (availW - drawW)/2;
+    var drawY = margin + (availH - drawH)/2;
+
+    var imgData = canvas.toDataURL('image/jpeg', 0.95);
+    doc.setFillColor(11,31,77); doc.rect(0,0,pageW,pageH,'F');
+    doc.addImage(imgData, 'JPEG', drawX, drawY, drawW, drawH);
+    doc.save(_opProFilenameBase()+'.pdf');
+    if(typeof showToast==='function') showToast('✅ PDF descargado');
+  }catch(err){ console.error('[OP-PRO] Error generando PDF:', err); alert('❌ No se pudo generar el PDF.'); }
+  if(btn){ btn.textContent=origText; btn.disabled=false; }
+};
+
+})();
+</script>
+<!-- ══════════════ fin REPORTE OPERATIVO PROFESIONAL ══════════════ -->
 
 </body>
 </html>

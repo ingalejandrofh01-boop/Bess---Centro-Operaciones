@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1788926000_bess_v45_reporte_incluye_ancla_mes_anterior';
+const DEPLOY_TS  = '1789077000_bess_v47_reporte_op_una_hoja_glass_sin_handoff';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
