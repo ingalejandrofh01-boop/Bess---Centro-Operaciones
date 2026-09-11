@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789098000_bess_v62_colaboracion_en_vivo_un_solo_reporte';
+const DEPLOY_TS  = '1789099000_bess_v63_colab_robusta_soc_colores_pegado_rapido';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

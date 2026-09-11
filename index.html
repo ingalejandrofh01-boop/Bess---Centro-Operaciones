@@ -302,30 +302,23 @@ window._fb = {
     patch.updatedAt = Date.now();
     await setDoc(ref, patch, { merge: true });
   },
-  /* ── "Un solo reporte a la vez" — puntero al reporte colaborativo activo
-     por tipo (op/val), para que "Iniciar" nunca abra dos reportes en
-     paralelo: todos editan el mismo hasta que alguien lo guarda. ── */
-  async getActiveReport(reportType) {
-    const ref = doc(fbDB, 'collab_active', reportType);
-    const snap = await getDoc(ref);
-    return snap.exists() ? snap.data() : null;
-  },
-  async setActiveReport(reportType, data) {
-    const ref = doc(fbDB, 'collab_active', reportType);
-    await setDoc(ref, { ...data, updatedAt: Date.now() });
-  },
-  async markActiveReportParticipant(reportType, uid) {
-    const ref = doc(fbDB, 'collab_active', reportType);
-    await setDoc(ref, { [`participants.${uid}`]: true, updatedAt: Date.now() }, { merge: true });
-  },
-  async clearActiveReport(reportType, sessionId) {
-    const ref = doc(fbDB, 'collab_active', reportType);
-    try {
-      const snap = await getDoc(ref);
-      if (snap.exists() && (!sessionId || snap.data().sessionId === sessionId)) {
-        await deleteDoc(ref);
-      }
-    } catch (e) {}
+  /* ── "Un solo reporte a la vez" ──
+     En vez de un documento/colección nueva (que podría no estar cubierta
+     por las reglas de seguridad de Firestore y fallar en silencio), esto
+     reutiliza collab_sessions — la MISMA colección donde ya se escribe y
+     lee con éxito desde antes (collabCreate/collabJoin/collabUpdate) —
+     buscando la sesión de reportType==op con status==active más reciente.
+     Dos filtros de igualdad sin orderBy no requieren índice compuesto en
+     Firestore, así que no depende de configuración adicional. */
+  async getActiveOpSession(reportType) {
+    const q = query(collection(fbDB, 'collab_sessions'), where('reportType', '==', reportType), where('status', '==', 'active'));
+    const snap = await getDocs(q);
+    let best = null;
+    snap.forEach(d => {
+      const data = d.data();
+      if (!best || (data.updatedAt || data.startedAt || 0) > (best.updatedAt || best.startedAt || 0)) best = { ...data, id: d.id };
+    });
+    return best;
   },
   async collabClose(sessionId) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
@@ -5188,7 +5181,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789098000';
+  var APP_VERSION = '1789099000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -22509,15 +22502,13 @@ function _collabHookSave(){
       }
       /* Guardado normal \u2014 incluye el Reporte Profesional en vivo: cualquier
          colaborador (host o invitado) puede guardar, y as\u00ed queda UN solo
-         reporte finalizado para todo el equipo. */
+         reporte finalizado para todo el equipo. collabEndSession() llama a
+         _fb.collabClose(), que pone status:'closed' en la sesi\u00f3n \u2014 con eso
+         sola ya deja de contar como "reporte activo" para el pr\u00f3ximo
+         "Iniciar" (ver _opProStartOrJoinCollab), sin necesitar un paso
+         aparte para "liberar" nada. */
       _op.apply(this,arguments);
-      if(COLLAB.sessionId){
-        var _sidClosing = COLLAB.sessionId, _wasOp = (COLLAB.reportType==='op');
-        window.collabEndSession();
-        if(_wasOp && window._fb && window._fb.clearActiveReport){
-          window._fb.clearActiveReport('op', _sidClosing).catch(function(){});
-        }
-      }
+      if(COLLAB.sessionId) window.collabEndSession();
     };
     window.opSave.__cs=true;
   }
@@ -33237,6 +33228,23 @@ function _opProDodBandColor(dod){
   if(dod<90) return '#f59e0b';
   return '#ef4444';
 }
+/* SOC Inicial: ≥90% verde (batería llegó bien cargada), <90% amarillo,
+   <80% rojo (arrancó el turno con poca carga — alerta temprana). */
+function _opProSocIniColor(v){
+  if(v==null) return '#94a3b8';
+  if(v<80) return '#ef4444';
+  if(v<90) return '#f59e0b';
+  return '#22c55e';
+}
+/* SOC Final: >20% azul, 10–20% verde, <10% amarillo, <5% rojo (se quedó
+   casi sin carga al cierre del turno — la banda más urgente). */
+function _opProSocFinalColor(v){
+  if(v==null) return '#94a3b8';
+  if(v<5) return '#ef4444';
+  if(v<10) return '#f59e0b';
+  if(v<=20) return '#22c55e';
+  return '#3b82f6';
+}
 /* Celda de DOD como "indicador de batería": una barrita rellena según el DOD
    (0-100%), coloreada por el semáforo de arriba, con el número al lado. */
 function _opProDodCellInner(dod){
@@ -33355,9 +33363,9 @@ function _opProRowHtml(r, regionName){
   return '<div class="oppc-row">'
     +'<span class="oppc-dot" style="background:'+st.dot+'"></span>'
     +'<span class="oppc-row-name" title="'+_oppEsc(r.name)+'">'+_oppEsc(r.name)+'</span>'
-    +'<span class="oppc-row-soc">'+(_oppNum(r.sr.socIni)!=null?_oppNum(r.sr.socIni)+'%':'—')+'</span>'
+    +'<span class="oppc-row-soc" style="color:'+_opProSocIniColor(_oppNum(r.sr.socIni))+'">'+(_oppNum(r.sr.socIni)!=null?_oppNum(r.sr.socIni)+'%':'—')+'</span>'
     +'<span class="oppc-row-arrow">→</span>'
-    +'<span class="oppc-row-soc">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</span>'
+    +'<span class="oppc-row-soc" style="color:'+_opProSocFinalColor(_oppNum(r.sr.soc))+'">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</span>'
     +'<span class="oppc-row-dod" style="color:'+_opProDodBandColor(r.dod)+'">'+(r.dod!=null?(Math.round(r.dod*10)/10)+'%':'—')+'</span>'
   +'</div>';
 }
@@ -33889,8 +33897,8 @@ function _opProEditableRowHtml(r, i, editable){
       +'<td class="oppc-etd-name">'+_oppEsc(r.name)+'</td>'
       +'<td class="oppc-etd-sku">'+(r.sku!=null?r.sku:'—')+'</td>'
       +'<td><span class="oppc-badge" style="color:'+st.color+';background:'+st.bg+'">'+_oppEsc(st.txt||'—')+'</span></td>'
-      +'<td class="oppc-etd-num">'+(_oppNum(r.sr.socIni)!=null?_oppNum(r.sr.socIni)+'%':'—')+'</td>'
-      +'<td class="oppc-etd-num">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</td>'
+      +'<td class="oppc-etd-num" style="color:'+_opProSocIniColor(_oppNum(r.sr.socIni))+'">'+(_oppNum(r.sr.socIni)!=null?_oppNum(r.sr.socIni)+'%':'—')+'</td>'
+      +'<td class="oppc-etd-num" style="color:'+_opProSocFinalColor(_oppNum(r.sr.soc))+'">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</td>'
       +'<td class="oppc-etd-num" id="oppro-dod-'+i+'">'+_opProDodCellInner(r.dod)+'</td>'
       +'<td class="oppc-etd-obs">'+_oppEsc(r.sr.obs||'')+'</td>'
       +'<td style="text-align:center">'+(hfActive?'<span title="Handoff activo" style="color:#ef4444">🔥</span>':'')+'</td>'
@@ -33910,8 +33918,8 @@ function _opProEditableRowHtml(r, i, editable){
     +'<td class="oppc-etd-name">'+_oppEsc(r.name)+'</td>'
     +'<td class="oppc-etd-sku">'+(r.sku!=null?r.sku:'—')+'</td>'
     +'<td><select class="oppc-esel" id="oppro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="color:'+curColor+'" onchange="window._opProSetStatus('+i+',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)">'+optHtml+'</select></td>'
-    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-socIni-'+i+'" data-idx="'+i+'" data-col="socIni" value="'+_oppEsc(r.sr.socIni!=null?r.sr.socIni:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'socIni\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
-    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_oppEsc(r.sr.soc!=null?r.sr.soc:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'soc\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
+    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-socIni-'+i+'" data-idx="'+i+'" data-col="socIni" style="color:'+_opProSocIniColor(_oppNum(r.sr.socIni))+';font-weight:800" value="'+_oppEsc(r.sr.socIni!=null?r.sr.socIni:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'socIni\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
+    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" style="color:'+_opProSocFinalColor(_oppNum(r.sr.soc))+';font-weight:800" value="'+_oppEsc(r.sr.soc!=null?r.sr.soc:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'soc\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
     +'<td class="oppc-etd-num" id="oppro-dod-'+i+'">'+_opProDodCellInner(r.dod)+'</td>'
     +'<td><input type="text" class="oppc-einput-obs" id="oppro-in-obs-'+i+'" data-idx="'+i+'" data-col="obs" maxlength="140" value="'+_oppEsc(r.sr.obs||'')+'" placeholder="Comentario breve…" oninput="window._opProSetField('+i+',\'obs\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
     +'<td style="text-align:center"><button type="button" class="oppc-hf-btn'+(hfActive?' active':'')+'" title="Marcar/editar seguimiento (handoff) de este sitio" onclick="window._opProToggleHandoffRow('+i+')">🔥</button></td>'
@@ -34031,6 +34039,14 @@ window._opProSetField = function(i, field, value){
     var dod = _oppDOD(sr);
     var cell = document.getElementById('oppro-dod-'+i);
     if(cell) cell.innerHTML = _opProDodCellInner(dod);
+  }
+  if(field==='socIni'){
+    var iniEl = document.getElementById('oppro-in-socIni-'+i);
+    if(iniEl) iniEl.style.color = _opProSocIniColor(_oppNum(value));
+  }
+  if(field==='soc'){
+    var socEl = document.getElementById('oppro-in-soc-'+i);
+    if(socEl) socEl.style.color = _opProSocFinalColor(_oppNum(value));
   }
   _opProScheduleSummaryRefresh();
   _opProScheduleSave();
@@ -34171,6 +34187,62 @@ window._opProCellPaste = function(ev, el){
 };
 
 /* ══════════════════════════════════════════════════════════════════════
+   PEGADO RÁPIDO POR COLUMNA — un apartado fijo arriba del reporte con
+   tres cajas (SOC Inicial, SOC Final, Comentarios) donde se puede pegar
+   de un jalón una columna ENTERA copiada de Excel (un valor por línea,
+   en el mismo orden en que aparecen los sitios en la tabla de abajo) sin
+   necesidad de pararse en la primera celda de la tabla. Aplica fila por
+   fila reutilizando _opProPasteIntoCell — el mismo camino que ya entiende
+   el caso "?" = sin comunicación — así que se comporta igual que pegar
+   directo en la tabla.
+   ══════════════════════════════════════════════════════════════════════ */
+function _opProBulkPasteHtml(){
+  return '<div class="oppc-bulkpaste" id="oppro-bulkpaste">'
+    +'<div class="oppc-bulkpaste-hdr">📋 Pegado rápido — pega aquí una columna completa copiada de Excel (un valor por línea, mismo orden que la tabla de abajo) y se llena todo de un jalón.</div>'
+    +'<div class="oppc-bulkpaste-cols">'
+      +_opProBulkPasteColHtml('socIni','SOC Inicial')
+      +_opProBulkPasteColHtml('soc','SOC Final')
+      +_opProBulkPasteColHtml('obs','Comentarios')
+    +'</div>'
+  +'</div>';
+}
+function _opProBulkPasteColHtml(field, label){
+  var id = 'oppro-bulk-'+field;
+  return '<div class="oppc-bulkpaste-col">'
+    +'<label for="'+id+'">'+_oppEsc(label)+'</label>'
+    +'<textarea id="'+id+'" rows="3" placeholder="Pega la columna aquí…" onpaste="window._opProBulkPasteHandle(this,\''+field+'\')"></textarea>'
+    +'<button type="button" onclick="window._opProBulkApplyColumn(\''+field+'\', document.getElementById(\''+id+'\').value)">Aplicar a la tabla</button>'
+  +'</div>';
+}
+/* Aplicar automáticamente en cuanto se pega (sin esperar al botón) — el
+   evento paste se dispara ANTES de que el navegador inserte el texto en
+   el textarea, por eso el pequeño setTimeout(…,0) para leerlo ya lleno. */
+window._opProBulkPasteHandle = function(el, field){
+  setTimeout(function(){
+    window._opProBulkApplyColumn(field, el.value);
+    el.value = '';
+  }, 0);
+};
+window._opProBulkApplyColumn = function(field, text){
+  if(window._opProReadOnlyView) return;
+  if(!text) return;
+  var lines = text.replace(/\r/g,'').split('\n');
+  while(lines.length && lines[lines.length-1]===''){ lines.pop(); }
+  if(!lines.length) return;
+  var applied = 0;
+  for(var i=0;i<lines.length;i++){
+    var val = lines[i].trim();
+    if(val==='') continue;
+    var el = document.getElementById('oppro-in-'+field+'-'+i);
+    if(!el) continue;
+    _opProPasteIntoCell(el, val);
+    applied++;
+  }
+  var labelMap = {socIni:'SOC Inicial', soc:'SOC Final', obs:'Comentarios'};
+  _opProToast(applied>0 ? ('✅ '+applied+' valores aplicados a '+(labelMap[field]||field)) : '⚠️ No se aplicó nada — revisa el orden de las filas pegadas');
+};
+
+/* ══════════════════════════════════════════════════════════════════════
    COLABORACIÓN EN TIEMPO REAL — reutiliza la sesión COLLAB/collab_sessions
    ya existente en la app (participantes, colores, "+ Invitar") y le suma:
    (a) sincronización en vivo de cada campo editado (no solo al fusionar
@@ -34178,13 +34250,23 @@ window._opProCellPaste = function(ev, el){
        cuál celda ahora mismo" (cursor por participante).
    ══════════════════════════════════════════════════════════════════════ */
 var _opProFieldPushT = {};
+var _opProPushFailWarned = false;
 function _opProPushFieldLive(i, field, value){
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
   if(!window._fb || !window._fb.collabPushField) return;
   var key = 'f'+i+'-'+field;
   clearTimeout(_opProFieldPushT[key]);
   _opProFieldPushT[key] = setTimeout(function(){
-    window._fb.collabPushField(COLLAB.sessionId, i, field, value, myId()).catch(function(){});
+    window._fb.collabPushField(COLLAB.sessionId, i, field, value, myId()).catch(function(e){
+      console.warn('[OP-PRO colab] collabPushField:', e && e.message);
+      /* Avisar UNA vez por sesión (no en cada campo) si la sincronización
+         en vivo está fallando — antes se tragaba el error en silencio y
+         parecía que "no pasaba nada" sin ninguna pista de por qué. */
+      if(!_opProPushFailWarned){
+        _opProPushFailWarned = true;
+        _opProToast('⚠️ No se pudo sincronizar en vivo — revisa tu conexión ('+((e&&e.message)||'error')+')');
+      }
+    });
   }, 450);
 }
 var _opProCursorT = null;
@@ -34261,9 +34343,9 @@ function _opProApplyRemoteSrs(remoteSrs){
     var sel = document.getElementById('oppro-sel-'+i);
     if(sel && document.activeElement!==sel){ sel.value = sr.status||''; sel.style.color = OPPRO_STATUS_LABEL[sr.status]?OPPRO_STATUS_LABEL[sr.status].color:'#94a3b8'; }
     var inSocIni = document.getElementById('oppro-in-socIni-'+i);
-    if(inSocIni && document.activeElement!==inSocIni) inSocIni.value = sr.socIni!=null?sr.socIni:'';
+    if(inSocIni){ if(document.activeElement!==inSocIni) inSocIni.value = sr.socIni!=null?sr.socIni:''; inSocIni.style.color = _opProSocIniColor(_oppNum(sr.socIni)); }
     var inSoc = document.getElementById('oppro-in-soc-'+i);
-    if(inSoc && document.activeElement!==inSoc) inSoc.value = sr.soc!=null?sr.soc:'';
+    if(inSoc){ if(document.activeElement!==inSoc) inSoc.value = sr.soc!=null?sr.soc:''; inSoc.style.color = _opProSocFinalColor(_oppNum(sr.soc)); }
     var inObs = document.getElementById('oppro-in-obs-'+i);
     if(inObs && document.activeElement!==inObs) inObs.value = sr.obs||'';
     var dod = _oppDOD(sr);
@@ -34282,6 +34364,7 @@ function _opProCollabListen(){
   if(_opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
   if(!window._fbFS || !window._fbDB) return;
+  if(typeof _opProPushFailWarned!=='undefined') _opProPushFailWarned = false; /* nueva sesión, permitir avisar de nuevo si algo falla */
   try{
     var FS=window._fbFS, DB=window._fbDB;
     _opProCollabUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',COLLAB.sessionId), function(snap){
@@ -34299,7 +34382,10 @@ function _opProCollabListen(){
       _opProApplyRemoteSrs(data.srs||{});
       _opProApplyRemoteCursors(data.cursors||{});
       _opProRefreshCollabBar();
-    }, function(err){ console.warn('[OP-PRO colab] listener:', err.message); });
+    }, function(err){
+      console.warn('[OP-PRO colab] listener:', err.message);
+      _opProToast('⚠️ Se perdió la conexión en vivo con el reporte compartido ('+(err.message||'error')+')');
+    });
   }catch(e){ console.warn('[OP-PRO colab] listen:', e.message); }
 }
 window._opProCollabListen = _opProCollabListen;
@@ -34308,46 +34394,48 @@ window._opProCollabListen = _opProCollabListen;
    "UN SOLO REPORTE A LA VEZ" — antes, cada clic en "Iniciar" creaba una
    sesión COLLAB nueva; si dos personas le daban "Iniciar" quedaban en dos
    reportes distintos sin verse. Ahora, antes de crear una sesión se
-   consulta collab_active/op: si ya hay un reporte operativo en curso
-   (y no quedó abandonado hace más de OPPRO_ACTIVE_TTL), todos se unen a
-   ESE mismo — nunca se abre uno nuevo en paralelo. El puntero se limpia
-   solo cuando alguien realmente guarda el reporte (ver el hook de
-   opSave más abajo), así que el próximo "Iniciar" arranca uno fresco.
-   ══════════════════════════════════════════════════════════════════════ */
+   busca en collab_sessions (la MISMA colección de siempre — nada nuevo
+   que dependa de reglas de seguridad sin configurar) si ya hay un reporte
+   operativo con status==active (y no quedó abandonado hace más de
+   OPPRO_ACTIVE_TTL): si lo hay, todos se unen a ESE mismo — nunca se abre
+   uno nuevo en paralelo. Al guardar (collabEndSession→collabClose) esa
+   sesión pasa a status:'closed' y deja de aparecer en la búsqueda, así
+   que el próximo "Iniciar" arranca una sesión fresca automáticamente. */
 var OPPRO_ACTIVE_TTL = 18*60*60*1000; /* 18h — más que un turno, para no bloquear si algo quedó a medias */
 function _opProCreateNewSession(cb){
   if(window.collabStartSession){
     window.collabStartSession('op', (window.opW&&window.opW.period)||'Operativo', (window.OP_SITES||[]).length);
-    if(window._fb && window._fb.setActiveReport){
-      window._fb.setActiveReport('op', {
-        sessionId: COLLAB.sessionId, hostId: myId(), hostName: myName(),
-        period: (window.opW&&window.opW.period)||'', date: (window.opW&&window.opW.date)||'',
-        status:'active', startedAt: Date.now(), participants:{}
-      }).catch(function(){});
-      if(window._fb.markActiveReportParticipant) window._fb.markActiveReportParticipant('op', myId()).catch(function(){});
-    }
+  } else {
+    _opProToast('⚠️ No se pudo iniciar la colaboración (collabStartSession no disponible)');
   }
   _opProCollabListen();
   if(cb) cb();
 }
 function _opProStartOrJoinCollab(cb){
-  if(!window._fb || !window._fb.getActiveReport){ _opProCreateNewSession(cb); return; }
-  window._fb.getActiveReport('op').then(function(active){
-    var isFresh = active && active.sessionId && active.status==='active'
+  if(!window._fb || !window._fb.getActiveOpSession){ _opProCreateNewSession(cb); return; }
+  window._fb.getActiveOpSession('op').then(function(active){
+    var isFresh = active && active.id && active.status==='active'
       && (Date.now()-(active.updatedAt||active.startedAt||0) < OPPRO_ACTIVE_TTL);
     if(isFresh){
-      COLLAB.sessionId = active.sessionId; COLLAB.reportType='op';
+      COLLAB.sessionId = active.id; COLLAB.reportType='op';
       COLLAB.isHost = (active.hostId===myId()); COLLAB._mergeFired=false;
       var me = {id:myId(), name:myName(), color:myColor(), role:myRole(), joinedAt:Date.now()};
-      if(window._fb.collabJoin) window._fb.collabJoin(active.sessionId, me).catch(function(){});
-      if(window._fb.markActiveReportParticipant) window._fb.markActiveReportParticipant('op', myId()).catch(function(){});
+      if(window._fb.collabJoin){
+        window._fb.collabJoin(active.id, me).catch(function(e){
+          _opProToast('⚠️ No se pudo unir al reporte compartido: '+((e&&e.message)||'error de conexión'));
+        });
+      }
       if(!COLLAB.isHost) _opProToast('🤝 Te uniste al reporte operativo ya iniciado por '+(active.hostName||'un compañero'));
       _opProCollabListen();
       if(cb) cb();
     } else {
       _opProCreateNewSession(cb);
     }
-  }).catch(function(){ _opProCreateNewSession(cb); });
+  }).catch(function(e){
+    console.warn('[OP-PRO colab] getActiveOpSession:', e && e.message);
+    _opProToast('⚠️ No se pudo revisar si ya había un reporte activo — se abrió uno nuevo');
+    _opProCreateNewSession(cb);
+  });
 }
 function _opProCollabAvatarsHtml(){
   if(!window.COLLAB || !COLLAB._participants || !COLLAB._participants.length) return '';
@@ -34586,6 +34674,7 @@ function _opProRenderEditablePaper(){
     + _opProLegendBarHtml()
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estatus, SOC o observación de cualquier sitio para editarlo — se guarda automáticamente. Enter/flechas para moverte entre celdas, pega bloques copiados de Excel.'
         +' <button type="button" class="oppc-hf-linkbtn" onclick="window._opProShowHandoffFromReport()">🔥 Ver/Descargar Handoff</button></div>' : '')
+    + (editable ? _opProBulkPasteHtml() : '')
     + _opProEditableRegionsHtml(d.regionGroups, editable)
     + '<div class="oppc-bottom-grid">'
       + '<div id="oppro-watch-wrap">'+_opProWatchlistHtml(d.watchlist)+'</div>'
@@ -34619,6 +34708,16 @@ function _opProRenderEditablePaper(){
     '.oppc-einput:focus,.oppc-esel:focus{outline:2px solid #3b82f6;outline-offset:1px}'+
     '.oppc-einput-obs{width:100%;min-width:140px;font-family:"Inter",sans-serif;font-size:9px;border:1px solid #dbe4f5;border-radius:5px;padding:3px 6px;background:#fff}'+
     '.oppc-edithint{font-size:9px;color:#c7d6ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}'+
+    '.oppc-bulkpaste{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 12px;margin-bottom:10px}'+
+    '.oppc-bulkpaste-hdr{font-size:9.5px;color:#c7d6ff;font-weight:700;margin-bottom:8px;font-family:Arial,sans-serif}'+
+    '.oppc-bulkpaste-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}'+
+    '@media (max-width:640px){.oppc-bulkpaste-cols{grid-template-columns:1fr}}'+
+    '.oppc-bulkpaste-col{display:flex;flex-direction:column;gap:4px}'+
+    '.oppc-bulkpaste-col label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:800;color:#93a5d6;font-family:var(--mono,monospace)}'+
+    '.oppc-bulkpaste-col textarea{font-family:var(--mono,monospace);font-size:9.5px;border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:5px 7px;background:rgba(8,14,34,.55);color:#e5ecff;resize:vertical;min-height:52px}'+
+    '.oppc-bulkpaste-col textarea::placeholder{color:#6b7ba8}'+
+    '.oppc-bulkpaste-col button{align-self:flex-start;background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;border:none;border-radius:14px;padding:4px 10px;font-size:8.5px;font-weight:800;cursor:pointer}'+
+    '.oppc-bulkpaste-col button:hover{filter:brightness(1.1)}'+
     '.oppc-hf-linkbtn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:14px;padding:3px 10px;font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}'+
     '.oppc-dodwrap{display:flex;flex-direction:column;align-items:center;gap:2px}'+
     '.oppc-dodwrap span{font-family:var(--mono,monospace);font-size:9.5px;font-weight:800}'+
@@ -34676,6 +34775,21 @@ document.addEventListener('DOMContentLoaded', function(){
       return _origBackSites.apply(this, arguments);
     };
   }
+  /* "Se ve cuando alguien sale y cuando entra" — navegar a OTRA sección de
+     la app mientras hay una sesión de reporte en vivo abierta te saca de
+     la lista de participantes (el resto ve tu avatar desaparecer), y al
+     volver a "Reporte Operativo" te vuelve a unir (ver
+     _opProStartOrJoinCollab, que llama collabJoin de nuevo). No cierra
+     la sesión — solo tu propia presencia en ella. */
+  var _origGoPage = window.goPage;
+  if(typeof _origGoPage === 'function'){
+    window.goPage = function(id){
+      if(id!=='repop' && window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='op' && window._fb && window._fb.collabLeave){
+        window._fb.collabLeave(COLLAB.sessionId, myId()).catch(function(){});
+      }
+      return _origGoPage.apply(this, arguments);
+    };
+  }
 });
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -34692,14 +34806,14 @@ document.addEventListener('DOMContentLoaded', function(){
 var _opProNotifShownFor = null;
 function _opProToastSafe(fn){ try{ fn(); }catch(e){} }
 function _opProCheckPendingReport(){
-  if(!window._fb || !window._fb.getActiveReport) return;
+  if(!window._fb || !window._fb.getActiveOpSession) return;
   if(window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='op') return; /* ya estoy adentro viendo el reporte */
-  window._fb.getActiveReport('op').then(function(active){
+  window._fb.getActiveOpSession('op').then(function(active){
     if(!active || active.status!=='active') return;
     if(Date.now()-(active.updatedAt||active.startedAt||0) >= OPPRO_ACTIVE_TTL) return; /* quedó abandonado, ignorar */
     if(!active.participants || !active.participants[myId()]) return; /* nunca participé en este */
-    if(_opProNotifShownFor===active.sessionId) return; /* ya se avisó de este mismo reporte */
-    _opProNotifShownFor = active.sessionId;
+    if(_opProNotifShownFor===active.id) return; /* ya se avisó de este mismo reporte */
+    _opProNotifShownFor = active.id;
     _opProToastSafe(function(){
       var fn = (typeof addNotif==='function') ? addNotif : window.addNotif;
       if(!fn) return;
@@ -34719,6 +34833,18 @@ function _opProCheckPendingReport(){
 window.addEventListener('online', _opProCheckPendingReport);
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') _opProCheckPendingReport(); });
 setTimeout(_opProCheckPendingReport, 4000);
+
+/* Cierre real de pestaña/app con una sesión en vivo abierta — mejor
+   esfuerzo (el navegador no garantiza que una escritura async termine
+   aquí), pero es mejor que dejar el avatar de alguien que ya se fue
+   como si siguiera ahí para siempre. */
+window.addEventListener('pagehide', function(){
+  try{
+    if(window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='op' && window._fb && window._fb.collabLeave){
+      window._fb.collabLeave(COLLAB.sessionId, myId());
+    }
+  }catch(e){}
+});
 
 })();
 </script>
