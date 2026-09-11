@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789085000';
+  var APP_VERSION = '1789087000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -12440,7 +12440,9 @@ const SITE_CODES = {
 function _normSiteKey(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _buildSitesFromMaster() {
   var db = window.MASTER_SITES_DB || [];
-  var sorted = db.slice().sort(function(a,b){ return (a.sku||0)-(b.sku||0); });
+  /* ||Infinity (no ||0): un sitio sin sku válido (ej. importado por CSV sin
+     esa columna) debe irse al FINAL de la lista, no adelante del sku 1. */
+  var sorted = db.slice().sort(function(a,b){ return (a.sku||Infinity)-(b.sku||Infinity); });
   var names = sorted.map(function(m){ return m.sitio; });
   /* Deduplicar: sin acentos, sin mayúsculas */
   var seen = {};
@@ -18526,7 +18528,8 @@ document.addEventListener('click', function(e){
 /* ==== SKYSENSE VALIDACION MODULE FINAL ==== */
 /* Helper: obtiene lista de sitios ordenada por SKU y sin duplicados (ignora acentos y mayúsculas) */
 function _sitesFromDB(src){
-  var sorted = (src||[]).slice().sort(function(a,b){return (a.sku||0)-(b.sku||0);});
+  /* ||Infinity (no ||0): un sitio sin sku válido debe irse al FINAL, no adelante del sku 1. */
+  var sorted = (src||[]).slice().sort(function(a,b){return (a.sku||Infinity)-(b.sku||Infinity);});
   var seen={};
   return sorted.map(function(m){return m.sitio;}).filter(function(n){
     var k=_normSiteKey(n); if(seen[k]) return false; seen[k]=true; return true;
@@ -23860,10 +23863,17 @@ async function _loadMasterSitesCloud() {
     var cloudRaw = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); })
       .filter(function(s){ return s && s.sitio; }); /* Guard: skip docs without sitio */
 
-    /* Construir mapa de nombres canónicos desde MASTER_SITES_DB local (fuente de verdad) */
+    /* Construir mapa de nombres canónicos + registro completo desde MASTER_SITES_DB
+       local (fuente de verdad). localRecByNormKey se usa más abajo para "sanar"
+       documentos de Firestore incompletos (ej. de una importación CSV que solo
+       trajo 'sitio' y dejó sku/ciudad/marca/etc. sin definir). */
     var localByNormKey = {};
+    var localRecByNormKey = {};
     (window.MASTER_SITES_DB||[]).forEach(function(local){
-      if(local&&local.sitio) localByNormKey[_normKey(local.sitio)] = local.sitio;
+      if(local&&local.sitio){
+        localByNormKey[_normKey(local.sitio)] = local.sitio;
+        localRecByNormKey[_normKey(local.sitio)] = local;
+      }
     });
 
     /* Normalizar nombres cloud al canónico local ANTES de deduplicar */
@@ -23890,7 +23900,19 @@ async function _loadMasterSitesCloud() {
       }
     });
 
-    var cloud = cloudDeduped;
+    /* Sanar documentos cloud incompletos: si un doc de Firestore le falta un
+       campo (ej. sku, ciudad, marca, powSummer...) que sí existe en el
+       registro local canónico para ese mismo sitio, se rellena desde ahí.
+       Object.assign no toca claves que SÍ vienen en el doc de cloud (aunque
+       su valor sea 0/''), así que una edición real hecha desde la app se
+       respeta — solo se completa lo que genuinamente falta. Esto evita que
+       una importación CSV mal mapeada (que solo trae 'sitio'/'cliente')
+       deje sitios sin sku — y por lo tanto mal ordenados o con datos técnicos
+       en blanco — de forma permanente en la nube. */
+    var cloud = cloudDeduped.map(function(c){
+      var rec = localRecByNormKey[_normKey(c.sitio)];
+      return rec ? Object.assign({}, rec, c) : c;
+    });
     var merged = cloud.slice();
     var cloudNormKeys = cloud.map(function(s){ return _normKey(s.sitio); });
     (window.MASTER_SITES_DB||[]).forEach(function(local){
@@ -23913,6 +23935,7 @@ async function _loadMasterSitesCloud() {
     window._masterSitesCloud = (window.MASTER_SITES_DB||[]).slice();
   }
 }
+window._loadMasterSitesCloud = _loadMasterSitesCloud; /* expuesta: otro módulo la usa como fallback vía window._loadMasterSitesCloud */
 
 /* Subir tabla maestra local a Firestore (solo primera vez o al hacer SYNC) */
 async function _pushMasterSitesToCloud() {
