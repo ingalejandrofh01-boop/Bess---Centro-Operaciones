@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789087000_bess_v52_orden_sitios_fix_sync_nube';
+const DEPLOY_TS  = '1789089000_bess_v53_remaster_reporte_pro';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
