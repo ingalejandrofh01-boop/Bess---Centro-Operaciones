@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789081000_bess_v49_reporte_editable_vista_previa';
+const DEPLOY_TS  = '1789085000_bess_v51_reporte_vertical_proporcional';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

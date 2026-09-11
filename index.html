@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789081000';
+  var APP_VERSION = '1789085000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -7693,7 +7693,7 @@ async function expDoZip(mode){
 
 <!-- OP-PRO — REPORTE PROFESIONAL "Reporte Diario de Descarga BESS" -->
 <div id="op-pro-modal" style="display:none;position:fixed;inset:0;z-index:9350;background:rgba(3,6,18,.85);align-items:center;justify-content:center;padding:16px">
-  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:1620px;width:100%;max-height:96vh;display:flex;flex-direction:column;overflow:hidden">
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:1280px;width:100%;max-height:96vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:12px 18px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
       <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">🚀 Reporte Diario de Descarga BESS — Profesional</div>
       <div style="display:flex;gap:8px">
@@ -7703,7 +7703,7 @@ async function expDoZip(mode){
       </div>
     </div>
     <div style="overflow:auto;flex:1;background:#0d1830;padding:14px">
-      <div id="op-pro-print" style="max-width:1580px;margin:0 auto"></div>
+      <div id="op-pro-print" style="max-width:1240px;margin:0 auto"></div>
     </div>
   </div>
 </div>
@@ -12533,6 +12533,14 @@ window.MASTER_SITES_DB = [
   {sku:71, sitio:'Fisfiber',               cliente:'Industria', ciudad:'Naucalpan',       marca:'Huawei',    plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:215, powSummer:null,  powWinter:null,  energiaBESS:null},
   {sku:72, sitio:'Tuk B1',                 cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:null,  powWinter:null,  energiaBESS:null},
   {sku:73, sitio:'Tuk B2',                 cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:null,  powWinter:null,  energiaBESS:null},
+  {sku:74, sitio:'Park Royal Vallarta',    cliente:'Industria', ciudad:'Jalisco',         marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:600,   powWinter:300,   energiaBESS:null},
+  {sku:75, sitio:'BIDASOA B1',             cliente:'Industria', ciudad:'Teotihuacán',     marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:null,  powWinter:null,  energiaBESS:null},
+  {sku:76, sitio:'BIDASOA B2',             cliente:'Industria', ciudad:'Teotihuacán',     marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:null,  powWinter:null,  energiaBESS:null},
+  {sku:77, sitio:'DESA B1',                cliente:'Industria', ciudad:'Xalapa',          marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:null,  energiaBESS:null},
+  {sku:78, sitio:'DESA B2',                cliente:'Industria', ciudad:'Xalapa',          marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:null,  energiaBESS:null},
+  {sku:79, sitio:'TUGAL B1',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:null,  energiaBESS:null},
+  {sku:80, sitio:'TUGAL B2',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:null,  energiaBESS:null},
+  {sku:81, sitio:'Atotonilco',             cliente:'Industria', ciudad:'Hidalgo',         marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:300,   powWinter:null,  energiaBESS:null},
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -33072,8 +33080,8 @@ var OPPRO_REGION_GRAD  = {
   Industria:   'linear-gradient(135deg,#b45309,#f59e0b)',
   'Park Royal':'linear-gradient(135deg,#6d28d9,#a855f7)'
 };
-var OPPRO_PARK_ROYAL_HINTS = ['luna','sol','cozumel','cbe'];
-var OPPRO_MAX_ROWS_PER_REGION = 10; /* "vista compacta": filas visibles antes de "...N sitios más" */
+var OPPRO_PARK_ROYAL_HINTS = ['luna','sol','cozumel','cbe','vallarta'];
+var OPPRO_MAX_ROWS_PER_REGION = 999; /* sin truncar — se muestran todos los sitios de cada región */
 
 var OPPRO_STATUS_ORDER = ['PÉRDIDA TOTAL','NO OPERATIVO','DESCONECTADO','INCOMPLETO','MANTENIMIENTO','OK'];
 var OPPRO_STATUS_LABEL = {
@@ -33201,7 +33209,18 @@ function _opProRegionCardHtml(g){
   +'</div>';
 }
 function _opProRegionsHtml(regionGroups){
-  return '<div class="oppc-region-grid">'+regionGroups.map(_opProRegionCardHtml).join('')+'</div>';
+  /* Columna izquierda: regiones pequeñas apiladas (ASUR/OMA/Park Royal).
+     Columna derecha: Industria sola — es la región con más sitios, así que
+     se le da su propia columna en vez de forzarla a compartir fila con las
+     demás. Cada columna crece según SU propio contenido (flex, no grid con
+     spanning) para que no queden huecos en blanco si una región es más
+     corta que la otra. */
+  var right = regionGroups.filter(function(g){ return g.name==='Industria'; });
+  var left  = regionGroups.filter(function(g){ return g.name!=='Industria'; });
+  return '<div class="oppc-region-grid">'
+    +'<div class="oppc-region-col">'+left.map(_opProRegionCardHtml).join('')+'</div>'
+    +'<div class="oppc-region-col oppc-region-col-wide">'+right.map(_opProRegionCardHtml).join('')+'</div>'
+  +'</div>';
 }
 function _opProWatchlistHtml(watchlist){
   var body;
@@ -33298,7 +33317,9 @@ var OPPRO_STYLE = ''
 +'.oppc-seglegend{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}'
 +'.oppc-seglegend .lg{display:flex;align-items:center;gap:4px;font-size:8px;color:#5b6b8c;font-weight:700}'
 +'.oppc-seglegend .lg i{width:7px;height:7px;border-radius:2px;display:inline-block}'
-+'.oppc-region-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;align-items:stretch}'
++'.oppc-region-grid{display:flex;gap:8px;margin-bottom:8px;align-items:flex-start}'
++'.oppc-region-col{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}'
++'.oppc-region-col-wide{flex:1.08}'
 +'.oppc-region{padding:0;overflow:hidden;display:flex;flex-direction:column}'
 +'.oppc-region-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;color:#fff;font-family:"Syne",sans-serif;font-weight:800;font-size:10.5px;letter-spacing:.4px}'
 +'.oppc-region-hdr-n{font-family:var(--mono,monospace);font-weight:700;font-size:8.5px;color:rgba(255,255,255,.9)}'
@@ -33323,7 +33344,7 @@ var OPPRO_STYLE = ''
 +'.oppc-obs-list{margin:0;padding-left:15px;font-size:9.5px;color:#2a3a5c;line-height:1.55}'
 +'.oppc-obs-list li{margin-bottom:2px}'
 +'.oppc-ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:8px;color:#c7d6ff;font-weight:600;padding:0 2px}'
-+'@media(max-width:1100px){.oppc-kpi-row{grid-template-columns:repeat(3,1fr)}.oppc-region-grid{grid-template-columns:repeat(2,1fr)}.oppc-bottom-grid{grid-template-columns:1fr}}';
++'@media(max-width:1100px){.oppc-kpi-row{grid-template-columns:repeat(3,1fr)}.oppc-region-grid{flex-direction:column}.oppc-bottom-grid{grid-template-columns:1fr}}';
 
 function _opProDrawCharts(byStatus, regionGroups, totalFilled, ns){
   ns = ns || 'pro';
@@ -33499,9 +33520,12 @@ window._opProDownloadPNG = async function(){
   if(btn){ btn.textContent=origText; btn.disabled=false; }
 };
 
-/* Exporta TODO en una sola hoja A4 horizontal: se captura el dashboard completo
-   y se ajusta ("fit to page", manteniendo proporción) — nunca pagina a la FP,
-   porque este reporte está diseñado para caber compacto en una sola hoja. */
+/* Exporta TODO en una sola hoja A4 — se captura el dashboard completo y se
+   ajusta ("fit to page", manteniendo proporción) — nunca pagina a la FP,
+   porque este reporte está diseñado para caber compacto en una sola hoja.
+   La orientación de la hoja (vertical/horizontal) se decide según la forma
+   real del contenido capturado, ya que ahora el reporte crece en vertical
+   (todas las regiones muestran todos sus sitios, sin truncar). */
 window._opProDownloadPDF = async function(){
   var el = document.getElementById('op-pro-print');
   var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
@@ -33512,7 +33536,8 @@ window._opProDownloadPDF = async function(){
     if(_opProChartsPromise){ try{ await _opProChartsPromise; }catch(e){} }
     var canvas = await html2canvas(el, { scale:2.2, backgroundColor:'#081633', useCORS:true, logging:false });
 
-    var doc = new jsPDFCtor({ unit:'pt', format:'a4', orientation:'landscape' });
+    var orientation = canvas.height > canvas.width ? 'portrait' : 'landscape';
+    var doc = new jsPDFCtor({ unit:'pt', format:'a4', orientation:orientation });
     var pageW = doc.internal.pageSize.getWidth();
     var pageH = doc.internal.pageSize.getHeight();
     var margin = 18;
