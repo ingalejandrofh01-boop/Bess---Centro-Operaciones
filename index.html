@@ -303,22 +303,22 @@ window._fb = {
     await setDoc(ref, patch, { merge: true });
   },
   /* ── "Un solo reporte a la vez" ──
-     En vez de un documento/colección nueva (que podría no estar cubierta
-     por las reglas de seguridad de Firestore y fallar en silencio), esto
-     reutiliza collab_sessions — la MISMA colección donde ya se escribe y
-     lee con éxito desde antes (collabCreate/collabJoin/collabUpdate) —
-     buscando la sesión de reportType==op con status==active más reciente.
-     Dos filtros de igualdad sin orderBy no requieren índice compuesto en
-     Firestore, así que no depende de configuración adicional. */
-  async getActiveOpSession(reportType) {
-    const q = query(collection(fbDB, 'collab_sessions'), where('reportType', '==', reportType), where('status', '==', 'active'));
-    const snap = await getDocs(q);
-    let best = null;
-    snap.forEach(d => {
-      const data = d.data();
-      if (!best || (data.updatedAt || data.startedAt || 0) > (best.updatedAt || best.startedAt || 0)) best = { ...data, id: d.id };
-    });
-    return best;
+     Primer intento: buscar con una query (where+where) sobre
+     collab_sessions. Puede fallar en proyectos cuyas reglas de seguridad
+     permiten leer un documento por su ID (get) pero NO listar/consultar
+     la colección completa (list) — un patrón de seguridad muy común y
+     que es indistinguible del lado del cliente hasta que se prueba: la
+     escritura individual (onSnapshot sobre un doc puntual) ya funciona
+     desde antes, pero una query nueva puede chocar con una regla "list"
+     que nunca se configuró. Por eso el reporte operativo usa un ID FIJO
+     y conocido ('op_current' — ver collabStartSession) en vez de un ID
+     aleatorio: así "¿ya hay un reporte activo?" se resuelve con un simple
+     getDoc() por ID, el mismo tipo de lectura puntual que ya sabemos que
+     funciona, sin depender de permisos de listado. */
+  async getOpCurrentSession() {
+    const ref = doc(fbDB, 'collab_sessions', 'op_current');
+    const snap = await getDoc(ref);
+    return snap.exists() ? { ...snap.data(), id: 'op_current' } : null;
   },
   async collabClose(sessionId) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
@@ -5181,7 +5181,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789099000';
+  var APP_VERSION = '1789100000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -21446,7 +21446,14 @@ function waitFB(cb){
    HOST: Iniciar sesion
 ══════════════════════════════════════════════════════════════ */
 window.collabStartSession = function(reportType, reportLabel, totalSites){
-  var sid='cs_'+Date.now()+'_'+myId().slice(0,6);
+  /* El Reporte Operativo usa un ID FIJO ('op_current') en vez de uno
+     aleatorio — así "¿ya hay un reporte activo?" se resuelve con un
+     getDoc() directo por ID (ver _fb.getOpCurrentSession) en lugar de
+     una query sobre la colección, que puede topar con reglas de
+     seguridad que no permiten "listar" aunque sí permitan leer un
+     documento puntual. Validación (val) sigue con ID aleatorio, sin
+     cambios, porque su modelo de división de sitios no usa este flujo. */
+  var sid = (reportType==='op') ? 'op_current' : ('cs_'+Date.now()+'_'+myId().slice(0,6));
   COLLAB.sessionId=sid; COLLAB.reportType=reportType; COLLAB.isHost=true; COLLAB._sessionLabel=reportLabel||'';
   COLLAB._mergeFired=false; // reset para esta nueva sesion
   COLLAB._participants=[{id:myId(),name:myName(),color:myColor(),role:myRole()}];
@@ -21974,7 +21981,6 @@ window.collabJoinSession = function(){
        a una sesión abre esa misma vista, con la sincronización en vivo
        campo por campo ya conectada, en vez de mandar al invitado al
        flujo clásico donde nunca vería los cambios del anfitrión. */
-    if(window._fb&&window._fb.markActiveReportParticipant) window._fb.markActiveReportParticipant('op',myId()).catch(function(){});
     setTimeout(function(){
       var sites2=window.OP_SITES||[];
       if(!window.opW||!Array.isArray(window.opW.srs)||window.opW.srs.length!==sites2.length){
@@ -22506,9 +22512,14 @@ function _collabHookSave(){
          _fb.collabClose(), que pone status:'closed' en la sesi\u00f3n \u2014 con eso
          sola ya deja de contar como "reporte activo" para el pr\u00f3ximo
          "Iniciar" (ver _opProStartOrJoinCollab), sin necesitar un paso
-         aparte para "liberar" nada. */
+         aparte para "liberar" nada. Tambi\u00e9n se borra el borrador LOCAL
+         (op:draft:v1): ahora que _opProStartDirect ya no pregunta con un
+         confirm() si quieres retomarlo, si no se borrara aqu\u00ed el pr\u00f3ximo
+         "Iniciar" reabrir\u00eda el reporte que se acaba de guardar en vez de
+         empezar uno limpio. */
       _op.apply(this,arguments);
       if(COLLAB.sessionId) window.collabEndSession();
+      try{ localStorage.removeItem('op:draft:v1'); }catch(e){}
     };
     window.opSave.__cs=true;
   }
@@ -34412,8 +34423,8 @@ function _opProCreateNewSession(cb){
   if(cb) cb();
 }
 function _opProStartOrJoinCollab(cb){
-  if(!window._fb || !window._fb.getActiveOpSession){ _opProCreateNewSession(cb); return; }
-  window._fb.getActiveOpSession('op').then(function(active){
+  if(!window._fb || !window._fb.getOpCurrentSession){ _opProCreateNewSession(cb); return; }
+  window._fb.getOpCurrentSession().then(function(active){
     var isFresh = active && active.id && active.status==='active'
       && (Date.now()-(active.updatedAt||active.startedAt||0) < OPPRO_ACTIVE_TTL);
     if(isFresh){
@@ -34432,8 +34443,8 @@ function _opProStartOrJoinCollab(cb){
       _opProCreateNewSession(cb);
     }
   }).catch(function(e){
-    console.warn('[OP-PRO colab] getActiveOpSession:', e && e.message);
-    _opProToast('⚠️ No se pudo revisar si ya había un reporte activo — se abrió uno nuevo');
+    console.warn('[OP-PRO colab] getOpCurrentSession:', e && e.message);
+    _opProToast('⚠️ No se pudo revisar si ya había un reporte activo ('+((e&&e.message)||'error')+') — se abrió uno nuevo');
     _opProCreateNewSession(cb);
   });
 }
@@ -34457,8 +34468,18 @@ function _opProCollabBarHtml(){
     +'<span>En vivo · '+nP+' colaborador'+(nP===1?'':'es')+'</span>'
     +_opProCollabAvatarsHtml()
     +'<button type="button" class="oppc-collab-btn" onclick="window._opProStartCollab()">+ Invitar</button>'
+    +'<button type="button" class="oppc-collab-btn oppc-collab-finish-btn" onclick="window._opProFinalizeReport()">🏁 Finalizar reporte</button>'
   +'</div>';
 }
+/* "Finalizar Reporte" — cierra el reporte compartido actual (lo guarda,
+   como el botón "Guardar Reporte" de arriba) para que quede liberado el
+   turno y cualquiera pueda arrancar uno NUEVO con "Iniciar". Vive aquí
+   también, en la barra de colaboración, porque cuando se está trabajando
+   a media tabla el botón de guardar de arriba queda lejos de la vista. */
+window._opProFinalizeReport = function(){
+  if(!confirm('¿Finalizar este reporte para todo el equipo? Se guardará y se cerrará la colaboración — el siguiente "Iniciar" abrirá uno nuevo.')) return;
+  if(window.opSave) window.opSave();
+};
 function _opProRefreshCollabBar(){
   var wrap = document.getElementById('oppro-collabbar');
   if(!wrap || !wrap.parentNode) return;
@@ -34487,29 +34508,29 @@ window._opProStartCollab = function(){
    camino por defecto — "modo clásico" queda como respaldo secundario.
    ══════════════════════════════════════════════════════════════════════ */
 window._opProStartDirect = function(){
+  /* El borrador local ya NO se pregunta con un confirm() cada vez — con
+     "un solo reporte a la vez" ya hay un único borrador con sentido en
+     juego, así que simplemente se retoma solo, siempre, sin interrumpir
+     con un diálogo. Si de verdad se necesita empezar de cero, para eso
+     está "🏁 Finalizar reporte" (lo cierra para todos) — a partir de ahí
+     el siguiente "Iniciar" arranca uno limpio automáticamente. */
   var _draftOp=null;
   try{ var _dOp=localStorage.getItem('op:draft:v1'); if(_dOp) _draftOp=JSON.parse(_dOp); }catch(e){}
   if(_draftOp && _draftOp.srs){
-    var _filledOp=_draftOp.srs.filter(function(s){return s.skip||s.status;}).length;
-    if(_filledOp>0 && confirm('Tienes un borrador con '+_filledOp+' sitios llenados. ¿Deseas continuarlo?')){
-      window.opW=_draftOp; opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
-      (function(){
-        var currentSites = window.OP_SITES || [];
-        var oldSrs = opW.srs || [];
-        if(oldSrs.length === currentSites.length) return;
-        var nameMap = {};
-        var oldNames = (opW._siteNames || []);
-        oldSrs.forEach(function(sr, i){ if(oldNames[i]) nameMap[oldNames[i].trim().toLowerCase()] = sr; });
-        var newSrs = currentSites.map(function(siteName){
-          var key = siteName.trim().toLowerCase();
-          return nameMap[key] || (window.opMkS ? opMkS() : {});
-        });
-        opW.srs = newSrs; opW._siteNames = currentSites.slice();
-      })();
-    } else {
-      try{ localStorage.removeItem('op:draft:v1'); }catch(e){}
-      opInitSetup(); opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
-    }
+    window.opW=_draftOp; opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
+    (function(){
+      var currentSites = window.OP_SITES || [];
+      var oldSrs = opW.srs || [];
+      if(oldSrs.length === currentSites.length) return;
+      var nameMap = {};
+      var oldNames = (opW._siteNames || []);
+      oldSrs.forEach(function(sr, i){ if(oldNames[i]) nameMap[oldNames[i].trim().toLowerCase()] = sr; });
+      var newSrs = currentSites.map(function(siteName){
+        var key = siteName.trim().toLowerCase();
+        return nameMap[key] || (window.opMkS ? opMkS() : {});
+      });
+      opW.srs = newSrs; opW._siteNames = currentSites.slice();
+    })();
   } else {
     opInitSetup(); opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
   }
@@ -34735,6 +34756,7 @@ function _opProRenderEditablePaper(){
     '.oppc-collab-avs{display:flex;margin-left:2px}'+
     '.oppc-collab-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:800;color:#fff;border:2px solid rgba(10,20,50,.9);margin-left:-6px}'+
     '.oppc-collab-btn{margin-left:auto;background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.2px;white-space:nowrap}'+
+    '.oppc-collab-finish-btn{margin-left:0;background:linear-gradient(135deg,#059669,#065f46)}'+
     '.oppc-collab-btn:hover{filter:brightness(1.1)}'+
     '.oppro-remote-cursor{position:absolute;top:-7px;right:-6px;width:14px;height:14px;border-radius:50%;color:#fff;font-size:6px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;z-index:5;pointer-events:none}'+
     'tr.oppro-remote-flash{background:rgba(74,120,245,.18);transition:background 1.2s ease-out}';
@@ -34806,9 +34828,9 @@ document.addEventListener('DOMContentLoaded', function(){
 var _opProNotifShownFor = null;
 function _opProToastSafe(fn){ try{ fn(); }catch(e){} }
 function _opProCheckPendingReport(){
-  if(!window._fb || !window._fb.getActiveOpSession) return;
+  if(!window._fb || !window._fb.getOpCurrentSession) return;
   if(window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='op') return; /* ya estoy adentro viendo el reporte */
-  window._fb.getActiveOpSession('op').then(function(active){
+  window._fb.getOpCurrentSession().then(function(active){
     if(!active || active.status!=='active') return;
     if(Date.now()-(active.updatedAt||active.startedAt||0) >= OPPRO_ACTIVE_TTL) return; /* quedó abandonado, ignorar */
     if(!active.participants || !active.participants[myId()]) return; /* nunca participé en este */
