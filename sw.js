@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789097000_bess_v61_pegado_excel_comentarios_bateria_dod';
+const DEPLOY_TS  = '1789098000_bess_v62_colaboracion_en_vivo_un_solo_reporte';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
