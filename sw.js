@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789093000_bess_v57_legibilidad_status_sobre_marca_agua';
+const DEPLOY_TS  = '1789094000_bess_v58_marca_agua_visible_colores_reales';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

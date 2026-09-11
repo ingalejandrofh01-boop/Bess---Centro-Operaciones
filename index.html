@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789093000';
+  var APP_VERSION = '1789094000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -33289,7 +33289,7 @@ function _opProRegionCardHtml(g, orientation, isWideCol){
      SOC/DOD que van pintados encima por las filas). Las demás regiones
      conservan su tarjeta blanca lisa de siempre. */
   var wmStyle = (g.name==='Industria' && OPPRO_INDUSTRIA_BG_B64)
-    ? ' style="background-image:linear-gradient(rgba(255,255,255,.72),rgba(255,255,255,.72)),url(\''+OPPRO_INDUSTRIA_BG_B64+'\');background-size:cover;background-position:center 60%"'
+    ? ' style="background-image:linear-gradient(rgba(255,255,255,.32),rgba(255,255,255,.32)),url(\''+OPPRO_INDUSTRIA_BG_B64+'\');background-size:cover;background-position:center 60%"'
     : '';
   return '<div class="oppc-card oppc-region"'+wmStyle+' data-pdf-avoid-break>'
     +'<div class="oppc-region-hdr" style="background:'+OPPRO_REGION_GRAD[g.name]+'">'
@@ -33444,7 +33444,7 @@ var OPPRO_STYLE = ''
 +'.oppc-region{padding:0;overflow:hidden;display:flex;flex-direction:column}'
 +'.oppc-region-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;color:#fff;font-family:Arial,"Helvetica Neue",sans-serif;font-weight:700;font-size:10.5px;letter-spacing:.3px}'
 +'.oppc-region-hdr-n{font-family:var(--mono,monospace);font-weight:700;font-size:8.5px;color:rgba(255,255,255,.9)}'
-+'.oppc-region-cols{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;padding:5px 9px 3px;font-size:7px;letter-spacing:.4px;text-transform:uppercase;color:#94a3b8;font-weight:800;background:rgba(255,255,255,.9)}'
++'.oppc-region-cols{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;padding:5px 9px 3px;font-size:7px;letter-spacing:.4px;text-transform:uppercase;color:#94a3b8;font-weight:800;background:rgba(255,255,255,.55)}'
 +'.oppc-region-rows-split{display:flex;align-items:stretch}'
 +'.oppc-subcol{flex:1;min-width:0}'
 +'.oppc-subcol+.oppc-subcol{border-left:1px solid #eef2fb}'
@@ -33453,14 +33453,14 @@ var OPPRO_STYLE = ''
    limpia, sin importar qué tan fuerte se vea la marca de agua de fondo en la
    tarjeta de Industria. La marca de agua solo queda visible en los huecos
    reales (paddings, espacio vacío al final de una columna más corta). */
-+'.oppc-row{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;align-items:center;padding:2.8px 9px;border-top:1px solid #eef2fb;background:rgba(255,255,255,.94)}'
-+'.oppc-row:nth-child(even){background:rgba(238,242,251,.94)}'
++'.oppc-row{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;align-items:center;padding:2.8px 9px;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
++'.oppc-row:nth-child(even){background:rgba(226,233,248,.68)}'
 +'.oppc-dot{width:6.5px;height:6.5px;border-radius:50%;flex-shrink:0}'
 +'.oppc-row-name{font-size:8.7px;font-weight:700;color:#132449;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
 +'.oppc-row-soc{font-family:var(--mono,monospace);font-size:7.8px;color:#5b6b8c;text-align:right}'
 +'.oppc-row-arrow{font-size:7px;color:#c2cadb;text-align:center}'
 +'.oppc-row-dod{font-family:var(--mono,monospace);font-size:8.3px;font-weight:800;text-align:right}'
-+'.oppc-more{font-size:7.8px;color:#94a3b8;padding:3.5px 9px;font-style:italic;border-top:1px solid #eef2fb;background:rgba(255,255,255,.9)}'
++'.oppc-more{font-size:7.8px;color:#94a3b8;padding:3.5px 9px;font-style:italic;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
 +'.oppc-region-ftr{font-family:var(--mono,monospace);font-size:7.5px;color:#5b6b8c;padding:5px 9px;background:#f4f7fd;border-top:1px solid #eef2fb;font-weight:700;margin-top:auto}'
 +'.oppc-bottom-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;align-items:start}'
 +'.oppc-watchcard{border-left:3px solid #ef4444}'
@@ -33766,7 +33766,7 @@ function _opProRegionSlug(name){ return name.replace(/\s+/g,''); }
 function _opProEditableRegionHtml(g, editable){
   var rowsHtml = g.rows.map(function(r){ return _opProEditableRowHtml(r, r._idx, editable); }).join('');
   var wmBg = (g.name==='Industria' && OPPRO_INDUSTRIA_BG_B64)
-    ? ';background-image:linear-gradient(rgba(255,255,255,.72),rgba(255,255,255,.72)),url(\''+OPPRO_INDUSTRIA_BG_B64+'\');background-size:cover;background-position:center 60%'
+    ? ';background-image:linear-gradient(rgba(255,255,255,.32),rgba(255,255,255,.32)),url(\''+OPPRO_INDUSTRIA_BG_B64+'\');background-size:cover;background-position:center 60%'
     : '';
   return '<div class="oppc-card oppc-eregion" data-pdf-avoid-break style="margin-bottom:8px'+wmBg+'">'
     +'<div class="oppc-region-hdr" style="background:'+OPPRO_REGION_GRAD[g.name]+';border-radius:8px 8px 0 0;margin:-10px -13px 8px">'
