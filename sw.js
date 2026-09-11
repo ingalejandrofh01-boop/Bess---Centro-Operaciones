@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789095000_bess_v59_iconos_marca_agua_por_region';
+const DEPLOY_TS  = '1789096000_bess_v60_reporte_principal_colab_excel_handoff';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

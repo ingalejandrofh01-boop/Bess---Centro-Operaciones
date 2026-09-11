@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789095000';
+  var APP_VERSION = '1789096000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -7742,11 +7742,12 @@ async function expDoZip(mode){
       <!-- input oculto mantenido por compatibilidad con opW.op -->
       <input id="op-op-inp" type="hidden"/>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid var(--b1)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid var(--b1);flex-wrap:wrap;gap:10px">
         <span style="font-family:var(--mono);font-size:10px;color:var(--t3)"><span id="op-sites-count" style="color:#1a3fcc;font-weight:700">—</span> sitios BESS</span>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <button class="op-btn-s" onclick="goPage('dash')">Cancelar</button>
-          <button class="op-btn-p" id="op-start-btn" onclick="opStartSites()" style="padding:10px 24px">Iniciar Reporte &#8594;</button>
+          <button class="op-btn-s" onclick="opStartSites()" title="Llenar sitio por sitio, como antes" style="font-size:10px;opacity:.7">Modo clásico (paso a paso)</button>
+          <button class="op-btn-p" id="op-start-btn" onclick="window._opProStartDirect?window._opProStartDirect():opStartSites()" style="padding:10px 24px">🚀 Iniciar Reporte &#8594;</button>
         </div>
       </div>
     </div>
@@ -33266,23 +33267,36 @@ function _opProRowHtml(r, regionName){
     +'<span class="oppc-row-dod" style="color:'+(r.dod!=null?OPPRO_REGION_COLOR[regionName]:'#c2cadb')+'">'+(r.dod!=null?(Math.round(r.dod*10)/10)+'%':'—')+'</span>'
   +'</div>';
 }
+function _opProColsHeaderHtml(){
+  return '<div class="oppc-region-cols"><span></span><span>Sitio</span><span>Inic.</span><span></span><span>Final</span><span>DOD</span></div>';
+}
 function _opProRegionCardHtml(g, orientation, isWideCol){
   var visible = g.rows.slice(0, OPPRO_MAX_ROWS_PER_REGION);
   var restN = g.rows.length - visible.length;
   var cols = _opProSubColsFor(g, orientation, isWideCol);
-  var rowsHtml;
+  var rowsHtml, headerHtml;
   if(cols<=1){
+    headerHtml = _opProColsHeaderHtml();
     rowsHtml = '<div class="oppc-region-rows">'+visible.map(function(r){return _opProRowHtml(r,g.name);}).join('')+'</div>';
   } else {
     /* Repartir las filas en N sub-columnas reales (flex), NO usando CSS
        column-count: Chromium tiene un bug conocido que deja en blanco el
        texto de elementos con overflow:hidden/ellipsis dentro de un
-       contenedor multi-columna — justo el caso de .oppc-row-name. */
+       contenedor multi-columna — justo el caso de .oppc-row-name.
+       El header de columnas (Sitio/Inic./Final/DOD) debe repartirse EXACTAMENTE
+       igual que las filas — si no, sus etiquetas quedan calculadas sobre el
+       ancho completo de la tarjeta mientras los datos reales viven en una
+       sub-columna más angosta, y el resultado es un hueco en blanco y las
+       etiquetas desalineadas de sus columnas reales. */
     var per = Math.ceil(visible.length/cols);
     var chunks = [];
     for(var i=0;i<cols;i++){ chunks.push(visible.slice(i*per,(i+1)*per)); }
+    var nonEmptyChunks = chunks.filter(function(c){return c.length;});
+    headerHtml = '<div class="oppc-region-rows-split oppc-region-cols-split">'
+      + nonEmptyChunks.map(function(){ return '<div class="oppc-subcol">'+_opProColsHeaderHtml()+'</div>'; }).join('')
+    +'</div>';
     rowsHtml = '<div class="oppc-region-rows oppc-region-rows-split">'
-      + chunks.filter(function(c){return c.length;}).map(function(chunk){
+      + nonEmptyChunks.map(function(chunk){
           return '<div class="oppc-subcol">'+chunk.map(function(r){return _opProRowHtml(r,g.name);}).join('')+'</div>';
         }).join('')
     +'</div>';
@@ -33303,7 +33317,7 @@ function _opProRegionCardHtml(g, orientation, isWideCol){
       +'<span>'+(OPPRO_REGION_ICON[g.name]||'')+' '+_oppEsc(g.name.toUpperCase())+'</span>'
       +'<span class="oppc-region-hdr-n">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
     +'</div>'
-    +'<div class="oppc-region-cols"><span></span><span>Sitio</span><span>Inic.</span><span></span><span>Final</span><span>DOD</span></div>'
+    +headerHtml
     +rowsHtml
     +(restN>0 ? '<div class="oppc-more">… '+restN+' sitio'+(restN===1?'':'s')+' más</div>' : '')
     +'<div class="oppc-region-ftr">'+g.ok+'/'+g.total+' OK'+(g.dodAvg!=null?' · DOD prom. '+(Math.round(g.dodAvg*10)/10)+'%':'')+'</div>'
@@ -33741,6 +33755,7 @@ var _opProSaveTimer = null, _opProSummaryTimer = null;
 
 function _opProEditableRowHtml(r, i, editable){
   var dodTxt = (r.dod!=null?(Math.round(r.dod*10)/10)+'%':'—');
+  var hfActive = !!(r.sr.handoff && r.sr.handoff.active);
   if(!editable){
     var st = OPPRO_STATUS_LABEL[r.sr.status] || {txt:r.sr.status||'—', color:'#64748b', bg:'rgba(148,163,184,.15)'};
     return '<tr>'
@@ -33751,22 +33766,28 @@ function _opProEditableRowHtml(r, i, editable){
       +'<td class="oppc-etd-num">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</td>'
       +'<td class="oppc-etd-num" id="oppro-dod-'+i+'" style="color:'+(r.dod!=null?OPPRO_REGION_COLOR[r.region]:'#c2cadb')+'">'+dodTxt+'</td>'
       +'<td class="oppc-etd-obs">'+_oppEsc(r.sr.obs||'')+'</td>'
+      +'<td style="text-align:center">'+(hfActive?'<span title="Handoff activo" style="color:#ef4444">🔥</span>':'')+'</td>'
     +'</tr>';
   }
   var curColor = OPPRO_STATUS_LABEL[r.sr.status] ? OPPRO_STATUS_LABEL[r.sr.status].color : '#94a3b8';
-  var opts = ['',''].concat(0).slice(0,0); /* noop para mantener función simple */
   var optHtml = '<option value="" '+(!r.sr.status?'selected':'')+'>— Sin estatus</option>'
     + OPPRO_STATUS_ORDER.slice().reverse().map(function(s){
         return '<option value="'+s+'" '+(r.sr.status===s?'selected':'')+'>'+(OPPRO_STATUS_LABEL[s]?OPPRO_STATUS_LABEL[s].txt:s)+'</option>';
       }).join('');
-  return '<tr>'
+  /* Navegación tipo Excel: cada celda editable lleva data-idx/data-col para
+     que _opProCellKeyNav (Enter/flechas) y _opProCellPaste (pegar bloques
+     copiados de Excel) puedan localizar la celda vecina o de destino sin
+     depender de ids frágiles. onfocus además transmite el "cursor" de este
+     usuario al resto de colaboradores en la sesión (ver _opProPushCursor). */
+  return '<tr id="oppro-tr-'+i+'">'
     +'<td class="oppc-etd-name">'+_oppEsc(r.name)+'</td>'
     +'<td class="oppc-etd-sku">'+(r.sku!=null?r.sku:'—')+'</td>'
-    +'<td><select class="oppc-esel" id="oppro-sel-'+i+'" style="color:'+curColor+'" onchange="window._opProSetStatus('+i+',this.value)">'+optHtml+'</select></td>'
-    +'<td><input type="number" min="0" max="100" class="oppc-einput" value="'+_oppEsc(r.sr.socIni!=null?r.sr.socIni:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'socIni\',this.value)"></td>'
-    +'<td><input type="number" min="0" max="100" class="oppc-einput" value="'+_oppEsc(r.sr.soc!=null?r.sr.soc:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'soc\',this.value)"></td>'
+    +'<td><select class="oppc-esel" id="oppro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="color:'+curColor+'" onchange="window._opProSetStatus('+i+',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)">'+optHtml+'</select></td>'
+    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-socIni-'+i+'" data-idx="'+i+'" data-col="socIni" value="'+_oppEsc(r.sr.socIni!=null?r.sr.socIni:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'socIni\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
+    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_oppEsc(r.sr.soc!=null?r.sr.soc:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'soc\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
     +'<td class="oppc-etd-num" id="oppro-dod-'+i+'" style="color:'+(r.dod!=null?OPPRO_REGION_COLOR[r.region]:'#c2cadb')+'">'+dodTxt+'</td>'
-    +'<td><input type="text" class="oppc-einput-obs" value="'+_oppEsc(r.sr.obs||'')+'" placeholder="Observación…" oninput="window._opProSetField('+i+',\'obs\',this.value)"></td>'
+    +'<td><input type="text" class="oppc-einput-obs" id="oppro-in-obs-'+i+'" data-idx="'+i+'" data-col="obs" value="'+_oppEsc(r.sr.obs||'')+'" placeholder="Observación…" oninput="window._opProSetField('+i+',\'obs\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
+    +'<td style="text-align:center"><button type="button" class="oppc-hf-btn'+(hfActive?' active':'')+'" title="Marcar/editar seguimiento (handoff) de este sitio" onclick="window._opProToggleHandoffRow('+i+')">🔥</button></td>'
   +'</tr>';
 }
 function _opProRegionSlug(name){ return name.replace(/\s+/g,''); }
@@ -33782,7 +33803,7 @@ function _opProEditableRegionHtml(g, editable){
       +'<span class="oppc-region-hdr-n" id="oppro-regn-'+_opProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+' · <span id="oppro-regft-'+_opProRegionSlug(g.name)+'">'+g.ok+'/'+g.total+' OK'+(g.dodAvg!=null?' · DOD prom. '+(Math.round(g.dodAvg*10)/10)+'%':'')+'</span></span>'
     +'</div>'
     +'<table class="oppc-etable"><thead><tr>'
-      +'<th>Sitio</th><th>SKU</th><th>Estatus</th><th>SOC Inic.</th><th>SOC Final</th><th>DOD</th><th>Observaciones</th>'
+      +'<th>Sitio</th><th>SKU</th><th>Estatus</th><th>SOC Inic.</th><th>SOC Final</th><th>DOD</th><th>Observaciones</th><th style="text-align:center">🔥</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
   +'</div>';
 }
@@ -33881,6 +33902,7 @@ window._opProSetField = function(i, field, value){
   }
   _opProScheduleSummaryRefresh();
   _opProScheduleSave();
+  _opProPushFieldLive(i, field, value);
 };
 window._opProSetStatus = function(i, value){
   if(window._opProReadOnlyView) return;
@@ -33890,6 +33912,443 @@ window._opProSetStatus = function(i, value){
   if(sel) sel.style.color = OPPRO_STATUS_LABEL[value] ? OPPRO_STATUS_LABEL[value].color : '#94a3b8';
   _opProScheduleSummaryRefresh();
   _opProScheduleSave();
+  _opProPushFieldLive(i, 'status', value);
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   NAVEGACIÓN TIPO EXCEL — Enter baja una fila, flechas se mueven entre
+   celdas, y pegar un bloque copiado de Excel (tabs = columnas, saltos de
+   línea = filas) llena varias celdas seguidas a partir de la celda activa.
+   ══════════════════════════════════════════════════════════════════════ */
+var OPPRO_COL_ORDER = ['status','socIni','soc','obs'];
+function _opProCellBoundary(el, dir){
+  if(el.tagName==='SELECT') return true;
+  /* Los <input type="number"> no exponen selectionStart/selectionEnd en
+     Chrome (siempre null, y setSelectionRange lanza InvalidStateError) —
+     como son campos cortos (SOC en %), las flechas siempre navegan entre
+     celdas en vez de mover el cursor de texto dentro del número. */
+  if(el.type==='number') return true;
+  var s = el.selectionStart, e = el.selectionEnd;
+  if(s==null || e==null || s!==e) return false;
+  return dir==='left' ? s===0 : e===String(el.value||'').length;
+}
+function _opProMoveVert(el, dir){
+  var col = el.getAttribute('data-col');
+  if(!col) return false;
+  var all = Array.prototype.slice.call(document.querySelectorAll('#op-paper-content [data-col="'+col+'"]'));
+  var idx = all.indexOf(el);
+  if(idx<0) return false;
+  var next = all[idx+dir];
+  if(!next) return false;
+  next.focus();
+  try{ if(next.select) next.select(); }catch(e){}
+  return true;
+}
+function _opProMoveHoriz(el, dir){
+  var col = el.getAttribute('data-col'), idx = el.getAttribute('data-idx');
+  if(!col || idx==null) return false;
+  var tr = document.getElementById('oppro-tr-'+idx);
+  if(!tr) return false;
+  var ci = OPPRO_COL_ORDER.indexOf(col), ni = ci+dir;
+  if(ni<0 || ni>=OPPRO_COL_ORDER.length) return false;
+  var target = tr.querySelector('[data-col="'+OPPRO_COL_ORDER[ni]+'"]');
+  if(!target) return false;
+  target.focus();
+  try{ if(target.select) target.select(); }catch(e){}
+  return true;
+}
+window._opProCellKeyNav = function(ev, el){
+  if(window._opProReadOnlyView) return;
+  var key = ev.key;
+  if(key==='Enter'){ ev.preventDefault(); _opProMoveVert(el, ev.shiftKey?-1:1); }
+  else if(key==='ArrowDown'){ ev.preventDefault(); _opProMoveVert(el, 1); }
+  else if(key==='ArrowUp'){ ev.preventDefault(); _opProMoveVert(el, -1); }
+  else if(key==='ArrowLeft'){ if(_opProCellBoundary(el,'left')){ if(_opProMoveHoriz(el,-1)) ev.preventDefault(); } }
+  else if(key==='ArrowRight'){ if(_opProCellBoundary(el,'right')){ if(_opProMoveHoriz(el,1)) ev.preventDefault(); } }
+};
+function _opProPasteIntoCell(target, value){
+  value = (value==null?'':String(value)).trim();
+  if(target.tagName==='SELECT'){
+    var opts = target.options, match = null;
+    for(var k=0;k<opts.length;k++){
+      var o = opts[k];
+      if(o.value.toLowerCase()===value.toLowerCase() || (o.textContent||'').trim().toLowerCase()===value.toLowerCase()){ match=o; break; }
+    }
+    if(match){ target.value = match.value; }
+  } else {
+    target.value = value;
+  }
+  try{ target.dispatchEvent(new Event(target.tagName==='SELECT'?'change':'input', {bubbles:true})); }catch(e){}
+}
+function _opProNextRowTr(tr){
+  var next = tr.nextElementSibling;
+  if(next) return next;
+  var table = tr.closest('table');
+  if(!table) return null;
+  var allTables = Array.prototype.slice.call(document.querySelectorAll('#op-paper-content table.oppc-etable'));
+  var ti = allTables.indexOf(table);
+  if(ti>=0 && ti+1<allTables.length){
+    var nt = allTables[ti+1];
+    return nt.querySelector('tbody tr');
+  }
+  return null;
+}
+window._opProCellPaste = function(ev, el){
+  if(window._opProReadOnlyView) return;
+  var cd = ev.clipboardData || window.clipboardData;
+  var text = cd ? cd.getData('text') : '';
+  if(!text) return;
+  var rows = text.replace(/\r/g,'').split('\n');
+  while(rows.length && rows[rows.length-1]===''){ rows.pop(); }
+  if(!rows.length) return;
+  var isMulti = rows.length>1 || rows[0].indexOf('\t')>=0;
+  if(!isMulti){
+    if(el.tagName==='SELECT'){ ev.preventDefault(); _opProPasteIntoCell(el, text); }
+    return; /* deja que el input normal pegue su propio valor */
+  }
+  ev.preventDefault();
+  var col = el.getAttribute('data-col');
+  var startCi = OPPRO_COL_ORDER.indexOf(col);
+  if(startCi<0) return;
+  var curTr = el.closest('tr');
+  for(var r=0; r<rows.length && curTr; r++){
+    var cells = rows[r].split('\t');
+    for(var c=0; c<cells.length; c++){
+      var ci = startCi+c;
+      if(ci>=OPPRO_COL_ORDER.length) break;
+      var target = curTr.querySelector('[data-col="'+OPPRO_COL_ORDER[ci]+'"]');
+      if(target) _opProPasteIntoCell(target, cells[c]);
+    }
+    curTr = _opProNextRowTr(curTr);
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   COLABORACIÓN EN TIEMPO REAL — reutiliza la sesión COLLAB/collab_sessions
+   ya existente en la app (participantes, colores, "+ Invitar") y le suma:
+   (a) sincronización en vivo de cada campo editado (no solo al fusionar
+       fragmentos al final), y (b) un indicador de "quién está editando
+       cuál celda ahora mismo" (cursor por participante).
+   ══════════════════════════════════════════════════════════════════════ */
+var _opProFieldPushT = {};
+function _opProPushFieldLive(i, field, value){
+  if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
+  if(!window._fb || !window._fb.collabPushSite) return;
+  var key = 'f'+i;
+  clearTimeout(_opProFieldPushT[key]);
+  _opProFieldPushT[key] = setTimeout(function(){
+    var patch = {}; patch[field]=value; patch._by=myId(); patch._ts=Date.now();
+    window._fb.collabPushSite(COLLAB.sessionId, i, patch).catch(function(){});
+  }, 450);
+}
+var _opProCursorT = null;
+window._opProCellFocus = function(el){
+  var i = parseInt(el.getAttribute('data-idx'),10), col = el.getAttribute('data-col');
+  if(isNaN(i) || !col) return;
+  if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
+  if(!window._fbFS || !window._fbDB) return;
+  clearTimeout(_opProCursorT);
+  _opProCursorT = setTimeout(function(){
+    try{
+      var FS=window._fbFS, DB=window._fbDB, patch={};
+      patch['cursors.'+myId()] = {idx:i, field:col, ts:Date.now(), name:myName(), color:myColor()};
+      FS.setDoc(FS.doc(DB,'collab_sessions',COLLAB.sessionId), patch, {merge:true}).catch(function(){});
+    }catch(e){}
+  }, 250);
+};
+function _opProIni(name){
+  var p=(name||'?').trim().split(' ').filter(Boolean);
+  return (p.length>=2?p[0][0]+p[p.length-1][0]:(name||'?').slice(0,2)).toUpperCase()||'??';
+}
+/* Aviso corto y a prueba de fallos — usa el toast global de la app si existe
+   (typeof evita ReferenceError si por scoping no estuviera disponible). */
+function _opProToast(msg){
+  try{ if(typeof safeToast==='function'){ safeToast(msg); return; } }catch(e){}
+  try{ if(window.safeToast) window.safeToast(msg); }catch(e){}
+}
+function _opProFieldEl(idx, field){
+  if(field==='status') return document.getElementById('oppro-sel-'+idx);
+  if(field==='socIni') return document.getElementById('oppro-in-socIni-'+idx);
+  if(field==='soc')    return document.getElementById('oppro-in-soc-'+idx);
+  if(field==='obs')    return document.getElementById('oppro-in-obs-'+idx);
+  return null;
+}
+function _opProApplyRemoteCursors(remoteCursors){
+  Array.prototype.slice.call(document.querySelectorAll('#op-paper-content .oppro-remote-cursor')).forEach(function(b){ b.remove(); });
+  if(!remoteCursors) return;
+  Object.keys(remoteCursors).forEach(function(uid){
+    if(uid===myId()) return;
+    var c = remoteCursors[uid];
+    if(!c || c.idx==null || !c.field) return;
+    if(Date.now()-(c.ts||0) > 8000) return; /* cursor viejo — ya no está ahí */
+    var el = _opProFieldEl(c.idx, c.field);
+    if(!el) return;
+    var td = el.closest('td'); if(!td) return;
+    td.style.position = 'relative';
+    var badge = document.createElement('span');
+    badge.className = 'oppro-remote-cursor';
+    badge.title = (c.name||'Colaborador')+' está editando aquí';
+    badge.style.background = c.color||'#4a78f5';
+    badge.textContent = _opProIni(c.name);
+    td.appendChild(badge);
+  });
+}
+function _opProApplyRemoteSrs(remoteSrs){
+  if(!remoteSrs || !window.opW || !window.opW.srs) return;
+  Object.keys(remoteSrs).forEach(function(key){
+    var i = parseInt(key,10);
+    if(isNaN(i) || !window.opW.srs[i]) return;
+    var patch = remoteSrs[key];
+    if(!patch || patch._by===myId()) return; /* ignora el eco de lo que yo mismo escribí */
+    var sr = window.opW.srs[i], changed = false;
+    OPPRO_COL_ORDER.forEach(function(f){
+      if(patch[f]!==undefined && sr[f]!==patch[f]){ sr[f]=patch[f]; changed=true; }
+    });
+    if(!changed) return;
+    var sel = document.getElementById('oppro-sel-'+i);
+    if(sel && document.activeElement!==sel){ sel.value = sr.status||''; sel.style.color = OPPRO_STATUS_LABEL[sr.status]?OPPRO_STATUS_LABEL[sr.status].color:'#94a3b8'; }
+    var inSocIni = document.getElementById('oppro-in-socIni-'+i);
+    if(inSocIni && document.activeElement!==inSocIni) inSocIni.value = sr.socIni!=null?sr.socIni:'';
+    var inSoc = document.getElementById('oppro-in-soc-'+i);
+    if(inSoc && document.activeElement!==inSoc) inSoc.value = sr.soc!=null?sr.soc:'';
+    var inObs = document.getElementById('oppro-in-obs-'+i);
+    if(inObs && document.activeElement!==inObs) inObs.value = sr.obs||'';
+    var dod = _oppDOD(sr);
+    var dodCell = document.getElementById('oppro-dod-'+i);
+    if(dodCell) dodCell.textContent = (dod!=null?(Math.round(dod*10)/10)+'%':'—');
+    var tr = document.getElementById('oppro-tr-'+i);
+    if(tr){ tr.classList.add('oppro-remote-flash'); setTimeout(function(){ tr.classList.remove('oppro-remote-flash'); }, 1400); }
+    _opProScheduleSummaryRefresh();
+    _opProScheduleSave();
+  });
+}
+window._opProApplyRemoteSrs = _opProApplyRemoteSrs;
+window._opProApplyRemoteCursors = _opProApplyRemoteCursors;
+var _opProCollabUnsub = null;
+function _opProCollabListen(){
+  if(_opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
+  if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
+  if(!window._fbFS || !window._fbDB) return;
+  try{
+    var FS=window._fbFS, DB=window._fbDB;
+    _opProCollabUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',COLLAB.sessionId), function(snap){
+      if(!snap.exists()) return;
+      var data = snap.data();
+      COLLAB._participants = Object.values(data.participants||{}).filter(Boolean);
+      _opProApplyRemoteSrs(data.srs||{});
+      _opProApplyRemoteCursors(data.cursors||{});
+      _opProRefreshCollabBar();
+    }, function(err){ console.warn('[OP-PRO colab] listener:', err.message); });
+  }catch(e){ console.warn('[OP-PRO colab] listen:', e.message); }
+}
+function _opProCollabAvatarsHtml(){
+  if(!window.COLLAB || !COLLAB._participants || !COLLAB._participants.length) return '';
+  return '<div class="oppc-collab-avs">'+COLLAB._participants.slice(0,6).map(function(p){
+    return '<div class="oppc-collab-av" title="'+_oppEsc(p.name||'')+'" style="background:'+(p.color||'#4a78f5')+'">'+_opProIni(p.name)+'</div>';
+  }).join('')+'</div>';
+}
+function _opProCollabBarHtml(){
+  var active = !!(window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='op');
+  if(!active){
+    return '<div class="oppc-collabbar" id="oppro-collabbar">'
+      +'<span style="opacity:.75">Trabaja en equipo — todos verán los cambios al instante.</span>'
+      +'<button type="button" class="oppc-collab-btn" onclick="window._opProStartCollab()">🤝 Colaborar en tiempo real</button>'
+    +'</div>';
+  }
+  var nP = COLLAB._participants.length;
+  return '<div class="oppc-collabbar" id="oppro-collabbar">'
+    +'<span class="oppc-live-dot"></span>'
+    +'<span>En vivo · '+nP+' colaborador'+(nP===1?'':'es')+'</span>'
+    +_opProCollabAvatarsHtml()
+    +'<button type="button" class="oppc-collab-btn" onclick="window._opProStartCollab()">+ Invitar</button>'
+  +'</div>';
+}
+function _opProRefreshCollabBar(){
+  var wrap = document.getElementById('oppro-collabbar');
+  if(!wrap || !wrap.parentNode) return;
+  var tmp = document.createElement('div');
+  tmp.innerHTML = _opProCollabBarHtml();
+  wrap.parentNode.replaceChild(tmp.firstElementChild, wrap);
+}
+window._opProRefreshCollabBar = _opProRefreshCollabBar;
+window._opProCollabBarHtml = _opProCollabBarHtml;
+window._opProStartCollab = function(){
+  if(!window.opW){ return; }
+  if(window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='op'){
+    if(window._collabShowUsersPopupOp) window._collabShowUsersPopupOp();
+    return;
+  }
+  if(window.collabStartSession){
+    /* collabStartSession llena COLLAB._participants de forma síncrona (antes
+       de escribir a Firestore), así que no hace falta esperar ningún
+       round-trip para pintar el estado "en vivo" con el host ya adentro. */
+    window.collabStartSession('op', window.opW.period||'Reporte Operativo', (window.OP_SITES||[]).length);
+    _opProCollabListen();
+    _opProRefreshCollabBar();
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   ENTRADA DIRECTA AL REPORTE EDITABLE — este es ahora el flujo principal
+   de llenado: en vez de ir sitio por sitio en el wizard, se abre de una
+   vez la Vista Previa/Reporte editable (misma tabla tipo Excel, mismo
+   guardado automático, misma colaboración en tiempo real) con todos los
+   sitios listos para llenarse en cualquier orden. El wizard paso a paso
+   sigue existiendo (opStartSites) por si se necesita, pero ya no es el
+   camino por defecto — "modo clásico" queda como respaldo secundario.
+   ══════════════════════════════════════════════════════════════════════ */
+window._opProStartDirect = function(){
+  var _draftOp=null;
+  try{ var _dOp=localStorage.getItem('op:draft:v1'); if(_dOp) _draftOp=JSON.parse(_dOp); }catch(e){}
+  if(_draftOp && _draftOp.srs){
+    var _filledOp=_draftOp.srs.filter(function(s){return s.skip||s.status;}).length;
+    if(_filledOp>0 && confirm('Tienes un borrador con '+_filledOp+' sitios llenados. ¿Deseas continuarlo?')){
+      window.opW=_draftOp; opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
+      (function(){
+        var currentSites = window.OP_SITES || [];
+        var oldSrs = opW.srs || [];
+        if(oldSrs.length === currentSites.length) return;
+        var nameMap = {};
+        var oldNames = (opW._siteNames || []);
+        oldSrs.forEach(function(sr, i){ if(oldNames[i]) nameMap[oldNames[i].trim().toLowerCase()] = sr; });
+        var newSrs = currentSites.map(function(siteName){
+          var key = siteName.trim().toLowerCase();
+          return nameMap[key] || (window.opMkS ? opMkS() : {});
+        });
+        opW.srs = newSrs; opW._siteNames = currentSites.slice();
+      })();
+    } else {
+      try{ localStorage.removeItem('op:draft:v1'); }catch(e){}
+      opInitSetup(); opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
+    }
+  } else {
+    opInitSetup(); opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
+  }
+  opW.op = localStorage.getItem('bess_uname') || 'Operador';
+  _op('op-wizard-modal', function(e){ e.classList.remove('open'); });
+  _op('op-sum-modal', function(e){ e.classList.add('open'); });
+  var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='none';
+  var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
+  window._opProReadOnlyView = false;
+  /* Iniciar (o retomar) la sesión colaborativa ANTES de pintar el papel:
+     collabStartSession llena COLLAB._participants de forma síncrona, así
+     que si esto corre antes de opBuildSum()/_opProRenderEditablePaper(),
+     la barra de colaboración sale "en vivo" desde el primer render — sin
+     esto, el papel se pinta primero en estado "sin sesión" y nadie vuelve
+     a refrescar esa barra después. */
+  if(window.collabStartSession){
+    if(window.COLLAB && window.COLLAB.sessionId){ window._collabUpdateBar && window._collabUpdateBar('op'); }
+    else { window.collabStartSession('op', opW.period||'Operativo', (window.OP_SITES||[]).length); }
+  }
+  opBuildSum();
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   HANDOFF DESDE EL REPORTE — reutiliza el mismo modelo de datos
+   (sr.handoff = {active,type,note,assignee}) y la misma ventana de
+   briefing/descarga (window.showHandoffBriefing) que ya existía en el
+   wizard paso a paso, pero permite llenarlo y descargarlo directamente
+   desde esta vista editable, sin pasar por el wizard.
+   ══════════════════════════════════════════════════════════════════════ */
+var OPPRO_HF_TYPES = [
+  {v:'VALIDACION',   t:'Validación',   c:'#3b82f6'},
+  {v:'INSPECCION',   t:'Inspección',   c:'#f59e0b'},
+  {v:'ESCALAMIENTO', t:'Escalamiento', c:'#ef4444'},
+  {v:'MONITOREO',    t:'Monitoreo',    c:'#8b5cf6'}
+];
+window._opProToggleHandoffRow = function(i){
+  if(window._opProReadOnlyView) return;
+  if(!window.opW || !window.opW.srs || !window.opW.srs[i]) return;
+  var sr = window.opW.srs[i];
+  if(!sr.handoff) sr.handoff = {active:false, type:'', note:'', assignee:''};
+  _opProOpenHandoffInline(i);
+};
+function _opProCloseHandoffInline(){
+  var m = document.getElementById('oppro-hf-modal');
+  if(m) m.remove();
+}
+function _opProOpenHandoffInline(i){
+  _opProCloseHandoffInline();
+  var sr = window.opW.srs[i];
+  var hf = sr.handoff || {active:false,type:'',note:'',assignee:''};
+  var siteName = (window.OP_SITES && window.OP_SITES[i]) || ('Sitio '+(i+1));
+  var typesHtml = OPPRO_HF_TYPES.map(function(t){
+    var sel = hf.type===t.v;
+    return '<button type="button" class="oppro-hf-type-btn'+(sel?' sel':'')+'" data-type="'+t.v+'" style="'+(sel?'background:'+t.c+';color:#fff;border-color:'+t.c+';':'border-color:'+t.c+';color:'+t.c+';')+'" onclick="window._opProHfPickType(this)">'+t.t+'</button>';
+  }).join('');
+  var wrap = document.createElement('div');
+  wrap.id = 'oppro-hf-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(6,10,24,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML =
+    '<div style="background:#0d1530;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:20px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+        +'<div style="font-family:Arial,sans-serif;font-weight:800;color:#fff;font-size:14px">🔥 Handoff · '+_oppEsc(siteName)+'</div>'
+        +'<button type="button" onclick="window._opProCloseHandoffInline()" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer">✕</button>'
+      +'</div>'
+      +'<div style="font-size:9.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:800;margin-bottom:6px">Tipo</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="oppro-hf-types">'+typesHtml+'</div>'
+      +'<div style="font-size:9.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:800;margin-bottom:6px">Nota</div>'
+      +'<textarea id="oppro-hf-note" rows="3" placeholder="¿Qué necesita seguimiento?" style="width:100%;box-sizing:border-box;background:#141b38;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#e5ecff;font-family:Arial,sans-serif;font-size:11px;padding:8px;margin-bottom:10px;resize:vertical">'+_oppEsc(hf.note||'')+'</textarea>'
+      +'<div style="font-size:9.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:800;margin-bottom:6px">Responsable / turno</div>'
+      +'<input id="oppro-hf-assignee" type="text" placeholder="Quién le da seguimiento" value="'+_oppEsc(hf.assignee||'')+'" style="width:100%;box-sizing:border-box;background:#141b38;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#e5ecff;font-family:Arial,sans-serif;font-size:11px;padding:8px;margin-bottom:16px">'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
+        +(hf.active?'<button type="button" onclick="window._opProHfSave('+i+',false)" style="background:none;border:1px solid rgba(239,68,68,.4);color:#f87171;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer">Quitar de seguimiento</button>':'')
+        +'<button type="button" onclick="window._opProCloseHandoffInline()" style="background:none;border:1px solid rgba(255,255,255,.15);color:#c7d6ff;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer">Cerrar</button>'
+        +'<button type="button" onclick="window._opProHfSave('+i+',true)" style="background:linear-gradient(135deg,#ef4444,#f59e0b);border:none;color:#fff;border-radius:8px;padding:8px 16px;font-size:11px;font-weight:800;cursor:pointer">🔥 Guardar</button>'
+      +'</div>'
+    +'</div>';
+  document.body.appendChild(wrap);
+  wrap.addEventListener('click', function(e){ if(e.target===wrap) _opProCloseHandoffInline(); });
+  wrap._selType = hf.type||'';
+}
+window._opProHfPickType = function(btn){
+  var modal = document.getElementById('oppro-hf-modal'); if(!modal) return;
+  modal._selType = btn.getAttribute('data-type');
+  Array.prototype.slice.call(modal.querySelectorAll('.oppro-hf-type-btn')).forEach(function(b){
+    var t = OPPRO_HF_TYPES.filter(function(x){return x.v===b.getAttribute('data-type');})[0];
+    var sel = b===btn;
+    b.style.background = sel ? t.c : 'transparent';
+    b.style.color = sel ? '#fff' : t.c;
+  });
+};
+window._opProHfSave = function(i, active){
+  if(!window.opW || !window.opW.srs || !window.opW.srs[i]) { _opProCloseHandoffInline(); return; }
+  var modal = document.getElementById('oppro-hf-modal');
+  var sr = window.opW.srs[i];
+  if(!sr.handoff) sr.handoff = {};
+  sr.handoff.active = !!active;
+  if(modal){
+    sr.handoff.type = modal._selType || sr.handoff.type || '';
+    var noteEl = document.getElementById('oppro-hf-note');
+    var asgEl = document.getElementById('oppro-hf-assignee');
+    if(noteEl) sr.handoff.note = noteEl.value;
+    if(asgEl) sr.handoff.assignee = asgEl.value;
+  }
+  _opProCloseHandoffInline();
+  _opProScheduleSave();
+  _opProPushFieldLive(i, 'handoff', sr.handoff);
+  /* refrescar el botón/indicador 🔥 de esa fila sin re-renderizar toda la tabla */
+  var tr = document.getElementById('oppro-tr-'+i);
+  if(tr){
+    var btn = tr.querySelector('.oppc-hf-btn');
+    if(btn) btn.classList.toggle('active', !!sr.handoff.active);
+  }
+  _opProToast(sr.handoff.active ? '🔥 Sitio marcado para seguimiento' : '✓ Seguimiento retirado');
+};
+window._opProShowHandoffFromReport = function(){
+  if(!window.opW || !window.opW.srs){ alert('No hay reporte abierto.'); return; }
+  var hfSites = window.opW.srs.filter(function(s){ return s && s.handoff && s.handoff.active; });
+  if(!hfSites.length){
+    alert('Todavía no hay sitios marcados para seguimiento. Usa el botón 🔥 junto a cada sitio en la tabla para marcarlo.');
+    return;
+  }
+  if(typeof window.showHandoffBriefing==='function'){
+    window.showHandoffBriefing(window.opW.srs, window.OP_SITES, {
+      subtitle: 'Handoff generado desde el Reporte Profesional — ' + hfSites.length + ' sitio' + (hfSites.length===1?'':'s') + ' con seguimiento pendiente'
+    });
+  } else {
+    alert('El módulo de Handoff no está disponible en este momento.');
+  }
 };
 
 function _opProRenderEditablePaper(){
@@ -33910,13 +34369,15 @@ function _opProRenderEditablePaper(){
   var html = '<style>'+OPPRO_STYLE+'</style>'
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
     + _opProHeaderHtml(meta, d.totalSitios)
+    + (editable ? _opProCollabBarHtml() : '')
     + '<div class="oppc-topline">'
       + '<div id="oppro-kpi-wrap">'+_opProKpiHtml({total:d.totalReportados, ok:d.okCount, par:d.parCount, crit:d.critCount, discom:d.discomCount, mant:d.mantCount, dodAvg:d.dodAvg,
           energyMwh: d.totalEnergyKwh!=null?d.totalEnergyKwh/1000:null, capMwh: d.totalCapKwh!=null?d.totalCapKwh/1000:null, aprovPct:d.aprovPct})+'</div>'
       + _opProStatusStripHtml('paper')
     + '</div>'
     + _opProLegendBarHtml()
-    + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estatus, SOC o observación de cualquier sitio para editarlo — se guarda automáticamente.</div>' : '')
+    + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estatus, SOC o observación de cualquier sitio para editarlo — se guarda automáticamente. Enter/flechas para moverte entre celdas, pega bloques copiados de Excel.'
+        +' <button type="button" class="oppc-hf-linkbtn" onclick="window._opProShowHandoffFromReport()">🔥 Ver/Descargar Handoff</button></div>' : '')
     + _opProEditableRegionsHtml(d.regionGroups, editable)
     + '<div class="oppc-bottom-grid">'
       + '<div id="oppro-watch-wrap">'+_opProWatchlistHtml(d.watchlist)+'</div>'
@@ -33928,6 +34389,7 @@ function _opProRenderEditablePaper(){
 
   paper.innerHTML = html;
   _opProDrawCharts(d.byStatus, d.regionGroups, d.totalReportados, 'paper');
+  if(editable) _opProCollabListen();
 }
 
 /* Estilos exclusivos de la tabla editable (inputs/selects a juego con el resto). */
@@ -33947,7 +34409,22 @@ function _opProRenderEditablePaper(){
     '.oppc-einput{width:52px;font-family:var(--mono,monospace);font-size:9px;border:1px solid #dbe4f5;border-radius:5px;padding:3px 5px;text-align:center;background:#fff}'+
     '.oppc-einput:focus,.oppc-esel:focus{outline:2px solid #3b82f6;outline-offset:1px}'+
     '.oppc-einput-obs{width:100%;min-width:140px;font-family:"Inter",sans-serif;font-size:9px;border:1px solid #dbe4f5;border-radius:5px;padding:3px 6px;background:#fff}'+
-    '.oppc-edithint{font-size:9px;color:#c7d6ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;margin-bottom:8px;font-weight:600}';
+    '.oppc-edithint{font-size:9px;color:#c7d6ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}'+
+    '.oppc-hf-linkbtn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:14px;padding:3px 10px;font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}'+
+    '.oppc-hf-linkbtn:hover{background:rgba(239,68,68,.28)}'+
+    '.oppc-hf-btn{background:none;border:1px solid #e2e8f5;border-radius:6px;width:22px;height:22px;font-size:11px;cursor:pointer;opacity:.35;filter:grayscale(1);transition:all .15s}'+
+    '.oppc-hf-btn:hover{opacity:.8}'+
+    '.oppc-hf-btn.active{opacity:1;filter:none;border-color:#ef4444;background:rgba(239,68,68,.08)}'+
+    '.oppro-hf-type-btn{background:transparent;border:1.5px solid #ccc;border-radius:20px;padding:5px 12px;font-size:10px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif}'+
+    '.oppc-collabbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;margin-bottom:8px;font-size:9.5px;color:#c7d6ff;font-weight:600;font-family:Arial,sans-serif}'+
+    '.oppc-live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.25);flex-shrink:0;animation:opprolivepulse 1.6s ease-in-out infinite}'+
+    '@keyframes opprolivepulse{0%,100%{opacity:1}50%{opacity:.35}}'+
+    '.oppc-collab-avs{display:flex;margin-left:2px}'+
+    '.oppc-collab-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:800;color:#fff;border:2px solid rgba(10,20,50,.9);margin-left:-6px}'+
+    '.oppc-collab-btn{margin-left:auto;background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.2px;white-space:nowrap}'+
+    '.oppc-collab-btn:hover{filter:brightness(1.1)}'+
+    '.oppro-remote-cursor{position:absolute;top:-7px;right:-6px;width:14px;height:14px;border-radius:50%;color:#fff;font-size:6px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;z-index:5;pointer-events:none}'+
+    'tr.oppro-remote-flash{background:rgba(74,120,245,.18);transition:background 1.2s ease-out}';
   document.head.appendChild(extraCss);
 })();
 
