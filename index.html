@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789096000';
+  var APP_VERSION = '1789097000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -33154,6 +33154,26 @@ function _oppDOD(sr){
   if(ini==null || fin==null) return null;
   return ini - fin;
 }
+/* Semáforo de DOD — más llamativo y a criterio del cliente:
+   <50% azul · <80% verde · <90% amarillo · ≥90% rojo. */
+function _opProDodBandColor(dod){
+  if(dod==null) return '#c2cadb';
+  if(dod<50) return '#3b82f6';
+  if(dod<80) return '#22c55e';
+  if(dod<90) return '#f59e0b';
+  return '#ef4444';
+}
+/* Celda de DOD como "indicador de batería": una barrita rellena según el DOD
+   (0-100%), coloreada por el semáforo de arriba, con el número al lado. */
+function _opProDodCellInner(dod){
+  var color = _opProDodBandColor(dod);
+  var txt = dod!=null ? (Math.round(dod*10)/10)+'%' : '—';
+  var pct = dod!=null ? Math.max(2,Math.min(100,dod)) : 0;
+  return '<div class="oppc-dodwrap" title="DOD '+txt+'">'
+    +'<div class="oppc-battery"><div class="oppc-battery-tip"></div><div class="oppc-battery-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
+    +'<span style="color:'+color+'">'+txt+'</span>'
+  +'</div>';
+}
 /* Capacidad real del sitio en kWh, desde la lista maestra (energiaBESS es la
    capacidad instalada del banco; si no existe se usa kwhTotal como respaldo). */
 function _oppCapacityKwh(master){
@@ -33264,7 +33284,7 @@ function _opProRowHtml(r, regionName){
     +'<span class="oppc-row-soc">'+(_oppNum(r.sr.socIni)!=null?_oppNum(r.sr.socIni)+'%':'—')+'</span>'
     +'<span class="oppc-row-arrow">→</span>'
     +'<span class="oppc-row-soc">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</span>'
-    +'<span class="oppc-row-dod" style="color:'+(r.dod!=null?OPPRO_REGION_COLOR[regionName]:'#c2cadb')+'">'+(r.dod!=null?(Math.round(r.dod*10)/10)+'%':'—')+'</span>'
+    +'<span class="oppc-row-dod" style="color:'+_opProDodBandColor(r.dod)+'">'+(r.dod!=null?(Math.round(r.dod*10)/10)+'%':'—')+'</span>'
   +'</div>';
 }
 function _opProColsHeaderHtml(){
@@ -33355,19 +33375,49 @@ function _opProWatchlistHtml(watchlist){
     body = '<div class="oppc-empty-ok">✅ Sin incidencias — todos los sitios reportados operan con normalidad.</div>';
   } else {
     body = watchlist.slice(0,8).map(function(r){
-      var st = OPPRO_STATUS_LABEL[r.sr.status] || {txt:r.sr.status||'—', color:'#64748b', bg:'rgba(148,163,184,.15)', dot:'#94a3b8'};
+      var st = OPPRO_STATUS_LABEL[r.sr.status] || {dot:'#94a3b8'};
+      var hf = r.sr.handoff || {};
+      var hfDef = (typeof OPPRO_HF_TYPES!=='undefined' ? OPPRO_HF_TYPES : []).filter(function(t){return t.v===hf.type;})[0];
+      var badgeTxt = hfDef ? hfDef.t : 'Seguimiento';
+      var badgeColor = hfDef ? hfDef.c : '#ef4444';
+      var note = hf.note || r.sr.obs || '';
       return '<div class="oppc-watch-row">'
         +'<span class="oppc-dot" style="background:'+st.dot+'"></span>'
         +'<div style="flex:1;min-width:0">'
           +'<div class="oppc-watch-name">'+_oppEsc(r.name)+' <span class="oppc-watch-region">· '+_oppEsc(r.region)+'</span></div>'
-          +(r.sr.obs ? '<div class="oppc-watch-obs">'+_oppEsc(r.sr.obs)+'</div>' : '')
+          +(note ? '<div class="oppc-watch-obs">'+_oppEsc(note)+'</div>' : '')
         +'</div>'
-        +'<span class="oppc-badge" style="color:'+st.color+';background:'+st.bg+'">'+_oppEsc(st.txt)+'</span>'
+        +'<span class="oppc-badge" style="color:'+badgeColor+';background:'+badgeColor+'22">'+_oppEsc(badgeTxt)+'</span>'
       +'</div>';
     }).join('') + (watchlist.length>8 ? '<div class="oppc-more">… '+(watchlist.length-8)+' más</div>' : '');
   }
   return '<div class="oppc-card oppc-watchcard" data-pdf-avoid-break>'
-    +'<div class="oppc-card-ttl" style="color:#dc2626"><span class="oppc-ttl-bar" style="background:#ef4444"></span>Sitios en seguimiento ('+watchlist.length+')</div>'
+    +'<div class="oppc-card-ttl" style="color:#dc2626"><span class="oppc-ttl-bar" style="background:#ef4444"></span>🔥 Handoff — seguimiento turno siguiente ('+watchlist.length+')</div>'
+    +body
+  +'</div>';
+}
+/* Comentarios — un lugar fijo donde no se pierden las observaciones cortas
+   de cualquier sitio (esté OK o no), como "bajo consumo" — separado del
+   panel de Handoff, que es solo para lo que sí necesita seguimiento. */
+function _opProCommentsHtml(rows){
+  var withObs = rows.filter(function(r){ return !r.sr.skip && r.sr.obs && String(r.sr.obs).trim(); });
+  var body;
+  if(!withObs.length){
+    body = '<div class="oppc-empty-ok" style="color:#64748b;background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.3)">Sin comentarios registrados en este turno.</div>';
+  } else {
+    body = withObs.slice(0,10).map(function(r){
+      var st = OPPRO_STATUS_LABEL[r.sr.status] || {dot:'#c2cadb'};
+      return '<div class="oppc-watch-row">'
+        +'<span class="oppc-dot" style="background:'+st.dot+'"></span>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div class="oppc-watch-name">'+_oppEsc(r.name)+' <span class="oppc-watch-region">· '+_oppEsc(r.region)+'</span></div>'
+          +'<div class="oppc-watch-obs">'+_oppEsc(r.sr.obs)+'</div>'
+        +'</div>'
+      +'</div>';
+    }).join('') + (withObs.length>10 ? '<div class="oppc-more">… '+(withObs.length-10)+' más</div>' : '');
+  }
+  return '<div class="oppc-card" data-pdf-avoid-break>'
+    +'<div class="oppc-card-ttl"><span class="oppc-ttl-bar" style="background:#3b82f6"></span>📝 Comentarios ('+withObs.length+')</div>'
     +body
   +'</div>';
 }
@@ -33464,8 +33514,8 @@ var OPPRO_STYLE = ''
 +'.oppc-region-col-wide{flex:1.08}'
 +'.oppc-region{padding:0;overflow:hidden;display:flex;flex-direction:column}'
 +'.oppc-region-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;color:#fff;font-family:Arial,"Helvetica Neue",sans-serif;font-weight:700;font-size:10.5px;letter-spacing:.3px}'
-+'.oppc-region-hdr-n{font-family:var(--mono,monospace);font-weight:700;font-size:8.5px;color:rgba(255,255,255,.9)}'
-+'.oppc-region-cols{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;padding:5px 9px 3px;font-size:7px;letter-spacing:.4px;text-transform:uppercase;color:#94a3b8;font-weight:800;background:rgba(255,255,255,.55)}'
++'.oppc-region-hdr-n{font-family:var(--mono,monospace);font-weight:700;font-size:9.2px;color:rgba(255,255,255,.9)}'
++'.oppc-region-cols{display:grid;grid-template-columns:11px 1fr 32px 11px 32px 36px;gap:4px;padding:5px 9px 3px;font-size:7.6px;letter-spacing:.4px;text-transform:uppercase;color:#94a3b8;font-weight:800;background:rgba(255,255,255,.55)}'
 +'.oppc-region-rows-split{display:flex;align-items:stretch}'
 +'.oppc-subcol{flex:1;min-width:0}'
 +'.oppc-subcol+.oppc-subcol{border-left:1px solid #eef2fb}'
@@ -33474,16 +33524,16 @@ var OPPRO_STYLE = ''
    limpia, sin importar qué tan fuerte se vea la marca de agua de fondo en la
    tarjeta de Industria. La marca de agua solo queda visible en los huecos
    reales (paddings, espacio vacío al final de una columna más corta). */
-+'.oppc-row{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;align-items:center;padding:2.8px 9px;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
++'.oppc-row{display:grid;grid-template-columns:11px 1fr 32px 11px 32px 36px;gap:4px;align-items:center;padding:3.2px 9px;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
 +'.oppc-row:nth-child(even){background:rgba(226,233,248,.68)}'
-+'.oppc-dot{width:6.5px;height:6.5px;border-radius:50%;flex-shrink:0}'
-+'.oppc-row-name{font-size:8.7px;font-weight:700;color:#132449;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-+'.oppc-row-soc{font-family:var(--mono,monospace);font-size:7.8px;color:#5b6b8c;text-align:right}'
-+'.oppc-row-arrow{font-size:7px;color:#c2cadb;text-align:center}'
-+'.oppc-row-dod{font-family:var(--mono,monospace);font-size:8.3px;font-weight:800;text-align:right}'
-+'.oppc-more{font-size:7.8px;color:#94a3b8;padding:3.5px 9px;font-style:italic;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
-+'.oppc-region-ftr{font-family:var(--mono,monospace);font-size:7.5px;color:#5b6b8c;padding:5px 9px;background:#f4f7fd;border-top:1px solid #eef2fb;font-weight:700;margin-top:auto}'
-+'.oppc-bottom-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;align-items:start}'
++'.oppc-dot{width:7.5px;height:7.5px;border-radius:50%;flex-shrink:0}'
++'.oppc-row-name{font-size:9.8px;font-weight:700;color:#132449;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
++'.oppc-row-soc{font-family:var(--mono,monospace);font-size:8.8px;color:#5b6b8c;text-align:right}'
++'.oppc-row-arrow{font-size:7.6px;color:#c2cadb;text-align:center}'
++'.oppc-row-dod{font-family:var(--mono,monospace);font-size:9.3px;font-weight:800;text-align:right}'
++'.oppc-more{font-size:8.8px;color:#94a3b8;padding:3.5px 9px;font-style:italic;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
++'.oppc-region-ftr{font-family:var(--mono,monospace);font-size:8.4px;color:#5b6b8c;padding:5px 9px;background:#f4f7fd;border-top:1px solid #eef2fb;font-weight:700;margin-top:auto}'
++'.oppc-bottom-grid{display:grid;grid-template-columns:1.15fr 1fr 0.85fr 1fr;gap:8px;align-items:start}'
 +'.oppc-watchcard{border-left:3px solid #ef4444}'
 +'.oppc-watch-row{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-top:1px solid #fde2e2}'
 +'.oppc-watch-row:first-of-type{border-top:none}'
@@ -33612,7 +33662,10 @@ function _opProRender(){
     return { name:reg, rows:sortedRows, total:regRows.length, ok:regOk, dodAvg:regDodAvg };
   }).filter(function(g){ return g.total>0; });
 
-  var watchlist = filled.filter(function(r){ return r.sr.status && r.sr.status!=='OK'; });
+  /* "Sitios en seguimiento" ya NO es automático por estatus — un sitio fuera
+     de operación no necesariamente necesita seguimiento del turno siguiente;
+     solo entran aquí los que se marcaron explícitamente con 🔥 Handoff. */
+  var watchlist = filled.filter(function(r){ return r.sr.handoff && r.sr.handoff.active; });
   watchlist.sort(function(a,b){
     var oa=OPPRO_STATUS_ORDER.indexOf(a.sr.status), ob=OPPRO_STATUS_ORDER.indexOf(b.sr.status);
     if(oa<0) oa=99; if(ob<0) ob=99;
@@ -33640,6 +33693,7 @@ function _opProRender(){
     + _opProRegionsHtml(regionGroups, orientation)
     + '<div class="oppc-bottom-grid">'
       + _opProWatchlistHtml(watchlist)
+      + _opProCommentsHtml(rows)
       + _opProDodChartHtml('pro')
       + _opProObsHtml({totalReportados:totalReportados, okCount:okCount, parCount:parCount, critCount:critCount, discomCount:discomCount, mantCount:mantCount, watchlist:watchlist, regionGroups:regionGroups, dodAvg:dodAvg})
     + '</div>'
@@ -33754,7 +33808,6 @@ window._opProReadOnlyView = false;
 var _opProSaveTimer = null, _opProSummaryTimer = null;
 
 function _opProEditableRowHtml(r, i, editable){
-  var dodTxt = (r.dod!=null?(Math.round(r.dod*10)/10)+'%':'—');
   var hfActive = !!(r.sr.handoff && r.sr.handoff.active);
   if(!editable){
     var st = OPPRO_STATUS_LABEL[r.sr.status] || {txt:r.sr.status||'—', color:'#64748b', bg:'rgba(148,163,184,.15)'};
@@ -33764,7 +33817,7 @@ function _opProEditableRowHtml(r, i, editable){
       +'<td><span class="oppc-badge" style="color:'+st.color+';background:'+st.bg+'">'+_oppEsc(st.txt||'—')+'</span></td>'
       +'<td class="oppc-etd-num">'+(_oppNum(r.sr.socIni)!=null?_oppNum(r.sr.socIni)+'%':'—')+'</td>'
       +'<td class="oppc-etd-num">'+(_oppNum(r.sr.soc)!=null?_oppNum(r.sr.soc)+'%':'—')+'</td>'
-      +'<td class="oppc-etd-num" id="oppro-dod-'+i+'" style="color:'+(r.dod!=null?OPPRO_REGION_COLOR[r.region]:'#c2cadb')+'">'+dodTxt+'</td>'
+      +'<td class="oppc-etd-num" id="oppro-dod-'+i+'">'+_opProDodCellInner(r.dod)+'</td>'
       +'<td class="oppc-etd-obs">'+_oppEsc(r.sr.obs||'')+'</td>'
       +'<td style="text-align:center">'+(hfActive?'<span title="Handoff activo" style="color:#ef4444">🔥</span>':'')+'</td>'
     +'</tr>';
@@ -33785,8 +33838,8 @@ function _opProEditableRowHtml(r, i, editable){
     +'<td><select class="oppc-esel" id="oppro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="color:'+curColor+'" onchange="window._opProSetStatus('+i+',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)">'+optHtml+'</select></td>'
     +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-socIni-'+i+'" data-idx="'+i+'" data-col="socIni" value="'+_oppEsc(r.sr.socIni!=null?r.sr.socIni:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'socIni\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
     +'<td><input type="number" min="0" max="100" class="oppc-einput" id="oppro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_oppEsc(r.sr.soc!=null?r.sr.soc:'')+'" placeholder="—" oninput="window._opProSetField('+i+',\'soc\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
-    +'<td class="oppc-etd-num" id="oppro-dod-'+i+'" style="color:'+(r.dod!=null?OPPRO_REGION_COLOR[r.region]:'#c2cadb')+'">'+dodTxt+'</td>'
-    +'<td><input type="text" class="oppc-einput-obs" id="oppro-in-obs-'+i+'" data-idx="'+i+'" data-col="obs" value="'+_oppEsc(r.sr.obs||'')+'" placeholder="Observación…" oninput="window._opProSetField('+i+',\'obs\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
+    +'<td class="oppc-etd-num" id="oppro-dod-'+i+'">'+_opProDodCellInner(r.dod)+'</td>'
+    +'<td><input type="text" class="oppc-einput-obs" id="oppro-in-obs-'+i+'" data-idx="'+i+'" data-col="obs" maxlength="140" value="'+_oppEsc(r.sr.obs||'')+'" placeholder="Comentario breve…" oninput="window._opProSetField('+i+',\'obs\',this.value)" onfocus="window._opProCellFocus(this)" onkeydown="window._opProCellKeyNav(event,this)" onpaste="window._opProCellPaste(event,this)"></td>'
     +'<td style="text-align:center"><button type="button" class="oppc-hf-btn'+(hfActive?' active':'')+'" title="Marcar/editar seguimiento (handoff) de este sitio" onclick="window._opProToggleHandoffRow('+i+')">🔥</button></td>'
   +'</tr>';
 }
@@ -33847,7 +33900,10 @@ function _opProComputeAll(){
     var regOk = regFilled.filter(function(r){return r.sr.status==='OK';}).length;
     return { name:reg, rows:regRows, total:regRows.length, ok:regOk, dodAvg:regDodAvg };
   }).filter(function(g){ return g.total>0; });
-  var watchlist = filled.filter(function(r){ return r.sr.status && r.sr.status!=='OK'; });
+  /* "Sitios en seguimiento" ya NO es automático por estatus — un sitio fuera
+     de operación no necesariamente necesita seguimiento del turno siguiente;
+     solo entran aquí los que se marcaron explícitamente con 🔥 Handoff. */
+  var watchlist = filled.filter(function(r){ return r.sr.handoff && r.sr.handoff.active; });
   watchlist.sort(function(a,b){
     var oa=OPPRO_STATUS_ORDER.indexOf(a.sr.status), ob=OPPRO_STATUS_ORDER.indexOf(b.sr.status);
     if(oa<0) oa=99; if(ob<0) ob=99;
@@ -33865,6 +33921,8 @@ function _opProRefreshSummary(){
     energyMwh: d.totalEnergyKwh!=null?d.totalEnergyKwh/1000:null, capMwh: d.totalCapKwh!=null?d.totalCapKwh/1000:null, aprovPct:d.aprovPct});
   var watchWrap = document.getElementById('oppro-watch-wrap');
   if(watchWrap) watchWrap.innerHTML = _opProWatchlistHtml(d.watchlist);
+  var commentsWrap = document.getElementById('oppro-comments-wrap');
+  if(commentsWrap) commentsWrap.innerHTML = _opProCommentsHtml(d.rows);
   d.regionGroups.forEach(function(g){
     var el = document.getElementById('oppro-regft-'+_opProRegionSlug(g.name));
     if(el) el.textContent = g.ok+'/'+g.total+' OK'+(g.dodAvg!=null?' · DOD prom. '+(Math.round(g.dodAvg*10)/10)+'%':'');
@@ -33898,7 +33956,7 @@ window._opProSetField = function(i, field, value){
     var sr = window.opW.srs[i];
     var dod = _oppDOD(sr);
     var cell = document.getElementById('oppro-dod-'+i);
-    if(cell) cell.textContent = (dod!=null?(Math.round(dod*10)/10)+'%':'—');
+    if(cell) cell.innerHTML = _opProDodCellInner(dod);
   }
   _opProScheduleSummaryRefresh();
   _opProScheduleSave();
@@ -33966,8 +34024,23 @@ window._opProCellKeyNav = function(ev, el){
   else if(key==='ArrowLeft'){ if(_opProCellBoundary(el,'left')){ if(_opProMoveHoriz(el,-1)) ev.preventDefault(); } }
   else if(key==='ArrowRight'){ if(_opProCellBoundary(el,'right')){ if(_opProMoveHoriz(el,1)) ev.preventDefault(); } }
 };
+/* Un "?" en la columna de SOC (típico al copiar de Excel un sitio que
+   estuvo sin comunicación y no se pudo leer el dato) no es un número —
+   se interpreta como "no se sabe": el campo queda vacío (nunca se guarda
+   "?" como si fuera un SOC real) y el estatus del sitio se marca como
+   SIN COMUNICACIÓN, para no perder esa información al pegar. */
+function _opProIsUnknownMark(v){ return String(v||'').trim()==='?'; }
 function _opProPasteIntoCell(target, value){
   value = (value==null?'':String(value)).trim();
+  var col = target.getAttribute('data-col'), idx = target.getAttribute('data-idx');
+  if((col==='socIni' || col==='soc') && _opProIsUnknownMark(value)){
+    target.value = '';
+    try{ target.dispatchEvent(new Event('input', {bubbles:true})); }catch(e){}
+    if(idx!=null && !isNaN(parseInt(idx,10)) && window._opProSetStatus){
+      window._opProSetStatus(parseInt(idx,10), 'DESCONECTADO');
+    }
+    return;
+  }
   if(target.tagName==='SELECT'){
     var opts = target.options, match = null;
     for(var k=0;k<opts.length;k++){
@@ -34003,7 +34076,7 @@ window._opProCellPaste = function(ev, el){
   if(!rows.length) return;
   var isMulti = rows.length>1 || rows[0].indexOf('\t')>=0;
   if(!isMulti){
-    if(el.tagName==='SELECT'){ ev.preventDefault(); _opProPasteIntoCell(el, text); }
+    if(el.tagName==='SELECT' || _opProIsUnknownMark(text)){ ev.preventDefault(); _opProPasteIntoCell(el, text); }
     return; /* deja que el input normal pegue su propio valor */
   }
   ev.preventDefault();
@@ -34104,6 +34177,13 @@ function _opProApplyRemoteSrs(remoteSrs){
     OPPRO_COL_ORDER.forEach(function(f){
       if(patch[f]!==undefined && sr[f]!==patch[f]){ sr[f]=patch[f]; changed=true; }
     });
+    /* El handoff (marcado 🔥) viaja aparte — es un objeto, no un campo simple
+       de OPPRO_COL_ORDER, así que se aplica y refleja en el botón de la fila. */
+    if(patch.handoff!==undefined){
+      sr.handoff = patch.handoff; changed = true;
+      var hfBtn = document.querySelector('#oppro-tr-'+i+' .oppc-hf-btn');
+      if(hfBtn) hfBtn.classList.toggle('active', !!(sr.handoff && sr.handoff.active));
+    }
     if(!changed) return;
     var sel = document.getElementById('oppro-sel-'+i);
     if(sel && document.activeElement!==sel){ sel.value = sr.status||''; sel.style.color = OPPRO_STATUS_LABEL[sr.status]?OPPRO_STATUS_LABEL[sr.status].color:'#94a3b8'; }
@@ -34115,7 +34195,7 @@ function _opProApplyRemoteSrs(remoteSrs){
     if(inObs && document.activeElement!==inObs) inObs.value = sr.obs||'';
     var dod = _oppDOD(sr);
     var dodCell = document.getElementById('oppro-dod-'+i);
-    if(dodCell) dodCell.textContent = (dod!=null?(Math.round(dod*10)/10)+'%':'—');
+    if(dodCell) dodCell.innerHTML = _opProDodCellInner(dod);
     var tr = document.getElementById('oppro-tr-'+i);
     if(tr){ tr.classList.add('oppro-remote-flash'); setTimeout(function(){ tr.classList.remove('oppro-remote-flash'); }, 1400); }
     _opProScheduleSummaryRefresh();
@@ -34326,6 +34406,7 @@ window._opProHfSave = function(i, active){
   }
   _opProCloseHandoffInline();
   _opProScheduleSave();
+  _opProScheduleSummaryRefresh();
   _opProPushFieldLive(i, 'handoff', sr.handoff);
   /* refrescar el botón/indicador 🔥 de esa fila sin re-renderizar toda la tabla */
   var tr = document.getElementById('oppro-tr-'+i);
@@ -34381,6 +34462,7 @@ function _opProRenderEditablePaper(){
     + _opProEditableRegionsHtml(d.regionGroups, editable)
     + '<div class="oppc-bottom-grid">'
       + '<div id="oppro-watch-wrap">'+_opProWatchlistHtml(d.watchlist)+'</div>'
+      + '<div id="oppro-comments-wrap">'+_opProCommentsHtml(d.rows)+'</div>'
       + _opProDodChartHtml('paper')
       + '<div id="oppro-obs-wrap">'+_opProObsHtml({totalReportados:d.totalReportados, okCount:d.okCount, parCount:d.parCount, critCount:d.critCount, discomCount:d.discomCount, mantCount:d.mantCount, watchlist:d.watchlist, regionGroups:d.regionGroups, dodAvg:d.dodAvg})+'</div>'
     + '</div>'
@@ -34411,6 +34493,11 @@ function _opProRenderEditablePaper(){
     '.oppc-einput-obs{width:100%;min-width:140px;font-family:"Inter",sans-serif;font-size:9px;border:1px solid #dbe4f5;border-radius:5px;padding:3px 6px;background:#fff}'+
     '.oppc-edithint{font-size:9px;color:#c7d6ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}'+
     '.oppc-hf-linkbtn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:14px;padding:3px 10px;font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}'+
+    '.oppc-dodwrap{display:flex;flex-direction:column;align-items:center;gap:2px}'+
+    '.oppc-dodwrap span{font-family:var(--mono,monospace);font-size:9.5px;font-weight:800}'+
+    '.oppc-battery{width:26px;height:10px;border:1.4px solid #c2cadb;border-radius:2px;position:relative;background:#fff;overflow:hidden;flex-shrink:0}'+
+    '.oppc-battery-fill{height:100%;display:block}'+
+    '.oppc-battery-tip{position:absolute;right:-3px;top:2.5px;width:2px;height:5px;background:#c2cadb;border-radius:0 1px 1px 0}'+
     '.oppc-hf-linkbtn:hover{background:rgba(239,68,68,.28)}'+
     '.oppc-hf-btn{background:none;border:1px solid #e2e8f5;border-radius:6px;width:22px;height:22px;font-size:11px;cursor:pointer;opacity:.35;filter:grayscale(1);transition:all .15s}'+
     '.oppc-hf-btn:hover{opacity:.8}'+
