@@ -5147,7 +5147,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789089000';
+  var APP_VERSION = '1789090000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -33107,6 +33107,7 @@ var OPPRO_REGION_GRAD  = {
   Industria:   'linear-gradient(135deg,#b45309,#f59e0b)',
   'Park Royal':'linear-gradient(135deg,#6d28d9,#a855f7)'
 };
+var OPPRO_REGION_ICON  = {ASUR:'✈️', OMA:'🛫', Industria:'🏭', 'Park Royal':'🏨'};
 var OPPRO_PARK_ROYAL_HINTS = ['luna','sol','cozumel','cbe','vallarta'];
 var OPPRO_MAX_ROWS_PER_REGION = 999; /* sin truncar — se muestran todos los sitios de cada región */
 
@@ -33171,20 +33172,40 @@ function _opProKpiCard(icon,label,value,sub,accent){
 }
 function _opProHeaderHtml(meta,total){
   return '<div class="oppc-hdr">'
-    +'<div style="display:flex;align-items:center;gap:13px;min-width:0">'
-      +'<div class="oppc-hdr-badge">⚡</div>'
-      +'<div style="min-width:0">'
-        +'<div class="oppc-hdr-title">REPORTE DIARIO DE DESCARGA BESS</div>'
-        +'<div class="oppc-hdr-accent"></div>'
-        +'<div class="oppc-hdr-sub">Operación y desempeño de '+total+' sitio'+(total===1?'':'s')+'</div>'
+    +'<div class="oppc-hdr-titleblock">'
+      +'<div class="oppc-hdr-title">REPORTE DIARIO DE DESCARGA BESS</div>'
+      +'<div class="oppc-hdr-accent"></div>'
+      +'<div class="oppc-hdr-sub">Operación y desempeño de '+total+' sitio'+(total===1?'':'s')+'</div>'
+    +'</div>'
+    +'<div class="oppc-hdr-right">'
+      +'<div class="oppc-hdr-chips">'
+        +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">📅</span><div><div class="oppc-hdr-chip-lbl">Fecha</div><div class="oppc-hdr-chip-val">'+_oppEsc(opFd(meta.date))+'</div></div></div>'
+        +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">⏱</span><div><div class="oppc-hdr-chip-lbl">Ventana</div><div class="oppc-hdr-chip-val">'+_oppEsc(meta.period)+'</div></div></div>'
+        +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">👤</span><div><div class="oppc-hdr-chip-lbl">Operador</div><div class="oppc-hdr-chip-val">'+_oppEsc(meta.op)+'</div></div></div>'
+      +'</div>'
+      +'<div class="oppc-hdr-brand">'
+        +'<div class="oppc-hdr-badge">⚡</div>'
+        +'<div class="oppc-hdr-brand-txt">'
+          +(window.SKYSENSE_LOGO_B64 ? '<img src="'+window.SKYSENSE_LOGO_B64+'" class="oppc-hdr-logo" alt="Skysense">' : '<span class="oppc-hdr-logotxt">SKYSENSE</span>')
+          +'<span class="oppc-hdr-brand-tag">Centro de Operaciones BESS</span>'
+        +'</div>'
       +'</div>'
     +'</div>'
-    +'<div class="oppc-hdr-chips">'
-      +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">📅</span><div><div class="oppc-hdr-chip-lbl">Fecha</div><div class="oppc-hdr-chip-val">'+_oppEsc(opFd(meta.date))+'</div></div></div>'
-      +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">⏱</span><div><div class="oppc-hdr-chip-lbl">Ventana</div><div class="oppc-hdr-chip-val">'+_oppEsc(meta.period)+'</div></div></div>'
-      +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">👤</span><div><div class="oppc-hdr-chip-lbl">Operador</div><div class="oppc-hdr-chip-val">'+_oppEsc(meta.op)+'</div></div></div>'
-      +'<div class="oppc-hdr-logowrap">'+(window.SKYSENSE_LOGO_B64 ? '<img src="'+window.SKYSENSE_LOGO_B64+'" class="oppc-hdr-logo" alt="Skysense">' : '<span class="oppc-hdr-logotxt">SKYSENSE</span>')+'</div>'
-    +'</div>'
+  +'</div>';
+}
+/* Franja explicativa fija: qué significan INIC./FINAL/DOD y cada color de
+   estatus — visible siempre arriba de las tarjetas de región, para que no
+   quede "al aire" aunque se recorte o exporte solo esa parte del reporte. */
+function _opProLegendBarHtml(){
+  var order = ['OK','INCOMPLETO','NO OPERATIVO','DESCONECTADO','MANTENIMIENTO','PÉRDIDA TOTAL'];
+  var dots = order.map(function(k){
+    var st = OPPRO_STATUS_LABEL[k];
+    return '<span class="oppc-lgd-item"><i style="background:'+st.dot+'"></i>'+_oppEsc(st.txt)+'</span>';
+  }).join('');
+  return '<div class="oppc-legendbar">'
+    +'<span class="oppc-lgd-soc"><b>SOC Inicial → SOC Final</b> · <b>DOD</b> = profundidad de descarga (Inicial − Final)</span>'
+    +'<span class="oppc-lgd-sep"></span>'
+    +dots
   +'</div>';
 }
 function _opProKpiHtml(k){
@@ -33265,7 +33286,7 @@ function _opProRegionCardHtml(g, orientation, isWideCol){
   }
   return '<div class="oppc-card oppc-region" data-pdf-avoid-break>'
     +'<div class="oppc-region-hdr" style="background:'+OPPRO_REGION_GRAD[g.name]+'">'
-      +'<span>'+_oppEsc(g.name.toUpperCase())+'</span>'
+      +'<span>'+(OPPRO_REGION_ICON[g.name]||'')+' '+_oppEsc(g.name.toUpperCase())+'</span>'
       +'<span class="oppc-region-hdr-n">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
     +'</div>'
     +'<div class="oppc-region-cols"><span></span><span>Sitio</span><span>Inic.</span><span></span><span>Final</span><span>DOD</span></div>'
@@ -33286,14 +33307,15 @@ function _opProRegionsHtml(regionGroups, orientation){
         }).join('')
     +'</div>';
   }
-  /* vertical (default): columna izquierda con las regiones pequeñas
-     apiladas (ASUR/OMA/Park Royal), columna derecha con Industria sola —
-     es la región con más sitios, así que se le da su propia columna en vez
-     de forzarla a compartir fila con las demás. Cada columna crece según
-     SU propio contenido (flex, no grid con spanning) para que no queden
-     huecos en blanco si una región es más corta que la otra. */
-  var right = regionGroups.filter(function(g){ return g.name==='Industria'; });
-  var left  = regionGroups.filter(function(g){ return g.name!=='Industria'; });
+  /* vertical (default): columna izquierda con ASUR/OMA apiladas, columna
+     derecha con Industria y, justo debajo, Park Royal — ambas comparten
+     columna porque Park Royal es un subconjunto de sitios de Industria y
+     así queda visualmente "debajo de Industria" en vez de mezclada con las
+     regiones chicas de la izquierda. Cada columna crece según SU propio
+     contenido (flex, no grid con spanning) para que no queden huecos en
+     blanco si una región es más corta que la otra. */
+  var right = regionGroups.filter(function(g){ return g.name==='Industria' || g.name==='Park Royal'; });
+  var left  = regionGroups.filter(function(g){ return g.name!=='Industria' && g.name!=='Park Royal'; });
   return '<div class="oppc-region-grid">'
     +'<div class="oppc-region-col">'+left.map(function(g){return _opProRegionCardHtml(g, orientation, false);}).join('')+'</div>'
     +'<div class="oppc-region-col oppc-region-col-wide">'+right.map(function(g){return _opProRegionCardHtml(g, orientation, true);}).join('')+'</div>'
@@ -33366,28 +33388,38 @@ var OPPRO_STYLE = ''
 +'}'
 +'.oppc-content{position:relative;z-index:1}'
 +'.oppc-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;background:rgba(255,255,255,.09);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 24px rgba(3,8,30,.35);border-radius:13px;padding:13px 18px;margin-bottom:9px}'
-+'.oppc-hdr-badge{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,#fde68a,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 4px 16px rgba(245,158,11,.45),inset 0 1px 0 rgba(255,255,255,.5)}'
++'.oppc-hdr-titleblock{min-width:0}'
++'.oppc-hdr-badge{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#fde68a,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 4px 14px rgba(245,158,11,.45),inset 0 1px 0 rgba(255,255,255,.5)}'
 +'.oppc-hdr-title{font-family:"Syne",sans-serif;font-weight:900;font-size:19px;color:#fff;letter-spacing:.4px;line-height:1.15}'
 +'.oppc-hdr-accent{width:56px;height:3px;border-radius:2px;background:linear-gradient(90deg,#facc15,#f59e0b);margin:4px 0 4px}'
 +'.oppc-hdr-sub{font-size:10.5px;color:#c7d6ff;font-weight:600}'
++'.oppc-hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}'
 +'.oppc-hdr-chips{display:flex;align-items:center;gap:9px;flex-wrap:wrap}'
 +'.oppc-hdr-chip{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:5px 10px}'
 +'.oppc-hdr-chip-ico{font-size:13px}'
 +'.oppc-hdr-chip-lbl{font-size:7.5px;letter-spacing:1px;text-transform:uppercase;color:#a9bdf0;font-weight:700}'
 +'.oppc-hdr-chip-val{font-size:10.5px;color:#fff;font-weight:800}'
-+'.oppc-hdr-logowrap{background:rgba(255,255,255,.95);border-radius:9px;padding:7px 12px;display:flex;align-items:center;box-shadow:0 4px 14px rgba(3,8,30,.25)}'
-+'.oppc-hdr-logo{height:22px;display:block}'
++'.oppc-hdr-brand{background:rgba(255,255,255,.95);border-radius:10px;padding:7px 14px 7px 9px;display:flex;align-items:center;gap:9px;box-shadow:0 4px 14px rgba(3,8,30,.25)}'
++'.oppc-hdr-brand-txt{display:flex;flex-direction:column;gap:2px}'
++'.oppc-hdr-logo{height:20px;display:block}'
 +'.oppc-hdr-logotxt{font-family:"Syne",sans-serif;font-weight:900;font-size:13px;color:#1a3fcc;letter-spacing:1px}'
-+'.oppc-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px}'
-+'.oppc-kpi{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px) saturate(160%);border:1px solid rgba(255,255,255,.7);border-radius:11px;padding:9px 11px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 6px 16px rgba(6,14,45,.16)}'
++'.oppc-hdr-brand-tag{font-size:6.8px;letter-spacing:.4px;text-transform:uppercase;color:#5b6b8c;font-weight:700;white-space:nowrap}'
++'.oppc-topline{display:flex;align-items:stretch;gap:8px;margin-bottom:8px}'
++'.oppc-kpi-row{display:flex;flex-wrap:wrap;gap:8px;flex:2.3 1 480px;margin-bottom:0}'
++'.oppc-kpi{flex:1 1 118px;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px) saturate(160%);border:1px solid rgba(255,255,255,.7);border-radius:11px;padding:9px 11px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 6px 16px rgba(6,14,45,.16)}'
 +'.oppc-kpi-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}'
-+'.oppc-kpi-lbl{font-size:7.6px;letter-spacing:.6px;text-transform:uppercase;color:#64748b;font-weight:800;white-space:nowrap}'
++'.oppc-kpi-lbl{font-size:7.4px;letter-spacing:.5px;text-transform:uppercase;color:#64748b;font-weight:800;line-height:1.25}'
 +'.oppc-kpi-val{font-family:"Syne",sans-serif;font-size:16px;font-weight:900;line-height:1.2;white-space:nowrap}'
-+'.oppc-kpi-sub{font-size:8.5px;color:#8899bb;font-weight:600;white-space:nowrap}'
++'.oppc-kpi-sub{font-size:8.2px;color:#8899bb;font-weight:600;line-height:1.3}'
++'.oppc-legendbar{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;background:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.6);border-radius:9px;padding:6px 13px;margin-bottom:8px;font-size:7.8px;color:#3c4a6b;font-weight:700}'
++'.oppc-lgd-soc b{color:#132449}'
++'.oppc-lgd-sep{width:1px;align-self:stretch;background:#d7e0f3}'
++'.oppc-lgd-item{display:flex;align-items:center;gap:4px;white-space:nowrap}'
++'.oppc-lgd-item i{width:7px;height:7px;border-radius:2px;display:inline-block;flex-shrink:0}'
 +'.oppc-card{background:rgba(255,255,255,.9);backdrop-filter:blur(10px) saturate(160%);border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:10px 13px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 6px 18px rgba(6,14,45,.16)}'
 +'.oppc-card-ttl{font-family:"Syne",sans-serif;font-size:11.5px;font-weight:900;color:#132449;margin-bottom:7px;display:flex;align-items:center;gap:7px;letter-spacing:.2px}'
 +'.oppc-ttl-bar{width:4px;height:12px;border-radius:2px;display:inline-block;flex-shrink:0}'
-+'.oppc-statusstrip{display:flex;align-items:center;gap:18px;margin-bottom:8px;padding:10px 16px}'
++'.oppc-statusstrip{display:flex;align-items:center;gap:18px;flex:1.3 1 300px;margin-bottom:0;padding:10px 16px}'
 +'.oppc-donut-wrap{width:86px;height:86px;position:relative;flex-shrink:0}'
 +'.oppc-donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;font-family:"Syne",sans-serif;line-height:1.1}'
 +'.oppc-donut-center b{font-size:15px;font-weight:900;color:#132449}'
@@ -33412,6 +33444,7 @@ var OPPRO_STYLE = ''
 +'.oppc-subcol{flex:1;min-width:0}'
 +'.oppc-subcol+.oppc-subcol{border-left:1px solid #eef2fb}'
 +'.oppc-row{display:grid;grid-template-columns:10px 1fr 30px 10px 30px 32px;gap:4px;align-items:center;padding:2.8px 9px;border-top:1px solid #eef2fb}'
++'.oppc-row:nth-child(even){background:rgba(244,247,253,.65)}'
 +'.oppc-dot{width:6.5px;height:6.5px;border-radius:50%;flex-shrink:0}'
 +'.oppc-row-name{font-size:8.7px;font-weight:700;color:#132449;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
 +'.oppc-row-soc{font-family:var(--mono,monospace);font-size:7.8px;color:#5b6b8c;text-align:right}'
@@ -33431,7 +33464,7 @@ var OPPRO_STYLE = ''
 +'.oppc-obs-list{margin:0;padding-left:15px;font-size:9.5px;color:#2a3a5c;line-height:1.55}'
 +'.oppc-obs-list li{margin-bottom:2px}'
 +'.oppc-ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:8px;color:#c7d6ff;font-weight:600;padding:0 2px}'
-+'@media(max-width:1100px){.oppc-kpi-row{grid-template-columns:repeat(3,1fr)}.oppc-region-grid{flex-direction:column}.oppc-bottom-grid{grid-template-columns:1fr}}';
++'@media(max-width:1100px){.oppc-topline{flex-direction:column}.oppc-kpi-row{flex-basis:auto}.oppc-region-grid{flex-direction:column}.oppc-bottom-grid{grid-template-columns:1fr}}';
 
 function _opProDrawCharts(byStatus, regionGroups, totalFilled, ns){
   ns = ns || 'pro';
@@ -33567,9 +33600,12 @@ function _opProRender(){
   var html = '<style>'+OPPRO_STYLE+'</style>'
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
     + _opProHeaderHtml(meta,totalSitios)
-    + _opProKpiHtml({total:totalReportados, ok:okCount, par:parCount, crit:critCount, discom:discomCount, mant:mantCount, dodAvg:dodAvg,
-                      energyMwh: totalEnergyKwh!=null?totalEnergyKwh/1000:null, capMwh: totalCapKwh!=null?totalCapKwh/1000:null, aprovPct:aprovPct})
-    + _opProStatusStripHtml('pro')
+    + '<div class="oppc-topline">'
+      + '<div id="oppro-kpi-wrap">'+_opProKpiHtml({total:totalReportados, ok:okCount, par:parCount, crit:critCount, discom:discomCount, mant:mantCount, dodAvg:dodAvg,
+                      energyMwh: totalEnergyKwh!=null?totalEnergyKwh/1000:null, capMwh: totalCapKwh!=null?totalCapKwh/1000:null, aprovPct:aprovPct})+'</div>'
+      + _opProStatusStripHtml('pro')
+    + '</div>'
+    + _opProLegendBarHtml()
     + _opProRegionsHtml(regionGroups, orientation)
     + '<div class="oppc-bottom-grid">'
       + _opProWatchlistHtml(watchlist)
@@ -33721,7 +33757,7 @@ function _opProEditableRegionHtml(g, editable){
   var rowsHtml = g.rows.map(function(r){ return _opProEditableRowHtml(r, r._idx, editable); }).join('');
   return '<div class="oppc-card oppc-eregion" data-pdf-avoid-break style="margin-bottom:8px">'
     +'<div class="oppc-region-hdr" style="background:'+OPPRO_REGION_GRAD[g.name]+';border-radius:8px 8px 0 0;margin:-10px -13px 8px">'
-      +'<span>'+_oppEsc(g.name.toUpperCase())+'</span>'
+      +'<span>'+(OPPRO_REGION_ICON[g.name]||'')+' '+_oppEsc(g.name.toUpperCase())+'</span>'
       +'<span class="oppc-region-hdr-n" id="oppro-regn-'+_opProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+' · <span id="oppro-regft-'+_opProRegionSlug(g.name)+'">'+g.ok+'/'+g.total+' OK'+(g.dodAvg!=null?' · DOD prom. '+(Math.round(g.dodAvg*10)/10)+'%':'')+'</span></span>'
     +'</div>'
     +'<table class="oppc-etable"><thead><tr>'
@@ -33853,9 +33889,12 @@ function _opProRenderEditablePaper(){
   var html = '<style>'+OPPRO_STYLE+'</style>'
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
     + _opProHeaderHtml(meta, d.totalSitios)
-    + '<div id="oppro-kpi-wrap">'+_opProKpiHtml({total:d.totalReportados, ok:d.okCount, par:d.parCount, crit:d.critCount, discom:d.discomCount, mant:d.mantCount, dodAvg:d.dodAvg,
-        energyMwh: d.totalEnergyKwh!=null?d.totalEnergyKwh/1000:null, capMwh: d.totalCapKwh!=null?d.totalCapKwh/1000:null, aprovPct:d.aprovPct})+'</div>'
-    + _opProStatusStripHtml('paper')
+    + '<div class="oppc-topline">'
+      + '<div id="oppro-kpi-wrap">'+_opProKpiHtml({total:d.totalReportados, ok:d.okCount, par:d.parCount, crit:d.critCount, discom:d.discomCount, mant:d.mantCount, dodAvg:d.dodAvg,
+          energyMwh: d.totalEnergyKwh!=null?d.totalEnergyKwh/1000:null, capMwh: d.totalCapKwh!=null?d.totalCapKwh/1000:null, aprovPct:d.aprovPct})+'</div>'
+      + _opProStatusStripHtml('paper')
+    + '</div>'
+    + _opProLegendBarHtml()
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estatus, SOC o observación de cualquier sitio para editarlo — se guarda automáticamente.</div>' : '')
     + _opProEditableRegionsHtml(d.regionGroups, editable)
     + '<div class="oppc-bottom-grid">'
