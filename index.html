@@ -5227,8 +5227,60 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789107000';
+  var APP_VERSION = '1789108000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
+
+  /* Aviso de "hay una versión nueva" — problema real observado: en una
+     app de una sola página como esta, una pestaña que se queda abierta
+     durante horas (típico en un turno) NUNCA se entera de que se publicó
+     una versión nueva por sí sola — todo el código que corre en esa
+     pestaña sigue siendo el de cuando se cargó, aunque el servidor ya
+     tenga otra cosa. Eso hizo que alguien siguiera viendo pantallas y
+     comportamientos ya corregidos en versiones más nuevas (p.ej. el "modo
+     clásico" ya quitado) simplemente porque nunca recargó. En vez de
+     recargar solo (eso fue lo que causaba loops en móvil antes), se
+     revisa cada pocos minutos si el archivo publicado trae una
+     APP_VERSION distinta a la que esta pestaña tiene cargada, y si es
+     así se muestra un aviso chiquito para que la persona decida recargar
+     cuando le convenga — nunca de forma automática/forzada. */
+  function _bessCheckForNewVersion(){
+    /* Sin sentido (y sin forma de que funcione) fuera de http/https — no
+       hay un "servidor" del que pedir la versión publicada al abrir el
+       archivo directo (file://) o durante pruebas automatizadas. */
+    if(location.protocol!=='http:' && location.protocol!=='https:') return;
+    try{
+      fetch(location.href.split('#')[0].split('?')[0], {cache:'no-store'})
+        .then(function(r){ return r.ok ? r.text() : null; })
+        .then(function(html){
+          if(!html) return;
+          var m = html.match(/var APP_VERSION\s*=\s*'(\d+)'/);
+          if(m && m[1] && m[1] !== APP_VERSION) _bessShowUpdateBanner();
+        }).catch(function(){});
+    }catch(e){}
+  }
+  function _bessShowUpdateBanner(){
+    if(document.getElementById('bess-update-banner')) return;
+    var b = document.createElement('div');
+    b.id = 'bess-update-banner';
+    b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;'
+      +'background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;font-family:Arial,sans-serif;'
+      +'font-size:12.5px;font-weight:700;padding:10px 14px;border-radius:24px;box-shadow:0 6px 24px rgba(0,0,0,.3);'
+      +'display:flex;align-items:center;gap:10px;cursor:default';
+    b.innerHTML = '<span>🔄 Hay una versión nueva de la app</span>'
+      +'<button type="button" style="background:#fff;color:#1a3fcc;border:none;border-radius:16px;padding:5px 12px;font-weight:800;cursor:pointer;font-size:12px">Actualizar ahora</button>'
+      +'<button type="button" style="background:transparent;color:#fff;border:none;font-size:16px;cursor:pointer;opacity:.7;line-height:1;padding:0 2px" title="Cerrar">✕</button>';
+    var btns = b.querySelectorAll('button');
+    btns[0].onclick = function(){ window.location.reload(); };
+    btns[1].onclick = function(){ b.remove(); };
+    document.body.appendChild(b);
+  }
+  if(document.readyState==='complete' || document.readyState==='interactive'){
+    setTimeout(_bessCheckForNewVersion, 4000);
+  } else {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(_bessCheckForNewVersion, 4000); });
+  }
+  setInterval(_bessCheckForNewVersion, 4*60*1000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') _bessCheckForNewVersion(); });
 })();
 </script>
 <script>
@@ -20485,6 +20537,16 @@ function opSetPeriod(p){
   });
 }
 function opStartSites(){
+  /* El "modo clásico" (este asistente sitio-por-sitio, con "Dividir N
+     colaboradores") se retiró de la interfaz — el flujo vigente es
+     siempre la Vista Profesional (_opProStartDirect). Esta función se
+     conserva solo como código de respaldo (por si _opProStartDirect no
+     llegara a existir por algún motivo), así que a partir de aquí SIEMPRE
+     redirige para allá primero — así ninguna referencia vieja que quedara
+     por ahí (un botón cacheado, una llamada desde consola, etc.) puede
+     volver a mandar a alguien al modo clásico mientras la app esté
+     realmente cargada con esta versión. */
+  if(typeof window._opProStartDirect==='function'){ window._opProStartDirect(); return; }
   /* Detectar borrador guardado */
   var _draftOp=null;
   try{var _dOp=localStorage.getItem('op:draft:v1');if(_dOp)_draftOp=JSON.parse(_dOp);}catch(e){}
@@ -34141,6 +34203,26 @@ function _opProScheduleSummaryRefresh(){
   if(_opProSummaryTimer) clearTimeout(_opProSummaryTimer);
   _opProSummaryTimer = setTimeout(_opProRefreshSummary, 350);
 }
+/* Indicador visible de "esto se está guardando solo" — el hint de arriba
+   de la tabla ya decía "se guarda automáticamente" en texto, pero nunca
+   mostraba EN VIVO que de verdad estaba pasando, así que no había forma de
+   confirmarlo a simple vista. Ahora cada edición marca el badge como
+   "Guardando…" al instante y, en cuanto el guardado local (el respaldo
+   más rápido e inmediato que hay) efectivamente se escribe, cambia a
+   "✓ Guardado" con la hora. */
+function _opProMarkSaving(){
+  var b = document.getElementById('oppro-autosave-badge');
+  if(b){ b.textContent = '💾 Guardando…'; b.classList.add('oppro-saving'); }
+}
+function _opProMarkSaved(){
+  var b = document.getElementById('oppro-autosave-badge');
+  if(b){
+    var hh = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    b.textContent = '✓ Guardado · '+hh; b.classList.remove('oppro-saving');
+  }
+}
+window._opProMarkSaving = _opProMarkSaving;
+window._opProMarkSaved = _opProMarkSaved;
 function _opProScheduleSave(){
   if(window._opProReadOnlyView) return;
   if(_opProSaveTimer) clearTimeout(_opProSaveTimer);
@@ -34151,12 +34233,14 @@ function _opProScheduleSave(){
         localStorage.setItem('op:draft:v1', JSON.stringify(snap));
       }
     }catch(e){}
+    _opProMarkSaved();
   }, 500);
 }
 /* Editar un sitio directo desde la vista previa — sin volver al wizard paso a paso. */
 window._opProSetField = function(i, field, value){
   if(window._opProReadOnlyView) return;
   if(!window.opW || !window.opW.srs || !window.opW.srs[i]) return;
+  _opProMarkSaving();
   window.opW.srs[i][field] = value;
   if(field==='socIni' || field==='soc'){
     var sr = window.opW.srs[i];
@@ -34179,6 +34263,7 @@ window._opProSetField = function(i, field, value){
 window._opProSetStatus = function(i, value){
   if(window._opProReadOnlyView) return;
   if(!window.opW || !window.opW.srs || !window.opW.srs[i]) return;
+  _opProMarkSaving();
   window.opW.srs[i].status = value;
   var sel = document.getElementById('oppro-sel-'+i);
   if(sel) sel.style.color = OPPRO_STATUS_LABEL[value] ? OPPRO_STATUS_LABEL[value].color : '#94a3b8';
@@ -34897,22 +34982,30 @@ window._opProStartDirect = function(){
   var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
   try{ if(typeof _opRestoreSaveBtns==='function') _opRestoreSaveBtns(); }catch(e){} /* por si quedó "Guardando…" pegado de una sesión anterior */
   window._opProReadOnlyView = false;
-  /* Iniciar (o retomar) la sesión colaborativa ANTES de pintar el papel:
-     collabStartSession llena COLLAB._participants de forma síncrona, así
-     que si esto corre antes de opBuildSum()/_opProRenderEditablePaper(),
-     la barra de colaboración sale "en vivo" desde el primer render — sin
-     esto, el papel se pinta primero en estado "sin sesión" y nadie vuelve
-     a refrescar esa barra después.
-     "Un solo reporte a la vez": si YO ya tengo sesión abierta, solo
+  /* Pintar la tabla YA, sin esperar ninguna ida y vuelta de red — antes
+     esto esperaba a que terminara collabStartSession/_opProStartOrJoinCollab
+     (que hace un getOpCurrentSession() + collabCreate() por Firestore)
+     antes de llamar a opBuildSum(), solo para que la barra de colaboración
+     saliera "en vivo" desde el primer render sin parpadear. El costo real
+     de eso resultó peor que el beneficio: en una red con algo de latencia
+     (o justo después de finalizar, cuando además hay que esperar a que mi
+     propio cierre anterior termine de asentarse) el reporte se quedaba
+     con la tabla en blanco varios segundos — "como que cierra el reporte
+     y después de un tiempo lo abre". Ahora la tabla se pinta de inmediato
+     con los datos que ya se tengan localmente, y la sesión colaborativa
+     (unirse/crear + escuchar en vivo) se resuelve DESPUÉS en segundo
+     plano — la barra "En vivo" y los datos de los demás aparecen solos en
+     cuanto lleguen, sin bloquear lo que el usuario ve primero. */
+  opBuildSum();
+  /* "Un solo reporte a la vez": si YO ya tengo sesión abierta, solo
      reconecto el listener (antes esta rama nunca lo hacía, por eso un
      colaborador que reentraba a la pantalla se quedaba sin recibir
      cambios en vivo); si no tengo ninguna, reviso si alguien más ya inició
      uno (collab_active/op) para unirme a ESE en vez de crear otro. */
   if(window.COLLAB && window.COLLAB.sessionId && window.COLLAB.reportType==='op'){
     _opProCollabListen();
-    opBuildSum();
   } else {
-    _opProStartOrJoinCollab(function(){ opBuildSum(); });
+    _opProStartOrJoinCollab(function(){ _opProRefreshCollabBar(); });
   }
 };
 
@@ -35052,7 +35145,8 @@ function _opProRenderEditablePaper(){
     + '</div>'
     + _opProLegendBarHtml()
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estatus, SOC o observación de cualquier sitio para editarlo — se guarda automáticamente. Enter/flechas para moverte entre celdas, pega bloques copiados de Excel.'
-        +' <button type="button" class="oppc-hf-linkbtn" onclick="window._opProShowHandoffFromReport()">🔥 Ver/Descargar Handoff</button></div>' : '')
+        +' <button type="button" class="oppc-hf-linkbtn" onclick="window._opProShowHandoffFromReport()">🔥 Ver/Descargar Handoff</button>'
+        +' <span id="oppro-autosave-badge" class="oppro-autosave-badge">💾 Todo guardado</span></div>' : '')
     + (editable ? _opProBulkPasteHtml() : '')
     + _opProEditableRegionsHtml(d.regionGroups, editable)
     + '<div class="oppc-bottom-grid">'
@@ -35087,6 +35181,8 @@ function _opProRenderEditablePaper(){
     '.oppc-einput:focus,.oppc-esel:focus{outline:2px solid #3b82f6;outline-offset:1px}'+
     '.oppc-einput-obs{width:100%;min-width:140px;font-family:"Inter",sans-serif;font-size:9px;border:1px solid #dbe4f5;border-radius:5px;padding:3px 6px;background:#fff}'+
     '.oppc-edithint{font-size:9px;color:#c7d6ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}'+
+    '.oppro-autosave-badge{margin-left:auto;font-weight:800;white-space:nowrap;color:#7dd3fc;transition:color .3s}'+
+    '.oppro-autosave-badge.oppro-saving{color:#fbbf24}'+
     '.oppc-bulkpaste{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 12px;margin-bottom:10px}'+
     '.oppc-bulkpaste-hdr{font-size:9.5px;color:#c7d6ff;font-weight:700;margin-bottom:8px;font-family:Arial,sans-serif}'+
     '.oppc-bulkpaste-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}'+
