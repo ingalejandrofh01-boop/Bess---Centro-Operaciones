@@ -5181,7 +5181,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789100000';
+  var APP_VERSION = '1789101000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -34222,36 +34222,98 @@ function _opProBulkPasteColHtml(field, label){
   return '<div class="oppc-bulkpaste-col">'
     +'<label for="'+id+'">'+_oppEsc(label)+'</label>'
     +'<textarea id="'+id+'" rows="3" placeholder="Pega la columna aquí…" onpaste="window._opProBulkPasteHandle(this,\''+field+'\')"></textarea>'
-    +'<button type="button" onclick="window._opProBulkApplyColumn(\''+field+'\', document.getElementById(\''+id+'\').value)">Aplicar a la tabla</button>'
+    +'<div class="oppc-bulkpaste-col-btns">'
+      +'<button type="button" class="oppc-bulk-btn-copy" onclick="window._opProBulkCopyColumn(\''+field+'\')">📋 Copiar de la tabla</button>'
+      +'<button type="button" class="oppc-bulk-btn-apply" onclick="window._opProBulkApplyColumn(\''+field+'\', document.getElementById(\''+id+'\').value)">⬇️ Aplicar a la tabla</button>'
+    +'</div>'
   +'</div>';
 }
 /* Aplicar automáticamente en cuanto se pega (sin esperar al botón) — el
    evento paste se dispara ANTES de que el navegador inserte el texto en
-   el textarea, por eso el pequeño setTimeout(…,0) para leerlo ya lleno. */
+   el textarea, por eso el pequeño setTimeout(…,0) para leerlo ya lleno.
+   IMPORTANTE: ya NO se vacía el cuadro después — así el texto pegado
+   se queda visible (sirve de confirmación) y el botón "Aplicar a la
+   tabla" sigue disponible como respaldo si el auto-aplicado no bastara. */
 window._opProBulkPasteHandle = function(el, field){
   setTimeout(function(){
     window._opProBulkApplyColumn(field, el.value);
-    el.value = '';
   }, 0);
 };
+/* Convierte lo pegado (que puede venir de Excel con "%", comas decimales,
+   espacios o texto suelto) en un número limpio 0-100. Devuelve null si
+   no se pudo interpretar ningún número — antes esto se asignaba tal cual
+   a un <input type="number">, que en HTML IGNORA en silencio cualquier
+   valor que no sea un número válido (ej. "96%" o "96 "), dejando el
+   campo vacío sin avisar — esa era la causa real de que SOC Inicial y
+   SOC Final parecieran no responder al pegado. */
+function _opProSanitizeNumericPaste(raw){
+  if(raw==null) return null;
+  var s = String(raw).trim();
+  if(s==='') return null;
+  s = s.replace(/%/g,'').replace(/\s+/g,'').replace(',', '.');
+  var m = s.match(/-?\d+(?:\.\d+)?/);
+  if(!m) return null;
+  var n = parseFloat(m[0]);
+  if(!isFinite(n)) return null;
+  if(n<0) n=0; if(n>100) n=100;
+  return String(n);
+}
 window._opProBulkApplyColumn = function(field, text){
   if(window._opProReadOnlyView) return;
   if(!text) return;
   var lines = text.replace(/\r/g,'').split('\n');
   while(lines.length && lines[lines.length-1]===''){ lines.pop(); }
   if(!lines.length) return;
-  var applied = 0;
+  var isNumericCol = (field==='socIni' || field==='soc');
+  var applied = 0, invalid = 0;
   for(var i=0;i<lines.length;i++){
     var val = lines[i].trim();
     if(val==='') continue;
     var el = document.getElementById('oppro-in-'+field+'-'+i);
     if(!el) continue;
+    if(isNumericCol && !_opProIsUnknownMark(val)){
+      var clean = _opProSanitizeNumericPaste(val);
+      if(clean===null){ invalid++; continue; }
+      val = clean;
+    }
     _opProPasteIntoCell(el, val);
     applied++;
   }
   var labelMap = {socIni:'SOC Inicial', soc:'SOC Final', obs:'Comentarios'};
-  _opProToast(applied>0 ? ('✅ '+applied+' valores aplicados a '+(labelMap[field]||field)) : '⚠️ No se aplicó nada — revisa el orden de las filas pegadas');
+  var lbl = labelMap[field]||field;
+  var msg;
+  if(applied>0 && invalid===0) msg = '✅ '+applied+' valores aplicados a '+lbl;
+  else if(applied>0 && invalid>0) msg = '✅ '+applied+' aplicados a '+lbl+' — ⚠️ '+invalid+' no eran números válidos y se dejaron sin tocar';
+  else msg = '⚠️ No se aplicó nada — revisa el orden de las filas pegadas'+(invalid>0?' (ninguna era un número válido)':'');
+  _opProToast(msg);
 };
+/* Copiar la columna ACTUAL de la app (lo que ya está capturado en la
+   tabla) hacia el cuadro de pegado — y de paso al portapapeles del
+   sistema, para pegarlo directo en Excel u otro lado. */
+window._opProBulkCopyColumn = function(field){
+  var sites = (window.opW && window.opW.srs) || [];
+  var lines = sites.map(function(sr){
+    var v = sr && sr[field];
+    return (v==null?'':String(v));
+  });
+  var text = lines.join('\n');
+  var ta = document.getElementById('oppro-bulk-'+field);
+  if(ta) ta.value = text;
+  var labelMap = {socIni:'SOC Inicial', soc:'SOC Final', obs:'Comentarios'};
+  var lbl = labelMap[field]||field;
+  var done = function(){ _opProToast('📋 '+lines.length+' valores de '+lbl+' copiados — ya están en el cuadro y en tu portapapeles'); };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){ _opProFallbackCopy(ta, done); });
+      return;
+    }
+  }catch(e){}
+  _opProFallbackCopy(ta, done);
+};
+function _opProFallbackCopy(ta, done){
+  try{ if(ta){ ta.focus(); ta.select(); document.execCommand('copy'); } }catch(e){}
+  done();
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    COLABORACIÓN EN TIEMPO REAL — reutiliza la sesión COLLAB/collab_sessions
@@ -34737,8 +34799,10 @@ function _opProRenderEditablePaper(){
     '.oppc-bulkpaste-col label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:800;color:#93a5d6;font-family:var(--mono,monospace)}'+
     '.oppc-bulkpaste-col textarea{font-family:var(--mono,monospace);font-size:9.5px;border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:5px 7px;background:rgba(8,14,34,.55);color:#e5ecff;resize:vertical;min-height:52px}'+
     '.oppc-bulkpaste-col textarea::placeholder{color:#6b7ba8}'+
-    '.oppc-bulkpaste-col button{align-self:flex-start;background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;border:none;border-radius:14px;padding:4px 10px;font-size:8.5px;font-weight:800;cursor:pointer}'+
+    '.oppc-bulkpaste-col-btns{display:flex;gap:6px;flex-wrap:wrap}'+
+    '.oppc-bulkpaste-col button{background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;border:none;border-radius:14px;padding:4px 10px;font-size:8.5px;font-weight:800;cursor:pointer;white-space:nowrap;flex:1 1 auto}'+
     '.oppc-bulkpaste-col button:hover{filter:brightness(1.1)}'+
+    '.oppc-bulkpaste-col-btns .oppc-bulk-btn-copy{background:linear-gradient(135deg,#475569,#1e293b)}'+
     '.oppc-hf-linkbtn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:14px;padding:3px 10px;font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}'+
     '.oppc-dodwrap{display:flex;flex-direction:column;align-items:center;gap:2px}'+
     '.oppc-dodwrap span{font-family:var(--mono,monospace);font-size:9.5px;font-weight:800}'+
