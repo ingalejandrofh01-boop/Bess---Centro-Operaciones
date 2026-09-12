@@ -26,7 +26,7 @@
 <script type="module">
 import { initializeApp }                              from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, getDoc,
-         deleteDoc, doc, query, orderBy, writeBatch, limit, startAfter, onSnapshot, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+         deleteDoc, doc, query, orderBy, writeBatch, limit, startAfter, onSnapshot, setDoc, updateDoc, where, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Firebase Storage no disponible en plan Spark — archivos guardados en Firestore como base64
 
 const firebaseConfig = {
@@ -233,10 +233,43 @@ window._fb = {
 
 
   /* ── SESIONES COLABORATIVAS ── */
+  /* "Solo un anfitrión puede existir": antes esto era un setDoc directo
+     (sobrescribe siempre, sin mirar qué había antes), así que si dos
+     personas le daban "Iniciar" casi al mismo tiempo (típico al arrancar
+     el turno todos juntos), ambas terminaban creyendo localmente que ELLAS
+     eran el host (COLLAB.isHost se pone en true en el cliente antes de que
+     la escritura llegue a Firestore) y la última escritura en llegar
+     "ganaba" en el servidor sin que nadie se enterara — de ahí que "ya no
+     se sabe quién es el anfitrión". Ahora se usa una transacción: se lee
+     el documento y solo se crea/sobrescribe si NO hay ya una sesión activa
+     y vigente; si alguien más se adelantó, se devuelve esa sesión existente
+     en vez de pisarla, para que quien perdió la carrera se una como
+     invitado en lugar de quedarse creyendo (incorrectamente) que es host. */
   async collabCreate(session) {
     const ref = doc(fbDB, 'collab_sessions', session.id);
-    await setDoc(ref, { ...session, createdAt: Date.now(), updatedAt: Date.now() });
-    return session.id;
+    const TTL = 18*60*60*1000; // mismo margen que OPPRO_ACTIVE_TTL
+    const nowTs = Date.now();
+    try {
+      return await runTransaction(fbDB, async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists()) {
+          const data = snap.data();
+          const fresh = data.status === 'active' && (nowTs - (data.updatedAt || data.createdAt || 0) < TTL);
+          if (fresh) {
+            return { created: false, existing: { ...data, id: session.id } };
+          }
+        }
+        tx.set(ref, { ...session, createdAt: nowTs, updatedAt: nowTs });
+        return { created: true, createdAt: nowTs };
+      });
+    } catch(e) {
+      /* Si la transacción falla por algún motivo (reglas de seguridad que no
+         permiten transacciones sobre esta colección, por ejemplo), no dejar
+         la app sin poder iniciar nada — volver al setDoc directo de antes. */
+      console.warn('[Collab] collabCreate transacción falló, usando setDoc directo:', e && e.message);
+      await setDoc(ref, { ...session, createdAt: nowTs, updatedAt: nowTs });
+      return { created: true, createdAt: nowTs };
+    }
   },
   async collabUpdate(sessionId, data) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
@@ -5181,7 +5214,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789104000';
+  var APP_VERSION = '1789106000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -21470,7 +21503,12 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
   COLLAB._mergeFired=false; // reset para esta nueva sesion
   COLLAB._participants=[{id:myId(),name:myName(),color:myColor(),role:myRole()}];
   COLLAB._myFrom=0; COLLAB._myTo=totalSites-1;
+  /* Estado optimista: hasta que la transacción de abajo confirme si de
+     verdad gané la carrera para ser host, asumo que sí — se corrige más
+     abajo si alguien más se adelantó. */
+  COLLAB._hostId=myId(); COLLAB._hostName=myName(); COLLAB._hostColor=myColor();
   _collabUpdateBar(reportType);
+  if(reportType==='op'&&window._opProRefreshCollabBar) window._opProRefreshCollabBar();
   /* Mostrar participantes en sidebar inmediatamente (al menos el propio host) */
   setTimeout(function(){ _collabPaintParticipantsInSidebar(reportType); }, 200);
   setTimeout(function(){ _collabPaintParticipantsInSidebar(reportType); }, 800);
@@ -21486,26 +21524,49 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
       hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
       totalSites:totalSites||0, status:'active',
       participants:_initParts, assignments:{}, srs:{}, fragmentsDone:[]
-    }).then(function(){
+    }).then(function(result){
+      if(result && result.created===false && result.existing){
+        /* Alguien más ganó la carrera (le dio "Iniciar" fracciones de
+           segundo antes) y YA es el host real en Firestore — corregir mi
+           estado local en vez de quedarme creyendo que soy host cuando en
+           realidad no lo soy ("ya no se sabe quién es el anfitrión"), y
+           unirme como invitado a la sesión que de verdad existe. */
+        var ex=result.existing;
+        console.log('[Collab] Otro ya inició primero ('+(ex.hostName||'?')+'), me uno como invitado en vez de sobreescribir.');
+        COLLAB.sessionId=ex.id||sid; COLLAB.isHost=false;
+        COLLAB._hostId=ex.hostId; COLLAB._hostName=ex.hostName; COLLAB._hostColor=ex.hostColor;
+        COLLAB._sessionLabel=ex.reportLabel||COLLAB._sessionLabel;
+        COLLAB._sessionCreatedAt=ex.createdAt;
+        COLLAB._participants=Object.values(ex.participants||{}).filter(Boolean);
+        var _me={id:myId(),name:myName(),color:myColor(),role:myRole(),joinedAt:Date.now()};
+        if(window._fb.collabJoin) window._fb.collabJoin(COLLAB.sessionId,_me).catch(function(){});
+        safeToast('🤝 '+(ex.hostName||'Un compañero')+' ya había iniciado este reporte — te unes a esa sesión.');
+        _collabUpdateBar(reportType);
+        if(reportType==='op'&&window._opProRefreshCollabBar) window._opProRefreshCollabBar();
+        _collabListenSession(COLLAB.sessionId, reportType);
+        _collabListenFragments(COLLAB.sessionId, reportType);
+        return;
+      }
+      COLLAB._sessionCreatedAt = result && result.createdAt;
       /* Arrancar listener DESPUES de que el doc existe en Firestore */
       console.log('[Collab] Doc creado, arrancando listener sid:',sid);
       _collabListenSession(sid, reportType);
       _collabListenFragments(sid, reportType);
+
+      /* Notificar a todos — solo si de verdad soy yo quien inició. */
+      window._fb.pushNotif({
+        tipo:'collab_invite',
+        titulo:(reportType==='val'?'Validacion de Sistemas':'Reporte Operativo')+' en elaboracion',
+        cuerpo:myName()+' ('+myRole()+') inicio un reporte — unete para editar en conjunto',
+        hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
+        sessionId:sid, reportType:reportType, reportLabel:reportLabel||'Reporte',
+        totalSites:totalSites||0, urgente:false, leida:false
+      }).then(function(){
+        console.log('[Collab] Invitacion publicada, sid:',sid);
+      }).catch(function(e){ console.error('[Collab] pushNotif:',e.message); });
+
+      safeToast('🤝 Sesion colaborativa iniciada');
     }).catch(function(e){ console.error('[Collab] create:',e.message); });
-
-    /* Notificar a todos */
-    window._fb.pushNotif({
-      tipo:'collab_invite',
-      titulo:(reportType==='val'?'Validacion de Sistemas':'Reporte Operativo')+' en elaboracion',
-      cuerpo:myName()+' ('+myRole()+') inicio un reporte — unete para editar en conjunto',
-      hostId:myId(), hostName:myName(), hostColor:myColor(), hostRole:myRole(),
-      sessionId:sid, reportType:reportType, reportLabel:reportLabel||'Reporte',
-      totalSites:totalSites||0, urgente:false, leida:false
-    }).then(function(){
-      console.log('[Collab] Invitacion publicada, sid:',sid);
-    }).catch(function(e){ console.error('[Collab] pushNotif:',e.message); });
-
-    safeToast('\uD83E\uDD1D Sesion colaborativa iniciada');
   });
 };
 
@@ -34532,35 +34593,102 @@ function _opProApplyRemoteSrs(remoteSrs){
 window._opProApplyRemoteSrs = _opProApplyRemoteSrs;
 window._opProApplyRemoteCursors = _opProApplyRemoteCursors;
 var _opProCollabUnsub = null;
+/* Aplica el contenido de UN snapshot/lectura del documento de la sesión
+   (venga del onSnapshot en tiempo real o del polling de respaldo de más
+   abajo — ambos caen aquí, así el comportamiento es idéntico sin importar
+   por cuál vía llegó el dato). */
+function _opProApplySessionData(data){
+  if(!data || !window.COLLAB || !COLLAB.sessionId) return;
+  /* Alguien más (host o invitado) ya guardó y cerró el reporte, o empezó
+     uno genuinamente NUEVO en el mismo id fijo (createdAt distinto) — en
+     ambos casos, el reporte que yo tenía abierto ya no existe como tal,
+     así que se saca a TODOS de la vista en vivo. */
+  var closed = data.status==='closed';
+  var replaced = COLLAB._sessionCreatedAt!=null && data.createdAt!=null && data.createdAt!==COLLAB._sessionCreatedAt;
+  if(closed || replaced){
+    _opProForceCloseForAll('✅ '+(data.hostName?data.hostName:'El equipo')+' finalizó el reporte — se guardó y la colaboración terminó para todos.');
+    return;
+  }
+  /* Mantener la identidad del anfitrión sincronizada con la fuente de
+     verdad (el documento) en cada lectura — así la barra siempre muestra
+     quién es el anfitrión real, aunque mi copia local se haya quedado
+     desactualizada (p.ej. tras perder una carrera al crear). */
+  COLLAB._hostId = data.hostId; COLLAB._hostName = data.hostName; COLLAB._hostColor = data.hostColor;
+  COLLAB._sessionCreatedAt = data.createdAt;
+  COLLAB._participants = Object.values(data.participants||{}).filter(Boolean);
+  _opProApplyRemoteSrs(data.srs||{});
+  _opProApplyRemoteCursors(data.cursors||{});
+  _opProRefreshCollabBar();
+}
+window._opProApplySessionData = _opProApplySessionData;
 function _opProCollabListen(){
   if(_opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
-  if(!window._fbFS || !window._fbDB) return;
   if(typeof _opProPushFailWarned!=='undefined') _opProPushFailWarned = false; /* nueva sesión, permitir avisar de nuevo si algo falla */
-  try{
-    var FS=window._fbFS, DB=window._fbDB;
-    _opProCollabUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',COLLAB.sessionId), function(snap){
-      if(!snap.exists()) return;
-      var data = snap.data();
-      /* Alguien más (host o invitado) ya guardó y cerró el reporte — no
-         tiene sentido que el resto se quede viendo/editando un reporte
-         que ya no existe, así que se les saca a TODOS de la vista en
-         vivo (no solo un aviso mientras siguen atorados ahí). */
-      if(data.status==='closed' && COLLAB.sessionId){
-        _opProForceCloseForAll('✅ '+(data.hostName?data.hostName:'El equipo')+' finalizó el reporte — se guardó y la colaboración terminó para todos.');
-        return;
-      }
-      COLLAB._participants = Object.values(data.participants||{}).filter(Boolean);
-      _opProApplyRemoteSrs(data.srs||{});
-      _opProApplyRemoteCursors(data.cursors||{});
-      _opProRefreshCollabBar();
-    }, function(err){
-      console.warn('[OP-PRO colab] listener:', err.message);
-      _opProToast('⚠️ Se perdió la conexión en vivo con el reporte compartido ('+(err.message||'error')+')');
-    });
-  }catch(e){ console.warn('[OP-PRO colab] listen:', e.message); }
+  if(window._fbFS && window._fbDB){
+    try{
+      var FS=window._fbFS, DB=window._fbDB;
+      _opProCollabUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',COLLAB.sessionId), function(snap){
+        if(!snap.exists()) return;
+        _opProApplySessionData(snap.data());
+      }, function(err){
+        console.warn('[OP-PRO colab] listener:', err.message);
+        /* No se avisa con un toast aquí: aunque el listener en tiempo real
+           falle o se corte, el polling de abajo sigue sincronizando igual
+           (con algunos segundos de retraso) sin necesidad de molestar al
+           usuario por algo que se sigue resolviendo solo. */
+      });
+    }catch(e){ console.warn('[OP-PRO colab] listen:', e.message); }
+  }
+  _opProStartSyncPoll();
 }
 window._opProCollabListen = _opProCollabListen;
+
+/* ── Sincronización por polling — respaldo del onSnapshot de arriba ──
+   El onSnapshot DEBERÍA bastar por sí solo, pero en la práctica se ha
+   reportado que ni el cierre-para-todos ni los cambios en vivo de otros
+   colaboradores llegan de forma confiable (redes corporativas, proxys,
+   extensiones del navegador que bloquean el canal de streaming de
+   Firestore, pestañas que el navegador limita en segundo plano, etc. —
+   nada de esto es visible ni verificable desde este entorno de
+   desarrollo). En vez de seguir apostando todo a un mecanismo que puede
+   estar fallando en silencio, mientras haya una sesión abierta se hace
+   ADEMÁS una relectura completa del documento cada pocos segundos con un
+   getDoc() directo — la misma lectura puntual de un solo documento que ya
+   se ha comprobado que sí funciona (getOpCurrentSession) — y se le aplica
+   exactamente el mismo procesamiento que a un snapshot en vivo. Así, con
+   o sin onSnapshot funcionando, los cambios de los demás (y el cierre por
+   "Finalizar") siempre terminan reflejándose, como mucho unos segundos
+   más tarde. */
+var _opProSyncPollTimer = null;
+function _opProSyncPoll(){
+  if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op'){ _opProStopSyncPoll(); return Promise.resolve(); }
+  if(!window._fb || !window._fb.getOpCurrentSession) return Promise.resolve();
+  return window._fb.getOpCurrentSession().then(function(active){
+    if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return; /* ya se cerró por otra vía mientras esperábamos */
+    if(!active){
+      _opProForceCloseForAll('✅ Este reporte ya fue guardado y cerrado por el equipo.');
+      return;
+    }
+    _opProApplySessionData(active);
+  }).catch(function(){});
+}
+function _opProStartSyncPoll(){
+  if(_opProSyncPollTimer) return;
+  _opProSyncPollTimer = setInterval(_opProSyncPoll, 5000);
+}
+function _opProStopSyncPoll(){
+  if(_opProSyncPollTimer){ clearInterval(_opProSyncPollTimer); _opProSyncPollTimer=null; }
+}
+window._opProSyncPoll = _opProSyncPoll;
+window._opProStartSyncPoll = _opProStartSyncPoll;
+window._opProStopSyncPoll = _opProStopSyncPoll;
+/* Alias retrocompatibles — por si algo llega a quedar referenciando los
+   nombres anteriores (chequeo "solo de cerrado"), ahora son la misma
+   sincronización completa. */
+window._opProCheckClosedPoll = _opProSyncPoll;
+window._opProStartClosePoll = _opProStartSyncPoll;
+window._opProStopClosePoll = _opProStopSyncPoll;
 
 /* ══════════════════════════════════════════════════════════════════════
    "UN SOLO REPORTE A LA VEZ" — antes, cada clic en "Iniciar" creaba una
@@ -34591,6 +34719,8 @@ function _opProStartOrJoinCollab(cb){
     if(isFresh){
       COLLAB.sessionId = active.id; COLLAB.reportType='op';
       COLLAB.isHost = (active.hostId===myId()); COLLAB._mergeFired=false;
+      COLLAB._hostId = active.hostId; COLLAB._hostName = active.hostName; COLLAB._hostColor = active.hostColor;
+      COLLAB._sessionCreatedAt = active.createdAt;
       var me = {id:myId(), name:myName(), color:myColor(), role:myRole(), joinedAt:Date.now()};
       if(window._fb.collabJoin){
         window._fb.collabJoin(active.id, me).catch(function(e){
@@ -34612,7 +34742,9 @@ function _opProStartOrJoinCollab(cb){
 function _opProCollabAvatarsHtml(){
   if(!window.COLLAB || !COLLAB._participants || !COLLAB._participants.length) return '';
   return '<div class="oppc-collab-avs">'+COLLAB._participants.slice(0,6).map(function(p){
-    return '<div class="oppc-collab-av" title="'+_oppEsc(p.name||'')+'" style="background:'+(p.color||'#4a78f5')+'">'+_opProIni(p.name)+'</div>';
+    var isHostAv = COLLAB._hostId && p.id===COLLAB._hostId;
+    var tip=(p.name||'')+(isHostAv?' · anfitrión':'');
+    return '<div class="oppc-collab-av'+(isHostAv?' oppc-collab-av-host':'')+'" title="'+_oppEsc(tip)+'" style="background:'+(p.color||'#4a78f5')+'">'+_opProIni(p.name)+'</div>';
   }).join('')+'</div>';
 }
 function _opProCollabBarHtml(){
@@ -34624,9 +34756,18 @@ function _opProCollabBarHtml(){
     +'</div>';
   }
   var nP = COLLAB._participants.length;
+  /* "Ya no se sabe de quién es el anfitrión" — mostrar siempre, de forma
+     visible, quién es (viene de COLLAB._hostId/_hostName, mantenido al
+     día tanto al crear/unirse la sesión como en cada snapshot en vivo,
+     así que refleja la verdad de Firestore y no un supuesto local). Solo
+     puede haber uno: el propio texto lo deja explícito. */
+  var hostTag = COLLAB._hostName
+    ? '<span class="oppc-host-tag" title="Solo esta persona puede ver todos los cambios y cerrar el reporte para todos">🎙️ Anfitrión: '+_oppEsc(COLLAB._hostName)+(COLLAB.isHost?' (tú)':'')+'</span>'
+    : '';
   return '<div class="oppc-collabbar" id="oppro-collabbar">'
     +'<span class="oppc-live-dot"></span>'
     +'<span>En vivo · '+nP+' colaborador'+(nP===1?'':'es')+'</span>'
+    +hostTag
     +_opProCollabAvatarsHtml()
     +'<button type="button" class="oppc-collab-btn" onclick="window._opProStartCollab()">+ Invitar</button>'
     +'<button type="button" class="oppc-collab-btn oppc-collab-finish-btn" onclick="window._opProFinalizeReport()">🏁 Finalizar reporte</button>'
@@ -34663,7 +34804,15 @@ function _opProForceCloseForAll(msg){
   }catch(e){}
   try{ if(typeof _opRestoreSaveBtns==='function') _opRestoreSaveBtns(); }catch(e){}
   if(typeof _opProCollabUnsub!=='undefined' && _opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
-  if(window.COLLAB){ COLLAB.sessionId=null; COLLAB.reportType=null; COLLAB.isHost=false; COLLAB._participants=[]; }
+  _opProStopSyncPoll();
+  if(window.COLLAB){
+    COLLAB.sessionId=null; COLLAB.reportType=null; COLLAB.isHost=false; COLLAB._participants=[];
+    COLLAB._hostId=null; COLLAB._hostName=null; COLLAB._hostColor=null; COLLAB._sessionCreatedAt=null;
+  }
+  /* El borrador local (op:draft:v1) NO se toca aquí a propósito — a quien
+     lo estén sacando de la vista en vivo porque OTRO finalizó, su
+     borrador/estado local debe permanecer intacto (por si necesita
+     consultarlo), no perderse solo por haber sido kicked de la sesión. */
   window._opProReadOnlyView=false;
   _opProToast(msg || '✅ Este reporte ya fue guardado y cerrado por el equipo');
 }
@@ -34948,6 +35097,8 @@ function _opProRenderEditablePaper(){
     '@keyframes opprolivepulse{0%,100%{opacity:1}50%{opacity:.35}}'+
     '.oppc-collab-avs{display:flex;margin-left:2px}'+
     '.oppc-collab-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:800;color:#fff;border:2px solid rgba(10,20,50,.9);margin-left:-6px}'+
+    '.oppc-collab-av-host{box-shadow:0 0 0 2px #fbbf24}'+
+    '.oppc-host-tag{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);color:#fde68a;border-radius:14px;padding:3px 10px;white-space:nowrap}'+
     '.oppc-collab-btn{margin-left:auto;background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.2px;white-space:nowrap}'+
     '.oppc-collab-finish-btn{margin-left:0;background:linear-gradient(135deg,#059669,#065f46)}'+
     '.oppc-collab-btn:hover{filter:brightness(1.1)}'+
