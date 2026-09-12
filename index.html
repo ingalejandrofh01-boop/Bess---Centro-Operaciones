@@ -5181,7 +5181,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789101000';
+  var APP_VERSION = '1789102000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -34209,11 +34209,12 @@ window._opProCellPaste = function(ev, el){
    ══════════════════════════════════════════════════════════════════════ */
 function _opProBulkPasteHtml(){
   return '<div class="oppc-bulkpaste" id="oppro-bulkpaste">'
-    +'<div class="oppc-bulkpaste-hdr">📋 Pegado rápido — pega aquí una columna completa copiada de Excel (un valor por línea, mismo orden que la tabla de abajo) y se llena todo de un jalón.</div>'
+    +'<div class="oppc-bulkpaste-hdr">📋 Pegado rápido — pega aquí una columna completa copiada de Excel (un valor por línea, mismo orden que la tabla de abajo) y se llena todo de un jalón. Al copiar hacia Excel, SOC y DOD salen marcados con "%" para que Excel los reconozca como porcentaje y no los multiplique de más.</div>'
     +'<div class="oppc-bulkpaste-cols">'
-      +_opProBulkPasteColHtml('socIni','SOC Inicial')
-      +_opProBulkPasteColHtml('soc','SOC Final')
+      +_opProBulkPasteColHtml('socIni','SOC Inicial (%)')
+      +_opProBulkPasteColHtml('soc','SOC Final (%)')
       +_opProBulkPasteColHtml('obs','Comentarios')
+      +_opProBulkDodColHtml()
     +'</div>'
   +'</div>';
 }
@@ -34225,6 +34226,19 @@ function _opProBulkPasteColHtml(field, label){
     +'<div class="oppc-bulkpaste-col-btns">'
       +'<button type="button" class="oppc-bulk-btn-copy" onclick="window._opProBulkCopyColumn(\''+field+'\')">📋 Copiar de la tabla</button>'
       +'<button type="button" class="oppc-bulk-btn-apply" onclick="window._opProBulkApplyColumn(\''+field+'\', document.getElementById(\''+id+'\').value)">⬇️ Aplicar a la tabla</button>'
+    +'</div>'
+  +'</div>';
+}
+/* DOD es un valor CALCULADO (SOC Inicial − SOC Final), no se captura a
+   mano por sitio — así que esta columna solo sirve para copiarlo hacia
+   Excel u otro lado, no tiene botón de "Aplicar" ni acepta pegado. */
+function _opProBulkDodColHtml(){
+  var id = 'oppro-bulk-dod';
+  return '<div class="oppc-bulkpaste-col">'
+    +'<label for="'+id+'">DOD (%) — calculado</label>'
+    +'<textarea id="'+id+'" rows="3" placeholder="Usa «Copiar de la tabla» →" readonly></textarea>'
+    +'<div class="oppc-bulkpaste-col-btns">'
+      +'<button type="button" class="oppc-bulk-btn-copy" onclick="window._opProBulkCopyColumn(\'dod\')">📋 Copiar de la tabla</button>'
     +'</div>'
   +'</div>';
 }
@@ -34289,17 +34303,32 @@ window._opProBulkApplyColumn = function(field, text){
 };
 /* Copiar la columna ACTUAL de la app (lo que ya está capturado en la
    tabla) hacia el cuadro de pegado — y de paso al portapapeles del
-   sistema, para pegarlo directo en Excel u otro lado. */
+   sistema, para pegarlo directo en Excel u otro lado.
+   IMPORTANTE — por qué se agrega "%" a SOC/DOD: si pegas el número
+   "pelón" (ej. "96") en una celda de Excel que YA está formateada como
+   Porcentaje, Excel no vuelve a interpretar el valor — lo toma tal cual
+   y lo multiplica x100 para mostrarlo (te queda "9600%" en vez de
+   "96%"). Escribiendo el texto con el símbolo "%" al final ("96%"),
+   Excel SÍ lo reconoce como un porcentaje al pegarlo y lo convierte
+   correctamente sin importar cómo estuviera formateada la celda antes. */
 window._opProBulkCopyColumn = function(field){
   var sites = (window.opW && window.opW.srs) || [];
+  var isPercentCol = (field==='socIni' || field==='soc' || field==='dod');
   var lines = sites.map(function(sr){
-    var v = sr && sr[field];
-    return (v==null?'':String(v));
+    var v;
+    if(field==='dod'){
+      var d = (typeof _oppDOD==='function') ? _oppDOD(sr||{}) : null;
+      v = (d==null ? '' : (Math.round(d*10)/10));
+    } else {
+      v = sr && sr[field];
+    }
+    if(v==null || v==='') return '';
+    return isPercentCol ? (String(v)+'%') : String(v);
   });
   var text = lines.join('\n');
   var ta = document.getElementById('oppro-bulk-'+field);
   if(ta) ta.value = text;
-  var labelMap = {socIni:'SOC Inicial', soc:'SOC Final', obs:'Comentarios'};
+  var labelMap = {socIni:'SOC Inicial', soc:'SOC Final', obs:'Comentarios', dod:'DOD'};
   var lbl = labelMap[field]||field;
   var done = function(){ _opProToast('📋 '+lines.length+' valores de '+lbl+' copiados — ya están en el cuadro y en tu portapapeles'); };
   try{
@@ -34793,8 +34822,9 @@ function _opProRenderEditablePaper(){
     '.oppc-edithint{font-size:9px;color:#c7d6ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}'+
     '.oppc-bulkpaste{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 12px;margin-bottom:10px}'+
     '.oppc-bulkpaste-hdr{font-size:9.5px;color:#c7d6ff;font-weight:700;margin-bottom:8px;font-family:Arial,sans-serif}'+
-    '.oppc-bulkpaste-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}'+
-    '@media (max-width:640px){.oppc-bulkpaste-cols{grid-template-columns:1fr}}'+
+    '.oppc-bulkpaste-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}'+
+    '@media (max-width:900px){.oppc-bulkpaste-cols{grid-template-columns:repeat(2,1fr)}}'+
+    '@media (max-width:480px){.oppc-bulkpaste-cols{grid-template-columns:1fr}}'+
     '.oppc-bulkpaste-col{display:flex;flex-direction:column;gap:4px}'+
     '.oppc-bulkpaste-col label{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:800;color:#93a5d6;font-family:var(--mono,monospace)}'+
     '.oppc-bulkpaste-col textarea{font-family:var(--mono,monospace);font-size:9.5px;border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:5px 7px;background:rgba(8,14,34,.55);color:#e5ecff;resize:vertical;min-height:52px}'+

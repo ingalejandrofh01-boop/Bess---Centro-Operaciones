@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789101000_bess_v65_pegado_soc_arreglado_copiar_columna';
+const DEPLOY_TS  = '1789102000_bess_v66_copiar_soc_dod_formato_porcentaje';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
