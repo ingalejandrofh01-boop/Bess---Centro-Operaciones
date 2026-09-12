@@ -5181,7 +5181,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789102000';
+  var APP_VERSION = '1789103000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -34403,24 +34403,61 @@ function _opProFieldEl(idx, field){
   if(field==='obs')    return document.getElementById('oppro-in-obs-'+idx);
   return null;
 }
+/* Antes el avatar del colaborador se dibujaba PEGADO a la celda exacta
+   que está editando (a la derecha de la tabla, donde están las columnas
+   SOC/Comentarios) — el problema es que con 80 sitios repartidos en
+   varias tablas por región, esa celda casi nunca está a la vista, así
+   que el avatar en la práctica era invisible la mayor parte del tiempo.
+   Ahora se dibuja un solo "riel" de avatares pegado al BORDE IZQUIERDO
+   de la fila (donde está el nombre del sitio, que es lo primero que se
+   ve) y se REUTILIZA el mismo elemento por persona (no se borra y
+   recrea cada vez) con una transición CSS en "top" — así, cuando alguien
+   se mueve de fila, su avatar se desliza visiblemente hacia la nueva
+   posición en vez de solo aparecer/desaparecer de golpe. Un pequeño
+   distintivo en la esquina del avatar indica en qué columna está
+   (ES=Estatus, SI=SOC Inicial, SF=SOC Final, OB=Comentarios). */
+var OPPRO_FIELD_CODE = {status:'ES', socIni:'SI', soc:'SF', obs:'OB'};
+var OPPRO_FIELD_LABEL = {status:'Estatus', socIni:'SOC Inicial', soc:'SOC Final', obs:'Comentarios'};
 function _opProApplyRemoteCursors(remoteCursors){
-  Array.prototype.slice.call(document.querySelectorAll('#op-paper-content .oppro-remote-cursor')).forEach(function(b){ b.remove(); });
-  if(!remoteCursors) return;
-  Object.keys(remoteCursors).forEach(function(uid){
-    if(uid===myId()) return;
-    var c = remoteCursors[uid];
-    if(!c || c.idx==null || !c.field) return;
-    if(Date.now()-(c.ts||0) > 8000) return; /* cursor viejo — ya no está ahí */
-    var el = _opProFieldEl(c.idx, c.field);
-    if(!el) return;
-    var td = el.closest('td'); if(!td) return;
-    td.style.position = 'relative';
-    var badge = document.createElement('span');
-    badge.className = 'oppro-remote-cursor';
-    badge.title = (c.name||'Colaborador')+' está editando aquí';
-    badge.style.background = c.color||'#4a78f5';
-    badge.textContent = _opProIni(c.name);
-    td.appendChild(badge);
+  var rail = document.getElementById('oppro-cursor-rail');
+  if(!rail) return;
+  var railRect = rail.getBoundingClientRect();
+  var byRow = {}, live = {};
+  if(remoteCursors){
+    Object.keys(remoteCursors).forEach(function(uid){
+      if(uid===myId()) return;
+      var c = remoteCursors[uid];
+      if(!c || c.idx==null || !c.field) return;
+      if(Date.now()-(c.ts||0) > 8000) return; /* cursor viejo — ya no está ahí */
+      (byRow[c.idx] = byRow[c.idx] || []).push({uid:uid, c:c});
+    });
+  }
+  Object.keys(byRow).forEach(function(idxKey){
+    var tr = document.getElementById('oppro-tr-'+idxKey);
+    if(!tr) return;
+    var trRect = tr.getBoundingClientRect();
+    var top = (trRect.top - railRect.top) + (trRect.height/2) - 11;
+    byRow[idxKey].forEach(function(entry, slot){
+      live[entry.uid] = true;
+      var chip = document.getElementById('oppro-cursor-chip-'+entry.uid);
+      if(!chip){
+        chip = document.createElement('div');
+        chip.id = 'oppro-cursor-chip-'+entry.uid;
+        chip.className = 'oppro-cursor-chip';
+        chip.innerHTML = '<span class="oppro-cursor-chip-ini"></span><span class="oppro-cursor-chip-tag"></span>';
+        rail.appendChild(chip);
+      }
+      chip.style.top = top+'px';
+      chip.style.left = (2 + slot*20)+'px';
+      chip.style.background = entry.c.color||'#4a78f5';
+      chip.title = (entry.c.name||'Colaborador')+' está en '+(OPPRO_FIELD_LABEL[entry.c.field]||entry.c.field);
+      chip.querySelector('.oppro-cursor-chip-ini').textContent = _opProIni(entry.c.name);
+      chip.querySelector('.oppro-cursor-chip-tag').textContent = OPPRO_FIELD_CODE[entry.c.field]||'';
+    });
+  });
+  Array.prototype.slice.call(rail.querySelectorAll('.oppro-cursor-chip')).forEach(function(chip){
+    var uid = chip.id.replace('oppro-cursor-chip-','');
+    if(!live[uid]) chip.remove();
   });
 }
 function _opProApplyRemoteSrs(remoteSrs){
@@ -34472,12 +34509,12 @@ function _opProCollabListen(){
     _opProCollabUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',COLLAB.sessionId), function(snap){
       if(!snap.exists()) return;
       var data = snap.data();
-      /* Alguien más (host o invitado) ya guardó y cerró el reporte —
-         avisar aquí mismo en vez de que este colaborador siga editando
-         un reporte que ya no existe. */
+      /* Alguien más (host o invitado) ya guardó y cerró el reporte — no
+         tiene sentido que el resto se quede viendo/editando un reporte
+         que ya no existe, así que se les saca a TODOS de la vista en
+         vivo (no solo un aviso mientras siguen atorados ahí). */
       if(data.status==='closed' && COLLAB.sessionId){
-        _opProToast('✅ Este reporte ya fue guardado por el equipo');
-        if(_opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
+        _opProForceCloseForAll('✅ '+(data.hostName?data.hostName:'El equipo')+' finalizó el reporte — se guardó y la colaboración terminó para todos.');
         return;
       }
       COLLAB._participants = Object.values(data.participants||{}).filter(Boolean);
@@ -34568,9 +34605,35 @@ function _opProCollabBarHtml(){
    también, en la barra de colaboración, porque cuando se está trabajando
    a media tabla el botón de guardar de arriba queda lejos de la vista. */
 window._opProFinalizeReport = function(){
-  if(!confirm('¿Finalizar este reporte para todo el equipo? Se guardará y se cerrará la colaboración — el siguiente "Iniciar" abrirá uno nuevo.')) return;
+  if(!confirm('¿Finalizar este reporte para todo el equipo? Se guardará y se cerrará la colaboración para todos — el siguiente "Iniciar" abrirá uno nuevo.')) return;
   if(window.opSave) window.opSave();
+  /* opSave() (ver _collabHookSave) llama a collabEndSession() de forma
+     SÍNCRONA antes de devolver el control — para cuando llegamos aquí
+     COLLAB.sessionId ya quedó en null localmente. Cerramos también la
+     vista del que finalizó (antes se quedaba viendo la barra "En vivo"
+     con los botones de Invitar/Finalizar ya sin sentido, porque nada
+     volvía a dibujar esa barra tras guardar). */
+  _opProForceCloseForAll('✅ Reporte finalizado y guardado — la colaboración terminó para todo el equipo.');
 };
+/* Saca a TODOS de la vista de edición en vivo — se usa tanto cuando YO
+   finalizo (arriba) como cuando lo recibo por el listener porque otro
+   colaborador finalizó primero. No tiene sentido dejar a nadie viendo/
+   editando un reporte que ya se guardó y cerró. */
+function _opProForceCloseForAll(msg){
+  try{
+    var wiz=document.getElementById('op-wizard-modal'); if(wiz) wiz.classList.remove('open');
+    var sum=document.getElementById('op-sum-modal'); if(sum) sum.classList.remove('open');
+  }catch(e){}
+  try{
+    var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='';
+    var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='';
+  }catch(e){}
+  if(typeof _opProCollabUnsub!=='undefined' && _opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
+  if(window.COLLAB){ COLLAB.sessionId=null; COLLAB.reportType=null; COLLAB.isHost=false; COLLAB._participants=[]; }
+  window._opProReadOnlyView=false;
+  _opProToast(msg || '✅ Este reporte ya fue guardado y cerrado por el equipo');
+}
+window._opProForceCloseForAll = _opProForceCloseForAll;
 function _opProRefreshCollabBar(){
   var wrap = document.getElementById('oppro-collabbar');
   if(!wrap || !wrap.parentNode) return;
@@ -34776,6 +34839,7 @@ function _opProRenderEditablePaper(){
 
   var html = '<style>'+OPPRO_STYLE+'</style>'
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
+    + '<div id="oppro-cursor-rail"></div>'
     + _opProHeaderHtml(meta, d.totalSitios)
     + (editable ? _opProCollabBarHtml() : '')
     + '<div class="oppc-topline">'
@@ -34852,7 +34916,10 @@ function _opProRenderEditablePaper(){
     '.oppc-collab-btn{margin-left:auto;background:linear-gradient(135deg,#1a3fcc,#4a78f5);color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:9px;font-weight:800;cursor:pointer;letter-spacing:.2px;white-space:nowrap}'+
     '.oppc-collab-finish-btn{margin-left:0;background:linear-gradient(135deg,#059669,#065f46)}'+
     '.oppc-collab-btn:hover{filter:brightness(1.1)}'+
-    '.oppro-remote-cursor{position:absolute;top:-7px;right:-6px;width:14px;height:14px;border-radius:50%;color:#fff;font-size:6px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;z-index:5;pointer-events:none}'+
+    '#oppro-cursor-rail{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:45}'+
+    '.oppro-cursor-chip{position:absolute;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff,0 2px 8px rgba(0,0,0,.35);transition:top .35s ease,left .35s ease;pointer-events:auto}'+
+    '.oppro-cursor-chip-ini{color:#fff;font-size:8px;font-weight:800;font-family:"Inter",sans-serif;letter-spacing:.2px}'+
+    '.oppro-cursor-chip-tag{position:absolute;bottom:-5px;right:-6px;background:#0f1c3d;color:#fff;border-radius:6px;padding:1px 3px;font-size:6px;font-weight:800;font-family:var(--mono,monospace);box-shadow:0 0 0 1.5px #fff;letter-spacing:.3px}'+
     'tr.oppro-remote-flash{background:rgba(74,120,245,.18);transition:background 1.2s ease-out}';
   document.head.appendChild(extraCss);
 })();
@@ -34921,34 +34988,84 @@ document.addEventListener('DOMContentLoaded', function(){
    ══════════════════════════════════════════════════════════════════════ */
 var _opProNotifShownFor = null;
 function _opProToastSafe(fn){ try{ fn(); }catch(e){} }
+/* Antes esto exigía "active.participants[myId()]" — es decir, SOLO
+   avisaba a alguien que YA figurara como participante de la sesión. Pero
+   nadie se vuelve participante hasta que se una explícitamente, así que
+   en la práctica esto significaba que NADIE (fuera del host) recibía
+   nunca este aviso cuando alguien más apenas arrancaba un reporte — se
+   quita esa condición: ahora se avisa a cualquier usuario que no sea el
+   host y que no esté ya adentro. También el "ya avisé de este mismo
+   reporte" comparaba por active.id — pero desde el rediseño a ID FIJO
+   ('op_current') ese id NUNCA cambia entre reportes distintos, así que
+   una vez avisado una vez, JAMÁS se volvía a avisar de un reporte nuevo
+   que reusara el mismo id. Se corrige usando createdAt (único por cada
+   arranque de sesión) como llave de "ya avisé de este". */
+function _opProMaybeNotifyNewSession(active){
+  if(!active || active.status!=='active') return;
+  if(active.hostId===myId()) return; /* soy yo quien lo inició, no me auto-aviso */
+  if(window.COLLAB && COLLAB.sessionId===active.id && COLLAB.reportType==='op') return; /* ya estoy adentro */
+  if(Date.now()-(active.updatedAt||active.startedAt||active.createdAt||0) >= OPPRO_ACTIVE_TTL) return; /* quedó abandonado, ignorar */
+  var key = active.createdAt || active.id;
+  if(_opProNotifShownFor===key) return; /* ya se avisó de este mismo arranque */
+  _opProNotifShownFor = key;
+  _opProToastSafe(function(){
+    var fn = (typeof addNotif==='function') ? addNotif : window.addNotif;
+    if(!fn) return;
+    fn('report', '📄 Reporte Operativo en curso',
+      (active.hostName||'Tu equipo')+' inició/sigue con el reporte '+(active.reportLabel||active.period||'')+' — toca para unirte y continuar en conjunto.',
+      function(){
+        try{
+          document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+          var pg=document.getElementById('page-repop'); if(pg) pg.classList.add('active');
+          document.querySelectorAll('.nav-item').forEach(function(n){n.classList.toggle('active',n.dataset.page==='repop');});
+        }catch(e){}
+        setTimeout(function(){ if(window._opProStartDirect) window._opProStartDirect(); }, 150);
+      });
+  });
+}
+window._opProMaybeNotifyNewSession = _opProMaybeNotifyNewSession;
 function _opProCheckPendingReport(){
   if(!window._fb || !window._fb.getOpCurrentSession) return;
   if(window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='op') return; /* ya estoy adentro viendo el reporte */
   window._fb.getOpCurrentSession().then(function(active){
-    if(!active || active.status!=='active') return;
-    if(Date.now()-(active.updatedAt||active.startedAt||0) >= OPPRO_ACTIVE_TTL) return; /* quedó abandonado, ignorar */
-    if(!active.participants || !active.participants[myId()]) return; /* nunca participé en este */
-    if(_opProNotifShownFor===active.id) return; /* ya se avisó de este mismo reporte */
-    _opProNotifShownFor = active.id;
-    _opProToastSafe(function(){
-      var fn = (typeof addNotif==='function') ? addNotif : window.addNotif;
-      if(!fn) return;
-      fn('report', '📄 Reporte Operativo en curso',
-        (active.hostName||'Tu equipo')+' sigue con el reporte '+(active.period||'')+' — toca para continuar donde te quedaste.',
-        function(){
-          try{
-            document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-            var pg=document.getElementById('page-repop'); if(pg) pg.classList.add('active');
-            document.querySelectorAll('.nav-item').forEach(function(n){n.classList.toggle('active',n.dataset.page==='repop');});
-          }catch(e){}
-          setTimeout(function(){ if(window._opProStartDirect) window._opProStartDirect(); }, 150);
-        });
-    });
+    _opProMaybeNotifyNewSession(active);
   }).catch(function(){});
 }
 window.addEventListener('online', _opProCheckPendingReport);
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') _opProCheckPendingReport(); });
 setTimeout(_opProCheckPendingReport, 4000);
+
+/* ══════════════════════════════════════════════════════════════════════
+   VIGÍA GLOBAL EN TIEMPO REAL — lo anterior (_opProCheckPendingReport)
+   solo revisa en momentos puntuales (carga, reconexión, volver a la
+   pestaña). Para avisar EN EL MOMENTO en que alguien más arranca un
+   reporte (sin esperar a que yo recargue o cambie de pestaña), se deja
+   un onSnapshot corriendo TODO el tiempo sobre el mismo documento fijo
+   collab_sessions/op_current — usando siempre get/onSnapshot de UN
+   documento puntual (nunca una query de colección), que es la operación
+   que ya sabemos que las reglas de seguridad del proyecto sí permiten.
+   (El mecanismo viejo de invitaciones, listenCollabInvites, hace un
+   onSnapshot sobre una QUERY —where() sobre la colección 'notificaciones'—
+   y eso es exactamente el tipo de operación de "listar" que puede estar
+   bloqueada aunque leer un documento puntual sí funcione; lo más probable
+   es que ese sea el motivo real de que nunca llegaran los avisos.) */
+var _opProGlobalWatchUnsub = null;
+function _opProStartGlobalWatch(){
+  if(_opProGlobalWatchUnsub) return; /* ya está corriendo */
+  if(!window._fbFS || !window._fbDB) return;
+  try{
+    var FS=window._fbFS, DB=window._fbDB;
+    _opProGlobalWatchUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions','op_current'), function(snap){
+      if(!snap.exists()) return;
+      _opProMaybeNotifyNewSession(snap.data());
+    }, function(err){
+      console.warn('[OP-PRO vigía global] onSnapshot:', err && err.message);
+    });
+  }catch(e){ console.warn('[OP-PRO vigía global] error:', e && e.message); }
+}
+window._opProStartGlobalWatch = _opProStartGlobalWatch;
+if(typeof waitFB==='function'){ waitFB(function(){ _opProStartGlobalWatch(); }); }
+else { setTimeout(_opProStartGlobalWatch, 3000); }
 
 /* Cierre real de pestaña/app con una sesión en vivo abierta — mejor
    esfuerzo (el navegador no garantiza que una escritura async termine

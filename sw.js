@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789102000_bess_v66_copiar_soc_dod_formato_porcentaje';
+const DEPLOY_TS  = '1789103000_bess_v67_notif_arreglada_finalizar_saca_a_todos_avatar_riel';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
