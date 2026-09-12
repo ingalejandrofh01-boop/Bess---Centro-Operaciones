@@ -254,7 +254,20 @@ window._fb = {
         const snap = await tx.get(ref);
         if (snap.exists()) {
           const data = snap.data();
-          const fresh = data.status === 'active' && (nowTs - (data.updatedAt || data.createdAt || 0) < TTL);
+          /* Si el documento que quedó ahí es de OTRA persona (hostId
+             distinto al mío), respeta esa sesión — es la carrera real que
+             esto vino a evitar. Pero si el hostId es EL MÍO PROPIO, nunca
+             bloquear: esto pasa cuando yo mismo acabo de finalizar mi
+             reporte (collabClose escribe status:'closed' de forma async,
+             sin esperar) y le doy "Iniciar" de nuevo casi al instante — la
+             transacción puede alcanzar a leer el doc ANTES de que mi
+             propio cierre haya terminado de llegar a Firestore, viéndolo
+             todavía como "activo". Sin este caso especial, yo mismo me
+             quedaba bloqueado creyendo que "alguien más" (yo, en realidad)
+             seguía en un reporte que ya había cerrado, y "Iniciar" dejaba
+             de funcionar para mí hasta recargar la página. */
+          const sameHost = data.hostId === session.hostId;
+          const fresh = !sameHost && data.status === 'active' && (nowTs - (data.updatedAt || data.createdAt || 0) < TTL);
           if (fresh) {
             return { created: false, existing: { ...data, id: session.id } };
           }
@@ -5214,7 +5227,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789106000';
+  var APP_VERSION = '1789107000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -7813,7 +7826,13 @@ async function expDoZip(mode){
         <span style="font-family:var(--mono);font-size:10px;color:var(--t3)"><span id="op-sites-count" style="color:#1a3fcc;font-weight:700">—</span> sitios BESS</span>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <button class="op-btn-s" onclick="goPage('dash')">Cancelar</button>
-          <button class="op-btn-s" onclick="opStartSites()" title="Llenar sitio por sitio, como antes" style="font-size:10px;opacity:.7">Modo clásico (paso a paso)</button>
+          <!-- "Modo clásico (paso a paso)" (opStartSites — el asistente sitio-por-sitio con
+               "Dividir N colaboradores") se quitó a pedido: era un flujo de colaboración
+               paralelo y distinto al de la Vista Profesional (edición en vivo estilo
+               Excel, _opProStartDirect) que comparte la MISMA sesión COLLAB/collab_sessions
+               — tenerlos los dos visibles invitaba a mezclar ambos por accidente y "hacía
+               ruido" entre sí. El botón de abajo sigue con el fallback a opStartSites()
+               solo por si _opProStartDirect no llegara a cargar por algún motivo. -->
           <button class="op-btn-p" id="op-start-btn" onclick="window._opProStartDirect?window._opProStartDirect():opStartSites()" style="padding:10px 24px">🚀 Iniciar Reporte &#8594;</button>
         </div>
       </div>

@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789106000_bess_v70_sync_en_vivo_por_polling_de_respaldo';
+const DEPLOY_TS  = '1789107000_bess_v71_quita_modo_clasico_arregla_reinicio_tras_finalizar';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
