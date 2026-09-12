@@ -5181,7 +5181,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789103000';
+  var APP_VERSION = '1789104000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 })();
 </script>
@@ -21262,6 +21262,18 @@ function opSave() {
   } else {
     opReps.unshift(rep);
     opPersist();
+    /* Restaurar botones — antes esto solo pasaba en la rama "dupOp" de
+       arriba; en el caso normal (primer guardado del día) el botón se
+       quedaba con el texto "Guardando…" y deshabilitado, confiando en
+       que el cierre del modal más abajo lo "escondería" junto con todo
+       lo demás. Si por cualquier motivo ese cierre no se alcanza a
+       tiempo (una excepción más abajo, una condición de carrera con la
+       colaboración en vivo, etc.), el botón se quedaba atorado en
+       "Guardando…" para siempre aunque el reporte sí se hubiera
+       guardado. Restaurarlo aquí también, justo después de guardar,
+       hace que esto nunca dependa de que el resto de la función llegue
+       a buen puerto. */
+    ['op-save-btn','op-save-btn2'].forEach(function(id){var b=document.getElementById(id);if(b){b.disabled=false;b.textContent=id==='op-save-btn2'?'✓ Guardar Reporte Operativo':'✓ Guardar Reporte';b.style.opacity='';}});
   }
   /* Borrador persistente de parámetros repetidos (operador, turno) — para no reescribirlos
      cada vez que se arranca un reporte nuevo. No incluye datos de sitios (eso siempre fresco). */
@@ -22533,7 +22545,28 @@ function _rv_closeOnly(){
 function _op_closeOnly(){
   var wiz=document.getElementById('op-wizard-modal'); if(wiz) wiz.classList.remove('open');
   var sum=document.getElementById('op-sum-modal'); if(sum) sum.classList.remove('open');
+  _opRestoreSaveBtns();
 }
+/* Devuelve el botón "Guardar Reporte" (y su versión "…Operativo") a su
+   texto y estado normales. Se llama tanto justo después de guardar (ver
+   opSave más arriba) como cada vez que se cierra o se vuelve a abrir la
+   vista del reporte — así un estado "Guardando…" que se haya quedado
+   pegado por cualquier motivo nunca contamina la siguiente sesión. */
+function _opRestoreSaveBtns(){
+  ['op-save-btn','op-save-btn2'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b){ b.disabled=false; b.textContent=id==='op-save-btn2'?'✓ Guardar Reporte Operativo':'✓ Guardar Reporte'; b.style.opacity=''; }
+  });
+}
+/* Este archivo tiene DOS mundos de script separados: este bloque vive
+   dentro de un IIFE propio ("(function(){ ... })();"), y el módulo
+   OP-PRO (más abajo, otro IIFE distinto) necesita poder llamar a esta
+   función como red de seguridad adicional. Sin esta exposición explícita
+   en window, _opRestoreSaveBtns queda invisible fuera de este IIFE aunque
+   sea una function declaration de "nivel superior" — por eso hay que
+   engancharla a window, igual que ya se hace con collabStartSession,
+   collabEndSession, etc. */
+window._opRestoreSaveBtns = _opRestoreSaveBtns;
 
 /* ══════════════════════════════════════════════════════════════
    Arranque
@@ -34628,6 +34661,7 @@ function _opProForceCloseForAll(msg){
     var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='';
     var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='';
   }catch(e){}
+  try{ if(typeof _opRestoreSaveBtns==='function') _opRestoreSaveBtns(); }catch(e){}
   if(typeof _opProCollabUnsub!=='undefined' && _opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
   if(window.COLLAB){ COLLAB.sessionId=null; COLLAB.reportType=null; COLLAB.isHost=false; COLLAB._participants=[]; }
   window._opProReadOnlyView=false;
@@ -34693,6 +34727,7 @@ window._opProStartDirect = function(){
   _op('op-sum-modal', function(e){ e.classList.add('open'); });
   var _fab=document.getElementById('fab-nueva'); if(_fab) _fab.style.display='none';
   var _sd=document.getElementById('sd-wrap'); if(_sd) _sd.style.display='none';
+  try{ if(typeof _opRestoreSaveBtns==='function') _opRestoreSaveBtns(); }catch(e){} /* por si quedó "Guardando…" pegado de una sesión anterior */
   window._opProReadOnlyView = false;
   /* Iniciar (o retomar) la sesión colaborativa ANTES de pintar el papel:
      collabStartSession llena COLLAB._participants de forma síncrona, así

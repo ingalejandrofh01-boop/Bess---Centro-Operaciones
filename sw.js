@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789103000_bess_v67_notif_arreglada_finalizar_saca_a_todos_avatar_riel';
+const DEPLOY_TS  = '1789104000_bess_v68_boton_guardando_pegado_arreglado';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
