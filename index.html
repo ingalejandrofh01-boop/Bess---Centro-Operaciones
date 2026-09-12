@@ -5227,7 +5227,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789108000';
+  var APP_VERSION = '1789109000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -21624,15 +21624,29 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
         safeToast('🤝 '+(ex.hostName||'Un compañero')+' ya había iniciado este reporte — te unes a esa sesión.');
         _collabUpdateBar(reportType);
         if(reportType==='op'&&window._opProRefreshCollabBar) window._opProRefreshCollabBar();
-        _collabListenSession(COLLAB.sessionId, reportType);
-        _collabListenFragments(COLLAB.sessionId, reportType);
+        /* El listener "clásico" (_collabListenSession/_collabListenFragments)
+           es del flujo viejo de dividir sitios entre varios y fusionar
+           fragmentos al final — el Reporte Operativo ya no lo usa (ahora
+           es colaboración en vivo, todos editando la misma tabla a la
+           vez, cubierta por _opProCollabListen). Arrancarlo igual para
+           'op' era justo lo que hacía que, si alguien en OTRA pestaña
+           (vieja, sin actualizar) llegaba a usar "Dividir sitios", este
+           cliente reaccionara solo y se metiera al asistente clásico sin
+           que nadie lo pidiera aquí. Para 'val' (Validación) sigue igual,
+           ese flujo de dividir/fusionar sigue vigente ahí. */
+        if(reportType!=='op'){
+          _collabListenSession(COLLAB.sessionId, reportType);
+          _collabListenFragments(COLLAB.sessionId, reportType);
+        }
         return;
       }
       COLLAB._sessionCreatedAt = result && result.createdAt;
       /* Arrancar listener DESPUES de que el doc existe en Firestore */
       console.log('[Collab] Doc creado, arrancando listener sid:',sid);
-      _collabListenSession(sid, reportType);
-      _collabListenFragments(sid, reportType);
+      if(reportType!=='op'){
+        _collabListenSession(sid, reportType);
+        _collabListenFragments(sid, reportType);
+      }
 
       /* Notificar a todos — solo si de verdad soy yo quien inició. */
       window._fb.pushNotif({
@@ -21668,6 +21682,14 @@ window.collabPushSite = function(siteIdx, totalSites, siteData){
 };
 window.collabDividirSitios = function(){
   if(!COLLAB.sessionId||!COLLAB.isHost) return;
+  /* Reporte Operativo ya no divide sitios entre colaboradores — ahora
+     todos editan la misma tabla en vivo (Vista Profesional). Se bloquea
+     aquí también, no solo quitando el botón, por si algo (una pestaña
+     vieja sin actualizar, por ejemplo) todavía intentara llamarlo. */
+  if(COLLAB.reportType==='op'){
+    safeToast('ℹ️ El Reporte Operativo ya no se divide — todos colaboran en vivo sobre la misma tabla.');
+    return;
+  }
   var sites=COLLAB.reportType==='val'?(window.RV_SITES||[]):(window.OP_SITES||[]);
   var n=sites.length;
   var parts=COLLAB._participants.slice();
@@ -21692,6 +21714,12 @@ window.collabDividirSitios = function(){
 
 /* Aplicar mi asignacion — resaltar mis sitios en el sidebar */
 function _collabApplyMyAssignment(){
+  /* 'op' ya no usa asignaciones por persona (ver collabDividirSitios) —
+     nunca navegar al asistente clásico (opBuildSide/opRenderS) para este
+     tipo de reporte, ni siquiera si datos viejos de Firestore (de antes
+     de este cambio, o de una pestaña sin actualizar) todavía trajeran
+     "assignments" en el documento compartido. */
+  if(COLLAB.reportType==='op') return;
   var myAssign = COLLAB._assignments[myId()];
   if(!myAssign) return;
   COLLAB._myFrom = myAssign.from;
@@ -21717,6 +21745,7 @@ function _collabApplyMyAssignment(){
   var sitesTotal = (myAssign.to - myAssign.from) + 1;
   safeToast('Tus sitios: '+(myAssign.from+1)+' al '+(myAssign.to+1)+' — '+sitesTotal+' sitios asignados');
 }
+window._collabApplyMyAssignment = _collabApplyMyAssignment;
 
 /* Pintar asignaciones en el sidebar */
 window._collabPaintAssignments = function _collabPaintAssignments(){
@@ -22156,18 +22185,26 @@ window.collabJoinSession = function(){
     },150);
   }
 
-  _collabListenSession(sid, rType);
-  _collabListenFragments(sid, rType);
+  /* Reporte Operativo ya no usa el flujo cl\u00E1sico de dividir/fusionar
+     (ver nota igual de collabStartSession) \u2014 solo Validaci\u00F3n (val) sigue
+     con dividir sitios y fusionar fragmentos al final. */
+  if(rType!=='op'){
+    _collabListenSession(sid, rType);
+    _collabListenFragments(sid, rType);
+  }
   /* Pintar panel de participantes en sidebar una vez cargue el wizard */
   setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 400);
   setTimeout(function(){ _collabPaintParticipantsInSidebar(rType); }, 1200);
-  /* Si ya hay asignaciones guardadas en Firestore, aplicarlas despues de que el wizard cargue */
-  setTimeout(function(){
-    if(COLLAB._assignments&&Object.keys(COLLAB._assignments).length){
-      _collabApplyMyAssignment();
-      _collabPaintAssignments();
-    }
-  }, 600);
+  /* Si ya hay asignaciones guardadas en Firestore, aplicarlas despues de que el wizard cargue
+     (irrelevante para 'op', que ya no divide sitios \u2014 solo aplica a 'val'). */
+  if(rType!=='op'){
+    setTimeout(function(){
+      if(COLLAB._assignments&&Object.keys(COLLAB._assignments).length){
+        _collabApplyMyAssignment();
+        _collabPaintAssignments();
+      }
+    }, 600);
+  }
   safeToast('\uD83E\uDD1D Te uniste al reporte de '+banner.dataset.hostName);
 };
 
@@ -22203,6 +22240,11 @@ function _collabStartInviteListener(){
 function _collabListenSession(sid, reportType){
   if(COLLAB._unsubSession){COLLAB._unsubSession();COLLAB._unsubSession=null;}
   if(!window._fb||!window._fb.listenCollabSession) return;
+  /* Defensa adicional: este listener clásico (dividir/fusionar) ya no
+     debería arrancarse para 'op' desde ningún lado (ver collabStartSession
+     y collabJoinSession), pero si por algún motivo alguien lo llamara
+     igual, que al menos nunca reaccione metiendo al asistente clásico. */
+  if(reportType==='op') return;
 
   COLLAB._unsubSession=window._fb.listenCollabSession(sid,function(session){
     var parts=Object.values((session&&session.participants)||{}).filter(Boolean);
@@ -22335,6 +22377,13 @@ function _collabPaintParticipantsInSidebar(reportType){
    Barra de estado
 ══════════════════════════════════════════════════════════════ */
 window._collabUpdateBar = function _collabUpdateBar(reportType){
+  /* La barra "clásica" (#collab-status-bar-op, con "Dividir/Re-dividir")
+     es del flujo que 'op' ya no usa — la Vista Profesional tiene su
+     propia barra (#oppro-collabbar, ver _opProCollabBarHtml) que es la
+     única que debe mostrarse para Reporte Operativo. No tocar ni activar
+     la barra vieja aquí evita que quede lista-pero-invisible esperando a
+     que algo la muestre por error. */
+  if(reportType==='op') return;
   var sfx=reportType==='op'?'-op':'';
   var bar=document.getElementById('collab-status-bar'+sfx); if(!bar) return;
   bar.classList.add('active');
