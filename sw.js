@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789110000_bess_v74_nombre_en_vivo_animacion_transicion_boton_continuar';
+const DEPLOY_TS  = '1789111000_bess_v75_sin_reporte_viejo_ni_animacion_bloqueante';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

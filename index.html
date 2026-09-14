@@ -5227,7 +5227,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789110000';
+  var APP_VERSION = '1789111000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -7782,7 +7782,15 @@ async function expDoZip(mode){
 <!-- OP SUMMARY MODAL -->
 <div id="op-sum-modal">
   <div style="padding:26px 30px 40px;max-width:1200px;margin:0 auto">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px">
+    <!-- "op-sum-legacy-hdr" — cabecera y botones de la vista "papel" ANTERIOR
+         (de antes de que existiera la Vista Profesional en vivo). Se oculta
+         en cuanto _opProRenderEditablePaper() detecta modo editable (que es
+         SIEMPRE, ahora que _opProStartDirect es la única entrada) — quedaba
+         encima de la tabla en vivo duplicando "Reporte Profesional"/"Guardar"
+         y, peor, "← Editar" mandaba de vuelta al asistente clásico por
+         sitio que ya no se usa. Se deja intacta SOLO para cuando se ve un
+         reporte YA GUARDADO desde el histórico (modo solo-lectura). -->
+    <div id="op-sum-legacy-hdr" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">Vista Previa</div>
         <h1 id="op-sum-ttl" style="font-family:var(--disp);font-size:22px;font-weight:900;color:var(--text);letter-spacing:-.5px;margin:0"></h1>
@@ -7816,7 +7824,7 @@ async function expDoZip(mode){
       <div class="op-paper-ftr"><div style="display:flex;gap:16px;flex-wrap:wrap" id="op-ftr-stats"></div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--t3)">Skysense · Centro BESS · Equipo de monitoreo</div></div>
     </div>
-    <div style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:24px">
+    <div id="op-sum-legacy-ftr" style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:24px">
       <button class="op-btn-s" onclick="opBackSites()">← Editar</button>
       <button class="op-btn-p" id="op-save-btn2" onclick="opSave()" style="font-size:14px;padding:12px 32px;background:linear-gradient(135deg,#059669,#065f46);box-shadow:0 4px 18px rgba(5,150,105,.3)">✓ Guardar Reporte Operativo</button>
     </div>
@@ -35292,17 +35300,23 @@ window._opProStartDirect = function(){
      colaborador que reentraba a la pantalla se quedaba sin recibir
      cambios en vivo); si no tengo ninguna, reviso si alguien más ya inició
      uno (collab_active/op) para unirme a ESE en vez de crear otro. */
+  /* La animación se cierra AHORA, sin esperar a que la unión/creación de
+     la sesión en Firestore termine — la tabla que el usuario necesita ver
+     YA está pintada (opBuildSum() de arriba, síncrono). Antes se esperaba
+     al callback de _opProStartOrJoinCollab para recién ahí ocultar el
+     overlay: en una red lenta (o real, fuera de este entorno de pruebas)
+     ese viaje de ida y vuelta puede tardar varios segundos, y el overlay
+     — pensado como algo cosmético — terminaba TAPANDO un reporte que ya
+     estaba listo, dando la impresión de que "no pasó nada" ("hizo la
+     animación… pero no inició el reporte"). La barra "En vivo"/anfitrión
+     sigue apareciendo sola en cuanto la unión/creación remota termine,
+     sin bloquear nada visible mientras tanto. */
+  try{ if(typeof _opProHideTransition==='function') _opProHideTransition(true); }catch(e){}
   if(window.COLLAB && window.COLLAB.sessionId && window.COLLAB.reportType==='op'){
     _opProCollabListen();
-    /* Ya tenía sesión propia — solo se reconecta el listener, no hay una
-       "ida y vuelta" nueva que esperar, así que se cierra la animación
-       casi de inmediato (el mínimo de tiempo en pantalla lo maneja
-       _opProHideTransition por su cuenta). */
-    try{ if(typeof _opProHideTransition==='function') _opProHideTransition(true); }catch(e){}
   } else {
     _opProStartOrJoinCollab(function(){
       _opProRefreshCollabBar();
-      try{ if(typeof _opProHideTransition==='function') _opProHideTransition(true); }catch(e){}
     });
   }
 };
@@ -35430,6 +35444,18 @@ function _opProRenderEditablePaper(){
      con el KPI row nuevo (más completo) — se oculta para no duplicar. */
   var oldKpis = document.getElementById('op-sum-kpis');
   if(oldKpis) oldKpis.style.display = 'none';
+  /* La cabecera y el pie "VISTA PREVIA" de la pantalla anterior (con
+     "← Editar" hacia el asistente clásico, "🚀 Reporte Profesional" hacia
+     OTRO modal, y un "Guardar" duplicado) quedaban encima/debajo de la
+     tabla en vivo — puro ruido visual, y "← Editar" era además una puerta
+     trasera de vuelta al asistente por sitio que ya se quitó del flujo
+     normal. Se ocultan siempre que estamos en modo editable (que es
+     SIEMPRE, desde que _opProStartDirect es la única entrada) — solo se
+     dejan ver al consultar un reporte YA GUARDADO desde el histórico. */
+  ['op-sum-legacy-hdr','op-sum-legacy-ftr'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = editable ? 'none' : '';
+  });
 
   var html = '<style>'+OPPRO_STYLE+'</style>'
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
@@ -35444,6 +35470,8 @@ function _opProRenderEditablePaper(){
     + _opProLegendBarHtml()
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estatus, SOC o observación de cualquier sitio para editarlo — se guarda automáticamente. Enter/flechas para moverte entre celdas, pega bloques copiados de Excel.'
         +' <button type="button" class="oppc-hf-linkbtn" onclick="window._opProShowHandoffFromReport()">🔥 Ver/Descargar Handoff</button>'
+        +' <button type="button" class="oppc-util-linkbtn" onclick="window.print()">🖨 Imprimir</button>'
+        +' <button type="button" class="oppc-util-linkbtn" onclick="window.opExportPNG&&window.opExportPNG()">📷 Exportar PNG</button>'
         +' <span id="oppro-autosave-badge" class="oppro-autosave-badge">💾 Todo guardado</span></div>' : '')
     + (editable ? _opProBulkPasteHtml() : '')
     + _opProEditableRegionsHtml(d.regionGroups, editable)
@@ -35501,6 +35529,8 @@ function _opProRenderEditablePaper(){
     '.oppc-battery-fill{height:100%;display:block}'+
     '.oppc-battery-tip{position:absolute;right:-3px;top:2.5px;width:2px;height:5px;background:#c2cadb;border-radius:0 1px 1px 0}'+
     '.oppc-hf-linkbtn:hover{background:rgba(239,68,68,.28)}'+
+    '.oppc-util-linkbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#dce6ff;border-radius:14px;padding:3px 10px;font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}'+
+    '.oppc-util-linkbtn:hover{background:rgba(255,255,255,.18)}'+
     '.oppc-hf-btn{background:none;border:1px solid #e2e8f5;border-radius:6px;width:22px;height:22px;font-size:11px;cursor:pointer;opacity:.35;filter:grayscale(1);transition:all .15s}'+
     '.oppc-hf-btn:hover{opacity:.8}'+
     '.oppc-hf-btn.active{opacity:1;filter:none;border-color:#ef4444;background:rgba(239,68,68,.08)}'+
