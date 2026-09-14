@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-08-25 rev-fp-t3-trend-chart-v1 -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-14 bess_v77_toast_arreglado_y_sin_doble_clic -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -5227,7 +5227,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789112000';
+  var APP_VERSION = '1789113000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -17437,13 +17437,33 @@ function _bfnCheckAllComplete(monthKey){
 
 // ── Patch addNotif into existing save flow ─────────────────────
 // Hook showToast to also create a notif for saves
-const _origShowToast = showToast;
+/* BUG encontrado (afectaba a TODA la app, no solo OP-PRO): esto intentaba
+   guardar "la versión anterior de showToast" en _origShowToast ANTES de
+   redefinir showToast más abajo — pero como ambas viven en el MISMO
+   <script>, el hoisting de "function showToast" de abajo ya había
+   sobrescrito el identificador "showToast" ANTES de que esta línea
+   corriera, así que _origShowToast terminaba apuntando A SÍ MISMA (a la
+   función de abajo). Resultado: cada llamada real a showToast() entraba,
+   ponía _showToastBusy=true, "llamaba a _origShowToast" (que en realidad
+   era una llamada recursiva a sí misma), esa llamada interna chocaba con
+   el guard de recursión y no hacía nada, y la burbuja visual del toast
+   (que vivía en la implementación original) JAMÁS se pintaba — silencioso
+   en apariencia, sin ningún error. Se reemplaza por la lógica real del
+   toast, en vez de depender de una referencia que nunca fue la correcta. */
 var _showToastBusy = false; // guard contra recursion infinita
 function showToast(msg, dur){
   if(_showToastBusy) return; // evitar recursion
   _showToastBusy = true;
   try {
-    _origShowToast(msg, dur);
+    try{
+      var _toastEl = document.getElementById('toast');
+      if(_toastEl){
+        _toastEl.textContent = msg;
+        _toastEl.classList.add('on');
+        if(window._toastTmr) clearTimeout(window._toastTmr);
+        window._toastTmr = setTimeout(function(){ _toastEl.classList.remove('on'); }, dur||2800);
+      }
+    }catch(e){}
     if(!msg){ _showToastBusy=false; return; }
     const m=msg.toString();
     if(m.includes('Guardada:') || (m.includes('guardad') || m.includes('Guardad'))){
@@ -34677,7 +34697,9 @@ function _opProTouchCursor(i, field){
     try{
       var FS=window._fbFS, DB=window._fbDB, patch={};
       patch['cursors.'+myId()] = {idx:i, field:field, ts:Date.now(), name:myName(), color:myColor()};
-      FS.setDoc(FS.doc(DB,'collab_sessions',COLLAB.sessionId), patch, {merge:true}).catch(function(){});
+      FS.setDoc(FS.doc(DB,'collab_sessions',COLLAB.sessionId), patch, {merge:true}).catch(function(e){
+        if(typeof _opProWarnSyncFailOnce==='function') _opProWarnSyncFailOnce(e);
+      });
     }catch(e){}
   }, 250);
 }
@@ -34693,9 +34715,21 @@ function _opProIni(name){
 /* Aviso corto y a prueba de fallos — usa el toast global de la app si existe
    (typeof evita ReferenceError si por scoping no estuviera disponible). */
 function _opProToast(msg){
+  /* BUG encontrado al revisar por qué ningún aviso de esta sección (ni
+     "te uniste al reporte", ni los de error) se estaba viendo NUNCA en la
+     práctica: "safeToast" vive en OTRO bloque <script> (el de "Motor de
+     Colaboración"), así que la llamada de abajo SIEMPRE lanzaba
+     ReferenceError (atrapado en silencio) y "window.safeToast" nunca
+     existió como tal (safeToast nunca se expuso a window) — el catch de
+     respaldo tampoco hacía nada. En la práctica, toda esta sección estaba
+     completamente muda. Ahora se llega directo a la función real detrás
+     de safeToast (showToast, esa sí expuesta globalmente de forma normal
+     por ser una función de nivel superior). */
   try{ if(typeof safeToast==='function'){ safeToast(msg); return; } }catch(e){}
-  try{ if(window.safeToast) window.safeToast(msg); }catch(e){}
+  try{ if(window.safeToast){ window.safeToast(msg); return; } }catch(e){}
+  try{ var fn=window._origShowToast||window.showToast; if(fn){ fn(msg); return; } }catch(e){}
 }
+window._opProToast = _opProToast;
 /* ══════════════════════════════════════════════════════════════════════
    ANIMACIÓN DE TRANSICIÓN "CREANDO / FINALIZANDO REPORTE" — pedida
    explícitamente para que el rato en que se crea/une la sesión colaborativa
@@ -34725,7 +34759,7 @@ function _opProTransitionEl(){
   return ov;
 }
 var _opProTransitionHideT = null;
-function _opProShowTransition(kind){
+function _opProShowTransition(kind, maxMs){
   var ov = _opProTransitionEl();
   clearTimeout(_opProTransitionHideT);
   var title = document.getElementById('oppro-trans-title');
@@ -34748,8 +34782,16 @@ function _opProShowTransition(kind){
   ov.dataset.shownAt = Date.now();
   /* Tope de seguridad: si por lo que sea nadie llama a _opProHideTransition
      (p.ej. una red caída que nunca resuelve ni la promesa ni el catch),
-     el overlay no se queda pegado tapando la app para siempre. */
-  _opProTransitionHideT = setTimeout(function(){ _opProHideTransition(true); }, 6000);
+     el overlay no se queda pegado tapando la app para siempre. "Iniciar"
+     pasa un tope más largo (ver _opProStartDirect) porque puede tener que
+     esperar a que la lista maestra de sitios termine de cargar — si este
+     tope de seguridad fuera más CORTO que esa espera, el overlay se
+     autocerraba solo, mostrando la pantalla de "Iniciar Reporte" de nuevo
+     como si el clic no hubiera hecho nada (aunque por dentro siguiera
+     esperando y el reporte terminara abriendo solo, sin aviso, segundos
+     después) — esa carrera era la causa real de "tengo que darle a Iniciar
+     dos veces". */
+  _opProTransitionHideT = setTimeout(function(){ _opProHideTransition(true); }, maxMs||6000);
 }
 function _opProHideTransitionNow(){
   var ov = document.getElementById('oppro-transition-overlay');
@@ -35000,6 +35042,7 @@ function _opProCollabListen(){
   if(_opProCollabUnsub){ try{ _opProCollabUnsub(); }catch(e){} _opProCollabUnsub=null; }
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
   if(typeof _opProPushFailWarned!=='undefined') _opProPushFailWarned = false; /* nueva sesión, permitir avisar de nuevo si algo falla */
+  if(typeof _opProSyncFailWarned!=='undefined') _opProSyncFailWarned = false;
   if(window._fbFS && window._fbDB){
     try{
       var FS=window._fbFS, DB=window._fbDB;
@@ -35008,10 +35051,16 @@ function _opProCollabListen(){
         _opProApplySessionData(snap.data());
       }, function(err){
         console.warn('[OP-PRO colab] listener:', err.message);
-        /* No se avisa con un toast aquí: aunque el listener en tiempo real
-           falle o se corte, el polling de abajo sigue sincronizando igual
-           (con algunos segundos de retraso) sin necesidad de molestar al
-           usuario por algo que se sigue resolviendo solo. */
+        /* Antes esto se quedaba SOLO en la consola — "el polling de abajo
+           lo resuelve solo" asumía que ese respaldo funciona de forma
+           independiente, pero si la causa es un permiso de Firestore
+           (Reglas de seguridad) denegando la lectura/escritura, el polling
+           usa la MISMA lectura y muy probablemente falla exactamente igual,
+           en silencio también — dejando a el/los colaboradores sin ninguna
+           pista de qué está pasando. Avisar una vez por sesión, con el
+           mensaje real de Firestore (normalmente dice justo "permission"
+           si el problema es de Reglas), para poder diagnosticarlo. */
+        _opProWarnSyncFailOnce(err);
       });
     }catch(e){ console.warn('[OP-PRO colab] listen:', e.message); }
   }
@@ -35048,8 +35097,27 @@ function _opProSyncPoll(){
       return;
     }
     _opProApplySessionData(active);
-  }).catch(function(){});
+  }).catch(function(e){ _opProWarnSyncFailOnce(e); });
 }
+/* Aviso único por sesión (no en cada intento fallido — se repetiría cada
+   pocos segundos) de que la sincronización en vivo (tanto el listener como
+   su respaldo por polling) no está pudiendo leer/escribir en Firestore.
+   La causa MÁS COMÚN de esto, cuando la app en sí funciona bien (se puede
+   entrar, guardar, etc.), son las Reglas de seguridad de Firestore: si no
+   permiten leer/escribir la colección "collab_sessions" a todos los que
+   usan la app (aquí no hay login real de Firebase, solo un id local en
+   localStorage), cada colaborador puede seguir viendo y guardando SU
+   PROPIA copia sin problema, pero nunca llega a ver ni a mandar los
+   cambios de/para los demás — exactamente "cada quien ve solo lo suyo". */
+var _opProSyncFailWarned = false;
+function _opProWarnSyncFailOnce(err){
+  if(_opProSyncFailWarned) return;
+  _opProSyncFailWarned = true;
+  var msg = (err && err.message) || 'error desconocido';
+  console.warn('[OP-PRO colab] sincronización en vivo con problemas:', msg);
+  _opProToast('⚠️ Los cambios en vivo de otros colaboradores no están llegando ('+msg+') — probablemente falten permisos en las Reglas de Firestore para "collab_sessions". Avisa al equipo técnico con este mensaje.');
+}
+window._opProWarnSyncFailOnce = _opProWarnSyncFailOnce;
 function _opProStartSyncPoll(){
   if(_opProSyncPollTimer) return;
   /* 2.5s en vez de 5s — el respaldo por polling es lo único que garantiza
@@ -35250,22 +35318,42 @@ window._opProStartDirect = function(){
      de tocar nada más, así el momento de crear/unirse a la sesión en vivo
      (lo que antes se sentía como "cierra y después de un rato abre") queda
      cubierto por una transición explícita en vez de sentirse raro. */
-  try{ if(typeof _opProShowTransition==='function') _opProShowTransition('start'); }catch(e){}
+  /* Tope de seguridad del overlay MÁS LARGO que el que se usa para
+     "Finalizar" — "Iniciar" puede tener que esperar a la lista maestra de
+     sitios (ver abajo) antes de poder construir nada, y ese tope de
+     seguridad NUNCA debe disparar antes de que esa espera real termine
+     (eso era justo lo que rompía el primer clic — ver nota abajo). */
+  try{ if(typeof _opProShowTransition==='function') _opProShowTransition('start', 16000); }catch(e){}
   /* La lista maestra de sitios (OP_SITES) se termina de cargar de la nube
      de forma ASÍNCRONA al abrir la app (ver _rebuildOpSites) — si "Iniciar"
      se aprieta muy rápido tras cargar la página, esa carga puede no haber
      terminado todavía, y esta función arrancaba igual con OP_SITES en 0,
      armando un reporte VACÍO (0 sitios) sin avisar nada — daba la impresión
      de "no pasó nada" y hacía falta apretar "Iniciar" una SEGUNDA vez, ya
-     con la lista cargada, para que de verdad funcionara. Ahora, si todavía
-     está vacía, se espera (con la misma animación ya en pantalla) hasta que
-     haya sitios — o como máximo 5s, por si algo de verdad falló — antes de
-     construir nada. */
+     con la lista cargada, para que de verdad funcionara.
+     LA CAUSA REAL DE POR QUÉ ESO SEGUÍA PASANDO incluso con la primera
+     versión de esta espera: el tope de seguridad del overlay (más arriba)
+     estaba fijo en 6s, MÁS CORTO que lo que de verdad puede tardar la
+     lista maestra en una red real — así que el overlay se autocerraba
+     solo a los 6s (dando la falsa impresión de "no pasó nada, ya se cerró
+     y sigo en la pantalla de Iniciar"), mientras esta espera seguía viva
+     por detrás y terminaba abriendo el reporte varios segundos después,
+     en silencio, sin el overlay para avisar. De ahí el "tengo que darle
+     una segunda vez" — el segundo clic solo coincidía con que, para
+     entonces, la lista ya había cargado. Ahora el tope de seguridad del
+     overlay (16s) es MÁS LARGO que esta espera (12s), así que uno de los
+     dos SIEMPRE resuelve primero de forma visible — nunca en silencio. */
   if(!window.OP_SITES || !window.OP_SITES.length){
     var _opStartWaited = 0;
     var _opStartWaitIv = setInterval(function(){
       _opStartWaited += 150;
-      if((window.OP_SITES && window.OP_SITES.length) || _opStartWaited >= 5000){
+      /* Tranquilizar — si ya se está tardando, dejar claro que sigue
+         trabajando y no que se quedó pegado. */
+      if(_opStartWaited===1500){
+        var subEl = document.getElementById('oppro-trans-sub');
+        if(subEl) subEl.textContent = 'Cargando la lista de sitios… casi listo.';
+      }
+      if((window.OP_SITES && window.OP_SITES.length) || _opStartWaited >= 12000){
         clearInterval(_opStartWaitIv);
         _opProStartDirectGo();
       }
