@@ -5227,7 +5227,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789111000';
+  var APP_VERSION = '1789112000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -35052,7 +35052,11 @@ function _opProSyncPoll(){
 }
 function _opProStartSyncPoll(){
   if(_opProSyncPollTimer) return;
-  _opProSyncPollTimer = setInterval(_opProSyncPoll, 5000);
+  /* 2.5s en vez de 5s — el respaldo por polling es lo único que garantiza
+     ver los cambios de los demás cuando el onSnapshot en tiempo real no
+     llega (ver nota arriba), así que si SOLO ese respaldo está funcionando
+     de verdad, 5s de espera se sentía demasiado lejos de "en vivo". */
+  _opProSyncPollTimer = setInterval(_opProSyncPoll, 2500);
 }
 function _opProStopSyncPoll(){
   if(_opProSyncPollTimer){ clearInterval(_opProSyncPollTimer); _opProSyncPollTimer=null; }
@@ -35247,6 +35251,30 @@ window._opProStartDirect = function(){
      (lo que antes se sentía como "cierra y después de un rato abre") queda
      cubierto por una transición explícita en vez de sentirse raro. */
   try{ if(typeof _opProShowTransition==='function') _opProShowTransition('start'); }catch(e){}
+  /* La lista maestra de sitios (OP_SITES) se termina de cargar de la nube
+     de forma ASÍNCRONA al abrir la app (ver _rebuildOpSites) — si "Iniciar"
+     se aprieta muy rápido tras cargar la página, esa carga puede no haber
+     terminado todavía, y esta función arrancaba igual con OP_SITES en 0,
+     armando un reporte VACÍO (0 sitios) sin avisar nada — daba la impresión
+     de "no pasó nada" y hacía falta apretar "Iniciar" una SEGUNDA vez, ya
+     con la lista cargada, para que de verdad funcionara. Ahora, si todavía
+     está vacía, se espera (con la misma animación ya en pantalla) hasta que
+     haya sitios — o como máximo 5s, por si algo de verdad falló — antes de
+     construir nada. */
+  if(!window.OP_SITES || !window.OP_SITES.length){
+    var _opStartWaited = 0;
+    var _opStartWaitIv = setInterval(function(){
+      _opStartWaited += 150;
+      if((window.OP_SITES && window.OP_SITES.length) || _opStartWaited >= 5000){
+        clearInterval(_opStartWaitIv);
+        _opProStartDirectGo();
+      }
+    }, 150);
+    return;
+  }
+  _opProStartDirectGo();
+};
+function _opProStartDirectGo(){
   /* El borrador local ya NO se pregunta con un confirm() cada vez — con
      "un solo reporte a la vez" ya hay un único borrador con sentido en
      juego, así que simplemente se retoma solo, siempre, sin interrumpir
@@ -35470,8 +35498,11 @@ function _opProRenderEditablePaper(){
     + _opProLegendBarHtml()
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estatus, SOC o observación de cualquier sitio para editarlo — se guarda automáticamente. Enter/flechas para moverte entre celdas, pega bloques copiados de Excel.'
         +' <button type="button" class="oppc-hf-linkbtn" onclick="window._opProShowHandoffFromReport()">🔥 Ver/Descargar Handoff</button>'
-        +' <button type="button" class="oppc-util-linkbtn" onclick="window.print()">🖨 Imprimir</button>'
-        +' <button type="button" class="oppc-util-linkbtn" onclick="window.opExportPNG&&window.opExportPNG()">📷 Exportar PNG</button>'
+        /* Único camino a "descargar el reporte": abre la vista previa PULIDA
+           (op-pro-modal / _opOpenProReport, con sus propios botones
+           "Descargar PNG"/"Descargar PDF") — NO exporta directo la tabla de
+           edición en vivo, que es solo para trabajar, no para entregar. */
+        +' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" onclick="window._opOpenProReport()">🚀 Reporte Profesional</button>'
         +' <span id="oppro-autosave-badge" class="oppro-autosave-badge">💾 Todo guardado</span></div>' : '')
     + (editable ? _opProBulkPasteHtml() : '')
     + _opProEditableRegionsHtml(d.regionGroups, editable)
@@ -35531,6 +35562,8 @@ function _opProRenderEditablePaper(){
     '.oppc-hf-linkbtn:hover{background:rgba(239,68,68,.28)}'+
     '.oppc-util-linkbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#dce6ff;border-radius:14px;padding:3px 10px;font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}'+
     '.oppc-util-linkbtn:hover{background:rgba(255,255,255,.18)}'+
+    '.oppc-util-linkbtn-pro{background:linear-gradient(135deg,#1a3fcc,#4a78f5);border:none;color:#fff}'+
+    '.oppc-util-linkbtn-pro:hover{filter:brightness(1.12)}'+
     '.oppc-hf-btn{background:none;border:1px solid #e2e8f5;border-radius:6px;width:22px;height:22px;font-size:11px;cursor:pointer;opacity:.35;filter:grayscale(1);transition:all .15s}'+
     '.oppc-hf-btn:hover{opacity:.8}'+
     '.oppc-hf-btn.active{opacity:1;filter:none;border-color:#ef4444;background:rgba(239,68,68,.08)}'+
