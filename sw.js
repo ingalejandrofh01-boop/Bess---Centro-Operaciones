@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789119000_bess_v83_fix_sync_en_vivo_claves_anidadas';
+const DEPLOY_TS  = '1789120002_bess_v86_continuidad_escalacion_soc_operativo';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

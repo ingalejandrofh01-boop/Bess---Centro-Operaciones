@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v83_fix_sync_en_vivo_claves_anidadas -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v86_continuidad_escalacion_soc_operativo -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -4560,8 +4560,8 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 .rv-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
 .rv-type-btn{padding:16px 8px;text-align:center;border-radius:10px;border:2px solid var(--b2);background:var(--bg);cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:var(--body)}
 .rv-type-btn.sel-mat{border-color:#f59e0b;background:rgba(245,158,11,.08);color:#b45309}
-.rv-type-btn.sel-ves{border-color:var(--sky);background:rgba(26,63,204,.07);color:var(--sky-d)}
-.rv-type-btn.sel-ent{border-color:var(--green);background:rgba(5,150,105,.07);color:var(--green)}
+.rv-type-btn.sel-ves{border-color:#ea580c;background:rgba(234,88,12,.08);color:#c2410c}
+.rv-type-btn.sel-noc{border-color:#6366f1;background:rgba(99,102,241,.08);color:#4338ca}
 .rv-paper{background:#fff;border:1px solid #dde6f5;border-radius:10px;overflow:hidden;box-shadow:0 2px 16px rgba(26,63,204,.08);margin-bottom:20px}
 .rv-paper-hdr{display:grid;grid-template-columns:1fr auto;padding:14px 20px;border-bottom:2px solid #c8d6ee;background:linear-gradient(135deg,#f0f6ff,#e8eefa)}
 .rv-paper-ttl{font-family:var(--disp);font-size:15px;font-weight:900;color:#06101e;letter-spacing:-.3px}
@@ -5266,7 +5266,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789119000';
+  var APP_VERSION = '1789120002';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -7517,7 +7517,14 @@ async function expDoZip(mode){
 <!-- ═══ SUMMARY MODAL ═══ -->
 <div id="rv-sum-modal">
   <div style="padding:28px 32px 40px;max-width:1100px;margin:0 auto">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <!-- "rv-sum-legacy-hdr"/"rv-sum-legacy-ftr" — igual que en el Reporte
+         Operativo (ver op-sum-legacy-hdr), esto se oculta siempre que el
+         reporte está en modo editable (que ahora es SIEMPRE, desde que
+         _rvProStartDirect es la única entrada) y solo queda visible si
+         algún día se necesita un modo estrictamente de solo-lectura. El
+         "← Editar" ya NO manda al asistente clásico por sitio — ese
+         asistente quedó completamente fuera del flujo. -->
+    <div id="rv-sum-legacy-hdr" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Vista Previa del Reporte</div>
         <h1 id="rv-sum-ttl" style="font-family:var(--disp);font-size:22px;font-weight:900;color:var(--text);letter-spacing:-.5px;margin:0"></h1>
@@ -7535,8 +7542,14 @@ async function expDoZip(mode){
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px" id="rv-sum-stats"></div>
     <div id="rv-sum-issues"></div>
 
-    <!-- Professional paper report -->
-    <div class="rv-paper">
+    <!-- VAL-PRO — tabla profesional en vivo y editable, mismo look que el
+         Reporte Operativo (reutiliza OPPRO_STYLE). Se pinta aquí dentro,
+         reemplazando en pantalla al "papel" viejo de abajo. -->
+    <div id="rv-paper-content"></div>
+
+    <!-- Professional paper report (VIEJO — se oculta en modo editable,
+         ver _rvProRenderEditablePaper) -->
+    <div class="rv-paper" id="rv-paper-legacy">
       <div style="background:linear-gradient(135deg,#f0f6ff,#e8eefa);border-bottom:2px solid #c8d6ee;padding:0">
         <!-- Top strip: logo + close controls -->
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px 8px">
@@ -7589,7 +7602,7 @@ async function expDoZip(mode){
       </div>
     </div>
 
-    <div style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:24px">
+    <div id="rv-sum-legacy-ftr" style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:24px">
       <button class="rv-btn-s" onclick="rvBackSites()">&#8592; Editar</button>
       <button class="rv-btn-p" id="rv-save-btn2" onclick="rvSave()" style="font-size:14px;padding:12px 32px;box-shadow:0 4px 18px rgba(5,150,105,.35);background:linear-gradient(135deg,#059669,#065f46)">&#10003; Guardar Reporte</button>
     </div>
@@ -7615,14 +7628,14 @@ async function expDoZip(mode){
           <span style="font-size:9px;font-family:var(--mono);opacity:.7">06:00 &#8211; 14:00</span>
         </button>
         <button class="rv-type-btn" data-rtype="vespertino" onclick="rvSetType('vespertino')">
-          <span style="font-size:22px">&#9790;</span>
+          <span style="font-size:22px">🌇</span>
           <span style="font-size:12px;font-weight:700">Vespertino</span>
           <span style="font-size:9px;font-family:var(--mono);opacity:.7">14:00 &#8211; 22:00</span>
         </button>
-        <button class="rv-type-btn" data-rtype="entrega" onclick="rvSetType('entrega')">
-          <span style="font-size:22px">&#8635;</span>
-          <span style="font-size:12px;font-weight:700">Entrega Turno</span>
-          <span style="font-size:9px;font-family:var(--mono);opacity:.7">Cambio guardia</span>
+        <button class="rv-type-btn" data-rtype="nocturno" onclick="rvSetType('nocturno')">
+          <span style="font-size:22px">🌙</span>
+          <span style="font-size:12px;font-weight:700">Nocturno</span>
+          <span style="font-size:9px;font-family:var(--mono);opacity:.7">22:00 &#8211; 06:00</span>
         </button>
       </div>
 
@@ -15450,8 +15463,8 @@ function presValRender(){
     if(!byDate[d])byDate[d]=[];
     byDate[d].push(r);
   });
-  var TC={matutino:'#f59e0b',vespertino:'var(--sky)',entrega:'var(--green)'};
-  var ICO_T={matutino:'☀',vespertino:'☽',entrega:'↻'};
+  var TC={matutino:'#f59e0b',vespertino:'#ea580c',nocturno:'#6366f1',entrega:'#6366f1'};
+  var ICO_T={matutino:'☀',vespertino:'🌇',nocturno:'🌙',entrega:'🌙'};
   var html='';
   Object.keys(byDate).sort().reverse().forEach(function(dk){
     var df=dk.substring(0,10);
@@ -18660,11 +18673,22 @@ window._rebuildRvSites = function(){
   window.RV_SITES.length = 0;
   names.forEach(function(n){ window.RV_SITES.push(n); });
 };
+/* "Entrega Turno" se renombró a "Nocturno" (turno 22:00–06:00). Vespertino
+   compartía el mismo azul que Operativo (var(--sky)) — con los tres turnos
+   de Validación más Operativo conviviendo en el mismo calendario, eso se
+   prestaba a confundir un reporte con otro; ahora cada turno tiene su
+   propio color y Operativo conserva el azul de la app (el más importante,
+   sigue siendo el color principal de toda la interfaz). */
 var RV_TYPES={
-  matutino: {label:'Matutino',      ico:'☀',  color:'#f59e0b', bg:'rgba(245,158,11,.1)'},
-  vespertino:{label:'Vespertino',   ico:'☽', color:'var(--sky)', bg:'rgba(26,63,204,.08)'},
-  entrega:  {label:'Entrega Turno', ico:'↻',color:'var(--green)', bg:'rgba(5,150,105,.08)'}
+  matutino:  {label:'Matutino',   ico:'☀',  color:'#f59e0b', bg:'rgba(245,158,11,.1)'},
+  vespertino:{label:'Vespertino', ico:'🌇', color:'#ea580c', bg:'rgba(234,88,12,.08)'},
+  nocturno:  {label:'Nocturno',   ico:'🌙', color:'#6366f1', bg:'rgba(99,102,241,.08)'}
 };
+/* Alias de compatibilidad: reportes YA GUARDADOS con el valor viejo
+   type:'entrega' deben seguir resolviendo a la misma etiqueta/color de
+   "Nocturno" en todo lugar que haga RV_TYPES[reporte.type] — así no hace
+   falta migrar datos históricos. */
+RV_TYPES.entrega = RV_TYPES.nocturno;
 var rvW=null, rvReps=[], RV_SK='rv:final:v1';
 
 function rvLoad(){
@@ -18672,7 +18696,18 @@ function rvLoad(){
   // Firebase is synced via onSnapshot listener; localStorage is the fallback cache
 }
 function rvPersist(){try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}catch(e){}}
-function rvMkS(){return{bat:null,chg:false,soc:'',lp:false,rn:false,clk:null,dsc:null,tmp:'',racks:'',cmt:'',resp:'',skip:false,tSec:0};}
+/* v86: se agregan 4 campos nuevos, todos con default seguro (no rompen
+   reportes ya guardados sin ellos — cualquier lectura debe usar `|| x`):
+   chgPow ('' = potencia de carga, validación específica de Nocturno pero
+   expuesta en la tabla para las 3 rondas por consistencia — ver
+   _rvProEditableRowHtml), commBack ('' = "¿regresó la comunicación durante
+   el turno?", '' = pendiente / 'si' / 'no'), followUp (null = seguimiento
+   de escalación {kind:'proveedor'|'cliente'|'personal', note, resolved}),
+   inherited (null = anotación de "pendiente heredado del turno anterior",
+   ver _rvProInjectInherited — nunca se guarda como bat/cond reales, solo
+   contexto de UI). */
+function rvMkS(){return{bat:null,chg:false,soc:'',lp:false,rn:false,clk:null,dsc:null,tmp:'',racks:'',cmt:'',resp:'',skip:false,tSec:0,
+  chgPow:'',commBack:'',followUp:null,inherited:null};}
 function _rvFmtDur(sec){
   sec=Math.max(0,Math.round(sec||0));
   var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
@@ -18840,7 +18875,7 @@ function rvInitSetup(){
   rvW={type:'matutino',date:new Date().toISOString(),op:userName,step:'setup',idx:0,
        srs:RV_SITES.map(function(){return rvMkS();})};
 
-  var ICO={matutino:'☀',vespertino:'☽',entrega:'↻'};
+  var ICO={matutino:'☀',vespertino:'🌇',nocturno:'🌙'};
   _rv('rv-setup-ico',function(e){e.textContent=ICO[rvW.type];});
   _rv('rv-setup-date',function(e){e.textContent=rvFdl(rvW.date);});
 
@@ -18871,15 +18906,26 @@ function rvHideModals(){
 
 function rvSetType(t){
   rvW.type=t;
-  var ICO={matutino:'☀',vespertino:'☽',entrega:'↻'};
+  var ICO={matutino:'☀',vespertino:'🌇',nocturno:'🌙'};
   _rv('rv-setup-ico',function(e){e.textContent=ICO[t];});
   document.querySelectorAll('[data-rtype]').forEach(function(b){
-    b.classList.remove('sel-mat','sel-ves','sel-ent');
-    if(b.dataset.rtype===t){var m={matutino:'sel-mat',vespertino:'sel-ves',entrega:'sel-ent'};b.classList.add(m[t]);}
+    b.classList.remove('sel-mat','sel-ves','sel-noc');
+    if(b.dataset.rtype===t){var m={matutino:'sel-mat',vespertino:'sel-ves',nocturno:'sel-noc'};b.classList.add(m[t]);}
   });
 }
 
 function rvStartSites(){
+  /* El "modo clásico" (asistente sitio-por-sitio, #rv-wizard-modal) se
+     retiró de la interfaz — el flujo vigente es siempre la Vista
+     Profesional editable (_rvProStartDirect), igual que ya pasó con
+     Reporte Operativo (ver opStartSites). Esta función se conserva solo
+     como código de respaldo (por si _rvProStartDirect no llegara a existir
+     por algún motivo), así que a partir de aquí SIEMPRE redirige para allá
+     primero — ninguna referencia vieja que quedara por ahí (un botón
+     cacheado, una llamada desde consola, etc.) puede volver a mandar a
+     alguien al asistente clásico mientras la app esté realmente cargada
+     con esta versión. */
+  if(typeof window._rvProStartDirect==='function'){ window._rvProStartDirect(); return; }
   /* Detectar borrador guardado — ofrecer continuar */
   var _draft=null;
   try{var _d=localStorage.getItem('rv:draft:v1');if(_d)_draft=JSON.parse(_d);}catch(e){}
@@ -19555,7 +19601,7 @@ function rvRenderCal(){
         ?'<div class="cal-rep-empty">Sin reportes</div>'
         :dayReps.map(function(r){
             var st=rvStats(r.srs);var rt2=RV_TYPES[r.type]||RV_TYPES.matutino;
-            var tc={matutino:'#f59e0b',vespertino:'#1a3fcc',entrega:'#059669'};
+            var tc={matutino:'#f59e0b',vespertino:'#ea580c',nocturno:'#6366f1',entrega:'#6366f1'};
             return '<div class="cal-rep-item" onclick="window.rvShowDet(\''+r.id+'\')">'+
               '<div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:'+rt2.bg+';flex-shrink:0;font-size:16px">'+rt2.ico+'</div>'+
               '<div style="flex:1;min-width:0">'+
@@ -19661,6 +19707,19 @@ window.opShowDet = function(id){
         var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='';
         ['op-save-btn','op-save-btn2'].forEach(function(bid){var btn=document.getElementById(bid);if(btn)btn.style.display='';});
         var bar=document.getElementById('opdet-action-bar'); if(bar) bar.remove();
+        /* Si quedó una edición pendiente de subir a la nube (debounce de
+           3s, ver _opProSyncHistoricalToCloud), no esperar a que expire —
+           subirla ya mismo, antes de soltar la marca de qué reporte se
+           estaba editando. */
+        if(typeof window._opProFlushHistoricalCloudSync==='function' && window._opProEditingSavedId){
+          try{ window._opProFlushHistoricalCloudSync(); }catch(e){}
+        }
+        /* Salir del modo "editando reporte guardado" — si más tarde se abre
+           el Reporte Operativo EN CURSO, _opProStartDirect ya limpia esto
+           de todos modos, pero se resetea aquí también para que ningún
+           guardado pendiente (debounce de 500ms) se dispare fuera de lugar. */
+        window._opProEditingSavedId = null;
+        window._opProReadOnlyView = true;
       };
       // Create a sticky action bar at top of modal
       var existingBar = e.querySelector('#opdet-action-bar');
@@ -19687,85 +19746,64 @@ window.opShowDet = function(id){
 
 window.rvShowDet = function(id){
   // Search in-memory first (Firebase IDs), then fallback to localStorage
-  var r=rvReps.find(function(x){return x.id===String(id);});
-  if(!r){rvLoad();r=rvReps.find(function(x){return x.id===String(id);});}
+  rvLoad();
+  var r=rvReps.find(function(x){return x.id===String(id)||x.fbId===String(id);});
   if(!r){console.warn('rvShowDet: id no encontrado',id);return;}
-  var rt=RV_TYPES[r.type]||RV_TYPES.matutino;
-  var tc={matutino:'#f59e0b',vespertino:'#1a3fcc',entrega:'#059669'};
-  var bLbl={ok:'OK',error:'Error de comunicación',alarm:'Alarmado',na:'N/A'};
-  var bTc={ok:'t-ok',error:'t-err',alarm:'t-alm',na:'t-na'};
-  var _extColor2={
-    'Cargando':'var(--sky)','Balanceando':'#a78bfa',
-    'No Descarga':'var(--yellow)','Descargado':'var(--green)',
-    'Fuera de Op.':'var(--red)','Mantenimiento':'cornflowerblue',
-    'Libranza':'var(--yellow)','Alarmado':'var(--yellow)',
-    'Error Com.':'var(--red)','N/A':'var(--t3)','OK':'var(--green)'
+  /* VAL-PRO (ver bloque "REPORTE DE VALIDACION PROFESIONAL" al final del
+     archivo): esto ANTES abria una vista aparte de solo lectura
+     (#rv-det-modal, con una tabla plana) para ver un reporte ya guardado.
+     Ahora se abre la MISMA tabla profesional editable en vivo que usa el
+     reporte en curso (#rv-sum-modal / #rv-paper-content), directamente
+     editable -- igual que hace Reporte Operativo (ver opShowDet).
+     window._rvProEditingSavedId marca CUAL reporte guardado es este, para
+     que el autoguardado (_rvProScheduleSave/_rvProSaveHistoricalEditsLocal/
+     _rvProSyncHistoricalToCloud) actualice EN EL MISMO registro en vez de
+     tocar el borrador en curso (rv:draft:v1) o cualquier sesion en vivo.
+     #rv-det-modal y sus helpers (rvCloseModal/rvDetExportPNG) quedan como
+     codigo sin usar mas abajo -- no se borran para minimizar riesgo, pero
+     ya nada los llama. */
+  window.rvW = {
+    type: r.type||'matutino', date: r.date||r.createdAt||new Date().toISOString(),
+    op: r.op||'', srs: r.srs||[], idx:0, step:'sites'
   };
-  var st=rvStats(r.srs);
-  var rows=RV_SITES.map(function(site,i){
-    var sr=r.srs[i];if(!sr||sr.skip||!sr.bat)return'';
-    var tn=parseFloat(sr.tmp);
-    var rc=sr.bat==='error'?'r-err':sr.bat==='alarm'?'r-alm':tn>=38?'r-hot':'';
-    var label = sr.batLabel || bLbl[sr.bat] || sr.bat;
-    var color = _extColor2[label] || (bTc[sr.bat]==='t-ok'?'var(--green)':'var(--t2)');
-    var bc='<span style="font-weight:700;color:'+color+'">'+label+'</span>';
-    if(sr.chg&&sr.soc)bc+='<br><small style="color:var(--sky)">SOC '+sr.soc+'%</small>';
-    if(sr.lp)bc+='<br><small style="color:var(--yellow)">Baja potencia</small>';
-    if(sr.rn)bc+='<br><small style="color:var(--yellow)">Acometida neg.</small>';
-    if(sr.bat==='alarm'&&sr.racks)bc+='<br><small style="color:var(--yellow)">'+sr.racks+'</small>';
-    return '<tr class="'+rc+'"><td>'+site+'</td><td>'+bc+'</td>'+
-      '<td class="'+(sr.clk==='ok'?'t-ok':sr.clk==='no'?'t-err':'t-na')+'">'+
-        (sr.clk==='ok'?'OK':sr.clk==='no'?'No':'—')+'</td>'+
-      '<td class="'+(sr.dsc==='si'?'t-ok':sr.dsc==='no'?'t-err':'t-na')+'">'+
-        (sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'+
-      '<td class="'+(tn>=38?'t-hot':tn>=32?'t-alm':'')+'">'+
-        (sr.tmp?sr.tmp+'°C':'—')+'</td>'+
-      '<td style="text-align:left;color:#444">'+(sr.cmt||'')+'</td>'+
-      '<td style="color:'+(sr.resp?'var(--sky)':'#aaa')+'">'+(sr.resp||'')+'</td></tr>';
-  }).join('');
-  // Build modal via DOM like Monitor BESS
-  var modal=document.getElementById('rv-det-modal');
-  if(!modal){
-    modal=document.createElement('div');
-    modal.id='rv-det-modal';
-    modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(10,31,94,.55);backdrop-filter:blur(8px);z-index:9100;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;';
-    modal.innerHTML=
-      '<div style="background:#fff;border:1px solid var(--b1);border-radius:14px;width:100%;max-width:1050px;margin:0 auto;box-shadow:0 24px 80px rgba(10,31,94,.2);">'+
-        '<div style="background:linear-gradient(135deg,#f0f6ff,#e8eefa);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;padding:14px 22px 10px;">'+
-          '<div>'+
-            '<div id="rv-det-hdr" style="font-family:var(--disp);font-size:18px;font-weight:800;color:var(--text)"></div>'+
-            '<div id="rv-det-sub" style="font-family:var(--mono);font-size:10px;color:#6685ac;margin-top:3px"></div>'+
-          '</div>'+
-          '<div style="display:flex;gap:8px;">'+
-            '<button id="rv-det-png-btn" onclick="rvDetExportPNG(this)" style="padding:5px 14px;border-radius:7px;border:1.5px solid rgba(139,92,246,.4);background:rgba(139,92,246,.08);font-family:var(--mono);font-size:11px;cursor:pointer;color:#7c3aed;font-weight:600;">\uD83D\uDCF7 Exportar PNG</button>'+
-            '<button onclick="rvCloseModal()" style="padding:5px 14px;border-radius:7px;border:1.5px solid var(--b1);background:transparent;font-family:var(--mono);font-size:11px;cursor:pointer;color:var(--t2);">✕ Cerrar</button>'+
-          '</div>'+
-        '</div>'+
-        '<div id="rv-det-content" style="background:#fff;border-radius:0 0 14px 14px;">'+
-          '<div id="rv-det-body" style="padding:20px 24px 26px;overflow-x:auto;"></div>'+
-        '</div>'+
-      '</div>';
-    modal.addEventListener('click',function(e){if(e.target===modal)rvCloseModal();});
-    document.body.appendChild(modal);
-  }
-  document.getElementById('rv-det-hdr').innerHTML='<span style="color:'+(tc[r.type]||'#1a3fcc')+'">'+rt.ico+' Reporte '+rt.label+'</span>';
-  document.getElementById('rv-det-sub').innerHTML=
-    'Operador: <strong style="color:#2d4470">'+r.op+'</strong> &nbsp;|&nbsp; '+
-    rvFd(r.createdAt)+' &nbsp;|&nbsp; '+rvFt(r.createdAt)+' HRS &nbsp;|&nbsp; '+
-    '<span style="color:var(--green)">'+st.ok+' OK</span> &nbsp;'+
-    (st.err?'<span style="color:var(--red)">'+st.err+' errores</span> &nbsp;':'')+
-    (st.alm?'<span style="color:var(--yellow)">'+st.alm+' alarmas</span>':'');
-  document.getElementById('rv-det-body').innerHTML=
-    '<table class="rv-tbl" style="width:100%;border-collapse:collapse;">'+
-    '<thead><tr>'+
-    '<th style="text-align:left;min-width:120px">Sitio</th>'+
-    '<th style="min-width:140px">Estado Baterías</th>'+
-    '<th>Reloj</th><th>Descarga</th><th>Temp.</th>'+
-    '<th style="text-align:left;min-width:180px">Comentario</th>'+
-    '<th style="min-width:110px">Responsable</th></tr></thead>'+
-    '<tbody>'+rows+'</tbody></table>'+
-    '<div style="margin-top:10px;text-align:right;font-family:var(--mono);font-size:9px;color:var(--t3)">Skysense · Centro BESS</div>';
-  modal.style.display='flex';
+  window._rvProEditingSavedId = id;
+  window._rvProReadOnlyView = false;
+  _rv('rv-wizard-modal', function(e){ e.classList.remove('open'); });
+  _rv('rv-sum-modal', function(e){
+    e.classList.add('open'); e.scrollTop = 0;
+    var existing = e.querySelector('#rvdet-close-btn');
+    if(!existing){
+      var closeBtn = document.createElement('button');
+      closeBtn.id = 'rvdet-close-btn';
+      closeBtn.innerHTML = '\u2715 Cerrar';
+      closeBtn.style.cssText = 'padding:8px 18px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.35);border-radius:7px;color:var(--red);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;flex-shrink:0';
+      closeBtn.onclick = function(){
+        e.classList.remove('open');
+        var fab=document.getElementById('fab-nueva'); if(fab) fab.style.display='';
+        var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='';
+        var bar=document.getElementById('rvdet-action-bar'); if(bar) bar.remove();
+        /* Si quedo una edicion pendiente de subir a la nube (debounce de
+           3s, ver _rvProSyncHistoricalToCloud), subirla ya mismo antes de
+           soltar la marca de que reporte se estaba editando. */
+        if(typeof window._rvProFlushHistoricalCloudSync==='function' && window._rvProEditingSavedId){
+          try{ window._rvProFlushHistoricalCloudSync(); }catch(err){}
+        }
+        window._rvProEditingSavedId = null;
+        window._rvProReadOnlyView = true;
+        window.rvW = null;
+      };
+      var existingBar = e.querySelector('#rvdet-action-bar');
+      if(existingBar) existingBar.remove();
+      var bar = document.createElement('div');
+      bar.id = 'rvdet-action-bar';
+      bar.style.cssText = 'position:sticky;top:0;z-index:500;background:var(--bg);border-bottom:1px solid var(--b1);padding:10px 20px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap';
+      bar.appendChild(closeBtn);
+      e.insertBefore(bar, e.firstChild);
+    }
+  });
+  var fab=document.getElementById('fab-nueva'); if(fab) fab.style.display='none';
+  var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='none';
+  if(typeof window._rvProRenderEditablePaper==='function') window._rvProRenderEditablePaper();
 };
 
 function rvCloseModal(){var m=document.getElementById('rv-det-modal');if(m)m.style.display='none';}
@@ -19802,9 +19840,14 @@ function rvDetExportPNG(btn){
   });
 }
 
-/* PNG export from summary preview */
+/* PNG export from summary preview — VAL-PRO: el "papel" que de verdad se ve
+   en pantalla ahora es #rv-paper-content (tabla profesional editable); el
+   .rv-paper viejo queda oculto (display:none) en modo editable, así que
+   exportarlo daría una imagen en blanco. Se prioriza el contenido nuevo y
+   solo se cae al viejo si por algún motivo no existiera. */
 function rvExportPNG(){
-  var el=document.querySelector('#rv-sum-modal .rv-paper');
+  var elNew=document.getElementById('rv-paper-content');
+  var el=(elNew && elNew.innerHTML.trim()) ? elNew : document.querySelector('#rv-sum-modal .rv-paper');
   if(!el){alert('No hay reporte para exportar.');return;}
   if(typeof html2canvas==='undefined'){alert('html2canvas no disponible.');return;}
   var btn=event.target;if(btn){btn.textContent='Exportando...';btn.disabled=true;}
@@ -19824,7 +19867,9 @@ function rvExportPNG(){
 /* Exporta el reporte de validación como PDF formal, paginado (a4), reutilizando
    el mismo html2canvas + jsPDF ya cargados en la app (mismo patrón que cerebroBuildPDF). */
 function rvExportPDF(){
-  var el=document.querySelector('#rv-sum-modal .rv-paper');
+  /* Ver nota en rvExportPNG — prioriza el papel nuevo (#rv-paper-content). */
+  var elNew=document.getElementById('rv-paper-content');
+  var el=(elNew && elNew.innerHTML.trim()) ? elNew : document.querySelector('#rv-sum-modal .rv-paper');
   if(!el){alert('No hay reporte para exportar.');return;}
   if(typeof html2canvas==='undefined'||!window.jspdf||!window.jspdf.jsPDF){alert('Librería de PDF no disponible.');return;}
   var btn=event.target;if(btn){btn.textContent='Exportando...';btn.disabled=true;}
@@ -27602,6 +27647,10 @@ var _BAT_LABELS = {
   'alarm_FALLA_DC':    'Falla DC',
   'alarm_RACKS_FUERA': 'Racks Fuera',
 };
+/* Expuesto a window — VAL-PRO (bloque "REPORTE DE VALIDACIÓN PROFESIONAL",
+   más adelante en el archivo) lo reutiliza tal cual para el selector de
+   estatus de 14 vías, sin duplicar el mapa. */
+window._BAT_LABELS = _BAT_LABELS;
 
 window.rvSetBatFull = function(bat, cond) {
   window._rvBatFullActive = true;
@@ -27635,6 +27684,7 @@ var _BAT_FULL_COLORS = {
   'alarm_FALLA_DC':    {bg:'rgba(220,38,38,.1)', border:'var(--red)',       color:'#991b1b'},
   'alarm_RACKS_FUERA': {bg:'rgba(217,119,6,.1)', border:'var(--yellow)',    color:'#92400e'},
 };
+window._BAT_FULL_COLORS = _BAT_FULL_COLORS;
 
 function _rvHighlightUnified(bat, cond) {
   /* Solo resaltar si bat tiene valor explícito — evitar highlight en carga inicial */
@@ -27676,6 +27726,7 @@ var _COND_BANNERS = {
   'FALLA_DC':     {bg:'rgba(220,38,38,.1)',    border:'rgba(220,38,38,.3)',    color:'var(--red)',      text:'🔋 Falla en el bus DC — requiere revisión técnica'},
   'RACKS_FUERA':  {bg:'rgba(217,119,6,.1)',    border:'rgba(245,158,11,.3)',   color:'#92400e',         text:'🗄 Uno o más racks fuera de operación — detallar en comentarios'},
 };
+window._COND_BANNERS = _COND_BANNERS;
 
 function _rvShowCondBanner(cond, bat) {
   var banner = document.getElementById('rv-cond-banner');
@@ -33146,6 +33197,13 @@ var OPPRO_REGION_GRAD  = {
   'Park Royal':'linear-gradient(135deg,#6d28d9,#a855f7)'
 };
 var OPPRO_REGION_ICON  = {ASUR:'✈️', OMA:'🛫', Industria:'🏭', 'Park Royal':'🏨'};
+/* Expuestos a window — VAL-PRO (bloque "REPORTE DE VALIDACIÓN PROFESIONAL",
+   más adelante en el archivo, su propia IIFE) reutiliza estas mismas
+   constantes/helpers de región para agrupar sus tarjetas, sin duplicarlas. */
+window.OPPRO_REGION_ORDER = OPPRO_REGION_ORDER;
+window.OPPRO_REGION_COLOR = OPPRO_REGION_COLOR;
+window.OPPRO_REGION_GRAD  = OPPRO_REGION_GRAD;
+window.OPPRO_REGION_ICON  = OPPRO_REGION_ICON;
 var OPPRO_PARK_ROYAL_HINTS = ['luna','sol','cozumel','cbe','vallarta'];
 var OPPRO_MAX_ROWS_PER_REGION = 999; /* sin truncar — se muestran todos los sitios de cada región */
 
@@ -33162,6 +33220,8 @@ var OPPRO_STATUS_LABEL = {
 function _oppEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _oppNum(v){ if(v===''||v==null) return null; var n=parseFloat(v); return isFinite(n)?n:null; }
 function _oppKey(name){ try{ return typeof _normSiteKey==='function' ? _normSiteKey(name) : String(name||'').toLowerCase().trim(); }catch(e){ return String(name||'').toLowerCase().trim(); } }
+window._oppEsc = _oppEsc;
+window._oppNum = _oppNum;
 
 function _oppMasterFor(siteName){
   var key = _oppKey(siteName);
@@ -33180,6 +33240,7 @@ function _oppRegionFor(siteName){
   }
   return cliente || 'Industria';
 }
+window._oppRegionFor = _oppRegionFor;
 function _oppDOD(sr){
   var ini=_oppNum(sr.socIni), fin=_oppNum(sr.soc);
   if(ini==null || fin==null) return null;
@@ -33628,6 +33689,10 @@ var OPPRO_STYLE = ''
 +'.oppc-obs-list li{margin-bottom:2px}'
 +'.oppc-ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:8px;color:#c7d6ff;font-weight:600;padding:0 2px}'
 +'@media(max-width:1100px){.oppc-topline{flex-direction:column}.oppc-kpi-row{flex-basis:auto}.oppc-region-grid{flex-direction:column}.oppc-bottom-grid{grid-template-columns:1fr}}';
+/* Expuesto a window — VAL-PRO reutiliza este mismo CSS (clases oppc-*) para
+   que el Reporte de Validación se vea visualmente idéntico al Operativo,
+   sin duplicar la hoja de estilos. */
+window.OPPRO_STYLE = OPPRO_STYLE;
 
 function _opProDrawCharts(byStatus, regionGroups, totalFilled, ns){
   ns = ns || 'pro';
@@ -34037,12 +34102,69 @@ function _opProMarkSaved(){
 }
 window._opProMarkSaving = _opProMarkSaving;
 window._opProMarkSaved = _opProMarkSaved;
+/* Editar un reporte YA GUARDADO (abierto desde el Calendario Operativo, ver
+   opShowDet) usa esta MISMA tabla en vivo, pero el autoguardado normal
+   (que solo escribe en el borrador "op:draft:v1" de HOY) sería incorrecto
+   aquí — pisaría el borrador del reporte en curso con datos de un reporte
+   viejo. window._opProEditingSavedId marca "estoy editando el reporte
+   guardado con este id" y desvía el autoguardado a actualizar ESE mismo
+   registro (por id/fbId), igual que si se apretara "Guardar" en el asistente
+   clásico, pero sin pasar por él.
+   IMPORTANTE: se muta opReps[idx] EN EL MISMO OBJETO (no se reemplaza por
+   uno nuevo) — otros botones de esta misma vista (ej. "🤝 Handoff", ver
+   opShowDet) guardan una referencia directa a ese objeto (`curRep = r`);
+   reemplazarlo dejaría esas referencias apuntando a una copia vieja. */
+function _opProSaveHistoricalEditsLocal(){
+  var id = window._opProEditingSavedId;
+  if(!id || typeof window.opReps==='undefined' || !window.opReps || !window.opW || !window.opW.srs) return null;
+  var idx = opReps.findIndex(function(r){ return r.id===id || r.fbId===id; });
+  if(idx<0) return null;
+  var rec = opReps[idx];
+  rec.srs = window.opW.srs;
+  if(typeof opCalcKpis==='function') rec.kpis = opCalcKpis(window.opW.srs);
+  try{ if(typeof opPersist==='function') opPersist(); }catch(e){}
+  return rec;
+}
+/* La escritura a Firestore (reportes_op) SIEMPRE crea un documento nuevo
+   (addDoc, ver window._fb.saveReporteOp) — no existe "update" en este
+   backend. Si esto se disparara en cada tecla (como el guardado local),
+   cada edición dejaría un documento huérfano nuevo en la nube, exactamente
+   el consumo de cuota Firestore que se redujo a propósito en otra ronda de
+   cambios. Por eso la nube se sincroniza en un debounce MUCHO más largo
+   (3s de inactividad) y, al confirmar el nuevo fbId, se borra el documento
+   anterior de este mismo reporte para no ir acumulando copias. */
+var _opProHistCloudTimer = null;
+function _opProFlushHistoricalCloudSync(){
+  if(_opProHistCloudTimer){ clearTimeout(_opProHistCloudTimer); _opProHistCloudTimer=null; }
+  var rec = _opProSaveHistoricalEditsLocal();
+  if(!rec || !window._fb || !window._fb.saveReporteOp || window._firestoreQuotaExhausted) return;
+  var prevFbId = rec.fbId;
+  window._fb.saveReporteOp(rec).then(function(fbId){
+    if(!fbId) return;
+    rec.fbId = fbId;
+    try{ if(typeof opPersist==='function') opPersist(); }catch(e){}
+    if(prevFbId && prevFbId!==fbId && window._fb.deleteReporteOp){
+      window._fb.deleteReporteOp(prevFbId).catch(function(){});
+    }
+  }).catch(function(e){ console.warn('[OP-PRO hist] guardado remoto falló:', e && e.message); });
+}
+function _opProSyncHistoricalToCloud(){
+  if(_opProHistCloudTimer) clearTimeout(_opProHistCloudTimer);
+  _opProHistCloudTimer = setTimeout(_opProFlushHistoricalCloudSync, 3000);
+}
+/* Expuesta para el botón "✕ Cerrar" de opShowDet, definido en OTRO bloque
+   <script> (el de "Reporte Operativo"/Bitácora) — necesita poder forzar
+   la subida pendiente antes de cerrar la vista. */
+window._opProFlushHistoricalCloudSync = _opProFlushHistoricalCloudSync;
 function _opProScheduleSave(){
   if(window._opProReadOnlyView) return;
   if(_opProSaveTimer) clearTimeout(_opProSaveTimer);
   _opProSaveTimer = setTimeout(function(){
     try{
-      if(window.opW && window.opW.srs){
+      if(window._opProEditingSavedId){
+        _opProSaveHistoricalEditsLocal();
+        _opProSyncHistoricalToCloud();
+      } else if(window.opW && window.opW.srs){
         var snap = Object.assign({}, window.opW, {_siteNames:(window.OP_SITES||[]).slice()});
         localStorage.setItem('op:draft:v1', JSON.stringify(snap));
       }
@@ -34050,6 +34172,11 @@ function _opProScheduleSave(){
     _opProMarkSaved();
   }, 500);
 }
+/* v86: expuesta a window — el bloque separado "VALIDACIÓN → OPERATIVO:
+   PRECARGA DE SOC INICIAL" (más abajo en el archivo, fuera de este IIFE)
+   necesita poder disparar el mismo autoguardado debounced tras precargar
+   sr.socIni, en vez de duplicar la lógica de guardado. */
+window._opProScheduleSave = _opProScheduleSave;
 /* Editar un sitio directo desde la vista previa — sin volver al wizard paso a paso. */
 window._opProSetField = function(i, field, value){
   if(window._opProReadOnlyView) return;
@@ -34072,8 +34199,14 @@ window._opProSetField = function(i, field, value){
   }
   _opProScheduleSummaryRefresh();
   _opProScheduleSave();
-  _opProPushFieldLive(i, field, value);
-  _opProTouchCursor(i, field);
+  /* Al editar un reporte YA GUARDADO (window._opProEditingSavedId, ver
+     opShowDet) NUNCA empujar a Firestore/cursores en vivo — eso escribiría
+     por error sobre el documento del reporte EN CURSO (collab_sessions/
+     op_current), que es un reporte distinto al que se está viendo aquí. */
+  if(!window._opProEditingSavedId){
+    _opProPushFieldLive(i, field, value);
+    _opProTouchCursor(i, field);
+  }
 };
 window._opProSetStatus = function(i, value){
   if(window._opProReadOnlyView) return;
@@ -34084,8 +34217,10 @@ window._opProSetStatus = function(i, value){
   if(sel) sel.style.color = OPPRO_STATUS_LABEL[value] ? OPPRO_STATUS_LABEL[value].color : '#94a3b8';
   _opProScheduleSummaryRefresh();
   _opProScheduleSave();
-  _opProPushFieldLive(i, 'status', value);
-  _opProTouchCursor(i, 'status');
+  if(!window._opProEditingSavedId){
+    _opProPushFieldLive(i, 'status', value);
+    _opProTouchCursor(i, 'status');
+  }
 };
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -34368,6 +34503,11 @@ function _opProFallbackCopy(ta, done){
 var _opProFieldPushT = {};
 var _opProPushFailWarned = false;
 function _opProPushFieldLive(i, field, value){
+  /* Nunca empujar a Firestore mientras se edita un reporte YA GUARDADO
+     (window._opProEditingSavedId, ver opShowDet) — ese documento en vivo
+     (collab_sessions/op_current) es el reporte EN CURSO, uno distinto al
+     que se está viendo/editando aquí desde el historial. */
+  if(window._opProEditingSavedId) return;
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
   if(!window._fb || !window._fb.collabPushField) return;
   var key = 'f'+i+'-'+field;
@@ -34394,6 +34534,7 @@ var _opProCursorT = null;
    cada tecla también cuenta como "sigo aquí". */
 function _opProTouchCursor(i, field){
   if(isNaN(i) || !field) return;
+  if(window._opProEditingSavedId) return;
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
   if(!window._fbFS || !window._fbDB) return;
   clearTimeout(_opProCursorT);
@@ -35057,6 +35198,11 @@ window._opProStartCollab = function(){
    camino por defecto — "modo clásico" queda como respaldo secundario.
    ══════════════════════════════════════════════════════════════════════ */
 window._opProStartDirect = function(){
+  /* Si veníamos de editar un reporte YA GUARDADO del historial (ver
+     opShowDet/_opProEditingSavedId), este es el reporte EN CURSO real —
+     limpiar esa marca para no confundir ambos modos (autoguardado y
+     sincronización en vivo deben apuntar aquí, no a aquel reporte viejo). */
+  window._opProEditingSavedId = null;
   /* Animación de "creando/entrando al reporte" — se muestra desde ya, antes
      de tocar nada más, así el momento de crear/unirse a la sesión en vivo
      (lo que antes se sentía como "cierra y después de un rato abre") queda
@@ -35314,23 +35460,30 @@ function _opProRenderEditablePaper(){
   var oldKpis = document.getElementById('op-sum-kpis');
   if(oldKpis) oldKpis.style.display = 'none';
   /* La cabecera y el pie "VISTA PREVIA" de la pantalla anterior (con
-     "← Editar" hacia el asistente clásico, "🚀 Reporte Profesional" hacia
-     OTRO modal, y un "Guardar" duplicado) quedaban encima/debajo de la
-     tabla en vivo — puro ruido visual, y "← Editar" era además una puerta
-     trasera de vuelta al asistente por sitio que ya se quitó del flujo
-     normal. Se ocultan siempre que estamos en modo editable (que es
-     SIEMPRE, desde que _opProStartDirect es la única entrada) — solo se
-     dejan ver al consultar un reporte YA GUARDADO desde el histórico. */
+     "← Editar" hacia el asistente clásico — YA ELIMINADO del todo —,
+     "🚀 Reporte Profesional" hacia OTRO modal, y un "Guardar" duplicado)
+     quedaban encima/debajo de la tabla en vivo — puro ruido visual. Ahora
+     se ocultan SIEMPRE que estamos en modo editable, tanto para el reporte
+     EN CURSO (_opProStartDirect) como para un reporte YA GUARDADO abierto
+     desde el Calendario Operativo (opShowDet + window._opProEditingSavedId)
+     — ambos casos ahora editan directo sobre esta misma tabla en vivo, sin
+     pasar nunca por el asistente clásico por sitio. */
   ['op-sum-legacy-hdr','op-sum-legacy-ftr'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = editable ? 'none' : '';
   });
 
+  /* La barra de "sesión colaborativa en vivo" es del reporte EN CURSO
+     (collab_sessions/op_current) — no debe aparecer (ni, sobre todo,
+     intentar unir a nadie a esa sesión) mientras se edita un reporte YA
+     GUARDADO del historial, que es un documento totalmente distinto. */
+  var showCollabBar = editable && !window._opProEditingSavedId;
+
   var html = '<style>'+OPPRO_STYLE+'</style>'
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
     + '<div id="oppro-cursor-rail"></div>'
     + _opProHeaderHtml(meta, d.totalSitios)
-    + (editable ? _opProCollabBarHtml() : '')
+    + (showCollabBar ? _opProCollabBarHtml() : '')
     + '<div class="oppc-topline">'
       + '<div id="oppro-kpi-wrap">'+_opProKpiHtml({total:d.totalReportados, ok:d.okCount, par:d.parCount, crit:d.critCount, discom:d.discomCount, mant:d.mantCount, dodAvg:d.dodAvg,
           energyMwh: d.totalEnergyKwh!=null?d.totalEnergyKwh/1000:null, capMwh: d.totalCapKwh!=null?d.totalCapKwh/1000:null, aprovPct:d.aprovPct})+'</div>'
@@ -35466,8 +35619,19 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   var _origShowDet = window.opShowDet;
   if(typeof _origShowDet === 'function'){
-    window.opShowDet = function(){
-      window._opProReadOnlyView = true;
+    window.opShowDet = function(id){
+      /* Antes esto forzaba modo SOLO LECTURA — la única forma de corregir
+         algo en un reporte ya guardado era el botón "← Editar", que
+         mandaba de vuelta al asistente clásico por sitio (el "otra vez
+         la versión vieja" que se quitó del resto de la app). Ahora se abre
+         YA editable, con la misma tabla en vivo del Reporte Profesional:
+         clic en cualquier celda para corregirla, se guarda solo — y
+         window._opProEditingSavedId marca CUÁL reporte guardado es este,
+         para que el autoguardado y la sincronización en vivo (ver
+         _opProScheduleSave/_opProPushFieldLive/_opProTouchCursor) sepan
+         que no deben tocar el borrador ni la sesión EN CURSO. */
+      window._opProEditingSavedId = id;
+      window._opProReadOnlyView = false;
       return _origShowDet.apply(this, arguments);
     };
   }
@@ -35611,6 +35775,845 @@ window.addEventListener('pagehide', function(){
 })();
 </script>
 <!-- ══════════════ fin REPORTE OPERATIVO PROFESIONAL ══════════════ -->
+
+<!-- ══════════════ REPORTE DE VALIDACIÓN PROFESIONAL — "VAL-PRO" (v85) ══════════════ -->
+<script>
+(function(){
+/* ══════════════════════════════════════════════════════════════════════════
+   VAL-PRO — rediseño profesional/editable del Reporte de Validación,
+   calcado del mismo patrón que ya usa Reporte Operativo (bloque
+   "REPORTE OPERATIVO PROFESIONAL" más arriba en el archivo — ver
+   _opProStartDirect/_opProRenderEditablePaper/_opProComputeAll/opShowDet).
+
+   Fase 1 (alcance confirmado explícitamente por el usuario): SOLO el
+   rediseño visual/editable — tabla profesional agrupada por región,
+   reemplazando por completo al asistente clásico por sitio
+   (#rv-wizard-modal, ahora inalcanzable) y a la tabla plana vieja. NO
+   incluye colaboración en tiempo real a nivel de campo (eso quedó
+   explícitamente fuera de esta fase — Validación no tenía ese sistema
+   antes y no se construye aquí).
+
+   FASE 2 (v86, agregada sobre esta misma base): continuidad/handoff entre
+   turnos (sr.inherited + panel "Continuidad y Seguimiento", ver
+   _rvProInjectInherited/_rvProContinuityPanelHtml/_rvProDetectIssue),
+   escalación Nocturno↔Matutino (sr.commBack/sr.followUp, proveedor/
+   cliente/personal), checklist de Nocturno (chgPow = potencia de carga,
+   y sitios "especiales" carga tardía/solar vía _rvIsSpecialSite), y
+   precarga de SOC Inicial de Validación en Reporte Operativo (ver
+   _rvopPrefillSocFromValidacionIfNeeded, bloque nuevo al final del
+   archivo). Ningún campo/función de fase 1 se modificó en su forma, solo
+   se agregó lo de arriba de forma no destructiva.
+
+   Reutiliza (sin duplicar) las constantes/estilos ya expuestos a window
+   por el bloque de Reporte Operativo: OPPRO_STYLE (CSS oppc-*),
+   OPPRO_REGION_ORDER/COLOR/GRAD/ICON, _oppRegionFor, _oppEsc, _oppNum; y
+   por el bloque de rvSetBatFull: _BAT_LABELS, _BAT_FULL_COLORS.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+window._rvProReadOnlyView = false;
+window._rvProEditingSavedId = null;
+
+/* Estilos exclusivos v86 (botón ☀ "sitio especial" en el nombre del
+   sitio) — se inyectan una sola vez, igual patrón que la hoja de estilos
+   extra que ya agrega el bloque de Reporte Operativo. */
+(function(){
+  if(document.getElementById('rvpro-v86-style')) return;
+  var st = document.createElement('style');
+  st.id = 'rvpro-v86-style';
+  st.textContent =
+    '.rvpc-special-btn{margin-left:5px;background:none;border:1px solid #e2e8f5;border-radius:6px;width:18px;height:18px;font-size:10px;line-height:1;cursor:pointer;opacity:.3;filter:grayscale(1);vertical-align:middle}'+
+    '.rvpc-special-btn:hover{opacity:.75}'+
+    '.rvpc-special-btn.rvpc-special-on{opacity:1;filter:none;border-color:#f59e0b;background:rgba(245,158,11,.12)}';
+  document.head.appendChild(st);
+})();
+
+/* Estatus de 14 vías (bat+cond) agrupados para el <select> — mismas claves
+   que _BAT_LABELS/_BAT_FULL_COLORS, sin inventar ninguna nueva. */
+var RVPRO_STATUS_GROUPS = [
+  {lbl:'OK',      keys:['ok_','ok_CARGANDO','ok_BALANCEANDO','ok_NO_DESCARGA','ok_DESCARGADO']},
+  {lbl:'Alarma',  keys:['alarm_','alarm_SIN_RED_AC','alarm_FALLA_DC','alarm_RACKS_FUERA']},
+  {lbl:'Error',   keys:['error_']},
+  {lbl:'N/A',     keys:['na_FUERA_OP','na_MANTENIMIENTO','na_LIBRANZA','na_']}
+];
+
+function _rvpEsc(s){ return (typeof window._oppEsc==='function') ? window._oppEsc(s) : String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _rvpKeyFor(sr){ return sr && sr.bat ? (sr.bat+'_'+(sr.cond||'')) : ''; }
+function _rvpStatusColor(key){ var m=window._BAT_FULL_COLORS; return (key && m && m[key]) ? m[key].color : '#94a3b8'; }
+function _rvpStatusLabel(key){ var m=window._BAT_LABELS; return (key && m && m[key]) ? m[key] : '— Sin estatus'; }
+function _rvpTempColor(tmp){ var n=parseFloat(tmp); if(isNaN(n)) return '#64748b'; if(n>=38) return '#dc2626'; if(n>=32) return '#b45309'; return '#15803d'; }
+function _rvProRegionSlug(name){ return String(name||'').replace(/\s+/g,''); }
+
+/* ── Cálculo agregado (KPIs + agrupación por región) a partir de
+   window.rvW.srs — igual patrón que _opProComputeAll: tanto la ronda EN
+   CURSO como un reporte YA GUARDADO abierto desde el historial
+   (rvShowDet) usan este MISMO window.rvW, así que esta función sirve para
+   ambos casos sin distinguir entre ellos. ── */
+function _rvProComputeAll(){
+  var srs = (window.rvW && window.rvW.srs) || [];
+  var sites = window.RV_SITES || [];
+  var rows = sites.map(function(name,i){
+    var sr = srs[i] || (typeof window.rvMkS==='function' ? window.rvMkS() : {});
+    var region = (typeof window._oppRegionFor==='function') ? window._oppRegionFor(name) : 'Industria';
+    return { name:name, sr:sr, region:region, _idx:i };
+  });
+  var filled = rows.filter(function(r){ return !r.sr.skip && r.sr.bat; });
+  var total = filled.length;
+  var dscSi   = filled.filter(function(r){ return r.sr.dsc==='si'; }).length;
+  var chgN    = filled.filter(function(r){ return !!r.sr.chg; }).length;
+  var racksN  = rows.filter(function(r){ return !r.sr.skip && r.sr.racks && String(r.sr.racks).trim(); }).length;
+  var clkOk   = filled.filter(function(r){ return r.sr.clk==='ok'; }).length;
+  var commErr = filled.filter(function(r){ return r.sr.bat==='error'; }).length;
+  var sinRedAc= filled.filter(function(r){ return r.sr.cond==='SIN_RED_AC'; }).length;
+  var regionOrder = window.OPPRO_REGION_ORDER || ['ASUR','OMA','Industria','Park Royal'];
+  var regionGroups = regionOrder.map(function(reg){
+    var regRows = rows.filter(function(r){ return r.region===reg; });
+    return { name:reg, rows:regRows, total:regRows.length };
+  }).filter(function(g){ return g.total>0; });
+  /* v86 — CONTINUIDAD/HANDOFF: sitios que traen un pendiente heredado del
+     turno anterior (r.sr.inherited, ver _rvProInjectInherited) y/o siguen
+     teniendo AHORA MISMO una incidencia sin resolver (_rvProDetectIssue) —
+     ver _rvProContinuityPanelHtml para cómo se muestra. Un sitio deja de
+     aparecer aquí en cuanto _rvProDetectIssue ya no encuentra nada (p.ej.
+     el operador cambió su estatus a OK), sin necesidad de un flag de
+     "resuelto" aparte — el estado real de la ronda ES la fuente de verdad. */
+  var continuity = rows.map(function(r){
+    var openIssue = (typeof _rvProDetectIssue==='function') ? _rvProDetectIssue(r.sr, r.name) : null;
+    var inherited = r.sr.inherited || null;
+    if(!openIssue && !inherited) return null;
+    return { name:r.name, region:r.region, _idx:r._idx, sr:r.sr, openIssue:openIssue, inherited:inherited };
+  }).filter(function(x){ return !!x; });
+  return { rows:rows, filled:filled, totalSitios:rows.length, totalReportados:total,
+    dscSi:dscSi, chgN:chgN, racksN:racksN, clkOk:clkOk, commErr:commErr, sinRedAc:sinRedAc,
+    regionGroups:regionGroups, continuity:continuity };
+}
+window._rvProComputeAll = _rvProComputeAll;
+
+/* ── v86: ¿qué cuenta como "pendiente/incidencia sin resolver" para un
+   sitio? Mismo criterio que ya usan las tarjetas KPI de fase 1 (Sin
+   Comunicación/Sin Red AC/Racks Desenclavados) más "no completó prueba de
+   descarga" (dsc==='no') y "no completó carga en el turno" (cond
+   'NO_DESCARGA'), salvo en sitios marcados como "especiales" (carga
+   tardía/solar, ver _rvIsSpecialSite) donde no haber cargado aún es su
+   comportamiento normal, no una incidencia. Devuelve null si no hay nada
+   pendiente. ── */
+function _rvProDetectIssue(sr, siteName){
+  if(!sr || sr.skip || !sr.bat) return null;
+  if(sr.bat==='error') return { code:'error', label: sr.batLabel || 'Sin comunicación' };
+  if(sr.bat==='alarm') return { code:'alarm', label: sr.batLabel || 'Alarmado' };
+  if(sr.racks && String(sr.racks).trim()) return { code:'racks', label:'Racks desenclavados: '+sr.racks };
+  if(sr.dsc==='no') return { code:'dsc', label:'No se realizó prueba de descarga' };
+  if(sr.cond==='NO_DESCARGA' && !(typeof _rvIsSpecialSite==='function' && _rvIsSpecialSite(siteName))){
+    return { code:'nocarga', label:'No completó carga en el turno' };
+  }
+  return null;
+}
+window._rvProDetectIssue = _rvProDetectIssue;
+
+/* ── v86: sitios "especiales" (carga tardía/solar) — se preguntó al
+   maestro de sitios (_oppMasterFor/RV_SITES) y no existe ningún campo así
+   hoy, así que se guarda como un set aparte en localStorage, INDEPENDIENTE
+   de cualquier reporte puntual (es una característica del sitio, no una
+   observación de una ronda — así no hay que volver a marcarlo cada turno).
+   Solo cambia el criterio de "pendiente" (_rvProDetectIssue, código
+   'nocarga') — nunca oculta una alarma/error/racks/descarga reales. ── */
+var RV_SPECIAL_SK = 'rv:special_sites:v1';
+function _rvLoadSpecialSites(){
+  try{ var d=localStorage.getItem(RV_SPECIAL_SK); var arr=d?JSON.parse(d):[]; return Array.isArray(arr)?arr:[]; }catch(e){ return []; }
+}
+function _rvIsSpecialSite(name){
+  var key = String(name||'').trim().toLowerCase();
+  if(!key) return false;
+  return _rvLoadSpecialSites().indexOf(key) >= 0;
+}
+window._rvIsSpecialSite = _rvIsSpecialSite;
+window._rvToggleSpecialSite = function(name){
+  var key = String(name||'').trim().toLowerCase();
+  if(!key) return;
+  var list = _rvLoadSpecialSites();
+  var idx = list.indexOf(key);
+  if(idx>=0) list.splice(idx,1); else list.push(key);
+  try{ localStorage.setItem(RV_SPECIAL_SK, JSON.stringify(list)); }catch(e){}
+  document.querySelectorAll('[data-special-btn="'+key+'"]').forEach(function(btn){
+    btn.classList.toggle('rvpc-special-on', idx<0 /* idx<0 antes de togglear == quedó marcado ahora */);
+  });
+  if(typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel();
+};
+window._rvToggleSpecialSiteByIdx = function(i){
+  var name = (window.RV_SITES||[])[i];
+  if(name && window._rvToggleSpecialSite) window._rvToggleSpecialSite(name);
+};
+
+/* ── v86: al arrancar una ronda NUEVA (no un borrador retomado, no un
+   histórico), anota en cada sr.inherited el pendiente que traía ese mismo
+   sitio en el reporte de Validación INMEDIATAMENTE ANTERIOR (rvReps[0] al
+   momento de arrancar — ya viene ordenado más-reciente-primero por
+   rvSave()/unshift, así cubre tanto "mismo día" como "el Nocturno de ayer
+   entrega al Matutino de hoy" sin tener que comparar fechas a mano). Nunca
+   copia bat/cond/etc. reales — es solo contexto de UI para el operador
+   (ver _rvProContinuityPanelHtml), que decide y edita el estado real de
+   este turno por su cuenta. ── */
+function _rvProInjectInherited(){
+  if(!window.rvW || !window.rvW.srs) return;
+  try{ if(typeof rvLoad==='function') rvLoad(); }catch(e){}
+  var prev = (window.rvReps && window.rvReps[0]) ? window.rvReps[0] : null;
+  if(!prev || !prev.srs || !prev.srs.length) return;
+  var sites = window.RV_SITES || [];
+  window.rvW.srs.forEach(function(sr, i){
+    if(!sr || sr.inherited) return; /* ya trae algo (p.ej. viene de un borrador) — no pisar */
+    var siteName = sites[i];
+    var prevSr = prev.srs[i];
+    var issue = _rvProDetectIssue(prevSr, siteName);
+    if(!issue) return;
+    sr.inherited = {
+      fromType: prev.type || '', fromDate: prev.date || prev.createdAt || null,
+      code: issue.code, label: issue.label
+    };
+  });
+}
+window._rvProInjectInherited = _rvProInjectInherited;
+
+/* ── v86: panel "Continuidad y Seguimiento" — lista los sitios con un
+   pendiente heredado y/o una incidencia abierta AHORA. Para "sin
+   comunicación" agrega "¿Regresó durante el turno?" (la validación que
+   pidió el usuario específicamente para Nocturno, pero se deja disponible
+   en cualquier turno — un sitio puede perder/recuperar comunicación en
+   cualquier ronda, y mantener la tabla/controles consistentes entre los
+   3 turnos evita triplicar la lógica). Para "alarmado"/"sin comunicación"
+   agrega el seguimiento de escalación (proveedor/cliente/personal + nota
+   + "resuelto"), que el siguiente turno hereda vía sr.inherited. ── */
+function _rvProEscalationLabel(k){ return {proveedor:'Proveedor', cliente:'Cliente', personal:'Personal propio'}[k] || ''; }
+function _rvProContinuityPanelHtml(d){
+  var list = (d && d.continuity) || [];
+  if(!list.length) return '';
+  var rowsHtml = list.map(function(c){
+    var i = c._idx, sr = c.sr;
+    var turnoLbl = (c.inherited && window.RV_TYPES && window.RV_TYPES[c.inherited.fromType]) ? window.RV_TYPES[c.inherited.fromType].label : (c.inherited?c.inherited.fromType:'');
+    var inheritedHtml = c.inherited
+      ? '<div style="font-size:9px;color:#b45309;margin-top:2px">⟲ Viene de '+_rvpEsc(turnoLbl||'turno anterior')+': '+_rvpEsc(c.inherited.label)+'</div>'
+      : '';
+    var statusHtml = c.openIssue
+      ? '<span style="color:#dc2626;font-weight:800;font-size:10px">⚠ Sigue abierto: '+_rvpEsc(c.openIssue.label)+'</span>'
+      : '<span style="color:#15803d;font-weight:800;font-size:10px">✓ Resuelto en este turno</span>';
+    var commBackHtml = (sr.bat==='error')
+      ? '<div style="margin-top:5px;font-size:8.5px;color:#5b6b8c;font-weight:700">¿Regresó la comunicación durante el turno? '
+        + '<select class="oppc-esel" style="font-size:8.5px;font-weight:700" onchange="window._rvProSetCommBack('+i+',this.value)">'
+          + '<option value="" '+(!sr.commBack?'selected':'')+'>Pendiente</option>'
+          + '<option value="si" '+(sr.commBack==='si'?'selected':'')+'>Sí</option>'
+          + '<option value="no" '+(sr.commBack==='no'?'selected':'')+'>No</option>'
+        + '</select></div>'
+      : '';
+    /* El seguimiento (proveedor/cliente/personal) debe poder ofrecerse
+       tanto si el sitio SIGUE con el problema ahora mismo (c.openIssue)
+       como si el turno todavía no lo revalida pero lo trae heredado del
+       turno anterior (c.inherited) — p.ej. el Matutino que recién abre
+       hereda "sin comunicación" de anoche y necesita poder escalar con
+       proveedor/cliente/personal ANTES de que él mismo vuelva a marcar el
+       estatus del sitio. */
+    var openCode = c.openIssue ? c.openIssue.code : null;
+    var inheritedCode = c.inherited ? c.inherited.code : null;
+    var showFollowUp = (openCode==='error' || openCode==='alarm' || inheritedCode==='error' || inheritedCode==='alarm');
+    var fu = sr.followUp || {kind:'',note:'',resolved:false};
+    var followUpHtml = showFollowUp
+      ? '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+        + '<select class="oppc-esel" style="font-size:8.5px" data-col="fukind" onchange="window._rvProSetFollowUp('+i+',\'kind\',this.value)">'
+          + '<option value="" '+(!fu.kind?'selected':'')+'>Seguimiento con…</option>'
+          + '<option value="proveedor" '+(fu.kind==='proveedor'?'selected':'')+'>Proveedor</option>'
+          + '<option value="cliente" '+(fu.kind==='cliente'?'selected':'')+'>Cliente</option>'
+          + '<option value="personal" '+(fu.kind==='personal'?'selected':'')+'>Personal propio</option>'
+        + '</select>'
+        + '<input type="text" class="oppc-einput-obs" style="min-width:140px" placeholder="Nota de seguimiento…" value="'+_rvpEsc(fu.note||'')+'" oninput="window._rvProSetFollowUp('+i+',\'note\',this.value)">'
+        + '<label style="font-size:8.5px;color:#5b6b8c;font-weight:700;white-space:nowrap;cursor:pointer"><input type="checkbox" '+(fu.resolved?'checked':'')+' onchange="window._rvProSetFollowUp('+i+',\'resolved\',this.checked)"> Seguimiento resuelto</label>'
+      + '</div>'
+      : '';
+    return '<div class="oppc-watch-row" style="flex-direction:column;align-items:stretch">'
+      + '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span class="oppc-watch-name">'+_rvpEsc(c.name)+'</span>'+statusHtml+'</div>'
+      + inheritedHtml + commBackHtml + followUpHtml
+    + '</div>';
+  }).join('');
+  return '<div class="oppc-card oppc-watchcard" data-pdf-avoid-break style="margin-bottom:8px" id="rvpro-continuity-card">'
+    + '<div class="oppc-card-ttl"><span class="oppc-ttl-bar" style="background:#ef4444"></span>🔄 Continuidad y Seguimiento — '+list.length+' pendiente'+(list.length===1?'':'s')+'</div>'
+    + rowsHtml
+  + '</div>';
+}
+function _rvProRefreshContinuityPanel(){
+  var wrap = document.getElementById('rvpro-continuity-wrap');
+  if(!wrap) return;
+  var d = _rvProComputeAll();
+  wrap.innerHTML = _rvProContinuityPanelHtml(d);
+}
+window._rvProRefreshContinuityPanel = _rvProRefreshContinuityPanel;
+window._rvProSetCommBack = function(i, val){
+  if(window._rvProReadOnlyView) return;
+  if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
+  window.rvW.srs[i].commBack = val;
+  _rvProScheduleSave();
+  if(typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel();
+};
+window._rvProSetFollowUp = function(i, field, val){
+  if(window._rvProReadOnlyView) return;
+  if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
+  var sr = window.rvW.srs[i];
+  if(!sr.followUp) sr.followUp = {kind:'', note:'', resolved:false};
+  sr.followUp[field] = val;
+  _rvProScheduleSave();
+  /* Deliberadamente NO se refresca el panel completo aquí (a diferencia de
+     _rvProSetCommBack) — este setter se dispara en cada tecla del campo de
+     nota (oninput); re-renderizar el panel en cada tecla le quitaría el
+     foco al input mientras el operador todavía está escribiendo. El dato
+     ya queda guardado igual (mutación directa + autoguardado debounced);
+     el panel se pondrá al día solo en la próxima acción que sí dispare un
+     refresh (cambiar estatus, alternar "especial", reabrir la vista). */
+};
+
+/* ── KPIs (tarjetas) — campos propios de Validación, a pedido explícito
+   del usuario: prueba de descarga, si se cargó, racks desenclavados,
+   relojes validados, comunicación, red AC. Mismo look que las tarjetas
+   oppc-kpi de Reporte Operativo (clases reutilizadas de OPPRO_STYLE). ── */
+function _rvProKpiCard(icon,label,value,sub,accent){
+  return '<div data-pdf-avoid-break class="oppc-kpi">'
+    +'<div class="oppc-kpi-ico" style="background:'+accent+'22;color:'+accent+'">'+icon+'</div>'
+    +'<div style="min-width:0">'
+      +'<div class="oppc-kpi-lbl">'+_rvpEsc(label)+'</div>'
+      +'<div class="oppc-kpi-val" style="color:'+accent+'">'+_rvpEsc(value)+'</div>'
+      +(sub?'<div class="oppc-kpi-sub">'+_rvpEsc(sub)+'</div>':'')
+    +'</div>'
+  +'</div>';
+}
+function _rvProKpiHtml(d){
+  var total = d.totalReportados;
+  function pct(n){ return total ? Math.round(n/total*100)+'%' : 'sin datos aún'; }
+  var cards = [
+    _rvProKpiCard('🔋','Prueba de Descarga', d.dscSi+' / '+total, pct(d.dscSi), '#15803d'),
+    _rvProKpiCard('🔌','Cargando',           d.chgN+' / '+total,  pct(d.chgN),  '#1d4ed8'),
+    _rvProKpiCard('🗄','Racks Desenclavados', String(d.racksN),    d.racksN?'sitio'+(d.racksN===1?'':'s')+' con racks reportados':'sin novedad', '#b45309'),
+    _rvProKpiCard('⏰','Relojes Validados',  d.clkOk+' / '+total, pct(d.clkOk), '#0a7a5c'),
+    _rvProKpiCard('📡','Sin Comunicación',   String(d.commErr),   d.commErr?'requiere atención':'todo comunicando', '#dc2626'),
+    _rvProKpiCard('⚡','Sin Red AC',         String(d.sinRedAc),  d.sinRedAc?'operando en respaldo':'con red normal', '#991b1b')
+  ];
+  return '<div class="oppc-kpi-row">'+cards.join('')+'</div>';
+}
+
+function _rvProHeaderHtml(meta,total){
+  var rt = (window.RV_TYPES && window.RV_TYPES[meta.type]) || {label:meta.type||'', ico:'🕓'};
+  var fdl = typeof window.rvFd==='function' ? window.rvFd(meta.date) : '';
+  return '<div class="oppc-hdr">'
+    +'<div class="oppc-hdr-titleblock">'
+      +'<div class="oppc-hdr-title">VALIDACIÓN DE SISTEMAS BESS</div>'
+      +'<div class="oppc-hdr-accent"></div>'
+      +'<div class="oppc-hdr-sub">Ronda de validación de '+total+' sitio'+(total===1?'':'s')+'</div>'
+    +'</div>'
+    +'<div class="oppc-hdr-right">'
+      +'<div class="oppc-hdr-chips">'
+        +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">📅</span><div><div class="oppc-hdr-chip-lbl">Fecha</div><div class="oppc-hdr-chip-val">'+_rvpEsc(fdl)+'</div></div></div>'
+        +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">'+(rt.ico||'🕓')+'</span><div><div class="oppc-hdr-chip-lbl">Turno</div><div class="oppc-hdr-chip-val">'+_rvpEsc(rt.label||'')+'</div></div></div>'
+        +'<div class="oppc-hdr-chip"><span class="oppc-hdr-chip-ico">👤</span><div><div class="oppc-hdr-chip-lbl">Operador</div><div class="oppc-hdr-chip-val">'+_rvpEsc(meta.op)+'</div></div></div>'
+      +'</div>'
+      +'<div class="oppc-hdr-brand">'
+        +(window.SKYSENSE_LOGO_B64 ? '<img src="'+window.SKYSENSE_LOGO_B64+'" class="oppc-hdr-logo" alt="Skysense">' : '<span class="oppc-hdr-logotxt">SKYSENSE</span>')
+        +'<span class="oppc-hdr-brand-tag">Centro de Operaciones BESS</span>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+}
+
+/* ── Fila editable de un sitio — columnas: Estado (14 vías, dropdown),
+   Reloj, Descarga, Racks, Temp máx, SOC Inicial %, Pot. Carga (v86),
+   Comentarios, Responsable.
+   NOTA: "chg" (¿se cargó?) no tiene columna propia — se deriva de tener
+   un SOC% capturado (ver _rvProSetField), igual espíritu que el asistente
+   viejo (donde el campo SOC solo aparecía si "cargando" estaba marcado).
+   "lp"/"rn" (baja potencia / acometida negativa) no son columnas propias
+   de esta tabla (fuera de la lista de columnas pedida), pero se conservan
+   editables como par de casillas chicas bajo el selector de Estado, para
+   no perder la capacidad de registrarlas que sí tenía el asistente viejo.
+   v86: la columna SOC se relabelea "SOC Inicial %" (viaja al Reporte
+   Operativo, ver _rvopPrefillSocFromValidacionIfNeeded), se agrega
+   "Pot. Carga" (validación explícita de Nocturno, expuesta en las 3
+   rondas por consistencia de tabla — decisión documentada en el reporte
+   final), y el nombre del sitio lleva un botón ☀ para marcar/desmarcar
+   "sitio especial" (carga tardía/solar, ver _rvIsSpecialSite). */
+function _rvProEditableRowHtml(r, editable){
+  var i = r._idx, sr = r.sr;
+  var key = _rvpKeyFor(sr);
+  var isSpecial = (typeof _rvIsSpecialSite==='function') && _rvIsSpecialSite(r.name);
+  if(!editable){
+    return '<tr>'
+      +'<td class="oppc-etd-name">'+_rvpEsc(r.name)+(isSpecial?' <span title="Sitio especial (carga tardía/solar)">☀</span>':'')+'</td>'
+      +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+'</td>'
+      +'<td class="oppc-etd-num">'+(sr.clk==='ok'?'OK':sr.clk==='no'?'No':'—')+'</td>'
+      +'<td class="oppc-etd-num">'+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
+      +'<td class="oppc-etd-num">'+_rvpEsc(sr.racks||'—')+'</td>'
+      +'<td class="oppc-etd-num" style="color:'+_rvpTempColor(sr.tmp)+'">'+(sr.tmp?sr.tmp+'°C':'—')+'</td>'
+      +'<td class="oppc-etd-num">'+(sr.soc!=null&&sr.soc!==''?sr.soc+'%':'—')+'</td>'
+      +'<td class="oppc-etd-num">'+_rvpEsc(sr.chgPow||'—')+'</td>'
+      +'<td class="oppc-etd-obs">'+_rvpEsc(sr.cmt||'')+'</td>'
+      +'<td class="oppc-etd-obs">'+_rvpEsc(sr.resp||'')+'</td>'
+    +'</tr>';
+  }
+  var optHtml = '<option value="" '+(!key?'selected':'')+'>— Sin estatus</option>'
+    + RVPRO_STATUS_GROUPS.map(function(g){
+        return '<optgroup label="'+g.lbl+'">'
+          + g.keys.map(function(k){
+              return '<option value="'+k+'" '+(key===k?'selected':'')+'>'+_rvpEsc(_rvpStatusLabel(k))+'</option>';
+            }).join('')
+          + '</optgroup>';
+      }).join('');
+  return '<tr id="rvpro-tr-'+i+'">'
+    +'<td class="oppc-etd-name">'+_rvpEsc(r.name)
+      +'<button type="button" data-special-btn="'+_rvpEsc(String(r.name||'').trim().toLowerCase())+'" class="rvpc-special-btn'+(isSpecial?' rvpc-special-on':'')+'" title="Sitio especial (carga tardía/solar) — no cuenta como incidencia por no haber cargado aún" onclick="window._rvToggleSpecialSiteByIdx('+i+')">☀</button>'
+    +'</td>'
+    +'<td>'
+      +'<select class="oppc-esel" id="rvpro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="color:'+_rvpStatusColor(key)+'" onchange="window._rvProSetStatus('+i+',this.value)">'+optHtml+'</select>'
+      +'<div style="margin-top:2px;font-size:8px;font-family:Arial,sans-serif;color:#8695b5;white-space:nowrap">'
+        +'<label style="cursor:pointer;margin-right:6px"><input type="checkbox" style="vertical-align:middle" '+(sr.lp?'checked':'')+' onchange="window._rvProSetField('+i+',\'lp\',this.checked)"> Baja pot.</label>'
+        +'<label style="cursor:pointer"><input type="checkbox" style="vertical-align:middle" '+(sr.rn?'checked':'')+' onchange="window._rvProSetField('+i+',\'rn\',this.checked)"> Acometida neg.</label>'
+      +'</div>'
+    +'</td>'
+    +'<td><select class="oppc-esel" data-idx="'+i+'" data-col="clk" onchange="window._rvProSetField('+i+',\'clk\',this.value)">'
+        +'<option value="" '+(!sr.clk?'selected':'')+'>—</option>'
+        +'<option value="ok" '+(sr.clk==='ok'?'selected':'')+'>OK</option>'
+        +'<option value="no" '+(sr.clk==='no'?'selected':'')+'>No</option>'
+      +'</select></td>'
+    +'<td><select class="oppc-esel" data-idx="'+i+'" data-col="dsc" onchange="window._rvProSetField('+i+',\'dsc\',this.value)">'
+        +'<option value="" '+(!sr.dsc?'selected':'')+'>—</option>'
+        +'<option value="si" '+(sr.dsc==='si'?'selected':'')+'>Sí</option>'
+        +'<option value="no" '+(sr.dsc==='no'?'selected':'')+'>No</option>'
+      +'</select></td>'
+    +'<td><input type="text" class="oppc-einput" style="width:82px" id="rvpro-in-racks-'+i+'" data-idx="'+i+'" data-col="racks" value="'+_rvpEsc(sr.racks||'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'racks\',this.value)"></td>'
+    +'<td><input type="number" class="oppc-einput" id="rvpro-in-tmp-'+i+'" data-idx="'+i+'" data-col="tmp" style="color:'+_rvpTempColor(sr.tmp)+';font-weight:800" value="'+_rvpEsc(sr.tmp!=null?sr.tmp:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'tmp\',this.value)"></td>'
+    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="rvpro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_rvpEsc(sr.soc!=null?sr.soc:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'soc\',this.value)"></td>'
+    +'<td><input type="text" class="oppc-einput" style="width:60px" id="rvpro-in-chgpow-'+i+'" data-idx="'+i+'" data-col="chgPow" value="'+_rvpEsc(sr.chgPow||'')+'" placeholder="kW" oninput="window._rvProSetField('+i+',\'chgPow\',this.value)"></td>'
+    +'<td><input type="text" class="oppc-einput-obs" data-idx="'+i+'" data-col="cmt" maxlength="140" value="'+_rvpEsc(sr.cmt||'')+'" placeholder="Comentario breve…" oninput="window._rvProSetField('+i+',\'cmt\',this.value)"></td>'
+    +'<td><input type="text" class="oppc-einput-obs" style="min-width:100px" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
+  +'</tr>';
+}
+function _rvProEditableRegionHtml(g, editable){
+  var rowsHtml = g.rows.map(function(r){ return _rvProEditableRowHtml(r, editable); }).join('');
+  var grad = (window.OPPRO_REGION_GRAD && window.OPPRO_REGION_GRAD[g.name]) || 'linear-gradient(135deg,#0a1f5e,#1a3fcc)';
+  var icon = (window.OPPRO_REGION_ICON && window.OPPRO_REGION_ICON[g.name]) || '';
+  return '<div class="oppc-card oppc-eregion" data-pdf-avoid-break style="margin-bottom:8px">'
+    +'<div class="oppc-region-hdr" style="background:'+grad+';border-radius:8px 8px 0 0;margin:-10px -13px 8px">'
+      +'<span>'+icon+' '+_rvpEsc(g.name.toUpperCase())+'</span>'
+      +'<span class="oppc-region-hdr-n" id="rvpro-regn-'+_rvProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
+    +'</div>'
+    +'<table class="oppc-etable"><thead><tr>'
+      +'<th>Sitio</th><th>Estado</th><th>Reloj</th><th>Descarga</th><th>Racks</th><th>Temp °C</th><th>SOC Inicial %</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
+    +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
+  +'</div>';
+}
+function _rvProEditableRegionsHtml(regionGroups, editable){
+  return regionGroups.map(function(g){ return _rvProEditableRegionHtml(g, editable); }).join('');
+}
+
+/* ── Autoguardado (indicador visual — reutiliza las mismas clases
+   .oppro-autosave-badge/.oppro-saving que ya inyecta el bloque de
+   Reporte Operativo en document.head) ── */
+function _rvProMarkSaving(){
+  var b=document.getElementById('rvpro-autosave-badge');
+  if(b){ b.textContent='💾 Guardando…'; b.classList.add('oppro-saving'); }
+}
+function _rvProMarkSaved(){
+  var b=document.getElementById('rvpro-autosave-badge');
+  if(b){
+    var hh=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    b.textContent='✓ Guardado · '+hh; b.classList.remove('oppro-saving');
+  }
+}
+
+/* ── Editar un reporte YA GUARDADO (abierto desde el Calendario de
+   Validación, ver rvShowDet) usa esta MISMA tabla en vivo, pero el
+   autoguardado normal (que solo escribe en el borrador "rv:draft:v1" de
+   la ronda en curso) sería incorrecto aquí — pisaría el borrador con
+   datos de un reporte viejo. window._rvProEditingSavedId marca "estoy
+   editando el reporte guardado con este id" y desvía el autoguardado a
+   actualizar ESE MISMO registro (por id/fbId), igual patrón que
+   _opProSaveHistoricalEditsLocal/_opProSyncHistoricalToCloud para
+   Reporte Operativo, pero contra rvReps/RV_SK/rvPersist()/
+   _fb.saveReporteVal/_fb.deleteReporteVal en vez de los equivalentes op.
+   IMPORTANTE: se muta rvReps[idx] EN EL MISMO OBJETO (no se reemplaza),
+   igual razón que en Operativo — cualquier otra referencia directa a
+   ese registro debe seguir viendo los cambios. ── */
+function _rvProSaveHistoricalEditsLocal(){
+  var id = window._rvProEditingSavedId;
+  if(!id || typeof window.rvReps==='undefined' || !window.rvReps || !window.rvW || !window.rvW.srs) return null;
+  var idx = rvReps.findIndex(function(r){ return r.id===id || r.fbId===id; });
+  if(idx<0) return null;
+  var rec = rvReps[idx];
+  rec.srs = window.rvW.srs;
+  try{ if(typeof rvPersist==='function') rvPersist(); }catch(e){}
+  return rec;
+}
+window._rvProSaveHistoricalEditsLocal = _rvProSaveHistoricalEditsLocal;
+
+/* La escritura a Firestore (reportes_val) SIEMPRE crea un documento nuevo
+   (addDoc, ver window._fb.saveReporteVal) — no existe "update" en este
+   backend. Por eso la nube se sincroniza en un debounce largo (3s de
+   inactividad, misma cuota-consciente que Operativo) y, al confirmar el
+   nuevo fbId, se borra el documento anterior de este mismo reporte para
+   no ir acumulando copias huérfanas. */
+var _rvProHistCloudTimer = null;
+function _rvProFlushHistoricalCloudSync(){
+  if(_rvProHistCloudTimer){ clearTimeout(_rvProHistCloudTimer); _rvProHistCloudTimer=null; }
+  var rec = _rvProSaveHistoricalEditsLocal();
+  if(!rec || !window._fb || !window._fb.saveReporteVal || window._firestoreQuotaExhausted) return;
+  var prevFbId = rec.fbId;
+  window._fb.saveReporteVal(rec).then(function(fbId){
+    if(!fbId) return;
+    rec.fbId = fbId;
+    try{ if(typeof rvPersist==='function') rvPersist(); }catch(e){}
+    if(prevFbId && prevFbId!==fbId && window._fb.deleteReporteVal){
+      window._fb.deleteReporteVal(prevFbId).catch(function(){});
+    }
+  }).catch(function(e){ console.warn('[VAL-PRO hist] guardado remoto falló:', e && e.message); });
+}
+function _rvProSyncHistoricalToCloud(){
+  if(_rvProHistCloudTimer) clearTimeout(_rvProHistCloudTimer);
+  _rvProHistCloudTimer = setTimeout(_rvProFlushHistoricalCloudSync, 3000);
+}
+/* Expuesta para el botón "✕ Cerrar" de rvShowDet (definido más arriba en
+   el archivo, en otro bloque <script>) — necesita poder forzar la subida
+   pendiente antes de cerrar la vista. */
+window._rvProFlushHistoricalCloudSync = _rvProFlushHistoricalCloudSync;
+window._rvProSyncHistoricalToCloud = _rvProSyncHistoricalToCloud;
+
+var _rvProSaveTimer = null, _rvProSummaryTimer = null;
+function _rvProScheduleSave(){
+  if(window._rvProReadOnlyView) return;
+  if(_rvProSaveTimer) clearTimeout(_rvProSaveTimer);
+  _rvProSaveTimer = setTimeout(function(){
+    try{
+      if(window._rvProEditingSavedId){
+        _rvProSaveHistoricalEditsLocal();
+        _rvProSyncHistoricalToCloud();
+      } else if(window.rvW && window.rvW.srs){
+        var snap = Object.assign({}, window.rvW, {_siteNames:(window.RV_SITES||[]).slice()});
+        localStorage.setItem('rv:draft:v1', JSON.stringify(snap));
+      }
+    }catch(e){}
+    _rvProMarkSaved();
+  }, 500);
+}
+function _rvProRefreshSummary(){
+  var d = _rvProComputeAll();
+  var kpiWrap = document.getElementById('rvpro-kpi-wrap');
+  if(kpiWrap) kpiWrap.innerHTML = _rvProKpiHtml(d);
+  d.regionGroups.forEach(function(g){
+    var el = document.getElementById('rvpro-regn-'+_rvProRegionSlug(g.name));
+    if(el) el.textContent = g.total+' sitio'+(g.total===1?'':'s');
+  });
+}
+function _rvProScheduleSummaryRefresh(){
+  if(_rvProSummaryTimer) clearTimeout(_rvProSummaryTimer);
+  _rvProSummaryTimer = setTimeout(_rvProRefreshSummary, 350);
+}
+
+/* Editar un sitio directo desde la vista previa — sin volver al asistente. */
+window._rvProSetField = function(i, field, value){
+  if(window._rvProReadOnlyView) return;
+  if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
+  _rvProMarkSaving();
+  window.rvW.srs[i][field] = value;
+  /* "¿Se cargó?" (chg) no tiene columna/casilla propia en esta tabla — se
+     deriva de tener un SOC% capturado (ver nota arriba de
+     _rvProEditableRowHtml), así la tarjeta KPI "Cargando" refleja la
+     realidad sin pedir un campo aparte. */
+  if(field==='soc'){
+    window.rvW.srs[i].chg = !!(value!=null && String(value).trim()!=='');
+  }
+  if(field==='tmp'){
+    var tmpEl = document.getElementById('rvpro-in-tmp-'+i);
+    if(tmpEl) tmpEl.style.color = _rvpTempColor(value);
+  }
+  _rvProScheduleSummaryRefresh();
+  _rvProScheduleSave();
+  /* v86: "racks" y "dsc" pueden abrir o cerrar un pendiente
+     (_rvProDetectIssue) — refrescar el panel de Continuidad de inmediato
+     (no debounced: es un cambio discreto de un <select>/campo corto, no
+     tecleo continuo como cmt/resp/chgPow, así que no hay riesgo real de
+     perder el foco de un input de texto). */
+  if((field==='racks' || field==='dsc') && typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel();
+};
+window._rvProSetStatus = function(i, key){
+  if(window._rvProReadOnlyView) return;
+  if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
+  _rvProMarkSaving();
+  var sr = window.rvW.srs[i];
+  var us = key ? key.indexOf('_') : -1;
+  if(us<0){ sr.bat=null; sr.cond=''; sr.batLabel=''; }
+  else {
+    var bat = key.slice(0,us), cond = key.slice(us+1);
+    sr.bat = bat; sr.cond = cond;
+    sr.batLabel = (window._BAT_LABELS && window._BAT_LABELS[key]) || bat;
+  }
+  var sel = document.getElementById('rvpro-sel-'+i);
+  if(sel) sel.style.color = _rvpStatusColor(key);
+  _rvProScheduleSummaryRefresh();
+  _rvProScheduleSave();
+  /* v86: cambiar el estatus es la forma más común de abrir/cerrar un
+     pendiente (p.ej. pasar de "Alarmado" a "OK") — refrescar el panel de
+     Continuidad de inmediato para que se note al toque, sin esperar. */
+  if(typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel();
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   VISTA PREVIA EDITABLE — pinta #rv-paper-content con la tabla profesional
+   agrupada por región (mismo look que Reporte Operativo, clases oppc-*
+   reutilizadas de OPPRO_STYLE) y oculta el header/footer/papel viejos
+   (#rv-sum-legacy-hdr / #rv-sum-legacy-ftr / #rv-paper-legacy) más las
+   tarjetas de stats/incidencias viejas (#rv-sum-stats / #rv-sum-issues),
+   siempre que el modo sea editable — que ahora es SIEMPRE, tanto para la
+   ronda EN CURSO (_rvProStartDirect) como para un reporte YA GUARDADO
+   abierto desde el historial (rvShowDet + window._rvProEditingSavedId).
+   ══════════════════════════════════════════════════════════════════════ */
+function _rvProRenderEditablePaper(){
+  var paper = document.getElementById('rv-paper-content');
+  if(!paper || !window.rvW) return;
+  var editable = !window._rvProReadOnlyView;
+  var d = _rvProComputeAll();
+  var meta = {
+    date: window.rvW.date || new Date().toISOString(),
+    type: window.rvW.type || 'matutino',
+    op: window.rvW.op || (localStorage.getItem('bess_uname')||'Operador')
+  };
+
+  ['rv-sum-legacy-hdr','rv-sum-legacy-ftr'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = editable ? 'none' : '';
+  });
+  var legacyPaper = document.getElementById('rv-paper-legacy');
+  if(legacyPaper) legacyPaper.style.display = editable ? 'none' : '';
+  var statsWrap = document.getElementById('rv-sum-stats');
+  if(statsWrap) statsWrap.style.display = editable ? 'none' : '';
+  var issuesWrap = document.getElementById('rv-sum-issues');
+  if(issuesWrap) issuesWrap.style.display = editable ? 'none' : '';
+
+  var isHistorical = !!window._rvProEditingSavedId;
+  var html = '<style>'+(window.OPPRO_STYLE||'')+'</style>'
+    + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
+    + _rvProHeaderHtml(meta, d.totalSitios)
+    + '<div class="oppc-topline"><div id="rvpro-kpi-wrap" style="flex:1 1 100%">'+_rvProKpiHtml(d)+'</div></div>'
+    + '<div id="rvpro-continuity-wrap">'+_rvProContinuityPanelHtml(d)+'</div>'
+    + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estado, reloj, descarga, racks, temperatura, SOC, comentario o responsable de cualquier sitio para editarlo — se guarda automáticamente.'
+        + (isHistorical ? ' <span style="opacity:.85">(editando reporte del historial — cierra con ✕ Cerrar arriba cuando termines)</span>' : ' <button type="button" class="oppc-util-linkbtn-pro" onclick="window.rvSave()">✓ Guardar Reporte</button>')
+        + ' <span id="rvpro-autosave-badge" class="oppro-autosave-badge">💾 Todo guardado</span></div>' : '')
+    + _rvProEditableRegionsHtml(d.regionGroups, editable)
+    + '</div></div>';
+
+  paper.innerHTML = html;
+}
+window._rvProRenderEditablePaper = _rvProRenderEditablePaper;
+
+/* ══════════════════════════════════════════════════════════════════════
+   ENTRADA ÚNICA para iniciar/retomar la ronda de Validación EN CURSO —
+   mirrors _opProStartDirect. Reutiliza tal cual la lógica de
+   borrador/reconciliación de sitios y de sesión de colaboración
+   (existente, a nivel "sitio completo") que ya tenía rvStartSites; lo
+   único que cambia es que ya NO abre #rv-wizard-modal — abre directo la
+   tabla profesional editable sobre #rv-sum-modal.
+   ══════════════════════════════════════════════════════════════════════ */
+window._rvProStartDirect = function(){
+  /* Si veníamos de editar un reporte YA GUARDADO del historial (ver
+     rvShowDet/_rvProEditingSavedId), esta es la ronda EN CURSO real —
+     limpiar esa marca para que el autoguardado apunte aquí. */
+  window._rvProEditingSavedId = null;
+  window._rvProReadOnlyView = false;
+
+  var _draft=null;
+  try{ var _d=localStorage.getItem('rv:draft:v1'); if(_d) _draft=JSON.parse(_d); }catch(e){}
+  if(_draft && _draft.srs){
+    var _filled = _draft.srs.filter(function(s){ return s.skip||s.bat; }).length;
+    if(_filled>0 && confirm('Tienes un borrador con '+_filled+' sitios llenados. ¿Deseas continuarlo?')){
+      window.rvW = _draft; rvW.step='sites'; rvW.idx=0;
+      (function(){
+        var currentSites = window.RV_SITES || [];
+        var oldSrs = rvW.srs || [];
+        if(oldSrs.length === currentSites.length) return;
+        var nameMap = {};
+        var oldNames = (rvW._siteNames || []);
+        oldSrs.forEach(function(sr, i){ if(oldNames[i]) nameMap[oldNames[i].trim().toLowerCase()] = sr; });
+        rvW.srs = currentSites.map(function(siteName){
+          var key = siteName.trim().toLowerCase();
+          return nameMap[key] || (window.rvMkS ? rvMkS() : {});
+        });
+        rvW._siteNames = currentSites.slice();
+      })();
+      _openRvSumEditable();
+      if(typeof _rvBeginTimer==='function') _rvBeginTimer();
+      _rvProRenderEditablePaper();
+      return;
+    } else { try{ localStorage.removeItem('rv:draft:v1'); }catch(e){} }
+  }
+  /* Sin borrador (o se declinó continuarlo): ronda nueva, igual que hacía
+     rvStartSites — reutiliza rvInitSetup() si hace falta un rvW fresco. */
+  var _isFreshRound = (!window.rvW || !window.rvW.srs || !window.rvW.srs.length);
+  if(_isFreshRound){
+    if(typeof rvInitSetup==='function') rvInitSetup();
+  }
+  rvW.op = localStorage.getItem('bess_uname') || 'Operador';
+  rvW.step='sites'; rvW.idx=0;
+  /* v86 — CONTINUIDAD: solo se anotan pendientes heredados en una ronda
+     GENUINAMENTE NUEVA (recién creada por rvInitSetup arriba) — nunca sobre
+     un rvW que ya se estaba usando (evita recomputar/pisar lo que el
+     operador ya venía viendo/editando en esta misma sesión). */
+  if(_isFreshRound && typeof _rvProInjectInherited==='function') _rvProInjectInherited();
+  _openRvSumEditable();
+  if(typeof _rvBeginTimer==='function') _rvBeginTimer();
+  _rvProRenderEditablePaper();
+  /* Colaboración a nivel de sesión/sitio completo (ya existente en la app,
+     NO es la colaboración de campo-por-campo que Operativo sí tiene y que
+     esta fase explícitamente no construye para Validación) — mismo
+     comportamiento que tenía rvStartSites. */
+  var bar=document.getElementById('collab-status-bar');
+  if(bar){
+    bar.classList.add('active');
+    var lbl=document.getElementById('csb-label');
+    if(lbl) lbl.textContent='Iniciando sesion colaborativa...';
+  }
+  if(window.collabStartSession){
+    if(window.COLLAB && window.COLLAB.sessionId){
+      window._collabUpdateBar && window._collabUpdateBar('val');
+    } else {
+      var rvSites = window.RV_SITES || [];
+      var label = window.RV_TYPES && rvW.type && window.RV_TYPES[rvW.type] ? window.RV_TYPES[rvW.type].label : rvW.type;
+      collabStartSession('val', label||'Validacion', rvSites.length);
+    }
+  }
+};
+function _openRvSumEditable(){
+  if(typeof _rv==='function'){
+    _rv('rv-wizard-modal', function(e){ e.classList.remove('open'); });
+    _rv('rv-sum-modal', function(e){ e.classList.add('open'); e.scrollTop=0; });
+  }
+  var fab=document.getElementById('fab-nueva'); if(fab) fab.style.display='none';
+  var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='none';
+}
+
+})();
+</script>
+<!-- ══════════════ fin REPORTE DE VALIDACIÓN PROFESIONAL ══════════════ -->
+
+<!-- ══════════════ VALIDACIÓN → OPERATIVO: PRECARGA DE SOC INICIAL (v86) ══════════════ -->
+<script>
+(function(){
+/* ══════════════════════════════════════════════════════════════════════════
+   v86 — punto 4 del pedido de Fase 2: "en este reporte [Validación] ya se
+   van a colocar los soc iniciales... se van a guardar, para el reporte
+   operativo porque ese también lo involucra".
+
+   MECANISMO: al abrir/crear el Reporte Operativo DEL DÍA (_opProStartDirect,
+   bloque "REPORTE OPERATIVO PROFESIONAL" más arriba en el archivo), si
+   existe algún reporte de Validación YA GUARDADO ese mismo día con un SOC
+   capturado para un sitio, y el SOC Inicial de ESE sitio en Operativo AÚN
+   está vacío, se precarga automáticamente desde Validación — nunca pisa un
+   valor que el operador ya haya escrito.
+
+   SIMPLIFICACIÓN CONSCIENTE ("en vivo"): el pedido original menciona que
+   esto debería reflejarse "en vivo" si Validación se guarda mientras el
+   Operativo del día YA está abierto con campos vacíos. Implementar ESE caso
+   exacto (escuchar cambios de Validación en tiempo real DESDE DENTRO de una
+   sesión de Reporte Operativo ya abierta) requeriría enganchar un listener
+   de Firestore adicional sobre reportes_val específicamente mientras
+   collab_sessions/op_current está activo, compitiendo por la misma cuota
+   Spark que ya se cuida con debounces de 3s en todo el resto de la app, y
+   sin un beneficio claro (el operador de Validación normalmente termina y
+   guarda ANTES de que el de Operativo llegue a esos campos). Por eso se
+   limita a "precargar al abrir/iniciar el Reporte Operativo del día" — se
+   ejecuta una sola vez por sesión de _opProStartDirect (ver
+   window._opProSocPrefillDone), enganchada al primer opBuildSum() real
+   (que es exactamente cuando opW ya está completamente armado, tanto si
+   viene de un borrador como si es nuevo). Documentado explícitamente aquí
+   y en el reporte final — no es un descuido, es la simplificación elegida.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+window._opProSocPrefillDone = false;
+
+/* Envolver _opProStartDirect (expuesto a window por el bloque OP-PRO, que
+   ya se ejecutó para cuando este bloque corre — los <script> se ejecutan
+   en orden) para resetear la bandera "ya precargué" en cada arranque
+   nuevo de sesión, igual patrón no-destructivo que ya usa el propio
+   bloque OP-PRO para envolver opBuildSum/opShowDet/opNext/opBackSites. */
+var _origOpProStartDirectForSoc = window._opProStartDirect;
+if(typeof _origOpProStartDirectForSoc === 'function'){
+  window._opProStartDirect = function(){
+    window._opProSocPrefillDone = false;
+    return _origOpProStartDirectForSoc.apply(this, arguments);
+  };
+}
+
+function _rvopDateKey(iso){
+  try{
+    if(!iso) return '';
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0,10);
+  }catch(e){ return ''; }
+}
+function _rvopNormName(n){ return String(n||'').trim().toLowerCase(); }
+
+/* Corre como mucho una vez por sesión de _opProStartDirect (ver bandera
+   arriba). Busca los reportes de Validación guardados el MISMO día
+   calendario que window.opW.date, del más reciente al más viejo, y para
+   cada sitio de OP_SITES cuyo socIni siga vacío, toma el primer SOC no
+   vacío que encuentre para ese sitio (por nombre normalizado — OP_SITES y
+   RV_SITES no necesariamente tienen el mismo orden/longitud, ya que
+   Operativo excluye algunos sitios que Validación sí lista). */
+function _rvopPrefillSocFromValidacionIfNeeded(){
+  if(window._opProSocPrefillDone) return;
+  if(window._opProEditingSavedId) return; /* viendo un reporte histórico, no el en curso */
+  window._opProSocPrefillDone = true;
+  try{
+    if(!window.opW || !window.opW.srs) return;
+    if(typeof window.rvLoad === 'function') window.rvLoad();
+    var reps = window.rvReps || [];
+    var opDateKey = _rvopDateKey(window.opW.date);
+    if(!opDateKey) return;
+    var todays = reps.filter(function(r){ return _rvopDateKey(r.date || r.createdAt) === opDateKey; });
+    if(!todays.length) return;
+    todays.sort(function(a,b){ return new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date); });
+    var opSites = window.OP_SITES || [];
+    var rvSites = window.RV_SITES || [];
+    var changed = false;
+    opSites.forEach(function(opSiteName, i){
+      var sr = window.opW.srs[i];
+      if(!sr) return;
+      if(sr.socIni != null && String(sr.socIni).trim() !== '') return; /* el operador ya tiene algo -> no pisar */
+      var key = _rvopNormName(opSiteName);
+      for(var t=0; t<todays.length; t++){
+        var rvIdx = rvSites.findIndex(function(n){ return _rvopNormName(n) === key; });
+        if(rvIdx < 0) continue;
+        var rvSr = todays[t].srs && todays[t].srs[rvIdx];
+        if(rvSr && rvSr.soc != null && String(rvSr.soc).trim() !== ''){
+          sr.socIni = rvSr.soc;
+          changed = true;
+          break;
+        }
+      }
+    });
+    if(changed && typeof window._opProScheduleSave === 'function') window._opProScheduleSave();
+  }catch(e){ console.warn('[VAL→OP prefill SOC Inicial]', e && e.message); }
+}
+window._rvopPrefillSocFromValidacionIfNeeded = _rvopPrefillSocFromValidacionIfNeeded;
+
+/* Enganchar al mismo punto en que opBuildSum() arma opW por completo —
+   registrar el listener DESPUÉS de que el bloque OP-PRO ya envolvió
+   opBuildSum (ver más arriba en el archivo) para que, cuando llegue este
+   turno, window.opBuildSum YA incluya el render de la tabla editable; así
+   la precarga corre ANTES de que se pinte, apareciendo ya lista en el
+   primer render, no en un refresco posterior. */
+document.addEventListener('DOMContentLoaded', function(){
+  var _origBuildSumForSoc = window.opBuildSum;
+  if(typeof _origBuildSumForSoc === 'function'){
+    window.opBuildSum = function(){
+      _rvopPrefillSocFromValidacionIfNeeded();
+      return _origBuildSumForSoc.apply(this, arguments);
+    };
+  }
+});
+
+})();
+</script>
+<!-- ══════════════ fin VALIDACIÓN → OPERATIVO: PRECARGA DE SOC INICIAL ══════════════ -->
+
 
 </body>
 </html>
