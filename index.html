@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v82_fix_guardado_fbid_undefined -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v83_fix_sync_en_vivo_claves_anidadas -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -335,39 +335,56 @@ window._fb = {
   },
   async collabLeave(sessionId, userId) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
+    /* OJO: setDoc(...,{merge:true}) NO interpreta claves de objeto con
+       puntos ("participants.xyz") como rutas anidadas — las guarda como
+       nombres de campo LITERALES con puntos, huérfanos, separados del
+       mapa real "participants" (confirmado inspeccionando el documento
+       real en la consola de Firebase). Por eso hay que construir un
+       objeto genuinamente anidado; setDoc+merge sí hace merge recursivo
+       real de objetos anidados de verdad. */
     await setDoc(ref, {
-      [`participants.${userId}`]: null,
+      participants: { [userId]: null },
       updatedAt: Date.now()
     }, { merge: true });
   },
   async collabSetCursor(sessionId, userId, siteIdx) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
     await setDoc(ref, {
-      [`cursors.${userId}`]: siteIdx,
+      cursors: { [userId]: siteIdx },
       updatedAt: Date.now()
     }, { merge: true });
   },
   async collabPushSite(sessionId, siteIdx, siteData) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
     await setDoc(ref, {
-      [`srs.${siteIdx}`]: { ...siteData, _by: null },
+      srs: { [siteIdx]: { ...siteData, _by: null } },
       updatedAt: Date.now()
     }, { merge: true });
   },
-  /* Push de UN SOLO campo de un sitio, con ruta punteada hasta la hoja
-     (srs.<idx>.<campo>) — a diferencia de collabPushSite (que reemplaza todo
-     el objeto srs.<idx> en cada escritura y por eso borraba campos ya
-     guardados por otra edición previa), esto hace merge real campo a campo,
-     así que las ediciones en vivo de distintos campos/colaboradores se
-     acumulan en vez de pisarse entre sí. Usado por el Reporte Profesional
-     (edición en vivo estilo Excel). */
+  /* Push de UN SOLO campo de un sitio, hasta la hoja (srs.<idx>.<campo>) —
+     a diferencia de collabPushSite (que reemplaza todo el objeto srs.<idx>
+     en cada escritura y por eso borraba campos ya guardados por otra
+     edición previa), esto hace merge real campo a campo, así que las
+     ediciones en vivo de distintos campos/colaboradores se acumulan en vez
+     de pisarse entre sí. Usado por el Reporte Profesional (edición en vivo
+     estilo Excel).
+     OJO: antes esto armaba `patch['srs.'+siteIdx+'.'+field] = value` —
+     una clave de objeto con puntos. setDoc(...,{merge:true}) NO lo trata
+     como ruta anidada: lo guarda como un campo LITERAL llamado
+     "srs.5.status" (visible así, plano, en la consola de Firebase), que
+     nunca cae dentro del mapa real "srs" que el resto de la app lee. Por
+     eso las ediciones en vivo de otros colaboradores nunca se veían: se
+     escribían en un campo que nadie volvía a leer, sin ningún error. La
+     corrección es construir un objeto REALMENTE anidado — setDoc+merge sí
+     hace merge recursivo de verdad sobre objetos anidados así. */
   async collabPushField(sessionId, siteIdx, field, value, uid) {
     const ref = doc(fbDB, 'collab_sessions', sessionId);
-    const patch = {};
-    patch[`srs.${siteIdx}.${field}`] = value;
-    patch[`srs.${siteIdx}._by`] = uid || null;
-    patch[`srs.${siteIdx}._ts`] = Date.now();
-    patch.updatedAt = Date.now();
+    const leaf = {};
+    leaf[field] = value;
+    leaf._by = uid || null;
+    leaf._ts = Date.now();
+    const patch = { srs: {}, updatedAt: Date.now() };
+    patch.srs[siteIdx] = leaf;
     await setDoc(ref, patch, { merge: true });
   },
   /* ── "Un solo reporte a la vez" ──
@@ -5249,7 +5266,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789118000';
+  var APP_VERSION = '1789119000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -34389,8 +34406,15 @@ function _opProTouchCursor(i, field){
      mucha menos cuota. */
   _opProCursorT = setTimeout(function(){
     try{
-      var FS=window._fbFS, DB=window._fbDB, patch={};
-      patch['cursors.'+myId()] = {idx:i, field:field, ts:Date.now(), name:myName(), color:myColor()};
+      var FS=window._fbFS, DB=window._fbDB;
+      /* OJO: 'cursors.'+myId() como CLAVE de objeto no es una ruta anidada
+         para setDoc(...,{merge:true}) — Firestore lo guarda como un campo
+         literal llamado "cursors.umrmyee6z94ap", huérfano, fuera del mapa
+         real "cursors" que _opProApplyRemoteCursors sí lee. Por eso el
+         cursor de un colaborador nunca aparecía para los demás. Ahora se
+         construye un objeto realmente anidado. */
+      var patch = { cursors: {} };
+      patch.cursors[myId()] = {idx:i, field:field, ts:Date.now(), name:myName(), color:myColor()};
       FS.setDoc(FS.doc(DB,'collab_sessions',COLLAB.sessionId), patch, {merge:true}).catch(function(e){
         if(typeof _opProWarnSyncFailOnce==='function') _opProWarnSyncFailOnce(e);
       });
