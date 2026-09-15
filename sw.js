@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789116000_bess_v80_sin_modulo_comunicacion';
+const DEPLOY_TS  = '1789117000_bess_v81_colores_legibles_reporte_pro';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

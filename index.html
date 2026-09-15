@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v80_sin_modulo_comunicacion -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v81_colores_legibles_reporte_pro -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -5227,7 +5227,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789116000';
+  var APP_VERSION = '1789117000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -33147,8 +33147,27 @@ function _oppDOD(sr){
   return ini - fin;
 }
 /* Semáforo de DOD — más llamativo y a criterio del cliente:
-   <50% azul · <80% verde · <90% amarillo · ≥90% rojo. */
+   <50% azul · <80% verde · <90% amarillo · ≥90% rojo.
+   NOTA DE CONTRASTE: esta función devuelve la versión OSCURA de cada color
+   de banda — pensada para usarse como color de TEXTO (números, celdas,
+   inputs) sobre los fondos claros/translúcidos del reporte. El verde vivo
+   original (#22c55e) casi no se leía como texto pequeño sobre blanco —
+   "se perdían los valores", como reportó el usuario — por eso aquí se usa
+   un verde más oscuro (el mismo que ya se usaba para la etiqueta "OK" en
+   la leyenda), y lo mismo para ámbar/rojo/azul. Para el RELLENO de la
+   barra tipo batería (un bloque de color, no texto chico) se usa la
+   versión viva original: ver _opProDodBandFillColor más abajo. */
 function _opProDodBandColor(dod){
+  if(dod==null) return '#64748b';
+  if(dod<50) return '#1d4ed8';
+  if(dod<80) return '#15803d';
+  if(dod<90) return '#b45309';
+  return '#dc2626';
+}
+/* Misma banda que arriba, pero en su tono vivo/saturado original — solo
+   para el relleno de la barra tipo batería (bloque de color sólido, ahí sí
+   se ve bien y aporta más "semáforo" visual que la versión oscura). */
+function _opProDodBandFillColor(dod){
   if(dod==null) return '#c2cadb';
   if(dod<50) return '#3b82f6';
   if(dod<80) return '#22c55e';
@@ -33156,33 +33175,44 @@ function _opProDodBandColor(dod){
   return '#ef4444';
 }
 /* SOC Inicial: ≥90% verde (batería llegó bien cargada), <90% amarillo,
-   <80% rojo (arrancó el turno con poca carga — alerta temprana). */
+   <80% rojo (arrancó el turno con poca carga — alerta temprana). Colores
+   ya en su versión oscura/legible como texto (ver nota de contraste arriba). */
 function _opProSocIniColor(v){
-  if(v==null) return '#94a3b8';
-  if(v<80) return '#ef4444';
-  if(v<90) return '#f59e0b';
-  return '#22c55e';
+  if(v==null) return '#64748b';
+  if(v<80) return '#dc2626';
+  if(v<90) return '#b45309';
+  return '#15803d';
 }
 /* SOC Final: >20% azul, 10–20% verde, <10% amarillo, <5% rojo (se quedó
-   casi sin carga al cierre del turno — la banda más urgente). */
+   casi sin carga al cierre del turno — la banda más urgente). Colores ya
+   en su versión oscura/legible como texto (ver nota de contraste arriba). */
 function _opProSocFinalColor(v){
-  if(v==null) return '#94a3b8';
-  if(v<5) return '#ef4444';
-  if(v<10) return '#f59e0b';
-  if(v<=20) return '#22c55e';
-  return '#3b82f6';
+  if(v==null) return '#64748b';
+  if(v<5) return '#dc2626';
+  if(v<10) return '#b45309';
+  if(v<=20) return '#15803d';
+  return '#1d4ed8';
 }
 /* Celda de DOD como "indicador de batería": una barrita rellena según el DOD
-   (0-100%), coloreada por el semáforo de arriba, con el número al lado. */
+   (0-100%), coloreada por el semáforo de arriba, con el número al lado. El
+   relleno de la barra usa el tono vivo (_opProDodBandFillColor); el número
+   de texto usa el tono oscuro/legible (_opProDodBandColor) — ver nota de
+   contraste arriba. */
 function _opProDodCellInner(dod){
-  var color = _opProDodBandColor(dod);
+  var fillColor = _opProDodBandFillColor(dod);
+  var textColor = _opProDodBandColor(dod);
   var txt = dod!=null ? (Math.round(dod*10)/10)+'%' : '—';
   var pct = dod!=null ? Math.max(2,Math.min(100,dod)) : 0;
   return '<div class="oppc-dodwrap" title="DOD '+txt+'">'
-    +'<div class="oppc-battery"><div class="oppc-battery-tip"></div><div class="oppc-battery-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
-    +'<span style="color:'+color+'">'+txt+'</span>'
+    +'<div class="oppc-battery"><div class="oppc-battery-tip"></div><div class="oppc-battery-fill" style="width:'+pct+'%;background:'+fillColor+'"></div></div>'
+    +'<span style="color:'+textColor+'">'+txt+'</span>'
   +'</div>';
 }
+window._opProDodBandColor = _opProDodBandColor;
+window._opProDodBandFillColor = _opProDodBandFillColor;
+window._opProSocIniColor = _opProSocIniColor;
+window._opProSocFinalColor = _opProSocFinalColor;
+window._opProDodCellInner = _opProDodCellInner;
 /* Capacidad real del sitio en kWh, desde la lista maestra (energiaBESS es la
    capacidad instalada del banco; si no existe se usa kwhTotal como respaldo). */
 function _oppCapacityKwh(master){
@@ -33242,13 +33272,17 @@ function _opProLegendBarHtml(){
   +'</div>';
 }
 function _opProKpiHtml(k){
+  /* Acentos ya en su versión oscura/legible (mismo criterio que
+     _opProDodBandColor/_opProSocIniColor/_opProSocFinalColor arriba) — el
+     verde vivo #22c55e como texto sobre la tarjeta casi blanca era el peor
+     caso, apenas se leía "44/62". */
   var cards = [
-    _opProKpiCard('✅','Sitios OK', k.ok+' / '+k.total, k.total?Math.round(k.ok/k.total*100)+'%':'', '#22c55e'),
-    _opProKpiCard('⚠️','Descarga parcial', k.par+' / '+k.total, k.total?Math.round(k.par/k.total*100)+'%':'', '#f59e0b'),
-    _opProKpiCard('⛔','No operativo', k.crit+' / '+k.total, k.total?Math.round(k.crit/k.total*100)+'%':'', '#ef4444'),
+    _opProKpiCard('✅','Sitios OK', k.ok+' / '+k.total, k.total?Math.round(k.ok/k.total*100)+'%':'', '#15803d'),
+    _opProKpiCard('⚠️','Descarga parcial', k.par+' / '+k.total, k.total?Math.round(k.par/k.total*100)+'%':'', '#b45309'),
+    _opProKpiCard('⛔','No operativo', k.crit+' / '+k.total, k.total?Math.round(k.crit/k.total*100)+'%':'', '#dc2626'),
     _opProKpiCard('📡','Sin comunicación', k.discom+' / '+k.total, k.total?Math.round(k.discom/k.total*100)+'%':'', '#64748b'),
-    _opProKpiCard('🔋','Energía descargada (est.)', (k.energyMwh!=null?k.energyMwh.toFixed(1):'—')+' MWh', k.capMwh!=null?('de '+k.capMwh.toFixed(1)+' MWh instalados'):'', '#3b82f6'),
-    _opProKpiCard('🎯','Aprovechamiento capacidad', k.aprovPct!=null?k.aprovPct.toFixed(1)+'%':'—', 'DOD prom. '+(k.dodAvg!=null?(Math.round(k.dodAvg*10)/10)+'%':'—'), '#0ea875')
+    _opProKpiCard('🔋','Energía descargada (est.)', (k.energyMwh!=null?k.energyMwh.toFixed(1):'—')+' MWh', k.capMwh!=null?('de '+k.capMwh.toFixed(1)+' MWh instalados'):'', '#1d4ed8'),
+    _opProKpiCard('🎯','Aprovechamiento capacidad', k.aprovPct!=null?k.aprovPct.toFixed(1)+'%':'—', 'DOD prom. '+(k.dodAvg!=null?(Math.round(k.dodAvg*10)/10)+'%':'—'), '#0a7a5c')
   ];
   return '<div class="oppc-kpi-row">'+cards.join('')+'</div>';
 }
@@ -33524,7 +33558,7 @@ var OPPRO_STYLE = ''
 +'.oppc-region{padding:0;overflow:hidden;display:flex;flex-direction:column}'
 +'.oppc-region-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;color:#fff;font-family:Arial,"Helvetica Neue",sans-serif;font-weight:700;font-size:10.5px;letter-spacing:.3px}'
 +'.oppc-region-hdr-n{font-family:var(--mono,monospace);font-weight:700;font-size:9.2px;color:rgba(255,255,255,.9)}'
-+'.oppc-region-cols{display:grid;grid-template-columns:11px 1fr 32px 11px 32px 36px;gap:4px;padding:5px 9px 3px;font-size:7.6px;letter-spacing:.4px;text-transform:uppercase;color:#94a3b8;font-weight:800;background:rgba(255,255,255,.55)}'
++'.oppc-region-cols{display:grid;grid-template-columns:11px 1fr 32px 11px 32px 36px;gap:4px;padding:5px 9px 3px;font-size:7.6px;letter-spacing:.4px;text-transform:uppercase;color:#64748b;font-weight:800;background:rgba(255,255,255,.85)}'
 +'.oppc-region-rows-split{display:flex;align-items:stretch}'
 +'.oppc-subcol{flex:1;min-width:0}'
 +'.oppc-subcol+.oppc-subcol{border-left:1px solid #eef2fb}'
@@ -33533,14 +33567,14 @@ var OPPRO_STYLE = ''
    limpia, sin importar qué tan fuerte se vea la marca de agua de fondo en la
    tarjeta de Industria. La marca de agua solo queda visible en los huecos
    reales (paddings, espacio vacío al final de una columna más corta). */
-+'.oppc-row{display:grid;grid-template-columns:11px 1fr 32px 11px 32px 36px;gap:4px;align-items:center;padding:3.2px 9px;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
-+'.oppc-row:nth-child(even){background:rgba(226,233,248,.68)}'
++'.oppc-row{display:grid;grid-template-columns:11px 1fr 32px 11px 32px 36px;gap:4px;align-items:center;padding:3.2px 9px;border-top:1px solid #eef2fb;background:rgba(255,255,255,.85)}'
++'.oppc-row:nth-child(even){background:rgba(222,230,248,.9)}'
 +'.oppc-dot{width:7.5px;height:7.5px;border-radius:50%;flex-shrink:0}'
 +'.oppc-row-name{font-size:9.8px;font-weight:700;color:#132449;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
 +'.oppc-row-soc{font-family:var(--mono,monospace);font-size:8.8px;color:#5b6b8c;text-align:right}'
-+'.oppc-row-arrow{font-size:7.6px;color:#c2cadb;text-align:center}'
++'.oppc-row-arrow{font-size:7.6px;color:#8695b5;text-align:center}'
 +'.oppc-row-dod{font-family:var(--mono,monospace);font-size:9.3px;font-weight:800;text-align:right}'
-+'.oppc-more{font-size:8.8px;color:#94a3b8;padding:3.5px 9px;font-style:italic;border-top:1px solid #eef2fb;background:rgba(255,255,255,.55)}'
++'.oppc-more{font-size:8.8px;color:#64748b;padding:3.5px 9px;font-style:italic;border-top:1px solid #eef2fb;background:rgba(255,255,255,.85)}'
 +'.oppc-region-ftr{font-family:var(--mono,monospace);font-size:8.4px;color:#5b6b8c;padding:5px 9px;background:#f4f7fd;border-top:1px solid #eef2fb;font-weight:700;margin-top:auto}'
 +'.oppc-bottom-grid{display:grid;grid-template-columns:1.15fr 1fr 0.85fr 1fr;gap:8px;align-items:start}'
 +'.oppc-watchcard{border-left:3px solid #ef4444}'
