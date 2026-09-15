@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-14 bess_v77_toast_arreglado_y_sin_doble_clic -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v80_sin_modulo_comunicacion -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -5227,7 +5227,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789113000';
+  var APP_VERSION = '1789116000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -5776,10 +5776,6 @@ if('serviceWorker' in navigator){
   <div class="nav-item" data-page="cerebro" onclick="goPage('cerebro')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2z"/></svg></div>
     <div class="nl">Cerebro BESS</div><div class="nav-tt">Cerebro de Operación · Manual Maestro</div>
-  </div>
-  <div class="nav-item" data-page="comunicacion" onclick="goPage('comunicacion')">
-    <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-8.49a6 6 0 0 0 0 8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></div>
-    <div class="nl">Comunicación</div><div class="nav-tt">Monitoreo de conectividad · Mapa de sitios</div>
   </div>
   <div class="nav-spacer" style="position:relative;overflow:hidden">
   <!-- Decorative Skysense mark in nav spacer -->
@@ -9775,101 +9771,6 @@ async function expDoZip(mode){
 <!-- ═══ MODAL: HANDOFF AL IMPORTAR JSON — misma opción que en el wizard manual ═══ -->
 </div><!-- /page-cerebro -->
 
-<style>
-.comm-marker{
-  position:relative; width:14px; height:14px; border-radius:50%;
-  background:var(--mc); border:2px solid #fff; box-shadow:0 0 8px var(--mc);
-}
-.comm-marker.comm-pulse::after{
-  content:''; position:absolute; inset:-6px; border-radius:50%;
-  border:2px solid var(--mc); animation:comm-pulse-anim 1.8s ease-out infinite;
-}
-@keyframes comm-pulse-anim{
-  0%{ transform:scale(.6); opacity:.85; }
-  100%{ transform:scale(2.4); opacity:0; }
-}
-.comm-hub{
-  width:18px; height:18px; border-radius:50%;
-  background:radial-gradient(circle, #67e8f9, #0891b2);
-  border:3px solid #fff; box-shadow:0 0 16px #22d3ee, 0 0 32px rgba(34,211,238,.6);
-}
-.comm-line-flow{
-  animation: comm-line-flow-anim 1s linear infinite;
-}
-@keyframes comm-line-flow-anim{
-  to{ stroke-dashoffset:-18; }
-}
-.comm-temp-label{
-  background:rgba(10,14,26,.85) !important; border:1px solid rgba(255,255,255,.15) !important;
-  color:#fbbf24 !important; font-family:'DM Mono',monospace !important; font-size:10px !important;
-  font-weight:700 !important; padding:2px 6px !important; border-radius:8px !important;
-  box-shadow:none !important;
-}
-.comm-temp-label::before{ display:none !important; } /* quitar la flechita default del tooltip de Leaflet */
-</style>
-<!-- ══════ PAGE: COMUNICACIÓN (Monitoreo de conectividad — puente desde BESS Monitor local) ══════ -->
-<div class="page" id="page-comunicacion">
-  <div class="page-scroll" style="padding:20px 24px">
-
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-      <div>
-        <div style="font-family:var(--disp);font-size:22px;font-weight:900;color:var(--text)">🌐 Comunicación</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">Monitoreo de conectividad de red · datos sincronizados desde BESS Monitor (oficina central)</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span id="comm-sync-badge" style="font-family:var(--mono);font-size:9px;padding:5px 10px;border-radius:12px;background:var(--s2);color:var(--t3);border:1px solid var(--b1)">⏳ Sin datos aún</span>
-        <button onclick="commRenderAll()" style="padding:6px 12px;border-radius:7px;border:1px solid var(--b1);background:var(--s1);color:var(--t2);font-family:var(--mono);font-size:9px;cursor:pointer">↻ Actualizar</button>
-      </div>
-    </div>
-
-    <!-- KPIs -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px" id="comm-kpi-row"></div>
-
-    <!-- Tabs: Mapa / Sitios / Bitácora / Ranking -->
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="comm-tab active" data-tab="mapa" onclick="commSwitchTab('mapa')" style="padding:9px 16px;border-radius:8px 8px 0 0;border:1px solid rgba(26,63,204,.4);border-bottom:none;background:rgba(26,63,204,.12);color:var(--sky);font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">🗺 MAPA</button>
-      <button class="comm-tab" data-tab="sitios" onclick="commSwitchTab('sitios')" style="padding:9px 16px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">📋 SITIOS</button>
-      <button class="comm-tab" data-tab="bitacora" onclick="commSwitchTab('bitacora')" style="padding:9px 16px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">📖 BITÁCORA</button>
-      <button class="comm-tab" data-tab="ranking" onclick="commSwitchTab('ranking')" style="padding:9px 16px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer">🏆 RANKING</button>
-    </div>
-
-    <!-- TAB: Mapa -->
-    <div id="comm-tab-mapa">
-      <div style="background:#0a0e1a;border:1px solid var(--b1);border-radius:12px;padding:0;position:relative;overflow:hidden">
-        <div id="comm-connected-count" style="position:absolute;top:10px;right:10px;z-index:1000;background:rgba(10,14,26,.85);backdrop-filter:blur(4px);padding:6px 12px;border-radius:20px;border:1px solid rgba(34,211,238,.4);color:#22d3ee;font-family:var(--mono);font-size:10px;font-weight:700">⚡ 0 interconectados a la microred Skysense</div>
-        <div id="comm-map-leaflet" style="width:100%;height:560px"></div>
-        <div style="display:flex;gap:16px;justify-content:center;padding:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--t3);background:var(--s1);border-top:1px solid var(--b1)">
-          <span>🟢 En línea</span><span>🟡 Intermitente</span><span>🔴 Desconectado</span><span>🔧 Mantenimiento</span><span>⚡ Línea animada = conectado a la microred</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: Sitios (agrupados por ciudad/zona) -->
-    <div id="comm-tab-sitios" style="display:none">
-      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-        <input type="text" id="comm-search" oninput="commRenderSites()" placeholder="🔎 Buscar sitio o IP…" style="flex:1;min-width:200px;padding:8px 12px;background:var(--s1);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
-      </div>
-      <div id="comm-sites-grid"></div>
-    </div>
-
-    <!-- TAB: Bitácora de eventos -->
-    <div id="comm-tab-bitacora" style="display:none">
-      <div id="comm-events-list" style="display:flex;flex-direction:column;gap:6px"></div>
-    </div>
-
-    <!-- TAB: Ranking de problemáticos -->
-    <div id="comm-tab-ranking" style="display:none">
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="comm-rk-period active" data-p="24h" onclick="commSetRankPeriod('24h')" style="padding:6px 14px;border-radius:14px;border:1px solid var(--b1);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer">24 horas</button>
-        <button class="comm-rk-period" data-p="7d" onclick="commSetRankPeriod('7d')" style="padding:6px 14px;border-radius:14px;border:1px solid var(--b1);background:var(--s1);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer">7 días</button>
-        <button class="comm-rk-period" data-p="30d" onclick="commSetRankPeriod('30d')" style="padding:6px 14px;border-radius:14px;border:1px solid var(--b1);background:var(--s1);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer">30 días</button>
-      </div>
-      <div id="comm-ranking-list" style="display:flex;flex-direction:column;gap:6px"></div>
-    </div>
-
-  </div>
-</div>
-<!-- /page-comunicacion -->
 
 </div><!-- /main-col -->
 </div><!-- /shell -->
@@ -14436,7 +14337,7 @@ async function _afterDelete(msg){
 }
 
 // PAGE SWITCHING
-const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidor BESS',fp:'Factor de Potencia',maestra:'Lista Maestra',cerebro:'Cerebro BESS',comunicacion:'Comunicación'};
+const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario Operativo',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidor BESS',fp:'Factor de Potencia',maestra:'Lista Maestra',cerebro:'Cerebro BESS'};
 function updateTopbarTitle(id){
   var t=document.getElementById('tb-title');if(!t)return;
   var title=PAGE_TITLES[id]||id;
@@ -14458,7 +14359,6 @@ function goPage(id){
   if(id==='historico'){setTimeout(function(){if(window.histInit)window.histInit();},80);}
   if(id==='maestra'){setTimeout(function(){if(window._mlRender)window._mlRender();},80);}
   if(id==='cerebro'){setTimeout(function(){if(window.cerebroInit)window.cerebroInit();},80);}
-  if(id==='comunicacion'){setTimeout(function(){if(window.commRenderAll)window.commRenderAll();if(window.commInvalidateMapSize)window.commInvalidateMapSize();},80);}
   if(id==='medidor'){setTimeout(function(){if(window._mbInit)window._mbInit();},80);}
   if(id==='fp'){setTimeout(function(){if(window._fpInit)window._fpInit();},80);}
 }
@@ -21606,6 +21506,7 @@ var COLLAB = {
   _fragments:{},   // {userId: {srs:[...]}}
   _myFrom:0, _myTo:0,
   _mergeFired:false, // FIX: global flag para prevenir doble merge entre async handlers
+  _creatingNew:false, // true mientras collabCreate() está en vuelo (ver collabStartSession)
 };
 window.COLLAB = COLLAB;
 
@@ -21643,6 +21544,34 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
   var sid = (reportType==='op') ? 'op_current' : ('cs_'+Date.now()+'_'+myId().slice(0,6));
   COLLAB.sessionId=sid; COLLAB.reportType=reportType; COLLAB.isHost=true; COLLAB._sessionLabel=reportLabel||'';
   COLLAB._mergeFired=false; // reset para esta nueva sesion
+  /* BUG encontrado (causaba el "finalizó el reporte" falso justo al darle
+     "Iniciar", con toast REAL ahora que _opProToast ya funciona — antes
+     pasaba en silencio): _sessionCreatedAt de una sesión ANTERIOR (ya
+     cerrada) se quedaba pegado en COLLAB. _opProCollabListen() se conecta
+     AQUÍ MISMO, de inmediato, mientras que el createdAt real de ESTA
+     sesión nueva recién llega unos milisegundos después (tras el
+     collabCreate() de abajo, que es async). Si el primer snapshot/lectura
+     de la sesión nueva llega ANTES de que ese createdAt se guarde, se
+     compara contra el createdAt VIEJO — no coinciden — y
+     _opProApplySessionData lo interpreta como "alguien más reemplazó el
+     reporte", cerrando todo de golpe aunque el reporte recién se acababa
+     de crear. Limpiarlo aquí evita la comparación falsa: sin valor previo,
+     _opProApplySessionData simplemente adopta el createdAt real en cuanto
+     llega, sin sospechar de un reemplazo. */
+  COLLAB._sessionCreatedAt = null;
+  /* Mismo problema, otro ángulo: el listener/polling puede alcanzar a leer
+     el documento ANTES de que collabCreate() (abajo, async) termine de
+     escribirlo — y si ese doc todavía trae el estado de una sesión previa
+     YA CERRADA (status:'closed'), _opProApplySessionData lo tomaría al
+     pie de la letra y cerraría de inmediato la sesión que se está
+     creando. Esta bandera le dice que ignore cualquier lectura mientras
+     la creación sigue en vuelo — se apaga en cuanto collabCreate()
+     resuelve, con el doc ya al día. */
+  COLLAB._creatingNew = true;
+  /* Tope de seguridad — si por lo que sea collabCreate() nunca llega a
+     resolver ni a fallar (p.ej. waitFB nunca ve _fb listo), esta bandera
+     no debe quedar trabada para siempre bloqueando toda lectura futura. */
+  setTimeout(function(){ COLLAB._creatingNew = false; }, 12000);
   COLLAB._participants=[{id:myId(),name:myName(),color:myColor(),role:myRole()}];
   COLLAB._myFrom=0; COLLAB._myTo=totalSites-1;
   /* Estado optimista: hasta que la transacción de abajo confirme si de
@@ -21699,9 +21628,12 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
           _collabListenSession(COLLAB.sessionId, reportType);
           _collabListenFragments(COLLAB.sessionId, reportType);
         }
+        COLLAB._creatingNew = false;
+        if(reportType==='op'&&window._opProCollabListen) window._opProCollabListen(); /* refrescar contra la sesión real (la de "ex"), no la que se intentó crear */
         return;
       }
       COLLAB._sessionCreatedAt = result && result.createdAt;
+      COLLAB._creatingNew = false;
       /* Arrancar listener DESPUES de que el doc existe en Firestore */
       console.log('[Collab] Doc creado, arrancando listener sid:',sid);
       if(reportType!=='op'){
@@ -21722,7 +21654,7 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
       }).catch(function(e){ console.error('[Collab] pushNotif:',e.message); });
 
       safeToast('🤝 Sesion colaborativa iniciada');
-    }).catch(function(e){ console.error('[Collab] create:',e.message); });
+    }).catch(function(e){ console.error('[Collab] create:',e.message); COLLAB._creatingNew = false; });
   });
 };
 
@@ -28806,307 +28738,6 @@ window.addEventListener('firebase-ready', function(){
       </div>
     </div>
   </div>
-<script>
-/* ══════════════════════════════════════════════════════════════════════
-   COMUNICACIÓN — Monitoreo de conectividad (puente desde BESS Monitor local)
-   Lee de las colecciones 'comm_sites' y 'comm_events' en Firestore, que un
-   script aparte ("puente") mantiene sincronizadas desde el BESS Monitor que
-   corre en la oficina central. Así esta app (accesible desde cualquier
-   lugar) puede mostrar el mismo estado sin depender de la VPN/red local.
-══════════════════════════════════════════════════════════════════════ */
-(function(){
-  window._commSites = [];
-  window._commEvents = [];
-  var _rankPeriod = '24h';
-
-  var STATUS_COLOR = {online:'#22c55e', intermittent:'#f59e0b', offline:'#ef4444'};
-  var STATUS_LABEL  = {online:'En línea', intermittent:'Intermitente', offline:'Desconectado'};
-
-  function _normCityKey(c){
-    return String(c||'').trim();
-  }
-
-  /* La mayoría de los sitios se abren por http:// simple — solo algunos (por ahora,
-     LG) necesitan https://. Si detectas otro sitio que también lo necesite, agrégalo
-     aquí a HTTPS_EXCEPTIONS. */
-  var HTTPS_EXCEPTIONS = ['LG'];
-  function _commSiteUrl(s){
-    if(!s.ip) return null;
-    var isHttps = HTTPS_EXCEPTIONS.some(function(n){ return (s.name||'').toUpperCase()===n.toUpperCase(); });
-    return (isHttps?'https://':'http://')+s.ip+(s.port?(':'+s.port):'');
-  }
-
-  /* ── Firestore wiring ── */
-  function _wireCommFS(){
-    if(!window._fbDB || !window._fbFS) return;
-    var FS = window._fbFS;
-    var DB = window._fbDB;
-    try{
-      FS.onSnapshot(FS.collection(DB,'comm_sites'), function(snap){
-        window._commSites = snap.docs.map(function(d){ var v=d.data(); v._id=d.id; return v; });
-        commRenderAll();
-      }, function(err){ console.warn('[Comunicación] listener comm_sites:', err.message); });
-      FS.onSnapshot(FS.query(FS.collection(DB,'comm_events'), FS.orderBy('ts','desc'), FS.limit(200)), function(snap){
-        window._commEvents = snap.docs.map(function(d){ var v=d.data(); v._id=d.id; return v; });
-        commRenderAll();
-      }, function(err){ console.warn('[Comunicación] listener comm_events:', err.message); });
-    }catch(e){ console.warn('[Comunicación] error de conexión a Firestore:', e.message); }
-  }
-  window.addEventListener('firebase-ready', _wireCommFS, {once:true});
-  setTimeout(_wireCommFS, 2000);
-
-  /* ── Orquestador ── */
-  window.commRenderAll = function(){
-    commRenderKPIs();
-    commRenderMap();
-    commRenderSites();
-    commRenderEvents();
-    commRenderRanking();
-    var badge = document.getElementById('comm-sync-badge');
-    if(badge){
-      if(!window._commSites.length){
-        badge.textContent = '⏳ Sin datos aún — configura el puente'; badge.style.color='var(--t3)';
-      } else {
-        var newest = window._commSites.reduce(function(a,s){ var t=Number(s.lastCheck)||0; return Math.max(a,t); }, 0);
-        var mins = newest ? Math.round((Date.now()-newest)/60000) : null;
-        var stale = mins!=null && mins>5;
-        badge.textContent = (stale?'⚠️ ':'🟢 ')+window._commSites.length+' sitios · última sync hace '+(mins!=null?(mins+' min'):'—');
-        badge.style.color = stale ? 'var(--orange)' : 'var(--green)';
-      }
-    }
-  };
-
-  function commRenderKPIs(){
-    var el = document.getElementById('comm-kpi-row');
-    if(!el) return;
-    var sites = window._commSites;
-    var maint = sites.filter(function(s){return !!s.maintenance;}).length;
-    var on = sites.filter(function(s){return s.status==='online' && !s.maintenance;}).length;
-    var inter = sites.filter(function(s){return s.status==='intermittent' && !s.maintenance;}).length;
-    var off = sites.filter(function(s){return s.status==='offline' && !s.maintenance;}).length;
-    function tile(label,val,color){
-      return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 14px;text-align:center;box-shadow:0 1px 4px rgba(26,63,204,.05)">'+
-        '<div style="font-family:var(--disp);font-size:22px;font-weight:900;color:'+color+'">'+val+'</div>'+
-        '<div style="font-family:var(--body);font-size:10.5px;font-weight:700;color:var(--t2)">'+label+'</div></div>';
-    }
-    el.innerHTML = tile('Total sitios', sites.length, 'var(--text)')
-      + tile('En línea', on, '#22c55e')
-      + tile('Intermitentes', inter, '#f59e0b')
-      + tile('Desconectados', off, '#ef4444')
-      + tile('En mantenimiento', maint, '#6685ac');
-  }
-
-  /* ── Pestañas ── */
-  window.commSwitchTab = function(tab){
-    ['mapa','sitios','bitacora','ranking'].forEach(function(t){
-      var panel = document.getElementById('comm-tab-'+t);
-      var btn = document.querySelector('.comm-tab[data-tab="'+t+'"]');
-      var active = t===tab;
-      if(panel) panel.style.display = active ? 'block' : 'none';
-      if(btn){
-        btn.style.background = active ? 'rgba(26,63,204,.12)' : 'var(--s2)';
-        btn.style.borderColor = active ? 'rgba(26,63,204,.4)' : 'var(--b1)';
-        btn.style.color = active ? 'var(--sky)' : 'var(--t3)';
-      }
-    });
-    if(tab==='mapa' && _leafletMap){ setTimeout(function(){ _leafletMap.invalidateSize(); }, 50); }
-  };
-  window.commInvalidateMapSize = function(){ if(_leafletMap) _leafletMap.invalidateSize(); };
-
-  /* ── Mapa ── */
-  var _leafletMap = null, _leafletMarkers = [];
-  var HUB_COORD = [19.43, -99.13]; /* Centro BESS / SkySense — CDMX */
-  var _leafletLines = [];
-  var _commTempCache = {}; /* siteId -> °C */
-  var _commTempFetchedAt = 0;
-
-  /* Clima actual por sitio — Open-Meteo (gratis, sin API key, permite consultar
-     muchas coordenadas en una sola llamada separándolas por comas). Se refresca
-     cada 15 minutos como máximo — la temperatura no cambia como el estatus de red. */
-  function commFetchTemps(){
-    var sites = window._commSites.filter(function(s){ return s.lat!=null && s.lng!=null; });
-    if(!sites.length) return;
-    if(Date.now()-_commTempFetchedAt < 15*60*1000 && Object.keys(_commTempCache).length) return;
-    _commTempFetchedAt = Date.now();
-    var lats = sites.map(function(s){ return s.lat; }).join(',');
-    var lngs = sites.map(function(s){ return s.lng; }).join(',');
-    fetch('https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs+'&current=temperature_2m&timezone=auto')
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        var arr = Array.isArray(data) ? data : [data];
-        arr.forEach(function(d, i){
-          var site = sites[i];
-          if(site && d && d.current && d.current.temperature_2m!=null){
-            _commTempCache[site._id||site.name] = Math.round(d.current.temperature_2m);
-          }
-        });
-        commRenderMap(); /* redibujar ya con las temperaturas */
-      })
-      .catch(function(e){ console.warn('[Comunicación] no se pudo obtener el clima:', e.message); });
-  }
-
-  function commRenderMap(){
-    var container = document.getElementById('comm-map-leaflet');
-    if(!container || typeof L==='undefined') return;
-
-    if(!_leafletMap){
-      _leafletMap = L.map('comm-map-leaflet', {zoomControl:true, attributionControl:true}).setView([23.6,-102.5], 5);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap, &copy; CARTO', subdomains:'abcd', maxZoom:19
-      }).addTo(_leafletMap);
-    }
-
-    _leafletMarkers.forEach(function(m){ _leafletMap.removeLayer(m); });
-    _leafletMarkers = [];
-    _leafletLines.forEach(function(l){ _leafletMap.removeLayer(l); });
-    _leafletLines = [];
-    commFetchTemps(); /* dispara la consulta de clima (no bloquea; al llegar, redibuja solo) */
-
-    /* Hub central — representa a Skysense / Centro BESS, de donde "salen" las conexiones */
-    var hubIcon = L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11], html:'<div class="comm-hub"></div>'});
-    var hubMarker = L.marker(HUB_COORD, {icon:hubIcon, zIndexOffset:1000}).addTo(_leafletMap);
-    hubMarker.bindPopup('<b style="font-family:\'DM Mono\',monospace">⚡ Skysense — Centro BESS</b><br><span style="font-family:\'DM Mono\',monospace;font-size:11px">Microred de monitoreo</span>');
-    _leafletMarkers.push(hubMarker);
-
-    var connectedCount = 0;
-    window._commSites.forEach(function(s){
-      if(s.lat==null || s.lng==null) return; /* sin coordenadas — no se puede ubicar en el mapa */
-      var inMaint = !!s.maintenance;
-      var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
-      var isOnline = !inMaint && s.status==='online';
-      if(isOnline) connectedCount++;
-
-      /* Línea de conexión del hub hacia el sitio — animada y en cian si está en línea,
-         punteada y quieta en naranja/rojo si tiene problema, sin línea si está en mantenimiento */
-      if(!inMaint){
-        var lineColor = s.status==='online' ? '#22d3ee' : s.status==='intermittent' ? '#f59e0b' : '#ef4444';
-        var line = L.polyline([HUB_COORD, [s.lat, s.lng]], {
-          color: lineColor, weight: isOnline?1.6:1.2, opacity: isOnline?0.6:0.4,
-          dashArray: isOnline ? '1,8' : '4,6',
-          className: isOnline ? 'comm-line-flow' : ''
-        }).addTo(_leafletMap);
-        _leafletLines.push(line);
-      }
-
-      var pulse = isOnline ? ' comm-pulse' : '';
-      var icon = L.divIcon({
-        className:'', iconSize:[16,16], iconAnchor:[8,8],
-        html:'<div class="comm-marker'+pulse+'" style="--mc:'+color+'"></div>'
-      });
-      var marker = L.marker([s.lat, s.lng], {icon:icon}).addTo(_leafletMap);
-      var temp = _commTempCache[s._id||s.name];
-      if(temp!=null){
-        marker.bindTooltip('🌡️'+temp+'°C', {permanent:true, direction:'top', offset:[0,-8], className:'comm-temp-label', opacity:1});
-      }
-      marker.bindPopup(
-        '<div style="font-family:\'DM Mono\',monospace;font-size:11px;min-width:170px;color:#222">'+
-          '<b style="font-size:12px">'+(s.name||s._id)+'</b><br>'+
-          '📍 '+(s.city||'—')+'<br>'+
-          '📡 '+(s.ip||'—')+(s.port?(':'+s.port):'')+'<br>'+
-          '<span style="color:'+color+';font-weight:700">'+(inMaint?'🔧 Mantenimiento':(STATUS_LABEL[s.status]||s.status))+'</span>'+
-          (s.uptimePct!=null?('<br>⏱ '+s.uptimePct+'% uptime'):'')+
-        '</div>'
-      );
-      marker.on('click', function(){
-        commSwitchTab('sitios');
-        var input = document.getElementById('comm-search');
-        if(input){ input.value = s.name||''; commRenderSites(); }
-      });
-      _leafletMarkers.push(marker);
-    });
-
-    var connEl = document.getElementById('comm-connected-count');
-    if(connEl) connEl.textContent = '⚡ '+connectedCount+' interconectados a la microred Skysense';
-  }
-
-  /* ── Sitios (agrupados por ciudad) ── */
-  window.commRenderSites = function(){
-    var el = document.getElementById('comm-sites-grid');
-    if(!el) return;
-    var q = ((document.getElementById('comm-search')||{}).value||'').toLowerCase();
-    var sites = window._commSites.filter(function(s){
-      if(!q) return true;
-      return (s.name||'').toLowerCase().includes(q) || (s.ip||'').toLowerCase().includes(q) || (s.city||'').toLowerCase().includes(q);
-    }).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
-    if(!sites.length){ el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t3);font-family:var(--mono);font-size:11px">Sin sitios que coincidan — o el puente todavía no ha sincronizado nada.</div>'; return; }
-    var cards = sites.map(function(s){
-      var inMaint = !!s.maintenance;
-      var color = inMaint ? '#6685ac' : (STATUS_COLOR[s.status]||'#94a3b8');
-      var label = inMaint ? 'Mantenimiento' : (STATUS_LABEL[s.status]||'Sin datos');
-      var url = _commSiteUrl(s);
-      var onclick = url ? ('window.open(\''+url+'\',\'_blank\')') : '';
-      return '<div onclick="'+onclick+'" title="'+(s.address?s.address+' · ':'')+label+(url?' — clic para abrir '+url:'')+'" '+
-        'style="cursor:'+(url?'pointer':'default')+';position:relative;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 11px;transition:all .15s" '+
-        (url?'onmouseover="this.style.borderColor=\'var(--sky)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.borderColor=\'var(--b1)\';this.style.transform=\'\'"':'')+'>'+
-        '<span style="position:absolute;top:9px;right:9px;width:8px;height:8px;border-radius:50%;background:'+color+';box-shadow:0 0 6px '+color+'"></span>'+
-        '<div style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text);padding-right:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.name||s._id)+'</div>'+
-        '<div style="font-family:var(--mono);font-size:9px;color:'+(url?'var(--sky)':'var(--t3)')+';margin-top:3px">'+(s.ip||'—')+(s.port?(':'+s.port):'')+'</div>'+
-        '<div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px">'+(s.uptimePct!=null?('⏱ '+s.uptimePct+'%'):'')+(s.latencyMs!=null?(' · 📶 '+s.latencyMs+'ms'):'')+'</div>'+
-      '</div>';
-    }).join('');
-    el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px">'+cards+'</div>';
-  };
-
-  /* ── Bitácora de eventos ── */
-  function commRenderEvents(){
-    var el = document.getElementById('comm-events-list');
-    if(!el) return;
-    if(!window._commEvents.length){ el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t3);font-family:var(--mono);font-size:11px">Sin eventos registrados todavía.</div>'; return; }
-    var typeIcon = {online:'🟢', offline:'🔴', intermittent:'🟡'};
-    el.innerHTML = window._commEvents.map(function(e){
-      var st = e.to || e.type; /* 'to' es el campo real; 'type' se deja como respaldo */
-      var color = e.inMaintenance ? '#6685ac' : (STATUS_COLOR[st]||'#94a3b8');
-      var ts = e.ts!=null ? Number(e.ts) : (e.timestamp?Date.parse(e.timestamp):null);
-      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;background:var(--s2);border-left:3px solid '+color+'">'+
-        '<span>'+(e.inMaintenance?'🔧':(typeIcon[st]||'⚪'))+'</span>'+
-        '<span style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text)">'+(e.siteName||e.siteId||'—')+'</span>'+
-        '<span style="font-family:var(--mono);font-size:9px;color:'+color+'">'+(e.inMaintenance?'Mantenimiento':(STATUS_LABEL[st]||st||''))+'</span>'+
-        (e.message?('<span style="font-family:var(--body);font-size:10px;color:var(--t3)">'+e.message+'</span>'):'')+
-        '<span style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-left:auto;white-space:nowrap">'+(ts?new Date(ts).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—')+'</span>'+
-      '</div>';
-    }).join('');
-  }
-
-  /* ── Ranking de sitios problemáticos ── */
-  window.commSetRankPeriod = function(p){
-    _rankPeriod = p;
-    document.querySelectorAll('.comm-rk-period').forEach(function(b){
-      var active = b.dataset.p===p;
-      b.style.background = active ? 'var(--s2)' : 'var(--s1)';
-      b.style.color = active ? 'var(--text)' : 'var(--t3)';
-    });
-    commRenderRanking();
-  };
-  function commRenderRanking(){
-    var el = document.getElementById('comm-ranking-list');
-    if(!el) return;
-    var ms = _rankPeriod==='24h' ? 24*3600*1000 : _rankPeriod==='7d' ? 7*24*3600*1000 : 30*24*3600*1000;
-    var cutoff = Date.now()-ms;
-    var counts = {};
-    window._commEvents.forEach(function(e){
-      if(e.inMaintenance) return; /* no contar como "incidencia" lo que ya se sabía apagado a propósito */
-      var t = e.ts!=null ? Number(e.ts) : (e.timestamp?Date.parse(e.timestamp):0);
-      if(t<cutoff) return;
-      var st = e.to || e.type;
-      if(st!=='offline' && st!=='intermittent') return;
-      var key = e.siteName||e.siteId||'—';
-      counts[key] = (counts[key]||0)+1;
-    });
-    var rows = Object.keys(counts).map(function(k){ return {name:k, count:counts[k]}; }).sort(function(a,b){return b.count-a.count;});
-    if(!rows.length){ el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t3);font-family:var(--mono);font-size:11px">Sin incidencias en este periodo — buena señal.</div>'; return; }
-    var maxC = rows[0].count;
-    el.innerHTML = rows.slice(0,20).map(function(r,i){
-      var pct = Math.round(r.count/maxC*100);
-      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;background:var(--s2);border:1px solid var(--b1)">'+
-        '<span style="font-family:var(--mono);font-size:10px;color:var(--t3);width:20px">#'+(i+1)+'</span>'+
-        '<span style="font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text);min-width:140px">'+r.name+'</span>'+
-        '<div style="flex:1;height:8px;background:var(--s1);border-radius:4px;overflow:hidden;min-width:80px"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#f59e0b,#ef4444)"></div></div>'+
-        '<span style="font-family:var(--mono);font-size:10px;color:var(--red);font-weight:700">'+r.count+' incidencia'+(r.count>1?'s':'')+'</span>'+
-      '</div>';
-    }).join('');
-  }
-})();
-</script>
 <!-- ═══════════════════════════════════════════════════════════════
      PATCH — Medidor BESS (control de demanda contratada)
 ════════════════════════════════════════════════════════════════ -->
@@ -34693,6 +34324,13 @@ function _opProTouchCursor(i, field){
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
   if(!window._fbFS || !window._fbDB) return;
   clearTimeout(_opProCursorT);
+  /* 900ms en vez de 250ms — cada escritura de cursor no solo cuenta contra
+     la cuota de escrituras, también le llega como lectura en vivo a TODOS
+     los demás colaboradores conectados (así funciona onSnapshot). Con
+     varias personas moviéndose y tecleando a la vez, 250ms multiplicaba
+     rápido el consumo de la cuota gratuita de Firestore. 900ms sigue
+     sintiéndose instantáneo para ver dónde está cada quien, pero gasta
+     mucha menos cuota. */
   _opProCursorT = setTimeout(function(){
     try{
       var FS=window._fbFS, DB=window._fbDB, patch={};
@@ -34701,7 +34339,7 @@ function _opProTouchCursor(i, field){
         if(typeof _opProWarnSyncFailOnce==='function') _opProWarnSyncFailOnce(e);
       });
     }catch(e){}
-  }, 250);
+  }, 900);
 }
 window._opProTouchCursor = _opProTouchCursor;
 window._opProCellFocus = function(el){
@@ -35014,6 +34652,14 @@ var _opProCollabUnsub = null;
    por cuál vía llegó el dato). */
 function _opProApplySessionData(data){
   if(!data || !window.COLLAB || !COLLAB.sessionId) return;
+  /* Mientras collabCreate() todavía está en vuelo (ver collabStartSession),
+     cualquier lectura que llegue puede ser del documento VIEJO (de una
+     sesión previa ya cerrada) — ignorarla por completo en vez de
+     interpretarla como "esto se acaba de cerrar", que era el bug real
+     detrás del falso "X finalizó el reporte" apenas apretar "Iniciar". En
+     cuanto la creación termine, el propio flujo de creación ya deja todo
+     sincronizado; no hace falta procesar estas lecturas de paso. */
+  if(COLLAB._creatingNew) return;
   /* Alguien más (host o invitado) ya guardó y cerró el reporte, o empezó
      uno genuinamente NUEVO en el mismo id fijo (createdAt distinto) — en
      ambos casos, el reporte que yo tenía abierto ya no existe como tal,
@@ -35043,10 +34689,12 @@ function _opProCollabListen(){
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return;
   if(typeof _opProPushFailWarned!=='undefined') _opProPushFailWarned = false; /* nueva sesión, permitir avisar de nuevo si algo falla */
   if(typeof _opProSyncFailWarned!=='undefined') _opProSyncFailWarned = false;
+  if(typeof _opProLastSnapAt!=='undefined') _opProLastSnapAt = 0; /* sesión nueva — no asumir "listener al día" hasta que llegue su primer snapshot real */
   if(window._fbFS && window._fbDB){
     try{
       var FS=window._fbFS, DB=window._fbDB;
       _opProCollabUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',COLLAB.sessionId), function(snap){
+        _opProLastSnapAt = Date.now(); /* el listener SÍ está entregando datos — el polling de abajo puede confiar en esto y ahorrarse lecturas redundantes */
         if(!snap.exists()) return;
         _opProApplySessionData(snap.data());
       }, function(err){
@@ -35085,9 +34733,17 @@ window._opProCollabListen = _opProCollabListen;
    "Finalizar") siempre terminan reflejándose, como mucho unos segundos
    más tarde. */
 var _opProSyncPollTimer = null;
+/* Marca de tiempo del último dato recibido por el onSnapshot en vivo (ver
+   _opProCollabListen). Si el listener acaba de entregar algo hace poco,
+   ese getDoc() de abajo sería una lectura repetida del MISMO dato que ya
+   se acaba de procesar — cuesta cuota de Firestore (plan gratuito: 50,000
+   lecturas/día para TODO el proyecto) sin aportar nada nuevo. */
+var _opProLastSnapAt = 0;
+var OPPRO_POLL_SKIP_IF_SNAP_WITHIN_MS = 4000;
 function _opProSyncPoll(){
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op'){ _opProStopSyncPoll(); return Promise.resolve(); }
   if(!window._fb || !window._fb.getOpCurrentSession) return Promise.resolve();
+  if(Date.now()-_opProLastSnapAt < OPPRO_POLL_SKIP_IF_SNAP_WITHIN_MS) return Promise.resolve(); /* el listener está vivo y al día — nos ahorramos esta lectura */
   return window._fb.getOpCurrentSession().then(function(active){
     if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='op') return; /* ya se cerró por otra vía mientras esperábamos */
     if(!active){
@@ -35120,11 +34776,18 @@ function _opProWarnSyncFailOnce(err){
 window._opProWarnSyncFailOnce = _opProWarnSyncFailOnce;
 function _opProStartSyncPoll(){
   if(_opProSyncPollTimer) return;
-  /* 2.5s en vez de 5s — el respaldo por polling es lo único que garantiza
-     ver los cambios de los demás cuando el onSnapshot en tiempo real no
-     llega (ver nota arriba), así que si SOLO ese respaldo está funcionando
-     de verdad, 5s de espera se sentía demasiado lejos de "en vivo". */
-  _opProSyncPollTimer = setInterval(_opProSyncPoll, 2500);
+  /* 8s de base — pero en la práctica casi nunca se dispara de verdad: si el
+     onSnapshot en vivo está entregando datos (el caso normal), cada tick
+     se salta la lectura (ver _opProLastSnapAt arriba). Antes esto era cada
+     2.5s SIEMPRE, sin importar si el listener ya estaba trayendo los
+     mismos datos — con varios colaboradores conectados varias horas eso
+     se comía la cuota gratuita de Firestore (50,000 lecturas/día para
+     TODO el proyecto) y terminaba en errores "resource-exhausted / 429
+     Too Many Requests", cortando la sincronización en vivo para todos.
+     Con el salto de arriba, este intervalo solo hace lecturas reales
+     cuando el listener realmente se quedó callado (posible falla) —
+     que es justo el único caso en el que este respaldo hace falta. */
+  _opProSyncPollTimer = setInterval(_opProSyncPoll, 8000);
 }
 function _opProStopSyncPoll(){
   if(_opProSyncPollTimer){ clearInterval(_opProSyncPollTimer); _opProSyncPollTimer=null; }
@@ -35428,13 +35091,23 @@ function _opProStartDirectGo(){
      sigue apareciendo sola en cuanto la unión/creación remota termine,
      sin bloquear nada visible mientras tanto. */
   try{ if(typeof _opProHideTransition==='function') _opProHideTransition(true); }catch(e){}
-  if(window.COLLAB && window.COLLAB.sessionId && window.COLLAB.reportType==='op'){
-    _opProCollabListen();
-  } else {
-    _opProStartOrJoinCollab(function(){
-      _opProRefreshCollabBar();
-    });
-  }
+  /* SEGUNDO BUG encontrado (la causa real del falso "Ing. X finalizó el
+     reporte" apenas apretar "Iniciar", visible ahora que _opProToast ya
+     funciona): esta rama "si ya tengo sesión, solo reconecto" confiaba en
+     COLLAB.sessionId/._sessionCreatedAt tal cual quedaron en memoria desde
+     ANTES — que pueden ser de una sesión que YA se cerró (aquí mismo, en
+     otra pestaña, etc.) sin que este cliente se enterara. Reconectar el
+     listener sin volver a preguntarle a Firestore "¿esto sigue activo?"
+     significa que la primera lectura real que llega compara contra ese
+     recuerdo viejo, no coincide, y _opProApplySessionData lo toma como
+     "alguien reemplazó el reporte" — cerrándolo de inmediato aunque el
+     reporte real siga sano. _opProStartOrJoinCollab() SIEMPRE vuelve a
+     preguntar primero (un getDoc puntual, ya confirmado que funciona) y
+     recién con esa respuesta fresca decide si unirse o crear — así que
+     ahora se usa siempre, sin atajos, en vez de confiar en la memoria. */
+  _opProStartOrJoinCollab(function(){
+    _opProRefreshCollabBar();
+  });
 };
 
 /* ══════════════════════════════════════════════════════════════════════
