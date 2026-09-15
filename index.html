@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v81_colores_legibles_reporte_pro -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v82_fix_guardado_fbid_undefined -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -54,6 +54,18 @@ try {
   // firebase-ready will still fire at end of module, _fb won't be set
 }
 
+/* Firestore rechaza CUALQUIER campo con valor literal "undefined" en
+   addDoc()/setDoc() — no lo ignora, tira error y no guarda nada del
+   documento. Los objetos de reporte de esta app a veces traen campos así
+   (p.ej. fbId:undefined antes de la primera subida) porque en JS es
+   perfectamente válido tener esa propiedad — la limpieza se hace aquí,
+   justo antes de escribir, en vez de andar acordándose en cada función. */
+function _fbStripUndefined(obj){
+  var out = {};
+  Object.keys(obj).forEach(function(k){ if(obj[k]!==undefined) out[k]=obj[k]; });
+  return out;
+}
+
 window._fb = {
   async addRecord(record) {
     const { dataUrl, name, site, date, month, year, monthKey, savedAt, systemStatus, status, tipo, params } = record;
@@ -96,11 +108,16 @@ window._fb = {
   },
   /* ── REPORTES DE VALIDACION ── */
   async saveReporteVal(rep) {
-    const docRef = await addDoc(collection(fbDB, 'reportes_val'), {
+    /* rep puede traer fbId:undefined (reporte que aún no se había guardado
+       en la nube) — Firestore RECHAZA addDoc() por completo si cualquier
+       campo del objeto es literalmente "undefined" (no lo omite, tira
+       error y no guarda nada). _fbStripUndefined quita esos campos antes
+       de escribir — el id real lo pone Firestore (docRef.id). */
+    const docRef = await addDoc(collection(fbDB, 'reportes_val'), _fbStripUndefined({
       ...rep,
       srs: JSON.stringify(rep.srs),
       savedAt: Date.now()
-    });
+    }));
     return docRef.id;
   },
   async getReportesVal() {
@@ -132,11 +149,16 @@ window._fb = {
 
   /* ── REPORTES OPERATIVOS ── */
   async saveReporteOp(rep) {
-    const docRef = await addDoc(collection(fbDB, 'reportes_op'), {
+    /* Mismo caso que saveReporteVal arriba — rep.fbId puede venir
+       literalmente "undefined" en un reporte que aún no se había subido a
+       Firebase, y eso hace que addDoc() rechace TODO el guardado (visto en
+       producción: "Unsupported field value: undefined (found in field
+       fbId...)"). _fbStripUndefined lo quita antes de escribir. */
+    const docRef = await addDoc(collection(fbDB, 'reportes_op'), _fbStripUndefined({
       ...rep,
       srs: rep.srs !== undefined ? JSON.stringify(rep.srs) : null,
       savedAt: Date.now()
-    });
+    }));
     return docRef.id;
   },
   async getReportesOp() {
@@ -5227,7 +5249,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789117000';
+  var APP_VERSION = '1789118000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
