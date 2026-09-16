@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v86_continuidad_escalacion_soc_operativo -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v87_valpro_visual_corregido -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -5266,7 +5266,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789120002';
+  var APP_VERSION = '1789120003';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -35827,6 +35827,31 @@ window._rvProEditingSavedId = null;
   document.head.appendChild(st);
 })();
 
+/* v87 — corrige el bug visual de la celda ESTADO (checkboxes lp/rn sin
+   contenedor propio, se desbordaban y encimaban con Reloj/Descarga en la
+   captura real que mandó el usuario — ver nota en _rvProEditableRowHtml)
+   y resalta la columna Pot. Carga en Nocturno. Bloque de estilos separado
+   del de v86 para no tocar ese ya probado. */
+(function(){
+  if(document.getElementById('rvpro-v87-style')) return;
+  var st = document.createElement('style');
+  st.id = 'rvpro-v87-style';
+  st.textContent =
+    /* Antes: <div style="white-space:nowrap"> con dos <label><input
+       type=checkbox>texto largo</label> — sin ancho propio, se salía de
+       la celda ESTADO y quedaba encimado con las columnas vecinas.
+       Ahora: fila flex que ENVUELVE (flex-wrap) sus chips en vez de
+       desbordarse cuando no caben en el ancho de la celda. */
+    '.rvpc-flagrow{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;max-width:150px}'+
+    '.rvpc-flag-btn{font-family:Arial,sans-serif;font-size:7.5px;font-weight:700;border:1px solid #dbe4f5;border-radius:5px;padding:1.5px 5px;background:#fff;color:#5b6b8c;cursor:pointer;white-space:nowrap;line-height:1.6}'+
+    '.rvpc-flag-btn:hover{border-color:#94a3b8}'+
+    '.rvpc-flag-btn.rvpc-flag-on{background:rgba(245,158,11,.14);border-color:#f59e0b;color:#92400e}'+
+    /* Pot. Carga destacada en Nocturno — es el campo prioritario del
+       checklist de ese turno junto con Comentarios/Incidencias. */
+    '.rvpc-chgpow-emph{border-color:#f59e0b!important;background:rgba(245,158,11,.08)!important;font-weight:800!important}';
+  document.head.appendChild(st);
+})();
+
 /* Estatus de 14 vías (bat+cond) agrupados para el <select> — mismas claves
    que _BAT_LABELS/_BAT_FULL_COLORS, sin inventar ninguna nueva. */
 var RVPRO_STATUS_GROUPS = [
@@ -35982,9 +36007,36 @@ window._rvProInjectInherited = _rvProInjectInherited;
    agrega el seguimiento de escalación (proveedor/cliente/personal + nota
    + "resuelto"), que el siguiente turno hereda vía sr.inherited. ── */
 function _rvProEscalationLabel(k){ return {proveedor:'Proveedor', cliente:'Cliente', personal:'Personal propio'}[k] || ''; }
+/* ── v87: turno normalizado de la ronda que se está viendo AHORA MISMO
+   (en curso o histórica abierta, ambas dejan rvW.type — ver rvShowDet más
+   arriba en el archivo), con el alias de compatibilidad 'entrega'→
+   'nocturno' ya resuelto. Único punto usado tanto por el panel de
+   Continuidad (mostrar siempre en Vespertino/Nocturno) como por las
+   columnas de la tabla (Nocturno oculta SOC y muestra ¿Cargando?). ── */
+function _rvProTurnoNow(){
+  var t = (window.rvW && window.rvW.type) || 'matutino';
+  return t==='entrega' ? 'nocturno' : t;
+}
+window._rvProTurnoNow = _rvProTurnoNow;
 function _rvProContinuityPanelHtml(d){
   var list = (d && d.continuity) || [];
-  if(!list.length) return '';
+  /* v87: el panel se quedaba invisible (return '') cuando no había NADA
+     pendiente — eso incluía Matutino (normal, casi nunca hereda nada) pero
+     TAMBIÉN Vespertino/Nocturno recién abiertos sin incidencias, donde el
+     usuario pidió explícitamente poder VER que la función de continuidad
+     existe y está validando, aunque no haya nada que reportar. Regla:
+     Vespertino/Nocturno siempre muestran el panel (con estado vacío claro
+     si no hay pendientes); Matutino solo lo muestra si de verdad heredó
+     algo del Nocturno anterior — igual que antes. */
+  var _turnoNow = (typeof _rvProTurnoNow==='function') ? _rvProTurnoNow() : ((window.rvW&&window.rvW.type)||'matutino');
+  var _alwaysShow = (_turnoNow==='vespertino' || _turnoNow==='nocturno');
+  if(!list.length && !_alwaysShow) return '';
+  if(!list.length){
+    return '<div class="oppc-card oppc-watchcard" data-pdf-avoid-break style="margin-bottom:8px;border-left-color:#22c55e" id="rvpro-continuity-card">'
+      + '<div class="oppc-card-ttl"><span class="oppc-ttl-bar" style="background:#22c55e"></span>🔄 Continuidad y Seguimiento</div>'
+      + '<div style="font-size:10.5px;color:#15803d;font-weight:700;padding:2px 0">✓ Sin incidencias heredadas del turno anterior</div>'
+    + '</div>';
+  }
   var rowsHtml = list.map(function(c){
     var i = c._idx, sr = c.sr;
     var turnoLbl = (c.inherited && window.RV_TYPES && window.RV_TYPES[c.inherited.fromType]) ? window.RV_TYPES[c.inherited.fromType].label : (c.inherited?c.inherited.fromType:'');
@@ -36117,34 +36169,50 @@ function _rvProHeaderHtml(meta,total){
 }
 
 /* ── Fila editable de un sitio — columnas: Estado (14 vías, dropdown),
-   Reloj, Descarga, Racks, Temp máx, SOC Inicial %, Pot. Carga (v86),
-   Comentarios, Responsable.
-   NOTA: "chg" (¿se cargó?) no tiene columna propia — se deriva de tener
-   un SOC% capturado (ver _rvProSetField), igual espíritu que el asistente
-   viejo (donde el campo SOC solo aparecía si "cargando" estaba marcado).
+   Reloj, Descarga, Racks, Temp máx, SOC Inicial % (Matutino/Vespertino) o
+   ¿Cargando? (Nocturno — ver v87 abajo), Pot. Carga, Comentarios,
+   Responsable.
+   NOTA: "chg" (¿se cargó?) se deriva de tener un SOC% capturado en
+   Matutino/Vespertino (ver _rvProSetField), igual espíritu que el
+   asistente viejo; en Nocturno (sin columna SOC) pasa a ser un campo
+   EXPLÍCITO editado directo (select Sí/No, ver más abajo) — mismo dato
+   subyacente sr.chg, sin cambiar el esquema de rvMkS().
    "lp"/"rn" (baja potencia / acometida negativa) no son columnas propias
    de esta tabla (fuera de la lista de columnas pedida), pero se conservan
-   editables como par de casillas chicas bajo el selector de Estado, para
-   no perder la capacidad de registrarlas que sí tenía el asistente viejo.
-   v86: la columna SOC se relabelea "SOC Inicial %" (viaja al Reporte
-   Operativo, ver _rvopPrefillSocFromValidacionIfNeeded), se agrega
-   "Pot. Carga" (validación explícita de Nocturno, expuesta en las 3
-   rondas por consistencia de tabla — decisión documentada en el reporte
-   final), y el nombre del sitio lleva un botón ☀ para marcar/desmarcar
-   "sitio especial" (carga tardía/solar, ver _rvIsSpecialSite). */
+   editables bajo el selector de Estado.
+   v87 — BUG VISUAL CORREGIDO: "lp"/"rn" eran checkboxes con etiqueta larga
+   en un <div white-space:nowrap>, que se desbordaba fuera de la celda
+   ESTADO y se encimaba visualmente con las columnas Reloj/Descarga (así
+   lo mostró la captura real). Ahora son botones-chip cortos
+   (.rvpc-flagrow, flex-wrap) que si no caben en el ancho de la celda
+   SALTAN de línea en vez de desbordarse — nunca se superponen con la
+   columna vecina. Ver window._rvProToggleFlag.
+   v87 — COLUMNAS POR TURNO: Nocturno "ya no tiene caso anotar el soc,
+   sino solamente si está cargando, a qué potencia y las posibles
+   incidencias" (pedido textual) — para Nocturno la columna 7 deja de ser
+   SOC Inicial % y pasa a ser ¿Cargando? (Sí/No, explícito), y la columna
+   Pot. Carga se resalta visualmente (borde/fondo ámbar). Matutino y
+   Vespertino conservan las columnas de fase 2 sin cambios. Reloj/Descarga/
+   Racks/Temp se conservan en los 3 turnos (relojes y racks se piden
+   explícitamente también para Nocturno). v86: se agregó "Pot. Carga"
+   (chgPow) y el botón ☀ "sitio especial" (ver _rvIsSpecialSite). */
 function _rvProEditableRowHtml(r, editable){
   var i = r._idx, sr = r.sr;
   var key = _rvpKeyFor(sr);
   var isSpecial = (typeof _rvIsSpecialSite==='function') && _rvIsSpecialSite(r.name);
+  var isNoct = _rvProTurnoNow()==='nocturno';
   if(!editable){
+    var flagsTxt = (sr.lp?' · Baja pot.':'')+(sr.rn?' · Acom. neg.':'');
     return '<tr>'
       +'<td class="oppc-etd-name">'+_rvpEsc(r.name)+(isSpecial?' <span title="Sitio especial (carga tardía/solar)">☀</span>':'')+'</td>'
-      +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+'</td>'
+      +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+_rvpEsc(flagsTxt)+'</td>'
       +'<td class="oppc-etd-num">'+(sr.clk==='ok'?'OK':sr.clk==='no'?'No':'—')+'</td>'
       +'<td class="oppc-etd-num">'+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
       +'<td class="oppc-etd-num">'+_rvpEsc(sr.racks||'—')+'</td>'
       +'<td class="oppc-etd-num" style="color:'+_rvpTempColor(sr.tmp)+'">'+(sr.tmp?sr.tmp+'°C':'—')+'</td>'
-      +'<td class="oppc-etd-num">'+(sr.soc!=null&&sr.soc!==''?sr.soc+'%':'—')+'</td>'
+      +(isNoct
+        ? '<td class="oppc-etd-num">'+(sr.chg?'Sí':'No')+'</td>'
+        : '<td class="oppc-etd-num">'+(sr.soc!=null&&sr.soc!==''?sr.soc+'%':'—')+'</td>')
       +'<td class="oppc-etd-num">'+_rvpEsc(sr.chgPow||'—')+'</td>'
       +'<td class="oppc-etd-obs">'+_rvpEsc(sr.cmt||'')+'</td>'
       +'<td class="oppc-etd-obs">'+_rvpEsc(sr.resp||'')+'</td>'
@@ -36158,15 +36226,21 @@ function _rvProEditableRowHtml(r, editable){
             }).join('')
           + '</optgroup>';
       }).join('');
+  var socOrChgCell = isNoct
+    ? '<td><select class="oppc-esel" data-idx="'+i+'" data-col="chg" onchange="window._rvProSetField('+i+',\'chg\',this.value===\'si\')">'
+        +'<option value="si" '+(sr.chg?'selected':'')+'>Sí</option>'
+        +'<option value="no" '+(!sr.chg?'selected':'')+'>No</option>'
+      +'</select></td>'
+    : '<td><input type="number" min="0" max="100" class="oppc-einput" id="rvpro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_rvpEsc(sr.soc!=null?sr.soc:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'soc\',this.value)"></td>';
   return '<tr id="rvpro-tr-'+i+'">'
     +'<td class="oppc-etd-name">'+_rvpEsc(r.name)
       +'<button type="button" data-special-btn="'+_rvpEsc(String(r.name||'').trim().toLowerCase())+'" class="rvpc-special-btn'+(isSpecial?' rvpc-special-on':'')+'" title="Sitio especial (carga tardía/solar) — no cuenta como incidencia por no haber cargado aún" onclick="window._rvToggleSpecialSiteByIdx('+i+')">☀</button>'
     +'</td>'
     +'<td>'
       +'<select class="oppc-esel" id="rvpro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="color:'+_rvpStatusColor(key)+'" onchange="window._rvProSetStatus('+i+',this.value)">'+optHtml+'</select>'
-      +'<div style="margin-top:2px;font-size:8px;font-family:Arial,sans-serif;color:#8695b5;white-space:nowrap">'
-        +'<label style="cursor:pointer;margin-right:6px"><input type="checkbox" style="vertical-align:middle" '+(sr.lp?'checked':'')+' onchange="window._rvProSetField('+i+',\'lp\',this.checked)"> Baja pot.</label>'
-        +'<label style="cursor:pointer"><input type="checkbox" style="vertical-align:middle" '+(sr.rn?'checked':'')+' onchange="window._rvProSetField('+i+',\'rn\',this.checked)"> Acometida neg.</label>'
+      +'<div class="rvpc-flagrow">'
+        +'<button type="button" class="rvpc-flag-btn'+(sr.lp?' rvpc-flag-on':'')+'" data-flag-btn="'+i+'-lp" title="Baja potencia" onclick="window._rvProToggleFlag('+i+',\'lp\')">⚡ Baja pot.</button>'
+        +'<button type="button" class="rvpc-flag-btn'+(sr.rn?' rvpc-flag-on':'')+'" data-flag-btn="'+i+'-rn" title="Acometida negativa" onclick="window._rvProToggleFlag('+i+',\'rn\')">🔌 Acom. neg.</button>'
       +'</div>'
     +'</td>'
     +'<td><select class="oppc-esel" data-idx="'+i+'" data-col="clk" onchange="window._rvProSetField('+i+',\'clk\',this.value)">'
@@ -36181,8 +36255,8 @@ function _rvProEditableRowHtml(r, editable){
       +'</select></td>'
     +'<td><input type="text" class="oppc-einput" style="width:82px" id="rvpro-in-racks-'+i+'" data-idx="'+i+'" data-col="racks" value="'+_rvpEsc(sr.racks||'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'racks\',this.value)"></td>'
     +'<td><input type="number" class="oppc-einput" id="rvpro-in-tmp-'+i+'" data-idx="'+i+'" data-col="tmp" style="color:'+_rvpTempColor(sr.tmp)+';font-weight:800" value="'+_rvpEsc(sr.tmp!=null?sr.tmp:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'tmp\',this.value)"></td>'
-    +'<td><input type="number" min="0" max="100" class="oppc-einput" id="rvpro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_rvpEsc(sr.soc!=null?sr.soc:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'soc\',this.value)"></td>'
-    +'<td><input type="text" class="oppc-einput" style="width:60px" id="rvpro-in-chgpow-'+i+'" data-idx="'+i+'" data-col="chgPow" value="'+_rvpEsc(sr.chgPow||'')+'" placeholder="kW" oninput="window._rvProSetField('+i+',\'chgPow\',this.value)"></td>'
+    +socOrChgCell
+    +'<td><input type="text" class="oppc-einput'+(isNoct?' rvpc-chgpow-emph':'')+'" style="width:'+(isNoct?'70px':'60px')+'" id="rvpro-in-chgpow-'+i+'" data-idx="'+i+'" data-col="chgPow" value="'+_rvpEsc(sr.chgPow||'')+'" placeholder="kW" oninput="window._rvProSetField('+i+',\'chgPow\',this.value)"></td>'
     +'<td><input type="text" class="oppc-einput-obs" data-idx="'+i+'" data-col="cmt" maxlength="140" value="'+_rvpEsc(sr.cmt||'')+'" placeholder="Comentario breve…" oninput="window._rvProSetField('+i+',\'cmt\',this.value)"></td>'
     +'<td><input type="text" class="oppc-einput-obs" style="min-width:100px" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
   +'</tr>';
@@ -36191,13 +36265,14 @@ function _rvProEditableRegionHtml(g, editable){
   var rowsHtml = g.rows.map(function(r){ return _rvProEditableRowHtml(r, editable); }).join('');
   var grad = (window.OPPRO_REGION_GRAD && window.OPPRO_REGION_GRAD[g.name]) || 'linear-gradient(135deg,#0a1f5e,#1a3fcc)';
   var icon = (window.OPPRO_REGION_ICON && window.OPPRO_REGION_ICON[g.name]) || '';
+  var col7Label = _rvProTurnoNow()==='nocturno' ? '¿Cargando?' : 'SOC Inicial %';
   return '<div class="oppc-card oppc-eregion" data-pdf-avoid-break style="margin-bottom:8px">'
     +'<div class="oppc-region-hdr" style="background:'+grad+';border-radius:8px 8px 0 0;margin:-10px -13px 8px">'
       +'<span>'+icon+' '+_rvpEsc(g.name.toUpperCase())+'</span>'
       +'<span class="oppc-region-hdr-n" id="rvpro-regn-'+_rvProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
     +'</div>'
     +'<table class="oppc-etable"><thead><tr>'
-      +'<th>Sitio</th><th>Estado</th><th>Reloj</th><th>Descarga</th><th>Racks</th><th>Temp °C</th><th>SOC Inicial %</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
+      +'<th>Sitio</th><th>Estado</th><th>Reloj</th><th>Descarga</th><th>Racks</th><th>Temp °C</th><th>'+col7Label+'</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
   +'</div>';
 }
@@ -36333,6 +36408,20 @@ window._rvProSetField = function(i, field, value){
      perder el foco de un input de texto). */
   if((field==='racks' || field==='dsc') && typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel();
 };
+/* v87: botones-chip lp/rn (baja potencia / acometida negativa) — mismo
+   dato subyacente sr.lp/sr.rn que antes (checkboxes), solo cambia el
+   widget para no desbordar la celda ESTADO (ver nota en
+   _rvProEditableRowHtml). Reusa _rvProSetField para no duplicar el
+   guardado/autosave, y solo alterna la clase visual del botón que se
+   apretó (sin re-pintar toda la fila/tabla). */
+window._rvProToggleFlag = function(i, field){
+  if(window._rvProReadOnlyView) return;
+  if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
+  var newVal = !window.rvW.srs[i][field];
+  window._rvProSetField(i, field, newVal);
+  var btn = document.querySelector('[data-flag-btn="'+i+'-'+field+'"]');
+  if(btn) btn.classList.toggle('rvpc-flag-on', newVal);
+};
 window._rvProSetStatus = function(i, key){
   if(window._rvProReadOnlyView) return;
   if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
@@ -36394,7 +36483,7 @@ function _rvProRenderEditablePaper(){
     + '<div class="oppc-topline"><div id="rvpro-kpi-wrap" style="flex:1 1 100%">'+_rvProKpiHtml(d)+'</div></div>'
     + '<div id="rvpro-continuity-wrap">'+_rvProContinuityPanelHtml(d)+'</div>'
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estado, reloj, descarga, racks, temperatura, SOC, comentario o responsable de cualquier sitio para editarlo — se guarda automáticamente.'
-        + (isHistorical ? ' <span style="opacity:.85">(editando reporte del historial — cierra con ✕ Cerrar arriba cuando termines)</span>' : ' <button type="button" class="oppc-util-linkbtn-pro" onclick="window.rvSave()">✓ Guardar Reporte</button>')
+        + (isHistorical ? ' <span style="opacity:.85">(editando reporte del historial — cierra con ✕ Cerrar arriba cuando termines)</span>' : ' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" onclick="window.rvSave()">✓ Guardar Reporte</button>')
         + ' <span id="rvpro-autosave-badge" class="oppro-autosave-badge">💾 Todo guardado</span></div>' : '')
     + _rvProEditableRegionsHtml(d.regionGroups, editable)
     + '</div></div>';
@@ -36446,16 +36535,31 @@ window._rvProStartDirect = function(){
   /* Sin borrador (o se declinó continuarlo): ronda nueva, igual que hacía
      rvStartSites — reutiliza rvInitSetup() si hace falta un rvW fresco. */
   var _isFreshRound = (!window.rvW || !window.rvW.srs || !window.rvW.srs.length);
+  /* v87 — BUG REAL encontrado al revisar el flujo de verdad (no solo con
+     page.evaluate directo, como en la ronda de pruebas de v86): en la app
+     real, entrar a la pestaña de Validación YA deja un rvW armado (con
+     step:'setup', ver el listener de navegación de 'repval' más arriba en
+     el archivo) MUCHO antes de que el operador elija turno (rvSetType) y
+     presione "Iniciar" — así que para cuando _rvProStartDirect() corre,
+     rvW.srs YA tiene longitud (no está vacío) y _isFreshRound daba FALSE
+     casi siempre en uso real, aunque fuera la primera vez que se abre la
+     ronda. Resultado: _rvProInjectInherited() nunca se ejecutaba en
+     producción y el panel de Continuidad nunca tenía nada que mostrar —
+     por eso "no se ve el handoff". La señal correcta de "esta ronda
+     todavía no pasó por la pantalla de resumen en esta sesión" es
+     rvW.step==='setup' (lo deja así rvInitSetup y nadie más lo toca hasta
+     esta misma función, más abajo, que lo pasa a 'sites') — se captura
+     ANTES de pisarlo. _rvProInjectInherited() ya es idempotente por sí
+     misma (no pisa sr.inherited si ya estaba puesto), así que no hay
+     riesgo de duplicar/recalcular sobre una ronda que el operador ya
+     viene editando en esta misma sesión. */
+  var _wasAtSetupStep = (!window.rvW || window.rvW.step==='setup' || !window.rvW.srs || !window.rvW.srs.length);
   if(_isFreshRound){
     if(typeof rvInitSetup==='function') rvInitSetup();
   }
   rvW.op = localStorage.getItem('bess_uname') || 'Operador';
   rvW.step='sites'; rvW.idx=0;
-  /* v86 — CONTINUIDAD: solo se anotan pendientes heredados en una ronda
-     GENUINAMENTE NUEVA (recién creada por rvInitSetup arriba) — nunca sobre
-     un rvW que ya se estaba usando (evita recomputar/pisar lo que el
-     operador ya venía viendo/editando en esta misma sesión). */
-  if(_isFreshRound && typeof _rvProInjectInherited==='function') _rvProInjectInherited();
+  if(_wasAtSetupStep && typeof _rvProInjectInherited==='function') _rvProInjectInherited();
   _openRvSumEditable();
   if(typeof _rvBeginTimer==='function') _rvBeginTimer();
   _rvProRenderEditablePaper();
