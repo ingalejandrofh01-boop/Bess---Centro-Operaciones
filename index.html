@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-15 bess_v87_valpro_visual_corregido -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-18 bess_v90_carga_rapida_bitacora_ocr -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -22,6 +22,10 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800;900&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- v90: Tesseract.js (OCR en el navegador) para "⚡ Carga Rápida por Lote" —
+     usa sus rutas por defecto (jsdelivr) para worker/core/datos de idioma,
+     igual que cualquier otra app que solo importa el bundle principal. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <!-- Firebase v10 SDK -->
 <script type="module">
 import { initializeApp }                              from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -5266,7 +5270,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789120003';
+  var APP_VERSION = '1789120006';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -6097,6 +6101,7 @@ if('serviceWorker' in navigator){
   <div style="display:flex;gap:8px;padding:12px 16px 0;background:var(--bg)">
     <button id="btn-mode-descarga" onclick="bitacoraSetMode('descarga')" style="flex:1;max-width:220px;padding:9px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s1);color:var(--sky);font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer">⚡ BITÁCORA DE DESCARGA</button>
     <button id="btn-mode-carga" onclick="bitacoraSetMode('carga')" style="flex:1;max-width:220px;padding:9px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer">🔋 BITÁCORA DE CARGA</button>
+    <button id="btn-mode-lote" onclick="bitacoraSetMode('lote')" style="flex:1;max-width:220px;padding:9px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer">⚡ CARGA RÁPIDA POR LOTE</button>
   </div>
   <div id="carga-app" style="display:none;background:var(--bg);min-height:100%">
     <div style="display:flex;gap:0;min-height:100%">
@@ -7000,6 +7005,62 @@ if('serviceWorker' in navigator){
   </div>
     </main>
   </div><!-- /gen-app -->
+
+<div id="lote-app" style="display:none;background:var(--bg);min-height:100%">
+  <div class="lote-wrap">
+    <div class="lote-head">⚡ Carga Rápida por Lote</div>
+    <div class="lote-sub">Suelta todas las capturas SCADA del día (Descarga o Carga) — se lee CARGA/RED/BESS con OCR, se sugiere el sitio, y TÚ revisas antes de publicar. El SOC nunca se llena automáticamente.</div>
+
+    <div class="lote-controls">
+      <div class="lote-field">
+        <label>Modo del lote</label>
+        <select id="lote-mode-select" onchange="window._loteOnModeChange && window._loteOnModeChange()">
+          <option value="descarga">⚡ Bitácora de Descarga</option>
+          <option value="carga">🔋 Bitácora de Carga</option>
+        </select>
+      </div>
+      <div class="lote-field">
+        <label>Fecha del lote</label>
+        <input type="date" id="lote-date">
+      </div>
+      <div class="lote-field" style="flex:1;min-width:200px">
+        <label>&nbsp;</label>
+        <div class="lote-sub" style="margin:0">Esta fecha se aplica a TODAS las filas al publicar.</div>
+      </div>
+    </div>
+
+    <div id="lote-dropzone" class="lote-dropzone"
+      onclick="document.getElementById('lote-file-input').click()"
+      ondragover="window._loteHandleDragOver(event)"
+      ondragleave="window._loteHandleDragLeave(event)"
+      ondrop="window._loteHandleDrop(event)">
+      <input type="file" id="lote-file-input" multiple accept="image/*" style="display:none" onchange="window._loteHandleFiles(event.target.files)">
+      <div class="lz-icon">📥</div>
+      <div class="lz-title">Arrastra aquí todas las capturas del día</div>
+      <div class="lz-sub">…o haz clic para elegir archivos — puedes soltar decenas de una vez</div>
+    </div>
+
+    <div id="lote-progress">Procesando…</div>
+
+    <div class="lote-table-wrap" id="lote-table-wrap" style="display:none">
+      <table class="lote-table">
+        <thead>
+          <tr>
+            <th>Captura</th><th>Archivo</th><th>Sitio</th>
+            <th>Carga (kW)</th><th>Red (kW)</th><th>BESS (kW)</th>
+            <th>Comentario</th><th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="lote-review-tbody"></tbody>
+      </table>
+    </div>
+
+    <button id="lote-publish-btn" style="display:none" onclick="window._lotePublishAll()">🚀 Publicar todo</button>
+
+    <div id="lote-summary" style="display:none"></div>
+  </div>
+</div>
+
 </div><!-- /page-bitacora -->
 
 <script>
@@ -13537,6 +13598,26 @@ function renderImagesList() {
     </div>
   `).join('');
 }
+
+/* v90 — Carga Rápida por Lote: helpers mínimos y aditivos para que el lote
+   pueda adjuntar la captura y garantizar al menos una Unidad BESS SIN
+   reimplementar handleImages()/addBessUnit() (que están pensados para
+   eventos de un solo <input type=file>, no para insertar un dataURL ya
+   decodificado). No cambian el comportamiento manual existente. */
+window._batchDescPushImage = function(name, dataUrl){
+  curveImages.push({ name: name, src: dataUrl });
+  renderImagesList();
+  render();
+};
+window._batchDescClearImages = function(){
+  curveImages = [];
+  renderImagesList();
+  render();
+};
+window._batchDescEnsureFirstUnitId = function(){
+  if(!bessUnits.length) addBessUnit();
+  return bessUnits[0].id;
+};
 
 // ══════════════════════════════════════════
 // AUTO-CALC TOTAL STORAGE
@@ -28440,12 +28521,18 @@ window.addEventListener('firebase-ready', function(){
   window.bitacoraSetMode = function(mode){
     var genApp = document.getElementById('gen-app');
     var cargaApp = document.getElementById('carga-app');
-    var bD = document.getElementById('btn-mode-descarga'), bC = document.getElementById('btn-mode-carga');
+    var loteApp = document.getElementById('lote-app');
+    var bD = document.getElementById('btn-mode-descarga'), bC = document.getElementById('btn-mode-carga'), bL = document.getElementById('btn-mode-lote');
+    /* v90: 3er modo "Carga Rápida por Lote" — mismo patrón de toggle que
+       ya existía entre descarga/carga, solo se agrega la 3ra rama y se
+       apaga el estilo activo de los otros dos botones en cada caso. */
     if(mode==='carga'){
       if(genApp) genApp.style.display = 'none';
       if(cargaApp) cargaApp.style.display = 'block';
+      if(loteApp) loteApp.style.display = 'none';
       if(bC){ bC.style.background='var(--s1)'; bC.style.color='var(--green)'; }
       if(bD){ bD.style.background='var(--s2)'; bD.style.color='var(--t3)'; }
+      if(bL){ bL.style.background='var(--s2)'; bL.style.color='var(--t3)'; }
       if(typeof updateTopbarTitle==='function'){ PAGE_TITLES.bitacora='Bitácora de Carga'; updateTopbarTitle('bitacora'); }
       populateCargaSites();
       var d = document.getElementById('cg-date'); if(d && !d.value) d.value = window._todayLocalStr();
@@ -28453,11 +28540,22 @@ window.addEventListener('firebase-ready', function(){
       if(hi && !hi.value) hi.value = '22:00';
       if(hf && !hf.value) hf.value = '06:00';
       cargaRenderPreview();
+    } else if(mode==='lote'){
+      if(genApp) genApp.style.display = 'none';
+      if(cargaApp) cargaApp.style.display = 'none';
+      if(loteApp) loteApp.style.display = 'block';
+      if(bL){ bL.style.background='var(--s1)'; bL.style.color='#a855f7'; }
+      if(bD){ bD.style.background='var(--s2)'; bD.style.color='var(--t3)'; }
+      if(bC){ bC.style.background='var(--s2)'; bC.style.color='var(--t3)'; }
+      if(typeof updateTopbarTitle==='function'){ PAGE_TITLES.bitacora='Carga Rápida por Lote'; updateTopbarTitle('bitacora'); }
+      if(typeof window._loteOnEnter==='function') window._loteOnEnter();
     } else {
       if(genApp) genApp.style.display = '';
       if(cargaApp) cargaApp.style.display = 'none';
+      if(loteApp) loteApp.style.display = 'none';
       if(bD){ bD.style.background='var(--s1)'; bD.style.color='var(--sky)'; }
       if(bC){ bC.style.background='var(--s2)'; bC.style.color='var(--t3)'; }
+      if(bL){ bL.style.background='var(--s2)'; bL.style.color='var(--t3)'; }
       if(typeof updateTopbarTitle==='function'){ PAGE_TITLES.bitacora='Bitácora de Descarga'; updateTopbarTitle('bitacora'); }
     }
   };
@@ -28496,6 +28594,19 @@ window.addEventListener('firebase-ready', function(){
     cargaRenderPreview();
   }
   window.cargaRemoveCurve = function(idx){ cargaCurves.splice(idx,1); renderCargaCurves(); };
+
+  /* v90 — Carga Rápida por Lote: mismo motivo que en Descarga — cargaCurves
+     es privado a esta IIFE y cargaAddCurve() espera un <input type=file>
+     real, no un dataURL ya decodificado. Aditivo, no cambia nada manual. */
+  window._batchCargaPushImage = function(name, dataUrl){
+    cargaCurves.push({ name: name, src: dataUrl });
+    renderCargaCurves();
+  };
+  window._batchCargaClearImages = function(){
+    cargaCurves = [];
+    renderCargaCurves();
+  };
+  window._batchPopulateCargaSites = function(){ populateCargaSites(); };
 
   var ANOM_LABEL = {ok:'✅ OK — sin novedad', cfe:'⚡ Falla de suministro CFE', rack:'🔻 Rack fuera', bms:'⚙️ Falla de BMS', otro:'✏️ Otro'};
 
@@ -28658,6 +28769,466 @@ window.addEventListener('firebase-ready', function(){
   };
 })();
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     CARGA RÁPIDA POR LOTE (Skysense) — sube de golpe todas las capturas
+     del día del panel SCADA (Descarga o Carga), lee CARGA/RED/BESS con
+     OCR (Tesseract.js) recortando por PORCENTAJE la tablita de leyenda y
+     el banner del sitio, sugiere el sitio por fuzzy-match, y deja una
+     tabla de revisión — NUNCA publica sin que el usuario revise/confirme
+     cada fila. Al publicar, reutiliza el camino de guardado YA EXISTENTE
+     (saveToMonthly()/cargaSave()) poblando el formulario real, para no
+     duplicar esa lógica.
+
+     LIMITACIONES CONOCIDAS, documentadas también en el reporte final:
+     - El OCR (Tesseract.js real, WASM) puede leer mal un dígito o
+       truncar el último valor si el recorte no cubre bien la tablita en
+       capturas con resolución/zoom muy distinto al validado — por eso
+       los 3 valores SIEMPRE quedan editables antes de publicar, y un
+       valor no detectado se deja en blanco (nunca se arriesga un número
+       incompleto/adivinado).
+     - El SOC (inicial/final) NUNCA se llena desde el OCR — se ignora
+       aunque el panel lo muestre, ni en Descarga ni en Carga.
+     - El sitio detectado (banner OCR + nombre de archivo) es una
+       SUGERENCIA — si no hay una coincidencia clara, la fila queda en
+       blanco/resaltada y NO se publica hasta que el usuario elija el
+       sitio a mano.
+     - Estandarizar cómo se toman las capturas (mismo zoom/recuadro cada
+       vez) mejora mucho la tasa de acierto del recorte por porcentaje —
+       ver recomendación en el reporte de entrega.
+     ══════════════════════════════════════════════════════════════ -->
+<style>
+.lote-wrap{padding:22px 24px;max-width:1180px;margin:0 auto}
+.lote-head{font-family:var(--disp);font-size:19px;font-weight:900;color:var(--text);margin-bottom:4px}
+.lote-sub{font-family:var(--mono);font-size:10.5px;color:var(--t3);margin-bottom:18px;line-height:1.6}
+.lote-controls{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.lote-field label{display:block;font-family:var(--mono);font-size:8.5px;color:var(--t3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.lote-field select,.lote-field input{padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11.5px;outline:none}
+.lote-dropzone{border:2.5px dashed var(--b2);border-radius:14px;padding:38px 20px;text-align:center;cursor:pointer;
+  background:var(--s1);transition:border-color .15s,background .15s;margin-bottom:18px}
+.lote-dropzone.dragover{border-color:#a855f7;background:rgba(168,85,247,.08)}
+.lote-dropzone .lz-icon{font-size:34px;margin-bottom:8px}
+.lote-dropzone .lz-title{font-family:var(--disp);font-weight:800;font-size:14px;color:var(--text);margin-bottom:4px}
+.lote-dropzone .lz-sub{font-family:var(--mono);font-size:10px;color:var(--t3)}
+#lote-progress{font-family:var(--mono);font-size:11px;color:var(--sky);margin-bottom:14px;display:none}
+.lote-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:16px}
+table.lote-table{width:100%;border-collapse:collapse;font-size:11.5px;min-width:920px}
+table.lote-table th{background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:8.5px;text-transform:uppercase;
+  letter-spacing:1px;padding:8px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+table.lote-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.lote-table tr.lote-row-needsfix{background:rgba(245,158,11,.08)}
+table.lote-table tr.lote-row-published{opacity:.55}
+.lote-thumb{width:56px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--b1);display:block}
+.lote-num-input{width:72px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
+  font-family:var(--mono);font-size:11px;outline:none}
+.lote-num-input.lote-empty{border-color:#f59e0b;background:rgba(245,158,11,.08)}
+.lote-site-select{width:170px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
+  font-family:var(--mono);font-size:10.5px;outline:none}
+.lote-site-select.lote-empty{border-color:#dc2626;background:rgba(220,38,38,.08)}
+.lote-comment-input{width:150px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
+  font-family:var(--body);font-size:11px;outline:none}
+.lote-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:9px;font-weight:800;
+  letter-spacing:.5px;white-space:nowrap}
+.lote-badge.ok{background:rgba(5,150,105,.14);color:#059669}
+.lote-badge.warn{background:rgba(245,158,11,.16);color:#b45309}
+.lote-badge.pub{background:rgba(26,63,204,.14);color:var(--accent)}
+.lote-badge.err{background:rgba(220,38,38,.14);color:#dc2626}
+.lote-cand-hint{font-size:9.5px;color:var(--t3);margin-top:2px}
+.lote-cand-hint button{background:none;border:none;color:var(--sky);cursor:pointer;font-size:9.5px;padding:0;margin-right:6px;text-decoration:underline}
+#lote-publish-btn{padding:13px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,#a855f7,#7e22ce);
+  color:#fff;font-family:var(--mono);font-weight:800;font-size:12px;letter-spacing:1px;cursor:pointer;margin-bottom:16px}
+#lote-publish-btn:disabled{opacity:.5;cursor:not-allowed}
+#lote-summary{background:var(--s1);border:1.5px solid var(--border);border-radius:12px;padding:16px;font-family:var(--mono);
+  font-size:12px;color:var(--text);line-height:1.7}
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ══════════════════════════════════════════════════════════════
+     REGIONES DE RECORTE (porcentaje del ancho/alto, NO píxeles fijos —
+     así toleran resoluciones/zooms distintos entre los 40+ sitios).
+     Núcleo validado por el usuario con el binario `tesseract` real
+     (leyenda 12%-49% ancho / 82%-93% alto, banner 23%-77% / 3%-11%) —
+     aquí se usa un margen ADICIONAL generoso alrededor de ese núcleo,
+     porque cortar de más (perder un dígito) es peor que incluir un poco
+     de fondo extra (el OCR tolera mejor el ruido de fondo que un valor
+     truncado — ver limitación documentada arriba). ══════════════════ */
+  var LOTE_LEGEND_REGION = { x0:0.08, x1:0.55, y0:0.78, y1:0.96 };
+  var LOTE_BANNER_REGION = { x0:0.15, x1:0.85, y0:0.01, y1:0.14 };
+  var LOTE_GOOD_THRESHOLD = 0.34;
+  var LOTE_AMBIG_GAP = 0.12;
+
+  function _esc(s){
+    return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     RECORTE POR PORCENTAJE
+     ══════════════════════════════════════════════════════════════ */
+  function loteCropByPercent(dataUrl, region){
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      img.onload = function(){
+        try{
+          var sx = Math.round(img.naturalWidth * region.x0), sy = Math.round(img.naturalHeight * region.y0);
+          var sw = Math.round(img.naturalWidth * (region.x1 - region.x0)), sh = Math.round(img.naturalHeight * (region.y1 - region.y0));
+          if(sw<=0 || sh<=0){ reject(new Error('Región de recorte inválida')); return; }
+          var c = document.createElement('canvas'); c.width = sw; c.height = sh;
+          c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          resolve(c.toDataURL('image/png'));
+        }catch(e){ reject(e); }
+      };
+      img.onerror = function(){ reject(new Error('No se pudo cargar la imagen')); };
+      img.src = dataUrl;
+    });
+  }
+  window._loteCropByPercent = loteCropByPercent;
+
+  /* ══════════════════════════════════════════════════════════════
+     PARSEO TOLERANTE DE LA TABLITA DE LEYENDA (SOC/CARGA/RED/BESS)
+     — cruza por POSICIÓN la secuencia de etiquetas reconocidas (en el
+     orden en que aparecen, ignorando ruido de OCR que no matchea
+     ninguna palabra clave) con la secuencia de pares número+unidad
+     (también en orden) — el SOC se reconoce pero SIEMPRE se descarta
+     (nunca se usa). Si un valor no tiene su par número+unidad completo
+     (p.ej. el OCR truncó el último dígito y no quedó unidad después),
+     esa etiqueta simplemente no obtiene valor — se prefiere "no
+     detectado" a un número incompleto/adivinado.
+     ══════════════════════════════════════════════════════════════ */
+  var LOTE_LABEL_KEYS = ['soc','carga','red','bess'];
+  function _loteCleanToken(tok){ return String(tok||'').toLowerCase().replace(/[^a-z]/g,''); }
+  function _loteFuzzyLabelKey(tok){
+    var c = _loteCleanToken(tok);
+    if(!c) return null;
+    for(var i=0;i<LOTE_LABEL_KEYS.length;i++){
+      var k = LOTE_LABEL_KEYS[i];
+      if(c === k) return k;
+      // Tolerante a un carácter de ruido pegado/perdido al inicio o fin
+      // (ej. OCR leyó "BES!" o "e@bess") — solo si el token limpio tiene
+      // al menos 3 letras, para no matchear ruido corto al azar.
+      if(c.length >= 3 && (k.indexOf(c) === 0 || c.indexOf(k) === 0)) return k;
+    }
+    return null;
+  }
+  var LOTE_NUMUNIT_RE = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)\s*(%|k\s?w)/gi;
+
+  function loteParseLegend(ocrText){
+    var lines = String(ocrText||'').split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean);
+    var labelSeq = [], valueSeq = [];
+    lines.forEach(function(line){
+      line.split(/\s+/).forEach(function(tok){
+        var key = _loteFuzzyLabelKey(tok);
+        if(key) labelSeq.push(key);
+      });
+      var re = new RegExp(LOTE_NUMUNIT_RE.source, 'gi'), vm;
+      while((vm = re.exec(line))){
+        valueSeq.push(parseFloat(String(vm[1]).replace(/,/g,'')));
+      }
+    });
+    var out = {};
+    var n = Math.min(labelSeq.length, valueSeq.length);
+    for(var i=0;i<n;i++){
+      var key = labelSeq[i];
+      if(key === 'soc') continue; // el SOC del OCR JAMÁS se usa
+      if(out[key] == null) out[key] = valueSeq[i];
+    }
+    return out; // {carga, red, bess} — cualquiera puede faltar
+  }
+  window._loteParseLegend = loteParseLegend;
+
+  /* ══════════════════════════════════════════════════════════════
+     FUZZY MATCH DE SITIO — combina banner OCR + nombre de archivo
+     contra window.MASTER_SITES_DB (fuente única de verdad de Bitácora).
+     Nunca "adivina" en silencio: si ninguna señal es lo bastante fuerte,
+     o si las dos señales fuertes DISCREPAN entre sí, se marca 'ambiguous'
+     (o 'none') para que el usuario elija a mano.
+     ══════════════════════════════════════════════════════════════ */
+  function loteNorm(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function loteLevenshtein(a,b){
+    var m=a.length,n=b.length; if(!m) return n; if(!n) return m;
+    var d=[],i,j; for(i=0;i<=m;i++){d[i]=[i];} for(j=0;j<=n;j++){d[0][j]=j;}
+    for(i=1;i<=m;i++){ for(j=1;j<=n;j++){ d[i][j]=Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); } }
+    return d[m][n];
+  }
+  function loteScore(text, candidate){
+    var t=loteNorm(text), c=loteNorm(candidate);
+    if(!t || !c) return Infinity;
+    if(t===c) return 0;
+    if(t.indexOf(c)>=0 || c.indexOf(t)>=0) return 0.15;
+    return loteLevenshtein(t,c)/Math.max(c.length,1);
+  }
+  function _loteRankSites(text){
+    if(!text) return [];
+    var sites = (window.MASTER_SITES_DB||[]).map(function(m){ return m.sitio; });
+    var scored = sites.map(function(name){ return { name:name, score: loteScore(text,name) }; }).filter(function(x){ return isFinite(x.score); });
+    scored.sort(function(a,b){ return a.score-b.score; });
+    return scored;
+  }
+  function loteMatchSite(bannerText, filename){
+    var cleanFile = String(filename||'').replace(/\.[a-z0-9]+$/i,'').replace(/[_\-]+/g,' ');
+    var byBanner = _loteRankSites(bannerText);
+    var byFile = _loteRankSites(cleanFile);
+    var bestB = byBanner[0], bestF = byFile[0];
+    var strongB = bestB && bestB.score <= LOTE_GOOD_THRESHOLD;
+    var strongF = bestF && bestF.score <= LOTE_GOOD_THRESHOLD;
+
+    if(strongB && strongF){
+      if(loteNorm(bestB.name) === loteNorm(bestF.name)) return { kind:'match', site: bestB.name };
+      return { kind:'ambiguous', candidates: [bestB.name, bestF.name] };
+    }
+    if(strongB){
+      var closeB = byBanner.filter(function(x){ return x.score <= bestB.score + LOTE_AMBIG_GAP; });
+      if(closeB.length > 1) return { kind:'ambiguous', candidates: closeB.slice(0,4).map(function(x){return x.name;}) };
+      return { kind:'match', site: bestB.name };
+    }
+    if(strongF){
+      var closeF = byFile.filter(function(x){ return x.score <= bestF.score + LOTE_AMBIG_GAP; });
+      if(closeF.length > 1) return { kind:'ambiguous', candidates: closeF.slice(0,4).map(function(x){return x.name;}) };
+      return { kind:'match', site: bestF.name };
+    }
+    return { kind:'none' };
+  }
+  window._loteMatchSite = loteMatchSite;
+
+  /* ══════════════════════════════════════════════════════════════
+     ESTADO + PROCESAMIENTO POR IMAGEN
+     ══════════════════════════════════════════════════════════════ */
+  var _loteRows = [];
+  var _loteIdSeq = 0;
+
+  function loteReadFileAsDataUrl(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){ resolve(reader.result); };
+      reader.onerror = function(){ reject(new Error('No se pudo leer el archivo')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function loteBuildRow(filename, dataUrl){
+    var legendText = '', bannerText = '';
+    try{
+      var legendCrop = await loteCropByPercent(dataUrl, LOTE_LEGEND_REGION);
+      legendText = (await Tesseract.recognize(legendCrop, 'eng', { logger:function(){} })).data.text;
+    }catch(e){ console.warn('[Lote] OCR leyenda falló:', e && e.message); }
+    try{
+      var bannerCrop = await loteCropByPercent(dataUrl, LOTE_BANNER_REGION);
+      bannerText = (await Tesseract.recognize(bannerCrop, 'eng', { logger:function(){} })).data.text;
+    }catch(e){ console.warn('[Lote] OCR banner falló:', e && e.message); }
+
+    var parsed = loteParseLegend(legendText);
+    var match = loteMatchSite(bannerText, filename);
+
+    _loteIdSeq++;
+    return {
+      id: _loteIdSeq, filename: filename, fullDataUrl: dataUrl,
+      legendText: legendText, bannerText: bannerText,
+      carga: parsed.carga != null ? parsed.carga : null,
+      red: parsed.red != null ? parsed.red : null,
+      bess: parsed.bess != null ? parsed.bess : null,
+      matchKind: match.kind, candidates: match.candidates || [],
+      siteValue: match.kind === 'match' ? match.site : '',
+      comment: '', published: false, publishError: null
+    };
+  }
+
+  window._loteHandleFiles = async function(fileList){
+    var files = Array.prototype.slice.call(fileList || []);
+    if(!files.length) return;
+    var prog = document.getElementById('lote-progress');
+    if(prog){ prog.style.display='block'; }
+    for(var i=0;i<files.length;i++){
+      if(prog) prog.textContent = 'Procesando imagen ' + (i+1) + ' de ' + files.length + ' — ' + files[i].name;
+      try{
+        var dataUrl = await loteReadFileAsDataUrl(files[i]);
+        var row = await loteBuildRow(files[i].name, dataUrl);
+        _loteRows.push(row);
+      }catch(e){
+        _loteIdSeq++;
+        _loteRows.push({ id:_loteIdSeq, filename:files[i].name, fullDataUrl:null, carga:null, red:null, bess:null,
+          matchKind:'none', candidates:[], siteValue:'', comment:'', published:false,
+          publishError:'No se pudo procesar: ' + (e && e.message || e) });
+      }
+      loteRenderTable();
+    }
+    if(prog) prog.style.display = 'none';
+    document.getElementById('lote-file-input').value = '';
+  };
+
+  window._loteHandleDragOver = function(ev){ ev.preventDefault(); document.getElementById('lote-dropzone').classList.add('dragover'); };
+  window._loteHandleDragLeave = function(ev){ document.getElementById('lote-dropzone').classList.remove('dragover'); };
+  window._loteHandleDrop = function(ev){
+    ev.preventDefault();
+    document.getElementById('lote-dropzone').classList.remove('dragover');
+    var files = (ev.dataTransfer && ev.dataTransfer.files) || [];
+    window._loteHandleFiles(files);
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     TABLA DE REVISIÓN
+     ══════════════════════════════════════════════════════════════ */
+  function loteSiteOptions(selected){
+    var sites = (window.MASTER_SITES_DB||[]).map(function(m){return m.sitio;});
+    var html = '<option value="">— Selecciona —</option>';
+    html += sites.map(function(s){ return '<option value="'+_esc(s)+'"'+(s===selected?' selected':'')+'>'+_esc(s)+'</option>'; }).join('');
+    return html;
+  }
+
+  function loteRenderTable(){
+    var wrap = document.getElementById('lote-table-wrap');
+    var btn = document.getElementById('lote-publish-btn');
+    if(!_loteRows.length){ wrap.style.display='none'; btn.style.display='none'; return; }
+    wrap.style.display=''; btn.style.display='';
+    var tbody = document.getElementById('lote-review-tbody');
+    tbody.innerHTML = _loteRows.map(function(row){
+      var rowCls = row.published ? 'lote-row-published' : (!row.siteValue ? 'lote-row-needsfix' : '');
+      var statusHtml;
+      if(row.published) statusHtml = '<span class="lote-badge pub">✓ Publicada</span>';
+      else if(row.publishError) statusHtml = '<span class="lote-badge err" title="'+_esc(row.publishError)+'">✗ Error</span>';
+      else if(!row.siteValue) statusHtml = '<span class="lote-badge warn">⚠ Revisar sitio</span>';
+      else if(row.carga==null || row.red==null || row.bess==null) statusHtml = '<span class="lote-badge warn">⚠ Revisar valores</span>';
+      else statusHtml = '<span class="lote-badge ok">✓ Listo</span>';
+
+      var candHint = '';
+      if(row.matchKind==='ambiguous' && row.candidates && row.candidates.length){
+        candHint = '<div class="lote-cand-hint">¿' + row.candidates.map(function(c,i){
+          return '<button type="button" onclick="window._lotePickCandidate('+row.id+',\''+c.replace(/'/g,"\\'")+'\')">'+_esc(c)+'</button>';
+        }).join(' / ') + '?</div>';
+      } else if(row.matchKind==='none' && !row.siteValue){
+        candHint = '<div class="lote-cand-hint">Sin sugerencia — elige el sitio a mano.</div>';
+      }
+
+      return '<tr class="'+rowCls+'" data-row-id="'+row.id+'">'+
+        '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'">' : '—')+'</td>'+
+        '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:9.5px;color:var(--t3)" title="'+_esc(row.filename)+'">'+_esc(row.filename)+'</td>'+
+        '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
+        '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
+        '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateField('+row.id+',\'red\',this.value)"></td>'+
+        '<td><input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateField('+row.id+',\'bess\',this.value)"></td>'+
+        '<td><input type="text" class="lote-comment-input" '+(row.published?'disabled':'')+' placeholder="(vacío = sin novedad)" value="'+_esc(row.comment)+'" oninput="window._loteUpdateField('+row.id+',\'comment\',this.value)"></td>'+
+        '<td>'+statusHtml+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+  window._loteRenderTable = loteRenderTable;
+
+  window._loteUpdateField = function(id, field, value){
+    var row = _loteRows.filter(function(r){ return r.id===id; })[0];
+    if(!row) return;
+    if(field==='carga' || field==='red' || field==='bess'){
+      row[field] = value===''? null : parseFloat(value);
+    } else {
+      row[field] = value;
+    }
+    loteRenderTable();
+  };
+  window._lotePickCandidate = function(id, name){
+    window._loteUpdateField(id, 'siteValue', name);
+  };
+  window._loteGetRows = function(){ return _loteRows; };
+  window._loteClearRows = function(){ _loteRows = []; loteRenderTable(); };
+
+  /* ══════════════════════════════════════════════════════════════
+     PUBLICAR — reutiliza saveToMonthly()/cargaSave() poblando el
+     formulario real (nunca reimplementa el guardado). El éxito/error se
+     detecta interceptando temporalmente showToast() — el MISMO canal que
+     esas funciones ya usan para avisarle al operador, así no hace falta
+     tocarlas ni duplicar su lógica para saber si guardaron bien.
+     ══════════════════════════════════════════════════════════════ */
+  function _loteNextFrame(){ return new Promise(function(r){ setTimeout(r, 60); }); }
+
+  async function _loteCallCapturingToast(fn){
+    var captured = null;
+    var orig = window.showToast;
+    window.showToast = function(msg){ captured = msg; if(typeof orig==='function') orig(msg); };
+    try{ await fn(); } finally { window.showToast = orig; }
+    return captured;
+  }
+
+  async function lotePublishOneRow(row, mode, dateStr){
+    if(mode === 'descarga'){
+      window.bitacoraSetMode('descarga');
+      await _loteNextFrame();
+      window.siteComboSelect(row.siteValue, row.siteValue);
+      var dEl = document.getElementById('discharge-date'); if(dEl) dEl.value = dateStr;
+      var unitId = window._batchDescEnsureFirstUnitId();
+      /* Mapeo confirmado con el usuario: RED→mains, BESS→bessKw, CARGA→load.
+         El SOC nunca se toca. */
+      window.updateUnit(unitId, 'mains', row.red!=null ? row.red : '');
+      window.updateUnit(unitId, 'bessKw', row.bess!=null ? row.bess : '');
+      window.updateUnit(unitId, 'load', row.carga!=null ? row.carga : '');
+      window._batchDescClearImages();
+      if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
+      var obsEl = document.getElementById('observations'); if(obsEl) obsEl.value = row.comment || '';
+      if(typeof render === 'function') render();
+      return await _loteCallCapturingToast(function(){ return window.saveToMonthly(); });
+    } else {
+      window.bitacoraSetMode('carga');
+      await _loteNextFrame();
+      if(typeof window._batchPopulateCargaSites === 'function') window._batchPopulateCargaSites();
+      var cgSite = document.getElementById('cg-site'); if(cgSite) cgSite.value = row.siteValue;
+      var cgDate = document.getElementById('cg-date'); if(cgDate) cgDate.value = dateStr;
+      /* Carga (a diferencia de Descarga) NO tiene mains/bessKw/load por
+         separado — solo un único campo "Pot. carga kW" (cg-pot). Decisión
+         documentada (no confirmada palabra por palabra con el usuario,
+         señalada en el reporte de entrega): se usa el valor BESS del OCR,
+         porque durante un evento de carga esa es la potencia que
+         efectivamente entra a la batería — CARGA y RED no tienen un
+         campo propio en el formulario de Carga hoy. */
+      var cgPot = document.getElementById('cg-pot'); if(cgPot) cgPot.value = row.bess!=null ? row.bess : '';
+      if(typeof window._batchCargaClearImages === 'function') window._batchCargaClearImages();
+      if(row.fullDataUrl && typeof window._batchCargaPushImage === 'function') window._batchCargaPushImage(row.filename, row.fullDataUrl);
+      var cgCom = document.getElementById('cg-comentario'); if(cgCom) cgCom.value = row.comment || '';
+      if(typeof window.cargaRenderPreview === 'function') window.cargaRenderPreview();
+      return await _loteCallCapturingToast(function(){ return window.cargaSave(); });
+    }
+  }
+  window._lotePublishOneRow = lotePublishOneRow; // expuesta para pruebas
+
+  window._lotePublishAll = async function(){
+    var mode = document.getElementById('lote-mode-select').value;
+    var dateStr = document.getElementById('lote-date').value || (window._todayLocalStr ? window._todayLocalStr() : '');
+    var btn = document.getElementById('lote-publish-btn');
+    if(btn){ btn.disabled = true; btn.textContent = '💾 Publicando…'; }
+    var ok=0, needsFix=0, failed=0, alreadyDone=0;
+    for(var i=0;i<_loteRows.length;i++){
+      var row = _loteRows[i];
+      if(row.published){ alreadyDone++; continue; }
+      if(!row.siteValue){ needsFix++; continue; } // NUNCA se publica con un sitio adivinado a ciegas
+      try{
+        var msg = await lotePublishOneRow(row, mode, dateStr);
+        if(msg && !/error/i.test(msg)){ row.published = true; ok++; }
+        else { row.publishError = msg || 'No se pudo confirmar el guardado'; failed++; }
+      }catch(e){
+        row.publishError = e && e.message || String(e);
+        failed++;
+      }
+      loteRenderTable();
+    }
+    if(btn){ btn.disabled = false; btn.textContent = '🚀 Publicar todo'; }
+    var total = _loteRows.length;
+    var doneTotal = ok + alreadyDone;
+    var summary = document.getElementById('lote-summary');
+    summary.style.display = '';
+    summary.innerHTML = '<b>'+doneTotal+' de '+total+' publicadas.</b>' +
+      (needsFix ? '<br>⚠ '+needsFix+' requirieron corrección manual de sitio (no se publicaron todavía).' : '') +
+      (failed ? '<br>✗ '+failed+' fallaron al guardar — revisa su fila y vuelve a intentar "Publicar todo".' : '');
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     ENTRADA A LA VISTA
+     ══════════════════════════════════════════════════════════════ */
+  window._loteOnEnter = function(){
+    var d = document.getElementById('lote-date');
+    if(d && !d.value) d.value = window._todayLocalStr ? window._todayLocalStr() : new Date().toISOString().split('T')[0];
+  };
+})();
+</script>
+<!-- ══════════════ fin CARGA RÁPIDA POR LOTE ══════════════ -->
 
 <script>
 /* ══════════════════════════════════════════════════════════════════════

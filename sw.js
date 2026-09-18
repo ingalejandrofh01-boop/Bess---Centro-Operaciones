@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1789120003_bess_v87_valpro_visual_corregido';
+const DEPLOY_TS  = '1789120006_bess_v90_carga_rapida_bitacora_ocr';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
