@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-22 bess_v92_lote_quitar_captura -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-22 bess_v96_fix_fp_semillas_sobrescritura -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -99,6 +99,13 @@ window._fb = {
 
   async deleteRecord(id) {
     await deleteDoc(doc(fbDB, 'bitacoras', id));
+  },
+
+  /* v94 — actualiza solo el campo dataUrl de un registro ya guardado
+     (usado por el recorte de imagen en el visor/lightbox) sin tocar el
+     resto de los campos del documento. */
+  async updateRecordImage(id, dataUrl) {
+    await updateDoc(doc(fbDB, 'bitacoras', id), { dataUrl: dataUrl });
   },
 
   async clearAll() {
@@ -2273,12 +2280,12 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
   .dash-tpl-card{padding:10px 12px!important}
 
   /* ── Bitácora: sidebar below preview ── */
-  #gen-app{
+  #gen-app, #carga-app{
     display:flex!important;flex-direction:column!important;
     overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;
   }
-  #gen-app > main{order:1!important;flex-shrink:0!important;padding:10px!important;overflow-x:hidden!important}
-  #gen-app > aside.sidebar{
+  #gen-app > main, #carga-app > main{order:1!important;flex-shrink:0!important;padding:10px!important;overflow-x:hidden!important}
+  #gen-app > aside.sidebar, #carga-app > aside.sidebar{
     order:2!important;width:100%!important;height:auto!important;max-height:none!important;
     border-right:none!important;border-top:1px solid var(--border)!important;
     overflow-y:visible!important;position:static!important;
@@ -3006,13 +3013,40 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .lb-dl{background:var(--accent);color:#000;border:none;font-weight:700}
 .lb-cl{background:transparent;border:1px solid var(--b2);color:var(--t2)}
 .lb-cl:hover{border-color:var(--red);color:var(--red)}
-.lb-img-wrap{max-width:calc(100vw - 100px);max-height:calc(100vh - 90px - env(safe-area-inset-top))}
-#lb-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;box-shadow:0 20px 80px rgba(0,0,0,.8)}
+.lb-img-wrap{position:relative;max-width:calc(100vw - 100px);max-height:calc(100vh - 90px - env(safe-area-inset-top));touch-action:none}
+#lb-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;box-shadow:0 20px 80px rgba(0,0,0,.8);transform-origin:center center;transition:transform .12s ease;cursor:default;touch-action:none;user-select:none;-webkit-user-drag:none}
+#lb-img.zoomed{cursor:grab}
+#lb-img.dragging{cursor:grabbing;transition:none}
 .lb-nav-btn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(13,21,32,.8);border:1px solid var(--b2);border-radius:4px;padding:9px 12px;font-size:20px;color:var(--t2);cursor:pointer;transition:all .18s}
 .lb-nav-btn:hover{border-color:var(--accent);color:var(--accent)}
 .lb-nav-btn.l{left:14px} .lb-nav-btn.r{right:14px}
 .lb-nav-btn:disabled{opacity:.2;cursor:default}
 .lb-cnt{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--t3);text-transform:uppercase}
+
+/* v94 — zoom toolbar */
+.lb-toolbar-zoom{display:flex;align-items:center;gap:4px;padding-right:7px;margin-right:2px;border-right:1px solid var(--b2)}
+.lb-zoom-btn{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--b2);border-radius:3px;color:var(--t2);cursor:pointer;font-size:14px;font-family:var(--mono);line-height:1;padding:0}
+.lb-zoom-btn:hover{border-color:var(--accent);color:var(--accent)}
+.lb-zoom-lbl{font-family:var(--mono);font-size:9px;color:var(--t3);min-width:36px;text-align:center;cursor:pointer;letter-spacing:.5px}
+.lb-zoom-lbl:hover{color:var(--accent)}
+#lb-crop-btn.active{background:rgba(59,130,246,.35)!important;color:#93c5fd!important}
+
+/* v94 — recorte de imagen */
+#lightbox.cropping .lb-nav-btn,#lightbox.cropping .lb-toolbar-zoom{display:none}
+#lb-crop-layer{position:absolute;inset:0;display:none;z-index:5}
+.lb-crop-rect{position:absolute;border:2px solid var(--accent);box-shadow:0 0 0 2000px rgba(4,8,15,.74);cursor:move;touch-action:none}
+.lb-crop-handle{position:absolute;width:16px;height:16px;background:var(--accent);border:2px solid #04080f;border-radius:3px;touch-action:none}
+.lb-crop-handle.nw{left:-9px;top:-9px;cursor:nwse-resize}
+.lb-crop-handle.ne{right:-9px;top:-9px;cursor:nesw-resize}
+.lb-crop-handle.sw{left:-9px;bottom:-9px;cursor:nesw-resize}
+.lb-crop-handle.se{right:-9px;bottom:-9px;cursor:nwse-resize}
+.lb-crop-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:none;gap:9px;z-index:10}
+.lb-crop-bar.show{display:flex}
+.lb-crop-apply{padding:8px 18px;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;border-radius:4px;cursor:pointer;background:var(--accent);color:#000;border:none}
+.lb-crop-cancel{padding:8px 18px;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:4px;cursor:pointer;background:transparent;color:var(--t2);border:1px solid var(--b2)}
+.lb-crop-cancel:hover{border-color:var(--red);color:var(--red)}
+.lb-crop-hint{position:absolute;top:calc(52px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--t3);background:rgba(4,8,15,.8);padding:5px 12px;border-radius:3px;display:none;z-index:10}
+.lb-crop-hint.show{display:block}
 
 /* ═══ TOAST ═══ */
 #toast{position:fixed;bottom:20px;right:20px;z-index:9990;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:8px 15px;font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--t2);opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s;pointer-events:none}
@@ -3184,6 +3218,27 @@ main{grid-row:2}
 
 /* Doc body inner padding */
 .doc-body{padding:14px 20px}
+
+/* v95 — layout horizontal/vertical del documento de bitácora (Descarga y
+   Carga). Por defecto los wrappers son "display:contents" — invisibles
+   para el layout, así el modo vertical (el de siempre) queda pixel-igual
+   sin tocar nada. Al activar .horizontal, .doc-body pasa a grid de 2
+   columnas y los wrappers se vuelven columnas reales: datos a la
+   izquierda, curva/gráfica a la derecha, y lo demás (observaciones, SOC)
+   abajo ocupando todo el ancho — para verlo todo de un vistazo. */
+.doc-body-left,.doc-body-right{display:contents}
+.doc-body.horizontal{display:grid;grid-template-columns:1.05fr 1fr;gap:18px;align-items:start}
+.doc-body.horizontal .doc-body-left{display:flex;flex-direction:column;gap:14px;grid-column:1;grid-row:1}
+.doc-body.horizontal .doc-body-right{display:flex;flex-direction:column;gap:14px;grid-column:2;grid-row:1;position:sticky;top:8px}
+.doc-body.horizontal .doc-panels-row{grid-template-columns:1fr}
+.doc-body.horizontal .doc-bottom{grid-column:1/-1}
+.doc-body.horizontal .section-divider{margin-top:0}
+
+.doc-orient-toggle{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}
+.doc-orient-btn{padding:7px 12px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;font-weight:700;border:none;background:transparent;color:var(--t3);cursor:pointer;transition:all .15s}
+.doc-orient-btn + .doc-orient-btn{border-left:1px solid var(--border2)}
+.doc-orient-btn.active{background:var(--accent);color:#fff}
+.doc-orient-btn:not(.active):hover{background:var(--s2);color:var(--text)}
 
 .doc-panels-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
 .data-panel{background:#fff;border:1px solid #dce8f5;border-radius:6px;overflow:hidden}
@@ -4320,7 +4375,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
 
 /* ═══ LAYOUT FIXES ═══ */
 #page-bitacora { overflow: hidden; flex-direction: column; }
-#gen-app {
+#gen-app, #carga-app {
   display: grid;
   grid-template-columns: 310px 1fr;
   grid-template-rows: 1fr;
@@ -4331,7 +4386,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
   z-index: 1;
 }
 /* bitacora-topstrip removed */
-#gen-app > aside.sidebar {
+#gen-app > aside.sidebar, #carga-app > aside.sidebar {
   grid-column: 1;
   grid-row: 1;
   overflow-y: auto;
@@ -4342,7 +4397,7 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
   position: static;
   min-height: 0;
 }
-#gen-app > main {
+#gen-app > main, #carga-app > main {
   grid-column: 2;
   grid-row: 1;
   display: flex;
@@ -4350,8 +4405,8 @@ mark{background:rgba(74,120,245,.35);color:#fff;border-radius:2px;padding:0 2px;
   overflow: hidden;
   min-height: 0;
 }
-#gen-app > main .main-header { flex-shrink: 0; }
-#gen-app > main .preview-wrapper { flex: 1; overflow-y: auto; min-height: 0; }
+#gen-app > main .main-header, #carga-app > main .main-header { flex-shrink: 0; }
+#gen-app > main .preview-wrapper, #carga-app > main .preview-wrapper { flex: 1; overflow-y: auto; min-height: 0; }
 
 /* ═══ DASH TEMPLATE CARDS ═══ */
 .dash-tpl-card{background:#fff;border:1px solid var(--b1);border-radius:8px;padding:12px 16px;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:12px;margin-bottom:8px}
@@ -5270,7 +5325,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1790035832';
+  var APP_VERSION = '1790046973';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -6103,84 +6158,125 @@ if('serviceWorker' in navigator){
     <button id="btn-mode-carga" onclick="bitacoraSetMode('carga')" style="flex:1;max-width:220px;padding:9px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer">🔋 BITÁCORA DE CARGA</button>
     <button id="btn-mode-lote" onclick="bitacoraSetMode('lote')" style="flex:1;max-width:220px;padding:9px;border-radius:8px 8px 0 0;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer">⚡ CARGA RÁPIDA POR LOTE</button>
   </div>
-  <div id="carga-app" style="display:none;background:var(--bg);min-height:100%">
-    <div style="display:flex;gap:0;min-height:100%">
-      <!-- ═══ SIDEBAR DE CAPTURA ═══ -->
-      <aside style="width:300px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--b1);padding:18px;overflow-y:auto;max-height:calc(100vh - var(--topbar-h))">
-        <div style="font-family:var(--disp);font-size:16px;font-weight:900;color:var(--text);margin-bottom:2px">🔋 Bitácora de Carga</div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:16px">Misma plantilla que descarga, con parámetros de carga</div>
+  <div id="carga-app" style="display:none">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-tag"><span class="status-dot"></span>Sistema activo</div>
+        <div class="logo-title">BESS <span>Bitácora</span><br>de Carga</div>
+        <div class="version-tag">v6 · INDEXEDDB · ARQUITECTURA LIMPIA</div>
+      </div>
 
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Sitio</label>
-        <select id="cg-site" onchange="cargaRenderPreview()" style="width:100%;margin:3px 0 10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></select>
-
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Fecha</label>
-        <input type="date" id="cg-date" onchange="cargaRenderPreview()" style="width:100%;margin:3px 0 10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
-
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Temporada</label>
-        <div style="display:flex;gap:6px;margin:3px 0 10px">
-          <button id="cg-btn-invierno" onclick="cargaSetSeason('invierno')" style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--sky);background:rgba(26,63,204,.12);color:var(--sky);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer">❄ Invierno</button>
-          <button id="cg-btn-verano" onclick="cargaSetSeason('verano')" style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer">☀ Verano</button>
+      <!-- SITE & DATE -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Identificación del sitio</div>
+        <div class="form-group">
+          <label>Sitio</label>
+          <select id="cg-site" onchange="cargaRenderPreview()"></select>
         </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-          <div><label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">SOC inicial %</label>
-            <input type="number" id="cg-soc-i" oninput="cargaRenderPreview()" style="width:100%;margin-top:3px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
-          <div><label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">SOC final %</label>
-            <input type="number" id="cg-soc-f" oninput="cargaRenderPreview()" style="width:100%;margin-top:3px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
-          <div><label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Pot. carga kW</label>
-            <input type="number" id="cg-pot" oninput="cargaRenderPreview()" style="width:100%;margin-top:3px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
-          <div><label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Energía kWh</label>
-            <input type="number" id="cg-energia" oninput="cargaRenderPreview()" style="width:100%;margin-top:3px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
-          <div><label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Voltaje DC (V)</label>
-            <input type="number" id="cg-volt" oninput="cargaRenderPreview()" style="width:100%;margin-top:3px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
-          <div><label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Corriente (A)</label>
-            <input type="number" id="cg-corriente" oninput="cargaRenderPreview()" style="width:100%;margin-top:3px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
-          <div><label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Temp. máx °C</label>
-            <input type="number" id="cg-temp" oninput="cargaRenderPreview()" style="width:100%;margin-top:3px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
+        <div class="form-group">
+          <label>Fecha de carga</label>
+          <input type="date" id="cg-date" onchange="cargaRenderPreview()">
         </div>
-
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">⏱ Horario de carga (tarifa base)</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:3px 0 10px">
-          <div><label style="font-family:var(--mono);font-size:7.5px;color:var(--t3)">Hora inicio</label>
-            <input type="time" id="cg-hora-inicio" oninput="cargaRenderPreview()" style="width:100%;margin-top:2px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
-          <div><label style="font-family:var(--mono);font-size:7.5px;color:var(--t3)">Hora fin</label>
-            <input type="time" id="cg-hora-fin" oninput="cargaRenderPreview()" style="width:100%;margin-top:2px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none"></div>
+        <!-- v95: quitamos la Temporada (la potencia de carga es la misma todo
+             el año, a diferencia de descarga) — en su lugar, referencia de
+             DoD tomada de la Bitácora de Descarga del mismo sitio+fecha, si
+             existe. Solo lectura, informativo. -->
+        <div id="cg-dod-box" class="tpl-info-strip loaded" style="display:flex;align-items:center;justify-content:space-between;background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.3);color:#059669">
+          <span>🔗 DoD de Descarga (ref.)</span>
+          <span id="cg-dod-val" style="font-weight:700;font-size:12px">—</span>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;background:rgba(26,63,204,.06);border:1px solid rgba(26,63,204,.2);margin-bottom:10px">
-          <span style="font-family:var(--mono);font-size:9px;color:var(--t3)">Duración aprox.</span>
-          <span id="cg-duracion-calc" style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--sky)">— hrs</span>
+      </div>
+
+      <!-- CHARGE PARAMETERS -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Parámetros de carga</div>
+        <div class="input-row">
+          <div class="form-group"><label>SOC inicial %</label>
+            <input type="number" id="cg-soc-i" oninput="cargaRenderPreview()"></div>
+          <div class="form-group"><label>SOC final %</label>
+            <input type="number" id="cg-soc-f" oninput="cargaRenderPreview()"></div>
         </div>
+        <div class="form-group"><label>Potencia de Carga (kW)</label>
+          <input type="number" id="cg-pot" oninput="cargaRenderPreview()"></div>
+        <div class="input-row">
+          <div class="form-group"><label>Energía kWh</label>
+            <input type="number" id="cg-energia" oninput="cargaRenderPreview()"></div>
+          <div class="form-group"><label>Voltaje DC (V)</label>
+            <input type="number" id="cg-volt" oninput="cargaRenderPreview()"></div>
+        </div>
+        <div class="input-row">
+          <div class="form-group"><label>Corriente (A)</label>
+            <input type="number" id="cg-corriente" oninput="cargaRenderPreview()"></div>
+          <div class="form-group"><label>Temp. máx °C</label>
+            <input type="number" id="cg-temp" oninput="cargaRenderPreview()"></div>
+        </div>
+      </div>
 
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Modo de carga</label>
-        <select id="cg-modo" onchange="cargaRenderPreview()" style="width:100%;margin:3px 0 10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
-          <option value="Carga Programada">Carga Programada</option>
-          <option value="Carga por Excedente Solar">Carga por Excedente Solar</option>
-          <option value="Carga de Respaldo">Carga de Respaldo</option>
-        </select>
+      <!-- SCHEDULE -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">⏱ Horario de carga (tarifa base)</div>
+        <div class="input-row">
+          <div class="form-group"><label>Hora inicio</label>
+            <input type="time" id="cg-hora-inicio" oninput="cargaRenderPreview()"></div>
+          <div class="form-group"><label>Hora fin</label>
+            <input type="time" id="cg-hora-fin" oninput="cargaRenderPreview()"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;background:rgba(26,63,204,.06);border:1px solid rgba(26,63,204,.2)">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--t3)">Duración aprox.</span>
+          <span id="cg-duracion-calc" style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--sky)">— hrs</span>
+        </div>
+      </div>
 
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Anomalía</label>
-        <select id="cg-anomalia" onchange="cargaRenderPreview()" style="width:100%;margin:3px 0 10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none">
-          <option value="ok">✅ OK — sin novedad</option>
-          <option value="cfe">⚡ Falla de suministro CFE</option>
-          <option value="rack">🔻 Rack fuera</option>
-          <option value="bms">⚙️ Falla de BMS</option>
-          <option value="otro">✏️ Otro</option>
-        </select>
+      <!-- EVENT STATUS -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Estado del evento</div>
+        <div class="form-group">
+          <label>Modo de carga</label>
+          <select id="cg-modo" onchange="cargaRenderPreview()">
+            <option value="Carga Programada">Carga Programada</option>
+            <option value="Carga por Excedente Solar">Carga por Excedente Solar</option>
+            <option value="Carga de Respaldo">Carga de Respaldo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Anomalía</label>
+          <select id="cg-anomalia" onchange="cargaRenderPreview()">
+            <option value="ok">✅ OK — sin novedad</option>
+            <option value="cfe">⚡ Falla de suministro CFE</option>
+            <option value="rack">🔻 Rack fuera</option>
+            <option value="bms">⚙️ Falla de BMS</option>
+            <option value="otro">✏️ Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Comentario</label>
+          <textarea id="cg-comentario" rows="2" oninput="cargaRenderPreview()"></textarea>
+        </div>
+      </div>
 
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">Comentario</label>
-        <textarea id="cg-comentario" rows="2" oninput="cargaRenderPreview()" style="width:100%;margin:3px 0 10px;padding:7px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);font-family:var(--body);font-size:11px;outline:none;resize:vertical"></textarea>
-
-        <label style="font-family:var(--mono);font-size:8px;color:var(--t3);text-transform:uppercase">📈 Curvas de carga</label>
+      <!-- CURVES -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">📈 Curvas de carga</div>
         <input type="file" id="cg-curve-input" accept="image/*" multiple style="display:none" onchange="cargaAddCurve(event)">
-        <button onclick="document.getElementById('cg-curve-input').click()" style="margin-top:4px;width:100%;padding:8px;border:1.5px dashed var(--b1);border-radius:7px;background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:9px;cursor:pointer">+ Agregar captura</button>
+        <button onclick="document.getElementById('cg-curve-input').click()" class="add-unit-btn">+ Agregar captura</button>
         <div id="cg-curve-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;margin-top:8px"></div>
+      </div>
 
-        <button class="tb-btn filled" onclick="cargaSave(this)" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#059669,#065f46)">✓ Guardar bitácora de carga</button>
-      </aside>
+      <div class="sidebar-section" style="border-bottom:none">
+        <button class="tb-btn filled" onclick="cargaSave(this)" style="width:100%;background:linear-gradient(135deg,#059669,#065f46)">✓ Guardar bitácora de carga</button>
+      </div>
+    </aside>
 
+    <main>
       <!-- ═══ DOCUMENTO — misma plantilla visual que descarga ═══ -->
-      <main style="flex:1;padding:20px;overflow-y:auto;max-height:calc(100vh - var(--topbar-h))">
-        <div style="max-width:900px;margin:0 auto">
+      <div class="preview-wrapper">
+        <div style="max-width:900px;margin:0 auto;width:100%">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+            <div class="doc-orient-toggle" id="doc-orient-toggle-2">
+              <button type="button" class="doc-orient-btn active" data-mode="vertical" onclick="window._bitacoraSetOrientation('vertical')" title="Vista vertical (clásica)">▯ Vertical</button>
+              <button type="button" class="doc-orient-btn" data-mode="horizontal" onclick="window._bitacoraSetOrientation('horizontal')" title="Vista horizontal — datos e izquierda/derecha + gráfica">▭ Horizontal</button>
+            </div>
+          </div>
           <div id="carga-document" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08)">
 
             <div class="doc-header winter" id="cgdoc-header">
@@ -6211,6 +6307,7 @@ if('serviceWorker' in navigator){
             </div>
 
             <div class="doc-body">
+              <div class="doc-body-left">
               <div class="sys-status-doc-panel">
                 <div class="sys-status-doc-header ok-hdr" id="cgdoc-status-hdr">
                   <div class="dph-dot" style="background:var(--green);box-shadow:0 0 5px var(--green);width:6px;height:6px;border-radius:50%"></div>
@@ -6278,11 +6375,16 @@ if('serviceWorker' in navigator){
                 </tbody>
               </table>
 
+              </div><!-- /doc-body-left -->
+              <div class="doc-body-right">
+
               <div class="section-divider" style="margin:20px 0 14px;border-top:2px solid rgba(26,63,204,.18);padding-top:16px"><span class="lbl" style="font-size:12px;color:var(--sky);letter-spacing:3px;font-weight:700">Curvas de carga</span><div class="line" style="background:linear-gradient(90deg,rgba(26,63,204,.3),transparent)"></div></div>
               <div class="curves-main">
                 <div class="curves-empty" id="cgdoc-curves-empty">📈&nbsp; Las curvas de carga aparecerán aquí — sube las capturas desde el panel lateral</div>
                 <div class="curves-grid single" id="cgdoc-curves-grid" style="display:none"></div>
               </div>
+
+              </div><!-- /doc-body-right -->
 
               <div class="doc-bottom">
                 <div class="obs-box">
@@ -6316,8 +6418,8 @@ if('serviceWorker' in navigator){
 
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   </div>
 
   <div id="gen-app">
@@ -6814,7 +6916,11 @@ if('serviceWorker' in navigator){
             <span id="header-sys-status" style="color:var(--accent2)">✅ Operativo</span>
           </div>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="doc-orient-toggle" id="doc-orient-toggle-1">
+            <button type="button" class="doc-orient-btn active" data-mode="vertical" onclick="window._bitacoraSetOrientation('vertical')" title="Vista vertical (clásica)">▯ Vertical</button>
+            <button type="button" class="doc-orient-btn" data-mode="horizontal" onclick="window._bitacoraSetOrientation('horizontal')" title="Vista horizontal — datos e izquierda/derecha + gráfica">▭ Horizontal</button>
+          </div>
           <button class="action-btn outline" onclick="resetForm()">↺ Limpiar formulario</button>
           <button class="action-btn filled" onclick="captureAndDownload()">⬇ Capturar y Descargar imagen</button>
         </div>
@@ -6864,6 +6970,7 @@ if('serviceWorker' in navigator){
 
       <!-- BODY -->
       <div class="doc-body">
+        <div class="doc-body-left">
 
         <!-- SYSTEM STATUS PANEL -->
         <div class="sys-status-doc-panel" id="sys-status-doc-panel">
@@ -6938,6 +7045,9 @@ if('serviceWorker' in navigator){
           </tbody>
         </table>
 
+        </div><!-- /doc-body-left -->
+        <div class="doc-body-right">
+
         <!-- CURVES -->
         <div class="section-divider" style="margin:20px 0 14px;border-top:2px solid rgba(26,63,204,.18);padding-top:16px"><span class="lbl" style="font-size:12px;color:var(--sky);letter-spacing:3px;font-weight:700">Curvas de descarga</span><div class="line" style="background:linear-gradient(90deg,rgba(26,63,204,.3),transparent)"></div></div>
         <div class="curves-main" id="curves-main-box">
@@ -6956,6 +7066,8 @@ if('serviceWorker' in navigator){
           </div>
           <div class="curves-grid single" id="curves-grid" style="display:none"></div>
         </div>
+
+        </div><!-- /doc-body-right -->
 
         <!-- Observations + Tech data -->
         <div class="doc-bottom">
@@ -12066,14 +12178,28 @@ window.cerebroInit = function(){
   <div class="lb-bar">
     <div class="lb-name" id="lb-name">—</div>
     <div class="lb-acts">
+      <div class="lb-toolbar-zoom">
+        <button type="button" class="lb-zoom-btn" onclick="lbZoomOut()" title="Alejar">−</button>
+        <span class="lb-zoom-lbl" id="lb-zoom-lbl" onclick="lbZoomReset()" title="Restablecer zoom">100%</span>
+        <button type="button" class="lb-zoom-btn" onclick="lbZoomIn()" title="Acercar">+</button>
+      </div>
+      <button class="lb-btn" id="lb-crop-btn" onclick="lbEnterCrop()" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa">✂ Recortar</button>
       <button class="lb-btn lb-dl" onclick="lbDl()">⬇ Descargar</button>
       <button class="lb-btn" id="lb-del-btn" style="background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.4);color:#f87171">🗑 Eliminar</button>
       <button class="lb-btn lb-cl" onclick="closeLb()">✕ Cerrar</button>
     </div>
   </div>
+  <div class="lb-crop-hint" id="lb-crop-hint">Arrastra las esquinas para ajustar el recorte</div>
   <button class="lb-nav-btn l" id="lb-prev" onclick="lbNav(-1)">‹</button>
-  <div class="lb-img-wrap"><img id="lb-img" src="" alt=""></div>
+  <div class="lb-img-wrap" id="lb-img-wrap">
+    <img id="lb-img" src="" alt="">
+    <div id="lb-crop-layer"></div>
+  </div>
   <button class="lb-nav-btn r" id="lb-next" onclick="lbNav(1)">›</button>
+  <div class="lb-crop-bar" id="lb-crop-bar">
+    <button type="button" class="lb-crop-apply" onclick="lbApplyCrop()">✓ Aplicar recorte</button>
+    <button type="button" class="lb-crop-cancel" onclick="lbExitCrop()">✕ Cancelar</button>
+  </div>
   <div class="lb-cnt" id="lb-cnt"></div>
 </div>
 
@@ -12152,6 +12278,11 @@ async function idbGetAll()       {
 async function idbDelete(id)     {
   try { await _waitFB(); return window._fb ? window._fb.deleteRecord(id) : null; }
   catch(e) { console.warn('[BESS] idbDelete sin Firebase:', e.message); }
+}
+async function idbUpdateImage(id, dataUrl) {
+  await _waitFB();
+  if(!window._fb || !window._fb.updateRecordImage) throw new Error('Firebase no disponible');
+  return window._fb.updateRecordImage(id, dataUrl);
 }
 async function idbClear()        {
   try { await _waitFB(); return window._fb ? window._fb.clearAll() : null; }
@@ -12237,6 +12368,14 @@ async function saveToMonthly() {
     }
     const [y, m] = date.split('-');
     const MOS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+    /* v95 — DoD (Profundidad de Descarga) por unidad, promediado, guardado
+       como params.dod para que Bitácora de Carga lo pueda enlazar por
+       sitio+fecha (solo el DoD, no soc inicial/final ni comentarios). */
+    const dodVals = bessUnits.map(function(u){
+      const si = parseFloat(u.socIni), sf = parseFloat(u.socFin);
+      return (!isNaN(si) && !isNaN(sf)) ? (si - sf) : null;
+    }).filter(function(v){ return v!=null && !isNaN(v); });
+    const dod = dodVals.length ? Math.round((dodVals.reduce(function(a,b){return a+b;},0)/dodVals.length)*10)/10 : null;
     const record = {
       name: `${site.replace(/\s+/g,'_')}_${date}.jpg`,
       dataUrl, site, date,
@@ -12244,6 +12383,7 @@ async function saveToMonthly() {
       monthKey: `${y}-${m}`,
       savedAt: Date.now()
     };
+    if(dod != null) record.params = { dod: dod };
     await idbAdd(record);
     ccRecords = await idbGetAll();
     ccBuildState();
@@ -16131,12 +16271,205 @@ function closeFsPres(){
 // LIGHTBOX
 function openLb(idx){lbIdx=idx;lbUpdateImg();document.getElementById('lightbox').classList.add('open');document.addEventListener('keydown',lbKeyH)}
 function openLbSingle(id){const r=ccRecords.find(x=>x.id===id);if(!r)return;lbImages=[{src:r.dataUrl,name:r.name,date:r.date,site:r.site,id:r.id}];lbIdx=0;lbUpdateImg();document.getElementById('lightbox').classList.add('open');document.addEventListener('keydown',lbKeyH)}
-function lbUpdateImg(){const img=lbImages[lbIdx];document.getElementById('lb-img').src=img.src;document.getElementById('lb-name').innerHTML=`<b>${esc(img.site||'')} </b> · ${esc(img.name||'')} `;document.getElementById('lb-cnt').textContent=`${lbIdx+1} / ${lbImages.length}`;const delBt=document.getElementById('lb-del-btn');if(delBt)delBt.setAttribute('data-id',img.id||'');document.getElementById('lb-prev').disabled=lbIdx===0;document.getElementById('lb-next').disabled=lbIdx===lbImages.length-1}
+function lbUpdateImg(){if(lbCropActive)lbExitCrop();lbZoomReset();const img=lbImages[lbIdx];document.getElementById('lb-img').src=img.src;document.getElementById('lb-name').innerHTML=`<b>${esc(img.site||'')} </b> · ${esc(img.name||'')} `;document.getElementById('lb-cnt').textContent=`${lbIdx+1} / ${lbImages.length}`;const delBt=document.getElementById('lb-del-btn');if(delBt)delBt.setAttribute('data-id',img.id||'');document.getElementById('lb-prev').disabled=lbIdx===0;document.getElementById('lb-next').disabled=lbIdx===lbImages.length-1}
 function lbNav(dir){lbIdx=Math.max(0,Math.min(lbImages.length-1,lbIdx+dir));lbUpdateImg()}
-function lbKeyH(e){if(e.key==='Escape')closeLb();if(e.key==='ArrowLeft')lbNav(-1);if(e.key==='ArrowRight')lbNav(1)}
-function closeLb(){document.getElementById('lightbox').classList.remove('open');document.removeEventListener('keydown',lbKeyH)}
-function lbBgClose(e){if(e.target===document.getElementById('lightbox'))closeLb()}
+function lbKeyH(e){if(e.key==='Escape'){ if(lbCropActive) lbExitCrop(); else closeLb(); } if(e.key==='ArrowLeft'&&!lbCropActive)lbNav(-1);if(e.key==='ArrowRight'&&!lbCropActive)lbNav(1)}
+function closeLb(){if(lbCropActive)lbExitCrop();lbZoomReset();document.getElementById('lightbox').classList.remove('open');document.removeEventListener('keydown',lbKeyH)}
+function lbBgClose(e){if(e.target===document.getElementById('lightbox')&&!lbCropActive)closeLb()}
 function lbDl(){if(!lbImages[lbIdx])return;const a=document.createElement('a');a.href=lbImages[lbIdx].src;a.download=lbImages[lbIdx].name||'curva.png';a.click()}
+
+// v94 — ZOOM
+let lbZoomVal=1, lbPanX=0, lbPanY=0;
+let lbDragActive=false, lbDragStartX=0, lbDragStartY=0, lbPanStartX=0, lbPanStartY=0;
+const LB_ZOOM_MIN=1, LB_ZOOM_MAX=5, LB_ZOOM_STEP=0.5;
+function lbApplyTransform(){
+  const img=document.getElementById('lb-img'); if(!img) return;
+  img.style.transform=`translate(${lbPanX}px, ${lbPanY}px) scale(${lbZoomVal})`;
+  img.classList.toggle('zoomed', lbZoomVal>1);
+  const lbl=document.getElementById('lb-zoom-lbl'); if(lbl) lbl.textContent=Math.round(lbZoomVal*100)+'%';
+}
+function lbClampPan(){
+  const wrap=document.getElementById('lb-img-wrap'); if(!wrap) return;
+  const maxPanX=(wrap.clientWidth*(lbZoomVal-1))/2 + 40;
+  const maxPanY=(wrap.clientHeight*(lbZoomVal-1))/2 + 40;
+  lbPanX=Math.max(-maxPanX,Math.min(maxPanX,lbPanX));
+  lbPanY=Math.max(-maxPanY,Math.min(maxPanY,lbPanY));
+}
+function lbSetZoom(z){
+  lbZoomVal=Math.max(LB_ZOOM_MIN,Math.min(LB_ZOOM_MAX,z));
+  if(lbZoomVal===1){ lbPanX=0; lbPanY=0; }
+  lbClampPan();
+  lbApplyTransform();
+}
+function lbZoomIn(){ lbSetZoom(lbZoomVal+LB_ZOOM_STEP); }
+function lbZoomOut(){ lbSetZoom(lbZoomVal-LB_ZOOM_STEP); }
+function lbZoomReset(){ lbZoomVal=1; lbPanX=0; lbPanY=0; const img=document.getElementById('lb-img'); if(img){ img.style.transform=''; img.classList.remove('zoomed','dragging'); } const lbl=document.getElementById('lb-zoom-lbl'); if(lbl) lbl.textContent='100%'; }
+function lbWheelZoom(e){
+  if(lbCropActive) return;
+  e.preventDefault();
+  lbSetZoom(lbZoomVal + (e.deltaY<0 ? LB_ZOOM_STEP : -LB_ZOOM_STEP));
+}
+function lbPointerDown(e){
+  if(lbCropActive || lbZoomVal<=1) return;
+  lbDragActive=true;
+  lbDragStartX=e.clientX; lbDragStartY=e.clientY;
+  lbPanStartX=lbPanX; lbPanStartY=lbPanY;
+  const img=document.getElementById('lb-img');
+  img.classList.add('dragging');
+  if(img.setPointerCapture){ try{ img.setPointerCapture(e.pointerId); }catch(err){} }
+}
+function lbPointerMove(e){
+  if(!lbDragActive) return;
+  lbPanX=lbPanStartX+(e.clientX-lbDragStartX);
+  lbPanY=lbPanStartY+(e.clientY-lbDragStartY);
+  lbClampPan();
+  lbApplyTransform();
+}
+function lbPointerUp(e){
+  lbDragActive=false;
+  const img=document.getElementById('lb-img');
+  if(img) img.classList.remove('dragging');
+}
+function lbDblClick(e){
+  if(lbCropActive) return;
+  lbSetZoom(lbZoomVal>1 ? 1 : 2.5);
+}
+
+// v94 — RECORTE
+let lbCropActive=false, lbCropRect=null, lbCropDrag=null;
+function lbEnterCrop(){
+  if(!lbImages[lbIdx]) return;
+  lbZoomReset();
+  lbCropActive=true;
+  lbCropRect={x:0.1,y:0.1,w:0.8,h:0.8};
+  document.getElementById('lightbox').classList.add('cropping');
+  const btn=document.getElementById('lb-crop-btn'); if(btn) btn.classList.add('active');
+  const bar=document.getElementById('lb-crop-bar'); if(bar) bar.classList.add('show');
+  const hint=document.getElementById('lb-crop-hint'); if(hint) hint.classList.add('show');
+  const layer0=document.getElementById('lb-crop-layer'); if(layer0) layer0.style.display='block';
+  lbRenderCropLayer();
+}
+function lbExitCrop(){
+  lbCropActive=false; lbCropRect=null; lbCropDrag=null;
+  document.getElementById('lightbox').classList.remove('cropping');
+  const btn=document.getElementById('lb-crop-btn'); if(btn) btn.classList.remove('active');
+  const bar=document.getElementById('lb-crop-bar'); if(bar) bar.classList.remove('show');
+  const hint=document.getElementById('lb-crop-hint'); if(hint) hint.classList.remove('show');
+  const layer=document.getElementById('lb-crop-layer'); if(layer){ layer.innerHTML=''; layer.style.display='none'; }
+}
+function lbRenderCropLayer(){
+  const layer=document.getElementById('lb-crop-layer');
+  const img=document.getElementById('lb-img');
+  if(!layer || !img || !lbCropRect) return;
+  const w=img.clientWidth, h=img.clientHeight;
+  const offX=img.offsetLeft, offY=img.offsetTop;
+  const r=lbCropRect;
+  const rx=offX+r.x*w, ry=offY+r.y*h, rw=r.w*w, rh=r.h*h;
+  layer.innerHTML=
+    '<div class="lb-crop-rect" style="left:'+rx+'px;top:'+ry+'px;width:'+rw+'px;height:'+rh+'px" data-mode="move">'
+    +'<div class="lb-crop-handle nw" data-mode="nw"></div>'
+    +'<div class="lb-crop-handle ne" data-mode="ne"></div>'
+    +'<div class="lb-crop-handle sw" data-mode="sw"></div>'
+    +'<div class="lb-crop-handle se" data-mode="se"></div>'
+    +'</div>';
+}
+function lbCropPointerDown(e){
+  const target=e.target.closest ? e.target.closest('[data-mode]') : null;
+  if(!target) return;
+  e.preventDefault(); e.stopPropagation();
+  const img=document.getElementById('lb-img');
+  lbCropDrag={
+    mode: target.getAttribute('data-mode'),
+    startX: e.clientX, startY: e.clientY,
+    startRect: Object.assign({}, lbCropRect),
+    imgW: img.clientWidth, imgH: img.clientHeight
+  };
+  document.addEventListener('pointermove', lbCropPointerMove);
+  document.addEventListener('pointerup', lbCropPointerUp);
+}
+function lbCropPointerMove(e){
+  if(!lbCropDrag) return;
+  const dx=(e.clientX-lbCropDrag.startX)/lbCropDrag.imgW;
+  const dy=(e.clientY-lbCropDrag.startY)/lbCropDrag.imgH;
+  const mode=lbCropDrag.mode;
+  const MIN=0.06;
+  let r=Object.assign({}, lbCropDrag.startRect);
+  if(mode==='move'){
+    r.x=lbCropDrag.startRect.x+dx;
+    r.y=lbCropDrag.startRect.y+dy;
+  } else {
+    if(mode.indexOf('n')===0){ r.y=lbCropDrag.startRect.y+dy; r.h=lbCropDrag.startRect.h-dy; }
+    if(mode.indexOf('s')===0){ r.h=lbCropDrag.startRect.h+dy; }
+    if(mode.indexOf('w')>-1){ r.x=lbCropDrag.startRect.x+dx; r.w=lbCropDrag.startRect.w-dx; }
+    if(mode.indexOf('e')>-1){ r.w=lbCropDrag.startRect.w+dx; }
+  }
+  if(r.w<MIN){ if(mode.indexOf('w')>-1) r.x=lbCropDrag.startRect.x+lbCropDrag.startRect.w-MIN; r.w=MIN; }
+  if(r.h<MIN){ if(mode.indexOf('n')===0) r.y=lbCropDrag.startRect.y+lbCropDrag.startRect.h-MIN; r.h=MIN; }
+  r.x=Math.max(0,Math.min(1-r.w,r.x));
+  r.y=Math.max(0,Math.min(1-r.h,r.y));
+  r.w=Math.min(r.w,1-r.x);
+  r.h=Math.min(r.h,1-r.y);
+  lbCropRect=r;
+  lbRenderCropLayer();
+}
+function lbCropPointerUp(e){
+  lbCropDrag=null;
+  document.removeEventListener('pointermove', lbCropPointerMove);
+  document.removeEventListener('pointerup', lbCropPointerUp);
+}
+function lbApplyCrop(){
+  if(!lbCropRect || !lbImages[lbIdx]) return;
+  const srcImg=document.getElementById('lb-img');
+  const natW=srcImg.naturalWidth, natH=srcImg.naturalHeight;
+  if(!natW || !natH){ showToast('No se pudo leer la imagen'); return; }
+  const r=lbCropRect;
+  const sx=Math.round(r.x*natW), sy=Math.round(r.y*natH);
+  const sw=Math.round(r.w*natW), sh=Math.round(r.h*natH);
+  if(sw<4 || sh<4){ showToast('Selección demasiado pequeña'); return; }
+  try{
+    const canvas=document.createElement('canvas');
+    canvas.width=sw; canvas.height=sh;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, sw, sh);
+    const newDataUrl=canvas.toDataURL('image/jpeg', 0.92);
+    const rec=lbImages[lbIdx];
+    rec.src=newDataUrl;
+    document.getElementById('lb-img').src=newDataUrl;
+    lbExitCrop();
+    lbPersistCroppedImage(rec.id, newDataUrl);
+  }catch(err){
+    showToast('Error al recortar: '+(err.message||err));
+  }
+}
+function lbPersistCroppedImage(id, dataUrl){
+  if(!id){ showToast('✓ Recorte aplicado'); return; }
+  try{
+    const rec=(typeof ccRecords!=='undefined'?ccRecords:[]).find(function(x){ return x.id===id; });
+    if(rec) rec.dataUrl=dataUrl;
+  }catch(e){}
+  if(typeof idbUpdateImage!=='function'){ showToast('✓ Recorte aplicado'); return; }
+  idbUpdateImage(id, dataUrl).then(function(){
+    showToast('✓ Imagen recortada y guardada');
+    if(typeof ccBuildState==='function'){ try{ ccBuildState(); }catch(e){} }
+  }).catch(function(e){
+    showToast('Recorte aplicado — no se pudo guardar en la nube: '+(e.message||e));
+  });
+}
+(function(){
+  const img=document.getElementById('lb-img');
+  const wrap=document.getElementById('lb-img-wrap');
+  const layer=document.getElementById('lb-crop-layer');
+  if(wrap) wrap.addEventListener('wheel', lbWheelZoom, {passive:false});
+  if(img){
+    img.addEventListener('pointerdown', lbPointerDown);
+    img.addEventListener('pointermove', lbPointerMove);
+    img.addEventListener('pointerup', lbPointerUp);
+    img.addEventListener('pointercancel', lbPointerUp);
+    img.addEventListener('dblclick', lbDblClick);
+  }
+  if(layer) layer.addEventListener('pointerdown', lbCropPointerDown);
+  window.addEventListener('resize', function(){ if(lbCropActive) lbRenderCropLayer(); });
+})();
 
 // INTRO — solo anima textos y barra de progreso (el canvas WebGL ya corre inline)
 function runIntro(){
@@ -28512,7 +28845,6 @@ window.addEventListener('firebase-ready', function(){
 ══════════════════════════════════════════════════════════════════════ */
 (function(){
   var cargaCurves = [];
-  var cargaSeason = 'invierno';
 
   function populateCargaSites(){
     var sel = document.getElementById('cg-site');
@@ -28531,7 +28863,7 @@ window.addEventListener('firebase-ready', function(){
        apaga el estilo activo de los otros dos botones en cada caso. */
     if(mode==='carga'){
       if(genApp) genApp.style.display = 'none';
-      if(cargaApp) cargaApp.style.display = 'block';
+      if(cargaApp) cargaApp.style.display = '';
       if(loteApp) loteApp.style.display = 'none';
       if(bC){ bC.style.background='var(--s1)'; bC.style.color='var(--green)'; }
       if(bD){ bD.style.background='var(--s2)'; bD.style.color='var(--t3)'; }
@@ -28563,18 +28895,23 @@ window.addEventListener('firebase-ready', function(){
     }
   };
 
-  window.cargaSetSeason = function(season){
-    cargaSeason = season;
-    var bI = document.getElementById('cg-btn-invierno'), bV = document.getElementById('cg-btn-verano');
-    if(season==='invierno'){
-      if(bI){bI.style.background='rgba(26,63,204,.12)';bI.style.borderColor='var(--sky)';bI.style.color='var(--sky)';}
-      if(bV){bV.style.background='var(--s2)';bV.style.borderColor='var(--b1)';bV.style.color='var(--t3)';}
-    } else {
-      if(bV){bV.style.background='rgba(234,88,12,.12)';bV.style.borderColor='#ea580c';bV.style.color='#ea580c';}
-      if(bI){bI.style.background='var(--s2)';bI.style.borderColor='var(--b1)';bI.style.color='var(--t3)';}
-    }
-    cargaRenderPreview();
+  /* v95 — toggle horizontal/vertical del documento, compartido por
+     Bitácora de Descarga y de Carga (ambas a la vez, según lo pedido).
+     Puramente visual — no toca ningún dato ni función de render(). */
+  window._bitacoraSetOrientation = function(mode){
+    mode = (mode==='horizontal') ? 'horizontal' : 'vertical';
+    try{ localStorage.setItem('bess_doc_orientation', mode); }catch(e){}
+    document.querySelectorAll('.doc-body').forEach(function(el){
+      el.classList.toggle('horizontal', mode==='horizontal');
+    });
+    document.querySelectorAll('.doc-orient-btn').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-mode')===mode);
+    });
   };
+  try{
+    var _savedOrient = localStorage.getItem('bess_doc_orientation');
+    if(_savedOrient==='horizontal') window._bitacoraSetOrientation('horizontal');
+  }catch(e){}
 
   window.cargaAddCurve = function(event){
     var files = Array.prototype.slice.call(event.target.files||[]);
@@ -28625,6 +28962,19 @@ window.addEventListener('firebase-ready', function(){
     return {hours:hours, label: vi+' - '+vf+' hrs · '+hours+' hrs'};
   }
 
+  /* v95 — busca en ccRecords la bitácora de Descarga del mismo sitio+fecha
+     y regresa su DoD (Profundidad de Descarga) ya calculado y guardado por
+     saveToMonthly(). Solo el DoD se enlaza — no soc inicial/final ni
+     comentarios (alcance confirmado con el usuario). */
+  function cargaFindDoD(site, date){
+    if(!site || !date) return null;
+    var all = (typeof ccRecords!=='undefined' && ccRecords) ? ccRecords : [];
+    var rec = all.find(function(r){
+      return r.tipo!=='carga' && r.site===site && r.date===date && r.params && r.params.dod!=null && r.params.dod!=='';
+    });
+    return rec ? rec.params.dod : null;
+  }
+
   /* ── Renderiza en vivo el documento de Bitácora de Carga con la misma plantilla visual que descarga ── */
   window.cargaRenderPreview = function(){
     var el = document.getElementById('carga-document');
@@ -28635,24 +28985,33 @@ window.addEventListener('firebase-ready', function(){
     var v = function(id){ var e=document.getElementById(id); return e?e.value:''; };
     var siteName = v('cg-site'), date = v('cg-date');
     var master = (window.MASTER_SITES_DB||[]).find(function(m){return m.sitio===siteName;}) || {};
+    /* v95 — sin distinción de temporada: la potencia de carga es la misma
+       todo el año (a diferencia de descarga). Se toma un único valor
+       nominal de referencia del sitio. */
+    var potNominal = master.powWinter!=null ? master.powWinter : master.powSummer;
 
     var set = function(id, txt){ var e=document.getElementById(id); if(e) e.textContent = txt; };
     set('cgdoc-site-display', siteName || '— Sin sitio —');
     set('cgdoc-date-big', date ? new Date(date+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase() : '—');
     set('cgdoc-folio', date ? '#CG-'+date.replace(/-/g,'') : '—');
-    set('cgdoc-season-badge', cargaSeason==='invierno' ? '❄ Temporada Invierno' : '☀ Temporada Verano');
+    var dod = cargaFindDoD(siteName, date);
+    set('cgdoc-season-badge', dod!=null ? ('🔗 DoD Descarga: '+dod+'%') : '— Sin descarga vinculada —');
+    var dodValEl = document.getElementById('cg-dod-val');
+    if(dodValEl) dodValEl.textContent = dod!=null ? (dod+'%') : '—';
     set('cgdt-code', master.sku!=null ? ('#'+String(master.sku).padStart(2,'0')) : '—');
     set('cgdt-brand', master.marca || '—');
     set('cgdt-tech', master.marca || '—');
     var perRack = master.numRacks ? Math.round((master.energiaBESS||0)/master.numRacks) : null;
     set('cgdt-storage', perRack ? perRack+' kWh' : '—');
     set('cgdt-total-storage', master.energiaBESS ? master.energiaBESS+' kWh' : '—');
-    set('cgdt-nominal', (cargaSeason==='invierno'?master.powWinter:master.powSummer) ? (cargaSeason==='invierno'?master.powWinter:master.powSummer)+' kW' : '—');
+    set('cgdt-nominal', potNominal!=null ? potNominal+' kW' : '—');
 
+    /* v95 — Carga ya no alterna azul/naranja por temporada (esa distinción
+       no aplica a carga); siempre usa la paleta 'winter' (azul) como
+       identidad visual fija del documento. */
     var header = document.getElementById('cgdoc-header'), titleSub = document.getElementById('cgdoc-title-sub'), footer = document.getElementById('cgdoc-footer'), stamp=document.querySelector('#cgdoc-footer .footer-stamp'), centerF = document.querySelector('#cgdoc-footer .footer-center');
     ['winter','summer'].forEach(function(c){ if(header)header.classList.remove(c); if(titleSub)titleSub.classList.remove(c); if(footer)footer.classList.remove(c); if(stamp)stamp.classList.remove(c); if(centerF)centerF.classList.remove(c); });
-    var seasonClass = cargaSeason==='invierno' ? 'winter' : 'summer';
-    if(header)header.classList.add(seasonClass); if(titleSub)titleSub.classList.add(seasonClass); if(footer)footer.classList.add(seasonClass); if(stamp)stamp.classList.add(seasonClass); if(centerF)centerF.classList.add(seasonClass);
+    if(header)header.classList.add('winter'); if(titleSub)titleSub.classList.add('winter'); if(footer)footer.classList.add('winter'); if(stamp)stamp.classList.add('winter'); if(centerF)centerF.classList.add('winter');
 
     set('cgdp-storage', perRack ? perRack+' kWh' : '—');
     set('cgdp-total-storage', master.energiaBESS ? master.energiaBESS+' kWh' : '—');
@@ -28685,7 +29044,7 @@ window.addEventListener('firebase-ready', function(){
       if(!siteName){
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#9ab;font-style:italic;padding:16px;font-size:11px">Selecciona un sitio en el panel lateral</td></tr>';
       } else {
-        tbody.innerHTML = '<tr><td>1</td><td>'+siteName+'</td><td>'+((cargaSeason==='invierno'?master.powWinter:master.powSummer)||'—')+' kW</td>'+
+        tbody.innerHTML = '<tr><td>1</td><td>'+siteName+'</td><td>'+(potNominal!=null?potNominal:'—')+' kW</td>'+
           '<td style="text-align:right">'+(v('cg-volt')||'—')+'</td><td style="text-align:right">'+(v('cg-corriente')||'—')+'</td><td style="text-align:right">'+(v('cg-pot')||'—')+'</td>'+
           '<td style="text-align:center">'+(v('cg-soc-i')||'—')+'%</td><td style="text-align:center">'+(v('cg-soc-f')||'—')+'%</td>'+
           '<td style="text-align:center"><span style="color:'+(statusOk?'var(--green)':'#dc2626')+';font-weight:700">● '+(statusOk?'Operativo':'Con novedad')+'</span></td></tr>';
@@ -28728,7 +29087,7 @@ window.addEventListener('firebase-ready', function(){
       horaInicio: document.getElementById('cg-hora-inicio').value,
       horaFin: document.getElementById('cg-hora-fin').value,
       modoCarga: document.getElementById('cg-modo').value,
-      temporada: cargaSeason,
+      dodDescargaRef: cargaFindDoD(site, date),
       anomalia: anomalia,
       comentario: document.getElementById('cg-comentario').value,
       curvas: cargaCurves.map(function(c){return c.src;})
@@ -29137,10 +29496,10 @@ table.lote-table tr.lote-row-published{opacity:.55}
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:9.5px;color:var(--t3)" title="'+_esc(row.filename)+'">'+_esc(row.filename)+'</td>'+
         '<td>'+tipoSelect+'</td>'+
         '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
-        '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
-        '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateField('+row.id+',\'red\',this.value)"></td>'+
-        '<td><input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateField('+row.id+',\'bess\',this.value)"></td>'+
-        '<td><input type="text" class="lote-comment-input" '+(row.published?'disabled':'')+' placeholder="(vacío = sin novedad)" value="'+_esc(row.comment)+'" oninput="window._loteUpdateField('+row.id+',\'comment\',this.value)"></td>'+
+        '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="carga" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'carga\',this.value)" onblur="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
+        '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="red" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'red\',this.value)" onblur="window._loteUpdateField('+row.id+',\'red\',this.value)"></td>'+
+        '<td><input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="bess" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'bess\',this.value)" onblur="window._loteUpdateField('+row.id+',\'bess\',this.value)"></td>'+
+        '<td><input type="text" class="lote-comment-input" data-row-id="'+row.id+'" data-field="comment" '+(row.published?'disabled':'')+' placeholder="(vacío = sin novedad)" value="'+_esc(row.comment)+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'comment\',this.value)" onblur="window._loteUpdateField('+row.id+',\'comment\',this.value)"></td>'+
         '<td>'+statusHtml+'</td>'+
         '<td><button type="button" class="lote-remove-btn" title="Quitar esta captura de la lista" onclick="window._loteRemoveRow('+row.id+')">✕</button></td>'+
       '</tr>';
@@ -29148,9 +29507,14 @@ table.lote-table tr.lote-row-published{opacity:.55}
   }
   window._loteRenderTable = loteRenderTable;
 
-  window._loteUpdateField = function(id, field, value){
-    var row = _loteRows.filter(function(r){ return r.id===id; })[0];
-    if(!row) return;
+  /* Actualiza el dato SIN re-renderizar la tabla — usado en oninput (cada
+     tecla). loteRenderTable() reconstruye TODO el tbody, así que si se
+     llamara en cada tecla el input se destruye y se re-crea, y el usuario
+     pierde el foco a la mitad de escribir un número. Esta versión "silent"
+     solo guarda el valor; el refresco visual (badge de estado, hint de
+     tipo, etc.) se dispara en onblur con _loteUpdateField normal, cuando
+     el usuario ya terminó de escribir en ese campo. */
+  function _loteApplyField(row, field, value){
     if(field==='carga' || field==='red' || field==='bess'){
       row[field] = value===''? null : parseFloat(value);
       /* Si el usuario captura el BESS a mano porque el OCR no lo pudo leer,
@@ -29163,6 +29527,16 @@ table.lote-table tr.lote-row-published{opacity:.55}
     } else {
       row[field] = value;
     }
+  }
+  window._loteUpdateFieldSilent = function(id, field, value){
+    var row = _loteRows.filter(function(r){ return r.id===id; })[0];
+    if(!row) return;
+    _loteApplyField(row, field, value);
+  };
+  window._loteUpdateField = function(id, field, value){
+    var row = _loteRows.filter(function(r){ return r.id===id; })[0];
+    if(!row) return;
+    _loteApplyField(row, field, value);
     loteRenderTable();
   };
   window._lotePickCandidate = function(id, name){
@@ -33239,14 +33613,31 @@ function _fpInjectIntoMedidorReport(){
 /* ══ CARGA TEMPRANA ══
    FP_SITES / FP_LIST se cargan de inmediato al arrancar la app (no solo cuando alguien entra a
    la pestaña "Factor de Potencia"), porque el Reporte de Medidores BESS necesita esos datos
-   disponibles aunque el usuario nunca haya abierto la pestaña de FP en este dispositivo. */
+   disponibles aunque el usuario nunca haya abierto la pestaña de FP en este dispositivo.
+
+   IMPORTANTE (corregido 2026-09-22): _fpApplySeedT4/_fpApplySeedT3/_fpApplySeedT3Mensual y
+   _fpMigrateMensualToAcumulado YA NO corren aquí, antes de _fpPullCloud — corrían ANTES, sobre
+   la copia local (localStorage) de este dispositivo, y si alguna de esas semillas encontraba
+   "faltante" una fecha (por ejemplo porque este dispositivo nunca había corrido esa semilla, o
+   porque el localStorage estaba vacío/recién limpiado — pasa solo, en modo incógnito, al
+   reinstalar la PWA, o cuando el navegador libera espacio), marcaban
+   window._fpForceSeedThisLoad = true. Eso hacía que _fpPullCloud SALTARA por completo la
+   descarga de la nube y en su lugar EMPUJARA la copia local (vieja, sin las lecturas más
+   recientes de otros dispositivos) encima del documento compartido en Firestore — borrando de
+   la nube cualquier lectura que solo existiera ahí. Esto es lo que causaba que datos ya
+   cargados "desaparecieran", que lecturas eliminadas "siguieran apareciendo" (la semilla las
+   reinsertaba por fecha) y que ediciones/altas recientes se perdieran.
+   Ahora primero se trae SIEMPRE el estado real de la nube (_fpPullCloud). Las tres semillas
+   históricas (_fpApplySeedT4/T3/T3Mensual) quedaron retiradas por completo del arranque — con
+   meses de datos reales ya cargados por el equipo son obsoletas, y eran precisamente el
+   mecanismo que reinsertaba filas borradas. _fpMigrateMensualToAcumulado() sí se conserva (solo
+   corrige el campo "modo" de lecturas que YA existen, nunca agrega filas nuevas), pero ahora
+   corre DESPUÉS del pull, sobre los datos frescos de la nube — nunca sobre una copia local
+   potencialmente vieja. */
 _fpLoadLocal();
 window._fpLoaded = true;
-_fpApplySeedT4();
-_fpApplySeedT3();
-_fpApplySeedT3Mensual();
-_fpMigrateMensualToAcumulado();
 _fpPullCloud(function(){
+  _fpMigrateMensualToAcumulado();
   /* Si el Reporte de Medidores ya está abierto cuando llega la respuesta de la nube, se refresca
      para que la columna de FP no se quede con datos viejos. */
   try{

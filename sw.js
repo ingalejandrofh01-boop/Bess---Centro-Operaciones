@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1790035832_bess_v92_lote_quitar_captura';
+const DEPLOY_TS  = '1790046973_bess_v96_fix_fp_semillas_sobrescritura';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
