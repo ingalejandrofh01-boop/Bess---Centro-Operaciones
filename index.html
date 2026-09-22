@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-18 bess_v90_carga_rapida_bitacora_ocr -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-21 bess_v91_lote_tipo_automatico -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -5270,7 +5270,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1789120006';
+  var APP_VERSION = '1790032361';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -7009,11 +7009,11 @@ if('serviceWorker' in navigator){
 <div id="lote-app" style="display:none;background:var(--bg);min-height:100%">
   <div class="lote-wrap">
     <div class="lote-head">⚡ Carga Rápida por Lote</div>
-    <div class="lote-sub">Suelta todas las capturas SCADA del día (Descarga o Carga) — se lee CARGA/RED/BESS con OCR, se sugiere el sitio, y TÚ revisas antes de publicar. El SOC nunca se llena automáticamente.</div>
+    <div class="lote-sub">Suelta TODAS las capturas SCADA de una vez — de descarga y de carga, de cualquier sitio, mezcladas. Por cada imagen se lee el signo de BESS con OCR para saber si es Descarga (+) o Carga (−), se sugiere el sitio, y TÚ revisas antes de publicar. El SOC nunca se llena automáticamente.</div>
 
     <div class="lote-controls">
       <div class="lote-field">
-        <label>Modo del lote</label>
+        <label>Modo por defecto (solo si no se detecta solo)</label>
         <select id="lote-mode-select" onchange="window._loteOnModeChange && window._loteOnModeChange()">
           <option value="descarga">⚡ Bitácora de Descarga</option>
           <option value="carga">🔋 Bitácora de Carga</option>
@@ -7025,7 +7025,7 @@ if('serviceWorker' in navigator){
       </div>
       <div class="lote-field" style="flex:1;min-width:200px">
         <label>&nbsp;</label>
-        <div class="lote-sub" style="margin:0">Esta fecha se aplica a TODAS las filas al publicar.</div>
+        <div class="lote-sub" style="margin:0">Esta fecha se aplica a TODAS las filas al publicar. El tipo (Descarga/Carga) se detecta por imagen — este selector solo se usa cuando el OCR no pudo leer el BESS.</div>
       </div>
     </div>
 
@@ -7036,8 +7036,8 @@ if('serviceWorker' in navigator){
       ondrop="window._loteHandleDrop(event)">
       <input type="file" id="lote-file-input" multiple accept="image/*" style="display:none" onchange="window._loteHandleFiles(event.target.files)">
       <div class="lz-icon">📥</div>
-      <div class="lz-title">Arrastra aquí todas las capturas del día</div>
-      <div class="lz-sub">…o haz clic para elegir archivos — puedes soltar decenas de una vez</div>
+      <div class="lz-title">Arrastra aquí todas las capturas — descarga y carga mezcladas</div>
+      <div class="lz-sub">…o haz clic para elegir archivos — puedes soltar decenas de una vez, la app separa cada una</div>
     </div>
 
     <div id="lote-progress">Procesando…</div>
@@ -7046,7 +7046,7 @@ if('serviceWorker' in navigator){
       <table class="lote-table">
         <thead>
           <tr>
-            <th>Captura</th><th>Archivo</th><th>Sitio</th>
+            <th>Captura</th><th>Archivo</th><th>Tipo</th><th>Sitio</th>
             <th>Carga (kW)</th><th>Red (kW)</th><th>BESS (kW)</th>
             <th>Comentario</th><th>Estado</th>
           </tr>
@@ -29023,13 +29023,24 @@ table.lote-table tr.lote-row-published{opacity:.55}
     var parsed = loteParseLegend(legendText);
     var match = loteMatchSite(bannerText, filename);
 
+    /* ── Detección automática de TIPO (Descarga/Carga) ──
+       Confirmado con el usuario con ejemplos reales: BESS positivo (+) =
+       Descarga, BESS negativo (−) = Carga. Si el OCR no pudo leer el BESS
+       de esta imagen, tipoAuto queda false y se usa el "Modo por defecto"
+       del selector como respaldo — pero se marca para que el usuario lo
+       confirme a mano, nunca se adivina en silencio. */
+    var bessVal = parsed.bess != null ? parsed.bess : null;
+    var tipoAuto = bessVal != null;
+    var tipoVal = tipoAuto ? (bessVal >= 0 ? 'descarga' : 'carga') : '';
+
     _loteIdSeq++;
     return {
       id: _loteIdSeq, filename: filename, fullDataUrl: dataUrl,
       legendText: legendText, bannerText: bannerText,
       carga: parsed.carga != null ? parsed.carga : null,
       red: parsed.red != null ? parsed.red : null,
-      bess: parsed.bess != null ? parsed.bess : null,
+      bess: bessVal,
+      tipo: tipoVal, tipoAuto: tipoAuto,
       matchKind: match.kind, candidates: match.candidates || [],
       siteValue: match.kind === 'match' ? match.site : '',
       comment: '', published: false, publishError: null
@@ -29050,6 +29061,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
       }catch(e){
         _loteIdSeq++;
         _loteRows.push({ id:_loteIdSeq, filename:files[i].name, fullDataUrl:null, carga:null, red:null, bess:null,
+          tipo:'', tipoAuto:false,
           matchKind:'none', candidates:[], siteValue:'', comment:'', published:false,
           publishError:'No se pudo procesar: ' + (e && e.message || e) });
       }
@@ -29085,10 +29097,11 @@ table.lote-table tr.lote-row-published{opacity:.55}
     wrap.style.display=''; btn.style.display='';
     var tbody = document.getElementById('lote-review-tbody');
     tbody.innerHTML = _loteRows.map(function(row){
-      var rowCls = row.published ? 'lote-row-published' : (!row.siteValue ? 'lote-row-needsfix' : '');
+      var rowCls = row.published ? 'lote-row-published' : ((!row.siteValue || !row.tipo) ? 'lote-row-needsfix' : '');
       var statusHtml;
       if(row.published) statusHtml = '<span class="lote-badge pub">✓ Publicada</span>';
       else if(row.publishError) statusHtml = '<span class="lote-badge err" title="'+_esc(row.publishError)+'">✗ Error</span>';
+      else if(!row.tipo) statusHtml = '<span class="lote-badge warn">⚠ Revisar tipo</span>';
       else if(!row.siteValue) statusHtml = '<span class="lote-badge warn">⚠ Revisar sitio</span>';
       else if(row.carga==null || row.red==null || row.bess==null) statusHtml = '<span class="lote-badge warn">⚠ Revisar valores</span>';
       else statusHtml = '<span class="lote-badge ok">✓ Listo</span>';
@@ -29102,9 +29115,17 @@ table.lote-table tr.lote-row-published{opacity:.55}
         candHint = '<div class="lote-cand-hint">Sin sugerencia — elige el sitio a mano.</div>';
       }
 
+      var tipoHint = !row.tipoAuto ? '<div class="lote-cand-hint">No se detectó BESS — confirma el tipo a mano.</div>' : '';
+      var tipoSelect = '<select class="lote-site-select'+(!row.tipo?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'tipo\',this.value)">'+
+        '<option value="">— Selecciona —</option>'+
+        '<option value="descarga"'+(row.tipo==='descarga'?' selected':'')+'>⚡ Descarga</option>'+
+        '<option value="carga"'+(row.tipo==='carga'?' selected':'')+'>🔋 Carga</option>'+
+      '</select>'+tipoHint;
+
       return '<tr class="'+rowCls+'" data-row-id="'+row.id+'">'+
         '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'">' : '—')+'</td>'+
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:9.5px;color:var(--t3)" title="'+_esc(row.filename)+'">'+_esc(row.filename)+'</td>'+
+        '<td>'+tipoSelect+'</td>'+
         '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
         '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
         '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateField('+row.id+',\'red\',this.value)"></td>'+
@@ -29121,6 +29142,13 @@ table.lote-table tr.lote-row-published{opacity:.55}
     if(!row) return;
     if(field==='carga' || field==='red' || field==='bess'){
       row[field] = value===''? null : parseFloat(value);
+      /* Si el usuario captura el BESS a mano porque el OCR no lo pudo leer,
+         y el tipo todavía no está definido, se deriva del signo igual que
+         en la detección automática — pero solo si el tipo estaba vacío,
+         nunca sobrescribe una elección manual ya hecha. */
+      if(field==='bess' && !row.tipo && row.bess != null){
+        row.tipo = row.bess >= 0 ? 'descarga' : 'carga';
+      }
     } else {
       row[field] = value;
     }
@@ -29157,10 +29185,13 @@ table.lote-table tr.lote-row-published{opacity:.55}
       var dEl = document.getElementById('discharge-date'); if(dEl) dEl.value = dateStr;
       var unitId = window._batchDescEnsureFirstUnitId();
       /* Mapeo confirmado con el usuario: RED→mains, BESS→bessKw, CARGA→load.
-         El SOC nunca se toca. */
-      window.updateUnit(unitId, 'mains', row.red!=null ? row.red : '');
-      window.updateUnit(unitId, 'bessKw', row.bess!=null ? row.bess : '');
-      window.updateUnit(unitId, 'load', row.carga!=null ? row.carga : '');
+         El SOC nunca se toca. BESS se guarda como magnitud (Math.abs) — el
+         signo del OCR (confirmado con el usuario: + descarga / − carga) ya
+         se usó para detectar el TIPO de la fila, los campos del formulario
+         siempre esperan un número positivo. */
+      window.updateUnit(unitId, 'mains', row.red!=null ? Math.abs(row.red) : '');
+      window.updateUnit(unitId, 'bessKw', row.bess!=null ? Math.abs(row.bess) : '');
+      window.updateUnit(unitId, 'load', row.carga!=null ? Math.abs(row.carga) : '');
       window._batchDescClearImages();
       if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
       var obsEl = document.getElementById('observations'); if(obsEl) obsEl.value = row.comment || '';
@@ -29178,8 +29209,11 @@ table.lote-table tr.lote-row-published{opacity:.55}
          señalada en el reporte de entrega): se usa el valor BESS del OCR,
          porque durante un evento de carga esa es la potencia que
          efectivamente entra a la batería — CARGA y RED no tienen un
-         campo propio en el formulario de Carga hoy. */
-      var cgPot = document.getElementById('cg-pot'); if(cgPot) cgPot.value = row.bess!=null ? row.bess : '';
+         campo propio en el formulario de Carga hoy. Se guarda como
+         magnitud (Math.abs) — en Carga el BESS del OCR viene negativo
+         (confirmado con el usuario), el campo del formulario espera un
+         número positivo. */
+      var cgPot = document.getElementById('cg-pot'); if(cgPot) cgPot.value = row.bess!=null ? Math.abs(row.bess) : '';
       if(typeof window._batchCargaClearImages === 'function') window._batchCargaClearImages();
       if(row.fullDataUrl && typeof window._batchCargaPushImage === 'function') window._batchCargaPushImage(row.filename, row.fullDataUrl);
       var cgCom = document.getElementById('cg-comentario'); if(cgCom) cgCom.value = row.comment || '';
@@ -29190,7 +29224,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
   window._lotePublishOneRow = lotePublishOneRow; // expuesta para pruebas
 
   window._lotePublishAll = async function(){
-    var mode = document.getElementById('lote-mode-select').value;
+    var defaultMode = document.getElementById('lote-mode-select').value;
     var dateStr = document.getElementById('lote-date').value || (window._todayLocalStr ? window._todayLocalStr() : '');
     var btn = document.getElementById('lote-publish-btn');
     if(btn){ btn.disabled = true; btn.textContent = '💾 Publicando…'; }
@@ -29198,7 +29232,9 @@ table.lote-table tr.lote-row-published{opacity:.55}
     for(var i=0;i<_loteRows.length;i++){
       var row = _loteRows[i];
       if(row.published){ alreadyDone++; continue; }
+      if(!row.tipo){ needsFix++; continue; } // NUNCA se publica sin saber si es descarga o carga
       if(!row.siteValue){ needsFix++; continue; } // NUNCA se publica con un sitio adivinado a ciegas
+      var mode = row.tipo || defaultMode; // por fila — el selector solo es respaldo
       try{
         var msg = await lotePublishOneRow(row, mode, dateStr);
         if(msg && !/error/i.test(msg)){ row.published = true; ok++; }
@@ -29215,7 +29251,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
     var summary = document.getElementById('lote-summary');
     summary.style.display = '';
     summary.innerHTML = '<b>'+doneTotal+' de '+total+' publicadas.</b>' +
-      (needsFix ? '<br>⚠ '+needsFix+' requirieron corrección manual de sitio (no se publicaron todavía).' : '') +
+      (needsFix ? '<br>⚠ '+needsFix+' requirieron corrección manual de tipo y/o sitio (no se publicaron todavía).' : '') +
       (failed ? '<br>✗ '+failed+' fallaron al guardar — revisa su fila y vuelve a intentar "Publicar todo".' : '');
   };
 
