@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-22 bess_v96_fix_fp_semillas_sobrescritura -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-22 bess_v97_restaura_t3_acumulado_jul_ago -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -5325,7 +5325,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1790046973';
+  var APP_VERSION = '1790049773';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -31894,6 +31894,45 @@ function _fpApplySeedT3Mensual(){
   }catch(e){}
 }
 
+/* ══ RESTAURACIÓN PUNTUAL: lecturas Acumulado de T3 perdidas por el bug de sobrescritura ══
+   2026-09-22 — Ale confirmó estos 5 valores exactos (los mismos que ya traía en un reporte
+   previo, ya bien calculado) para fechas que la app había perdido por el bug de arranque
+   corregido arriba (_fpPullCloud corriendo DESPUÉS de las semillas locales). A diferencia de
+   las semillas de arriba, esto NO es un respaldo aproximado: son los valores reales que Ale
+   verificó dato por dato contra su propio reporte. Igual se aplica UNA sola vez, solo si la
+   fecha no existe ya como 'acumulado' (nunca pisa nada que ya esté bien), y solo agrega —
+   nunca modifica ni borra una lectura existente. */
+var FP_RESTORE_T3_AGO2026_VERSION = 'v1-2026-09-22-t3-restaura-jul-ago';
+var FP_RESTORE_T3_AGO2026 = [
+  { fecha:'2026-07-31', codigo1:6577622,   codigo5:1857003.5 },
+  { fecha:'2026-08-08', codigo1:7193479.5, codigo5:2027439.5 },
+  { fecha:'2026-08-28', codigo1:8780472,   codigo5:2428321.5 },
+  { fecha:'2026-08-29', codigo1:8835214,   codigo5:2440379.8 },
+  { fecha:'2026-08-31', codigo1:9018874,   codigo5:2477202.5 }
+];
+function _fpApplyRestoreT3Ago2026(){
+  try{
+    var ver = localStorage.getItem('bess:fp_restore_t3_ago2026_ver');
+    if(ver === FP_RESTORE_T3_AGO2026_VERSION) return;
+    var existing = {};
+    FP_LIST.forEach(function(r){ if(r.sitio==='T3' && _fpReadingModo(r)==='acumulado') existing[r.fecha]=true; });
+    var added=0;
+    FP_RESTORE_T3_AGO2026.forEach(function(row){
+      if(existing[row.fecha]) return; /* ya existe una lectura acumulada para esa fecha — no se toca */
+      FP_LIST.push({
+        id:_fpUid(), sitio:'T3', fecha:row.fecha, codigo1:row.codigo1, codigo5:row.codigo5,
+        modo:'acumulado', nota:'', createdAt:Date.now(), seeded:true
+      });
+      added++;
+    });
+    localStorage.setItem('bess:fp_restore_t3_ago2026_ver', FP_RESTORE_T3_AGO2026_VERSION);
+    if(added){
+      _fpPersistList();
+      console.log('[Factor de Potencia] Se restauraron '+added+' lectura(s) Acumulado de T3 confirmadas por Ale (version '+FP_RESTORE_T3_AGO2026_VERSION+').');
+    }
+  }catch(e){}
+}
+
 /* ══ MIGRACIÓN: modo 'mensual' → 'acumulado' ══
    El modo 'mensual' (código que se reiniciaba a 0 cada mes) NO corresponde a ningún medidor real:
    Ale confirmó que el código de T3 es acumulativo y jamás se reinicia, igual que T4 — así que
@@ -33638,6 +33677,7 @@ _fpLoadLocal();
 window._fpLoaded = true;
 _fpPullCloud(function(){
   _fpMigrateMensualToAcumulado();
+  _fpApplyRestoreT3Ago2026();
   /* Si el Reporte de Medidores ya está abierto cuando llega la respuesta de la nube, se refresca
      para que la columna de FP no se quede con datos viejos. */
   try{
