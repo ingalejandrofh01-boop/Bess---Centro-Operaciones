@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-22 bess_v97_restaura_t3_acumulado_jul_ago -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-09-22 bess_v99_lote_revision_uno_por_uno -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
@@ -3179,6 +3179,11 @@ textarea{resize:vertical;min-height:60px;font-size:12px;line-height:1.5}
 .sidebar{grid-row:2}
 main{grid-row:2}
 #bitacora-document{width:850px;min-width:850px;max-width:850px;background:#fff;color:#1a1a2e;border-radius:4px;overflow:hidden;box-shadow:0 0 0 1px rgba(26,63,204,.12),0 8px 40px rgba(10,22,80,.12),0 2px 8px rgba(26,63,204,.06);font-family:'IBM Plex Sans',sans-serif}
+/* Horizontal: 850px partido a la mitad deja la gráfica angosta e ilegible — en horizontal el
+   documento crece para dar espacio real a las dos columnas (datos | gráfica grande). */
+#bitacora-document.horizontal{width:100%;min-width:0;max-width:min(1560px,96vw)}
+.doc-shell{max-width:900px;margin:0 auto;width:100%}
+.doc-shell.horizontal{max-width:min(1560px,96vw)}
 
 /* Doc header */
 .doc-header{position:relative;overflow:hidden}
@@ -3263,28 +3268,37 @@ main{grid-row:2}
 .val.hi-g{color:#059669;font-weight:700}
 
 /* SYSTEM STATUS PANEL in document */
-.sys-status-doc-panel{background:#fff;border:1px solid #dce8f5;border-radius:6px;overflow:hidden;margin-bottom:12px}
-.sys-status-doc-header{padding:5px 14px;display:flex;align-items:center;gap:8px}
-.sys-status-doc-header.ok-hdr{background:linear-gradient(90deg,rgba(5,150,105,.12),rgba(5,150,105,.07))}
-.sys-status-doc-header.warn-hdr{background:linear-gradient(90deg,rgba(217,119,6,.12),rgba(217,119,6,.07))}
-.sys-status-doc-header.fault-hdr{background:linear-gradient(90deg,rgba(220,38,38,.12),rgba(220,38,38,.07))}
-.sys-status-doc-body{padding:7px 14px;display:flex;align-items:center;gap:12px}
-.sys-status-main-badge{display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:6px;flex-shrink:0}
-.sys-status-main-badge.ok{background:rgba(10,240,160,.1);border:1.5px solid rgba(10,240,160,.35)}
-.sys-status-main-badge.warn{background:rgba(255,165,2,.1);border:1.5px solid rgba(255,165,2,.35)}
-.sys-status-main-badge.fault{background:rgba(255,71,87,.1);border:1.5px solid rgba(255,71,87,.35)}
-.sys-status-icon{font-size:16px;line-height:1}
+/* Rediseño 2026-09-22: tarjeta de estado con más aire, esquinas más suaves, sombra ligera y
+   chips/insignias traslúcidos tipo "glass" en vez de los rectángulos planos originales. */
+.sys-status-doc-panel{background:#fff;border:1px solid #dce8f5;border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:0 3px 18px rgba(26,63,204,.06)}
+.sys-status-doc-header{padding:8px 16px;display:flex;align-items:center;gap:8px}
+.sys-status-doc-header.ok-hdr{background:linear-gradient(90deg,rgba(5,150,105,.14),rgba(5,150,105,.04))}
+.sys-status-doc-header.warn-hdr{background:linear-gradient(90deg,rgba(217,119,6,.14),rgba(217,119,6,.04))}
+.sys-status-doc-header.fault-hdr{background:linear-gradient(90deg,rgba(220,38,38,.14),rgba(220,38,38,.04))}
+.sys-status-doc-body{padding:10px 16px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.sys-status-main-badge{display:flex;align-items:center;gap:9px;padding:9px 16px;border-radius:30px;flex-shrink:0;backdrop-filter:blur(6px)}
+.sys-status-main-badge.ok{background:linear-gradient(135deg,rgba(10,240,160,.16),rgba(10,240,160,.06));border:1.5px solid rgba(10,240,160,.4);box-shadow:0 2px 10px rgba(10,240,160,.15)}
+.sys-status-main-badge.warn{background:linear-gradient(135deg,rgba(255,165,2,.16),rgba(255,165,2,.06));border:1.5px solid rgba(255,165,2,.4);box-shadow:0 2px 10px rgba(255,165,2,.15)}
+.sys-status-main-badge.fault{background:linear-gradient(135deg,rgba(255,71,87,.16),rgba(255,71,87,.06));border:1.5px solid rgba(255,71,87,.4);box-shadow:0 2px 10px rgba(255,71,87,.15)}
+.sys-status-icon{font-size:17px;line-height:1}
 .sys-status-text{}
-.sys-status-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.sys-status-label{font-family:'Syne',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
 .sys-status-label.ok{color:#059669}
 .sys-status-label.warn{color:#d97706}
 .sys-status-label.fault{color:#dc2626}
 .sys-status-sublabel{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1px;color:#8aabb8;margin-top:1px;text-transform:uppercase}
-.sys-status-events{flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}
-.sys-event-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.5px}
-.sys-event-tag.ok-t{background:rgba(10,240,160,.1);color:#059669;border:1px solid rgba(10,240,160,.25)}
-.sys-event-tag.warn-t{background:rgba(255,165,2,.1);color:#d97706;border:1px solid rgba(255,165,2,.25)}
-.sys-event-tag.fault-t{background:rgba(255,71,87,.1);color:#dc2626;border:1px solid rgba(255,71,87,.25)}
+.sys-status-events{flex:1;display:flex;flex-wrap:wrap;gap:7px;align-items:flex-start}
+.sys-event-tag{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.5px;backdrop-filter:blur(4px)}
+.sys-event-tag.ok-t{background:rgba(10,240,160,.12);color:#059669;border:1px solid rgba(10,240,160,.3);box-shadow:0 1px 6px rgba(10,240,160,.12)}
+.sys-event-tag.warn-t{background:rgba(255,165,2,.12);color:#d97706;border:1px solid rgba(255,165,2,.3);box-shadow:0 1px 6px rgba(255,165,2,.12)}
+.sys-event-tag.fault-t{background:rgba(255,71,87,.12);color:#dc2626;border:1px solid rgba(255,71,87,.3);box-shadow:0 1px 6px rgba(255,71,87,.12)}
+/* Fila Estado del Sistema + Observaciones, lado a lado — antes Observaciones vivía hasta abajo
+   del documento; ahora queda a la vista de inmediato junto al estado. */
+.status-obs-row{display:grid;grid-template-columns:1.35fr 1fr;gap:12px;align-items:stretch;margin-bottom:12px}
+.status-obs-row .sys-status-doc-panel{margin-bottom:0}
+.status-obs-row .obs-box{display:flex;flex-direction:column}
+.status-obs-row .obs-box .obs-body{flex:1}
+@media (max-width:720px){ .status-obs-row{grid-template-columns:1fr} }
 
 /* Bess table */
 .bess-compact-table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10.5px}
@@ -3337,8 +3351,8 @@ main{grid-row:2}
 
 /* Bottom */
 .doc-bottom{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.obs-box{background:#fff;border:1px solid #dce8f5;border-radius:6px;overflow:hidden}
-.obs-hdr{padding:7px 12px;background:rgba(26,63,204,.05);display:flex;align-items:center;gap:7px}
+.obs-box{background:#fff;border:1px solid #dce8f5;border-radius:12px;overflow:hidden;box-shadow:0 3px 18px rgba(26,63,204,.06)}
+.obs-hdr{padding:9px 14px;background:linear-gradient(90deg,rgba(26,63,204,.08),rgba(26,63,204,.02));display:flex;align-items:center;gap:7px}
 .obs-hdr-title{font-family:'DM Mono',monospace;font-size:9px;color:var(--t2);letter-spacing:2px;text-transform:uppercase}
 .obs-body{padding:10px;font-size:10.5px;color:#334;line-height:1.6;min-height:50px;white-space:pre-wrap}
 .obs-body.empty{color:#9ab;font-style:italic}
@@ -5325,7 +5339,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1790049773';
+  var APP_VERSION = '1790112670';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -6245,6 +6259,7 @@ if('serviceWorker' in navigator){
             <option value="cfe">⚡ Falla de suministro CFE</option>
             <option value="rack">🔻 Rack fuera</option>
             <option value="bms">⚙️ Falla de BMS</option>
+            <option value="comm">📡 Sin comunicación</option>
             <option value="otro">✏️ Otro</option>
           </select>
         </div>
@@ -6270,7 +6285,7 @@ if('serviceWorker' in navigator){
     <main>
       <!-- ═══ DOCUMENTO — misma plantilla visual que descarga ═══ -->
       <div class="preview-wrapper">
-        <div style="max-width:900px;margin:0 auto;width:100%">
+        <div class="doc-shell" id="carga-doc-shell">
           <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
             <div class="doc-orient-toggle" id="doc-orient-toggle-2">
               <button type="button" class="doc-orient-btn active" data-mode="vertical" onclick="window._bitacoraSetOrientation('vertical')" title="Vista vertical (clásica)">▯ Vertical</button>
@@ -6308,6 +6323,7 @@ if('serviceWorker' in navigator){
 
             <div class="doc-body">
               <div class="doc-body-left">
+              <div class="status-obs-row">
               <div class="sys-status-doc-panel">
                 <div class="sys-status-doc-header ok-hdr" id="cgdoc-status-hdr">
                   <div class="dph-dot" style="background:var(--green);box-shadow:0 0 5px var(--green);width:6px;height:6px;border-radius:50%"></div>
@@ -6328,6 +6344,11 @@ if('serviceWorker' in navigator){
                   </div>
                 </div>
               </div>
+              <div class="obs-box">
+                <div class="obs-hdr"><div class="dph-dot orange"></div><span class="obs-hdr-title">Observaciones del Evento</span></div>
+                <div class="obs-body" id="cgdoc-observations">Sin observaciones registradas.</div>
+              </div>
+              </div><!-- /status-obs-row -->
 
               <div class="doc-panels-row">
                 <div class="data-panel">
@@ -6386,21 +6407,6 @@ if('serviceWorker' in navigator){
 
               </div><!-- /doc-body-right -->
 
-              <div class="doc-bottom">
-                <div class="obs-box">
-                  <div class="obs-hdr"><div class="dph-dot orange"></div><span class="obs-hdr-title">Observaciones del Evento</span></div>
-                  <div class="obs-body" id="cgdoc-observations">Sin observaciones registradas.</div>
-                </div>
-                <div class="obs-box">
-                  <div class="obs-hdr"><div class="dph-dot green"></div><span class="obs-hdr-title">Datos Técnicos</span></div>
-                  <div class="vars-2col">
-                    <div class="var-cell"><div class="var-lbl">Marca</div><div class="var-val" id="cgvp-brand"><span class="empty-v">—</span></div></div>
-                    <div class="var-cell"><div class="var-lbl">Tecnología</div><div class="var-val" id="cgvp-tech"><span class="empty-v">—</span></div></div>
-                    <div class="var-cell"><div class="var-lbl">Almc. por rack</div><div class="var-val" id="cgvp-storage"><span class="empty-v">—</span></div></div>
-                    <div class="var-cell"><div class="var-lbl">Energía total</div><div class="var-val" id="cgvp-total"><span class="empty-v">—</span></div></div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div class="doc-footer winter" id="cgdoc-footer">
@@ -6972,7 +6978,8 @@ if('serviceWorker' in navigator){
       <div class="doc-body">
         <div class="doc-body-left">
 
-        <!-- SYSTEM STATUS PANEL -->
+        <!-- SYSTEM STATUS PANEL + OBSERVATIONS -->
+        <div class="status-obs-row">
         <div class="sys-status-doc-panel" id="sys-status-doc-panel">
           <div class="sys-status-doc-header ok-hdr" id="sys-status-doc-hdr">
             <div class="dph-dot" style="background:var(--green);box-shadow:0 0 5px var(--green);width:6px;height:6px;border-radius:50%"></div>
@@ -6994,6 +7001,11 @@ if('serviceWorker' in navigator){
           </div>
           <div id="sys-anomaly-strip" style="display:none" class="sys-anomaly-strip"></div>
         </div>
+        <div class="obs-box">
+          <div class="obs-hdr"><div class="dph-dot orange"></div><span class="obs-hdr-title">Observaciones del Evento</span></div>
+          <div class="obs-body empty" id="doc-observations">Sin observaciones registradas.</div>
+        </div>
+        </div><!-- /status-obs-row -->
 
         <!-- Data panels -->
         <div class="doc-panels-row">
@@ -7069,23 +7081,6 @@ if('serviceWorker' in navigator){
 
         </div><!-- /doc-body-right -->
 
-        <!-- Observations + Tech data -->
-        <div class="doc-bottom">
-          <div class="obs-box">
-            <div class="obs-hdr"><div class="dph-dot orange"></div><span class="obs-hdr-title">Observaciones del Evento</span></div>
-            <div class="obs-body empty" id="doc-observations">Sin observaciones registradas.</div>
-          </div>
-          <div class="obs-box">
-            <div class="obs-hdr"><div class="dph-dot green"></div><span class="obs-hdr-title">Datos Técnicos</span></div>
-            <div class="vars-2col">
-              <div class="var-cell"><div class="var-lbl">Marca</div><div class="var-val" id="vp-brand"><span class="empty-v">—</span></div></div>
-              <div class="var-cell"><div class="var-lbl">Tecnología</div><div class="var-val" id="vp-tech"><span class="empty-v">—</span></div></div>
-              <div class="var-cell"><div class="var-lbl">Almc. por rack</div><div class="var-val" id="vp-storage"><span class="empty-v">—</span></div></div>
-              <div class="var-cell"><div class="var-lbl">Energía total</div><div class="var-val" id="vp-total-storage"><span class="empty-v">—</span></div></div>
-            </div>
-          </div>
-        </div>
-
         <!-- Estado de Carga / Salud -->
         <div class="doc-bottom" style="margin-top:12px" id="doc-soc-section">
           <div class="obs-box" style="grid-column:1/-1">
@@ -7118,7 +7113,7 @@ if('serviceWorker' in navigator){
     </main>
   </div><!-- /gen-app -->
 
-<div id="lote-app" style="display:none;background:var(--bg);min-height:100%">
+<div id="lote-app" style="display:none;background:var(--bg);height:100%;overflow-y:auto">
   <div class="lote-wrap">
     <div class="lote-head">⚡ Carga Rápida por Lote</div>
     <div class="lote-sub">Suelta TODAS las capturas SCADA de una vez — de descarga y de carga, de cualquier sitio, mezcladas. Por cada imagen se lee el signo de BESS con OCR para saber si es Descarga (+) o Carga (−), se sugiere el sitio, y TÚ revisas antes de publicar. El SOC nunca se llena automáticamente.</div>
@@ -7168,7 +7163,7 @@ if('serviceWorker' in navigator){
     </div>
 
     <div class="lote-actions-row" style="display:flex;gap:10px;align-items:center">
-      <button id="lote-publish-btn" style="display:none" onclick="window._lotePublishAll()">🚀 Publicar todo</button>
+      <button id="lote-publish-btn" style="display:none" onclick="window._loteStartReview()">📋 Revisar y publicar</button>
       <button id="lote-clear-btn" style="display:none" onclick="window._loteClearAllConfirm()">🗑 Vaciar todo</button>
     </div>
 
@@ -14057,12 +14052,6 @@ function render() {
     obsEl.className = 'obs-body empty';
   }
 
-  // Tech vars
-  document.getElementById('vp-brand').innerHTML = brand ? `<strong>${brand}</strong>` : '<span class="empty-v">—</span>';
-  document.getElementById('vp-tech').innerHTML = technology ? `<strong>${technology}</strong>` : '<span class="empty-v">—</span>';
-  document.getElementById('vp-storage').innerHTML = storage ? `<strong>${storage} kWh</strong>` : '<span class="empty-v">—</span>';
-  document.getElementById('vp-total-storage').innerHTML = totalStorage ? `<strong>${totalStorage} kWh</strong>` : '<span class="empty-v">—</span>';
-  const vpNom=document.getElementById('vp-nominal'); if(vpNom) vpNom.innerHTML = nominalPower ? `<strong>${nominalPower} kW</strong>` : '<span class="empty-v">—</span>';
 
   // Engineer / Footer
   document.getElementById('doc-eng-name').textContent = engName ? `Ing. ${engName}` : 'Ing. — Nombre del Ingeniero';
@@ -28901,9 +28890,16 @@ window.addEventListener('firebase-ready', function(){
   window._bitacoraSetOrientation = function(mode){
     mode = (mode==='horizontal') ? 'horizontal' : 'vertical';
     try{ localStorage.setItem('bess_doc_orientation', mode); }catch(e){}
+    var isH = mode==='horizontal';
     document.querySelectorAll('.doc-body').forEach(function(el){
-      el.classList.toggle('horizontal', mode==='horizontal');
+      el.classList.toggle('horizontal', isH);
     });
+    /* El documento (850px fijo) y el shell de Carga (900px) se ensanchan también en horizontal —
+       si no, la columna de la gráfica queda a la mitad de un ancho ya angosto y se ve chica. */
+    var bitacoraDoc = document.getElementById('bitacora-document');
+    if(bitacoraDoc) bitacoraDoc.classList.toggle('horizontal', isH);
+    var cargaShell = document.getElementById('carga-doc-shell');
+    if(cargaShell) cargaShell.classList.toggle('horizontal', isH);
     document.querySelectorAll('.doc-orient-btn').forEach(function(btn){
       btn.classList.toggle('active', btn.getAttribute('data-mode')===mode);
     });
@@ -28948,7 +28944,7 @@ window.addEventListener('firebase-ready', function(){
   };
   window._batchPopulateCargaSites = function(){ populateCargaSites(); };
 
-  var ANOM_LABEL = {ok:'✅ OK — sin novedad', cfe:'⚡ Falla de suministro CFE', rack:'🔻 Rack fuera', bms:'⚙️ Falla de BMS', otro:'✏️ Otro'};
+  var ANOM_LABEL = {ok:'✅ OK — sin novedad', cfe:'⚡ Falla de suministro CFE', rack:'🔻 Rack fuera', bms:'⚙️ Falla de BMS', comm:'📡 Sin comunicación', otro:'✏️ Otro'};
 
   function cargaComputeDuration(){
     var hi = document.getElementById('cg-hora-inicio'), hf = document.getElementById('cg-hora-fin');
@@ -29064,8 +29060,6 @@ window.addEventListener('firebase-ready', function(){
 
     var obs = document.getElementById('cgdoc-observations');
     if(obs) obs.textContent = v('cg-comentario') || 'Sin observaciones registradas.';
-    set('cgvp-brand', master.marca||'—'); set('cgvp-tech', master.marca||'—');
-    set('cgvp-storage', perRack ? perRack+' kWh':'—'); set('cgvp-total', master.energiaBESS ? master.energiaBESS+' kWh':'—');
     set('cgdoc-eng-name', 'Ing. '+(localStorage.getItem('bess_uname')||'—'));
     set('cgdoc-stamp-val', statusOk ? '✓ CARGA OK' : '⚠ CARGA CON NOVEDAD');
   };
@@ -29197,17 +29191,43 @@ table.lote-table tr.lote-row-published{opacity:.55}
 .lote-badge.err{background:rgba(220,38,38,.14);color:#dc2626}
 .lote-cand-hint{font-size:9.5px;color:var(--t3);margin-top:2px}
 .lote-cand-hint button{background:none;border:none;color:var(--sky);cursor:pointer;font-size:9.5px;padding:0;margin-right:6px;text-decoration:underline}
+/* El botón "Publicar todo" vivía al final del flujo normal del documento — con más de un puñado
+   de filas quedaba varias pantallas abajo y, como #lote-app no tenía su propio scroll (dependía
+   de un scroll del documento que aquí no existe), literalmente no había forma de llegar a él.
+   Ahora la barra de acciones queda pegada (sticky) al fondo del panel mientras se hace scroll
+   por la tabla de revisión, siempre visible. */
+.lote-actions-row{position:sticky;bottom:0;z-index:5;background:var(--bg);padding:12px 0 4px;
+  margin-top:4px;border-top:1px solid var(--border);box-shadow:0 -8px 16px -8px rgba(0,0,0,.25)}
 #lote-publish-btn{padding:13px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,#a855f7,#7e22ce);
-  color:#fff;font-family:var(--mono);font-weight:800;font-size:12px;letter-spacing:1px;cursor:pointer;margin-bottom:16px}
+  color:#fff;font-family:var(--mono);font-weight:800;font-size:12px;letter-spacing:1px;cursor:pointer}
 #lote-publish-btn:disabled{opacity:.5;cursor:not-allowed}
 #lote-clear-btn{padding:13px 18px;border-radius:10px;border:1.5px solid var(--b1);background:var(--s1);
-  color:var(--t3);font-family:var(--mono);font-weight:800;font-size:11px;letter-spacing:1px;cursor:pointer;margin-bottom:16px}
+  color:var(--t3);font-family:var(--mono);font-weight:800;font-size:11px;letter-spacing:1px;cursor:pointer}
 #lote-clear-btn:hover{border-color:#dc2626;color:#dc2626}
 .lote-remove-btn{width:26px;height:26px;border-radius:7px;border:1.5px solid var(--b1);background:var(--s2);
   color:var(--t3);font-size:13px;font-weight:800;cursor:pointer;line-height:1}
 .lote-remove-btn:hover{border-color:#dc2626;background:rgba(220,38,38,.1);color:#dc2626}
 #lote-summary{background:var(--s1);border:1.5px solid var(--border);border-radius:12px;padding:16px;font-family:var(--mono);
   font-size:12px;color:var(--text);line-height:1.7}
+.lote-nocomm-hint{font-size:9.5px;color:#d97706;margin-top:2px;font-weight:700}
+
+/* Banner de "Revisando lote" — flotante, visible tanto en Bitácora de Descarga como en Carga
+   mientras se recorre la fila del lote una por una. Se inyecta/oculta por JS. */
+#lote-queue-banner{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9500;
+  display:none;align-items:center;gap:14px;max-width:min(920px,92vw);
+  background:linear-gradient(135deg,#1a3fcc,#0a1f5e);color:#fff;border-radius:14px;
+  padding:12px 18px;box-shadow:0 14px 40px rgba(10,22,80,.4),0 0 0 1px rgba(255,255,255,.08)}
+#lote-queue-banner .lqb-main{flex:1;min-width:0}
+#lote-queue-banner .lqb-title{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.6)}
+#lote-queue-banner .lqb-site{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-top:1px}
+#lote-queue-banner .lqb-warn{margin-top:4px;font-family:var(--mono);font-size:10.5px;font-weight:700;color:#fbbf24;
+  background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:5px 10px;display:inline-block}
+#lote-queue-banner .lqb-actions{display:flex;gap:8px;flex-shrink:0}
+#lote-queue-banner button{padding:8px 14px;border-radius:9px;border:1.5px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.08);color:#fff;font-family:var(--mono);font-size:10.5px;font-weight:700;
+  letter-spacing:.5px;cursor:pointer;white-space:nowrap}
+#lote-queue-banner button:hover{background:rgba(255,255,255,.18)}
+#lote-queue-banner button.lqb-cancel:hover{background:rgba(220,38,38,.35);border-color:rgba(220,38,38,.5)}
 </style>
 
 <script>
@@ -29400,15 +29420,22 @@ table.lote-table tr.lote-row-published{opacity:.55}
     var bessVal = parsed.bess != null ? parsed.bess : null;
     var tipoAuto = bessVal != null;
     var tipoVal = tipoAuto ? (bessVal >= 0 ? 'descarga' : 'carga') : '';
+    var cargaVal = parsed.carga != null ? parsed.carga : null;
+    var redVal = parsed.red != null ? parsed.red : null;
+
+    /* v99 — "posible sin comunicación": si el OCR de la leyenda no logró leer NINGÚN valor
+       (ni Carga, ni Red, ni BESS), lo más probable es que la captura no traiga gráfica/datos
+       legibles — por ejemplo, el sitio estaba sin comunicación cuando se tomó la pantalla. No
+       se auto-rellena nada con esto (el usuario decide) — solo se marca como advertencia
+       visible en la tabla y, si esta fila entra a la revisión uno por uno, en el banner. */
+    var possibleNoComm = (cargaVal == null && redVal == null && bessVal == null);
 
     _loteIdSeq++;
     return {
       id: _loteIdSeq, filename: filename, fullDataUrl: dataUrl,
       legendText: legendText, bannerText: bannerText,
-      carga: parsed.carga != null ? parsed.carga : null,
-      red: parsed.red != null ? parsed.red : null,
-      bess: bessVal,
-      tipo: tipoVal, tipoAuto: tipoAuto,
+      carga: cargaVal, red: redVal, bess: bessVal,
+      tipo: tipoVal, tipoAuto: tipoAuto, possibleNoComm: possibleNoComm,
       matchKind: match.kind, candidates: match.candidates || [],
       siteValue: match.kind === 'match' ? match.site : '',
       comment: '', published: false, publishError: null
@@ -29485,6 +29512,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
       }
 
       var tipoHint = !row.tipoAuto ? '<div class="lote-cand-hint">No se detectó BESS — confirma el tipo a mano.</div>' : '';
+      if(row.possibleNoComm) tipoHint += '<div class="lote-nocomm-hint">⚠ Sin datos legibles — ¿sitio sin comunicación?</div>';
       var tipoSelect = '<select class="lote-site-select'+(!row.tipo?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'tipo\',this.value)">'+
         '<option value="">— Selecciona —</option>'+
         '<option value="descarga"'+(row.tipo==='descarga'?' selected':'')+'>⚡ Descarga</option>'+
@@ -29543,6 +29571,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
     window._loteUpdateField(id, 'siteValue', name);
   };
   window._loteGetRows = function(){ return _loteRows; };
+  window._loteSetRows = function(rows){ _loteRows = rows || []; loteRenderTable(); }; // expuesta para pruebas
   window._loteClearRows = function(){ _loteRows = []; loteRenderTable(); };
   window._loteRemoveRow = function(id){
     _loteRows = _loteRows.filter(function(r){ return r.id !== id; });
@@ -29572,7 +29601,12 @@ table.lote-table tr.lote-row-published{opacity:.55}
     return captured;
   }
 
-  async function lotePublishOneRow(row, mode, dateStr){
+  /* v99 — separado de lotePublishOneRow: SOLO llena el formulario real (Descarga o Carga) con lo
+     que el OCR detectó y lo deja visible en pantalla — NUNCA guarda. Lo usan tanto el publicado
+     directo de siempre (lotePublishOneRow, abajo) como la revisión uno-por-uno nueva
+     (_loteStartReview), que necesita mostrar el formulario y dejar que la operadora lo revise y
+     complete antes de que ELLA le dé Guardar. */
+  async function lotePrefillRow(row, mode, dateStr){
     if(mode === 'descarga'){
       window.bitacoraSetMode('descarga');
       await _loteNextFrame();
@@ -29591,7 +29625,6 @@ table.lote-table tr.lote-row-published{opacity:.55}
       if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
       var obsEl = document.getElementById('observations'); if(obsEl) obsEl.value = row.comment || '';
       if(typeof render === 'function') render();
-      return await _loteCallCapturingToast(function(){ return window.saveToMonthly(); });
     } else {
       window.bitacoraSetMode('carga');
       await _loteNextFrame();
@@ -29612,11 +29645,140 @@ table.lote-table tr.lote-row-published{opacity:.55}
       if(typeof window._batchCargaClearImages === 'function') window._batchCargaClearImages();
       if(row.fullDataUrl && typeof window._batchCargaPushImage === 'function') window._batchCargaPushImage(row.filename, row.fullDataUrl);
       var cgCom = document.getElementById('cg-comentario'); if(cgCom) cgCom.value = row.comment || '';
+      /* Si el OCR no leyó ningún dato en esta captura, se sugiere (no se fuerza) el motivo
+         "Sin comunicación" en Anomalía — la operadora lo confirma o lo cambia. */
+      if(row.possibleNoComm){
+        var cgAnom = document.getElementById('cg-anomalia');
+        if(cgAnom && cgAnom.value==='ok') cgAnom.value = 'comm';
+      }
       if(typeof window.cargaRenderPreview === 'function') window.cargaRenderPreview();
+    }
+  }
+
+  async function lotePublishOneRow(row, mode, dateStr){
+    await lotePrefillRow(row, mode, dateStr);
+    if(mode === 'descarga'){
+      return await _loteCallCapturingToast(function(){ return window.saveToMonthly(); });
+    } else {
       return await _loteCallCapturingToast(function(){ return window.cargaSave(); });
     }
   }
   window._lotePublishOneRow = lotePublishOneRow; // expuesta para pruebas
+
+  /* ══════════════════════════════════════════════════════════════
+     REVISIÓN UNO POR UNO — v99. En vez de publicar el lote entero de
+     golpe, abre cada fila lista (tipo + sitio ya resueltos) en el
+     formulario real de Descarga o Carga, precargada con lo que el OCR
+     detectó, y espera a que la operadora la revise/complete y le dé
+     Guardar ELLA MISMA. En cuanto ese guardado real se confirma (se
+     detecta interceptando showToast, igual que en lotePublishOneRow),
+     se avanza sola a la siguiente fila — en el orden de sitios de la
+     Lista Maestra, no en el orden en que se subieron las fotos (que
+     puede venir mezclado). Las filas que aún no tienen tipo/sitio
+     resueltos NO entran a la cola — se quedan en la tabla para
+     corregirse a mano, igual que siempre. */
+  var _loteQueue = [];      // ids de _loteRows, en el orden de revisión
+  var _loteQueueIdx = -1;
+  var _loteQueueActive = false;
+  var _loteQueueDate = '';
+  var _loteToastWatcher = null; // referencia al showToast original mientras se observa
+
+  function _loteMasterSiteOrder(){
+    var db = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+    var order = {};
+    db.forEach(function(m, i){ if(m && m.sitio) order[m.sitio] = i; });
+    return order;
+  }
+
+  window._loteStartReview = function(){
+    var dateStr = document.getElementById('lote-date').value || (window._todayLocalStr ? window._todayLocalStr() : '');
+    var order = _loteMasterSiteOrder();
+    var eligible = _loteRows.filter(function(r){ return !r.published && r.tipo && r.siteValue; });
+    var needsFix = _loteRows.filter(function(r){ return !r.published && (!r.tipo || !r.siteValue); }).length;
+    if(!eligible.length){
+      if(typeof showToast==='function') showToast(needsFix ? '⚠ Ninguna fila lista todavía — corrige tipo/sitio primero' : 'No hay capturas pendientes de publicar');
+      return;
+    }
+    eligible.sort(function(a,b){
+      var oa = order.hasOwnProperty(a.siteValue) ? order[a.siteValue] : 9999;
+      var ob = order.hasOwnProperty(b.siteValue) ? order[b.siteValue] : 9999;
+      if(oa !== ob) return oa - ob;
+      return (a.siteValue||'').localeCompare(b.siteValue||'');
+    });
+    _loteQueue = eligible.map(function(r){ return r.id; });
+    _loteQueueIdx = 0;
+    _loteQueueDate = dateStr;
+    _loteQueueActive = true;
+    _loteQueueWatchToasts();
+    if(needsFix && typeof showToast==='function') showToast('⚠ '+needsFix+' captura(s) quedaron fuera de la revisión — falta tipo o sitio');
+    _loteOpenQueueRow();
+  };
+
+  function _loteQueueWatchToasts(){
+    if(_loteToastWatcher) return; // ya observando
+    _loteToastWatcher = window.showToast;
+    var watcherFn = _loteToastWatcher;
+    window.showToast = function(msg){
+      if(typeof watcherFn === 'function') watcherFn(msg);
+      if(_loteQueueActive && msg && !/error|no se pudo/i.test(msg) && /guardad/i.test(msg)){
+        setTimeout(function(){ window._loteAdvanceQueue(); }, 500);
+      }
+    };
+  }
+  function _loteQueueUnwatchToasts(){
+    if(_loteToastWatcher){ window.showToast = _loteToastWatcher; _loteToastWatcher = null; }
+  }
+
+  async function _loteOpenQueueRow(){
+    var banner = document.getElementById('lote-queue-banner');
+    if(_loteQueueIdx < 0 || _loteQueueIdx >= _loteQueue.length){
+      _loteFinishQueue();
+      return;
+    }
+    var row = _loteRows.filter(function(r){ return r.id === _loteQueue[_loteQueueIdx]; })[0];
+    if(!row){ window._loteAdvanceQueue(); return; } // se quitó de la lista mientras tanto — sigue
+    await lotePrefillRow(row, row.tipo, _loteQueueDate);
+    if(banner){
+      banner.style.display = 'flex';
+      var prog = document.getElementById('lqb-progress'); if(prog) prog.textContent = (_loteQueueIdx+1)+' de '+_loteQueue.length;
+      var siteEl = document.getElementById('lqb-site'); if(siteEl) siteEl.textContent = (row.tipo==='descarga'?'⚡ ':'🔋 ')+row.siteValue;
+      var warnEl = document.getElementById('lqb-warn'); if(warnEl) warnEl.style.display = row.possibleNoComm ? 'inline-block' : 'none';
+    }
+    try{ window.scrollTo(0,0); }catch(e){}
+  }
+
+  window._loteAdvanceQueue = function(){
+    if(!_loteQueueActive) return;
+    // marca la fila actual como publicada, para que no vuelva a contarse en un "Publicar todo" viejo
+    var doneRow = _loteRows.filter(function(r){ return r.id === _loteQueue[_loteQueueIdx]; })[0];
+    if(doneRow) doneRow.published = true;
+    if(typeof loteRenderTable === 'function') loteRenderTable();
+    _loteQueueIdx++;
+    _loteOpenQueueRow();
+  };
+
+  window._loteSkipQueueRow = function(){
+    if(!_loteQueueActive) return;
+    _loteQueueIdx++;
+    _loteOpenQueueRow();
+  };
+
+  window._loteCancelReview = function(){
+    _loteQueueActive = false;
+    _loteQueueUnwatchToasts();
+    var banner = document.getElementById('lote-queue-banner');
+    if(banner) banner.style.display = 'none';
+    if(typeof showToast==='function') showToast('Revisión del lote cancelada — puedes retomarla cuando quieras');
+  };
+
+  function _loteFinishQueue(){
+    _loteQueueActive = false;
+    _loteQueueUnwatchToasts();
+    var banner = document.getElementById('lote-queue-banner');
+    if(banner) banner.style.display = 'none';
+    if(typeof showToast==='function') showToast('✅ Revisión del lote terminada — '+_loteQueue.length+' captura(s) publicadas');
+    window.bitacoraSetMode('lote');
+  }
 
   window._lotePublishAll = async function(){
     var defaultMode = document.getElementById('lote-mode-select').value;
@@ -29741,6 +29903,20 @@ table.lote-table tr.lote-row-published{opacity:.55}
 </script>
 
 <!-- Modales movidos aquí (nivel superior) para que funcionen desde cualquier página, no solo Cerebro BESS -->
+<!-- Banner "Revisando lote" — flotante sobre Bitácora de Descarga/Carga mientras se recorre la
+     revisión uno por uno de "Carga Rápida por Lote" (ver window._loteStartReview). -->
+<div id="lote-queue-banner">
+  <div class="lqb-main">
+    <div class="lqb-title">📋 Revisando lote — <span id="lqb-progress">1 de 1</span></div>
+    <div class="lqb-site" id="lqb-site">—</div>
+    <div class="lqb-warn" id="lqb-warn" style="display:none">⚠ Sin datos legibles en esta captura — revisa si el sitio estuvo sin comunicación</div>
+  </div>
+  <div class="lqb-actions">
+    <button type="button" onclick="window._loteSkipQueueRow()">Saltar ⏭</button>
+    <button type="button" class="lqb-cancel" onclick="window._loteCancelReview()">✕ Cancelar revisión</button>
+  </div>
+</div>
+
 <div id="import-hf-picker-modal" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(4,8,20,.78);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px">
   <div style="background:var(--s1);border-radius:16px;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.5);border:1.5px solid rgba(239,68,68,.3)">
     <div style="font-family:var(--disp);font-size:16px;font-weight:900;color:var(--text);margin-bottom:4px">🔥 ¿Algún sitio necesita seguimiento del turno siguiente?</div>
