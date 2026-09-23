@@ -29480,7 +29480,12 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
         if(parts.some(function(p){ return p>255; })) continue;
         ip = parts.join('.'); port = m[5]||''; idx = m.index;
       }
-      if(!ip) continue;
+      if(!ip){
+        /* v108: plataformas web sin IP propia */
+        var dom = /powerhub|tesla/i.test(t) ? 'tesla' : (/fusion\s?solar|huawei/i.test(t) ? 'fusion' : '');
+        if(dom){ var bbd = lines[i].bbox; return { ip:'', port:'', domain:dom, url:t.trim().slice(0,120), path:'', lineBottom: bbd ? Math.round(bbd.y1/k) : Math.round(sh*0.45) }; }
+        continue;
+      }
       var rest = t.slice(idx + m[0].length);
       var pm = /^\s*\/?\s*([A-Za-z0-9_\-. ]{2,60}?)\s*\//.exec(rest); /* primer segmento de la ruta: BROM, SKYSENSE_DISEKO_V02… */
       var bb = lines[i].bbox;
@@ -29554,9 +29559,15 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     var img = await _loteLoadImg(dataUrl);
     var host = null;
     try{ host = await _loteFindUrl(img); }catch(e){ console.warn('[Lote] OCR de URL falló:', e && e.message); }
-    if(!host) return out;
+    if(!host){
+      /* v108: ventanas de RealVNC (IPASA, Bocar…) — no hay URL, el sitio viene en el título */
+      var vnc = null;
+      try{ vnc = await _loteFindVncTitle(img); }catch(e){}
+      if(!vnc) return out;
+      host = { ip:'', port:'', vnc:true, title: vnc.title, name: vnc.name, lineBottom: 0, path:'' };
+    }
     out.host = host;
-    var r = _loteDetectContentRect(img, host.lineBottom);
+    var r = host.vnc ? _loteDetectVncRect(img) : _loteDetectContentRect(img, host.lineBottom);
     if(!r) return out;
     var c = document.createElement('canvas'); c.width = r.w; c.height = r.h;
     c.getContext('2d').drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
@@ -29564,6 +29575,50 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     return out;
   }
   window._loteAutoCrop = loteAutoCrop;
+  /* Ventana VNC: la pantalla del equipo es oscura; se recorta al bloque oscuro (sin barra de
+     título blanca, sin bordes ni otras ventanas debajo) */
+  function _loteDetectVncRect(img){
+    var W0 = img.naturalWidth, H0 = img.naturalHeight, s = Math.min(1, 960/W0), W = Math.round(W0*s), H = Math.round(H0*s);
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(img, 0, 0, W, H);
+    var d = ctx.getImageData(0,0,W,H).data;
+    function dark(x,y){ var i=(y*W+x)*4; return (d[i]+d[i+1]+d[i+2])/3 < 90; }
+    function rowF(y){ var n=0; for(var x=0;x<W;x+=2) if(dark(x,y)) n++; return n/Math.ceil(W/2); }
+    var top=-1, bottom=-1, y;
+    for(y=0; y<Math.round(H*0.15); y++) if(rowF(y) > 0.5){ top = y; break; }
+    for(y=H-1; y>Math.round(H*0.5); y--) if(rowF(y) > 0.5){ bottom = y+1; break; }
+    if(top<0 || bottom<0) return null;
+    function colF(x){ var n=0, t=0; for(var yy=top; yy<bottom; yy+=2){ t++; if(dark(x,yy)) n++; } return n/Math.max(1,t); }
+    var left=0, right=W, x;
+    for(x=0; x<Math.round(W*0.2); x++) if(colF(x) > 0.6){ left = x; break; }
+    for(x=W-1; x>Math.round(W*0.8); x--) if(colF(x) > 0.6){ right = x+1; break; }
+    if((right-left) < W*0.5 || (bottom-top) < H*0.5) return null;
+    return { x: Math.round(left/s), y: Math.round(top/s), w: Math.round((right-left)/s), h: Math.round((bottom-top)/s) };
+  }
+  async function _loteFindVncTitle(img){
+    var W = img.naturalWidth, H = img.naturalHeight, z = 4;
+    /* la barra de título de Windows mide ~28-40 px; se prueban varios recortes/contrastes */
+    var tries = [
+      { x0:0.02, y0:0.003, y1:0.040, con:true, z:4 }, { x0:0.02, y0:0, y1:0.042, con:false, z:4 },
+      { x0:0.025, y0:0, y1:0.045, con:true, z:3 }, { x0:0.0, y0:0, y1:0.05, con:true, z:5 }
+    ];
+    for(var i=0;i<tries.length;i++){
+      var T = tries[i], sx = Math.round(W*T.x0), sy = Math.round(H*T.y0), sw = Math.round(W*0.45) - sx, sh = Math.max(12, Math.round(H*T.y1) - sy);
+      z = T.z;
+      var c = document.createElement('canvas'); c.width = sw*z; c.height = sh*z;
+      var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw*z, sh*z);
+      var id = ctx.getImageData(0,0,c.width,c.height), d = id.data;
+      for(var q=0;q<d.length;q+=4){ var g=(d[q]+d[q+1]+d[q+2])/3; var v=T.con ? Math.max(0,Math.min(255,(g-60)*1.6)) : g; d[q]=d[q+1]=d[q+2]=v; }
+      ctx.putImageData(id,0,0);
+      var t = ((await loteOcr(c.toDataURL('image/png'), 'eng', { logger:function(){} }, 7)).data.text||'').trim();
+      if(/VNC/i.test(t)){
+        var name = t.split('(')[0].replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ &.\-]/g,' ').trim();
+        return { title: t, name: name };
+      }
+    }
+    return null;
+  }
 
   /* ══════════════════════════════════════════════════════════════
      v102 — LECTURA DE LA LEYENDA POR POSICIÓN (CARGA / RED / BESS)
@@ -30039,6 +30094,132 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     }
     return best;
   }
+  /* ══ v108 — PLATAFORMAS WEB (Tesla Powerhub / Huawei FusionSolar) ══
+     Sus recuadros del cursor siempre muestran 3 decimales ("371.052,365 W", "305,440 kW"), así
+     que el número real es: todos los dígitos ÷ 1000, sin importar si el OCR confundió puntos
+     con comas. */
+  function _loteNum3(str){
+    var t = String(str||'').trim();
+    if(/^-+$/.test(t)) return null;          /* "--" = sin dato */
+    var neg = /^[-−–]/.test(t), dg = t.replace(/\D/g,'');
+    if(!dg) return null;
+    var v = parseInt(dg,10)/1000;
+    return neg ? -v : v;
+  }
+  function _loteCanvasVariant(img, mode, z, region){
+    var R = region || { x0:0, y0:0, x1:1, y1:1 };
+    var sx = Math.round(img.naturalWidth*R.x0), sy = Math.round(img.naturalHeight*R.y0);
+    var sw = Math.round(img.naturalWidth*(R.x1-R.x0)), sh = Math.round(img.naturalHeight*(R.y1-R.y0));
+    var c = document.createElement('canvas'); c.width = sw*z; c.height = sh*z;
+    var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    if(mode==='bg') _lotePrepLegend(ctx, c.width, c.height, 20*z);
+    else if(mode==='inv' || mode==='gray'){
+      var id = ctx.getImageData(0,0,c.width,c.height), d = id.data, lum = 0;
+      for(var q=0;q<d.length;q+=4) lum += (d[q]+d[q+1]+d[q+2])/3;
+      var dark = (lum/(d.length/4)) < 110;
+      for(var q2=0;q2<d.length;q2+=4){ var g=(d[q2]+d[q2+1]+d[q2+2])/3; var v = (dark && mode==='inv') ? 255-g : g; d[q2]=d[q2+1]=d[q2+2]=v; }
+      ctx.putImageData(id,0,0);
+    }
+    return c.toDataURL('image/png');
+  }
+  async function loteReadTesla(dataUrl){
+    var img = await _loteLoadImg(dataUrl);
+    var out = { red:null, carga:null, bess:null, solar:null, bessParts:[], multi:false, found:false };
+    var NUM = '([-−–]?\\d[\\d.,]*)\\s*W\\s*[|:!l]?\\s*';
+    var pats = {
+      carga: new RegExp(NUM + 'Carga[rn]?\\s*potencia', 'i'),
+      bess:  new RegExp(NUM + 'Potencia\\s*real\\s*de\\s*la\\s*bat', 'i'),
+      red:   new RegExp(NUM + 'Potencia\\s*real\\s*de\\s*la\\s*red', 'i'),
+      solar: new RegExp(NUM + 'Energ[ií]a\\s*solar', 'i')
+    };
+    var modes = ['bg', 'inv'];
+    for(var mi=0; mi<modes.length; mi++){
+      var text = (await loteOcr(_loteCanvasVariant(img, modes[mi], 3), 'eng', { logger:function(){} }, 6)).data.text || '';
+      Object.keys(pats).forEach(function(f){
+        if(out[f]!=null) return;
+        var m = pats[f].exec(text);
+        if(m){ var w = _loteNum3(m[1]); if(w!=null) out[f] = Math.round(w/1000*100)/100; }  /* W → kW */
+      });
+      if(out.red!=null && out.carga!=null && out.bess!=null && out.solar!=null) break;
+    }
+    out.found = out.red!=null || out.carga!=null || out.bess!=null;
+    return out;
+  }
+  async function loteReadFusion(dataUrl){
+    var img = await _loteLoadImg(dataUrl);
+    var out = { red:null, carga:null, bess:null, bessParts:[], multi:false, found:false };
+    var V = '\\s*[:|]?\\s*([-−–]?\\d[\\d.,]*|-{1,2})';
+    var modes = ['gray', 'bg'];
+    for(var mi=0; mi<modes.length; mi++){
+      var text = (await loteOcr(_loteCanvasVariant(img, modes[mi], 2), 'eng', { logger:function(){} }, 6)).data.text || '';
+      var g = function(re){ var m = re.exec(text); return m ? _loteNum3(m[1]) : undefined; };
+      var red = g(new RegExp('el[eé]ctrica\\s*comercial' + V, 'i'));
+      var exp = g(new RegExp('exportada\\s*a\\s*la\\s*red' + V, 'i'));
+      var dis = g(new RegExp('descarga\\s*del\\s*ESS' + V, 'i'));
+      var chg = g(new RegExp('(?<![Dd]es)carga\\s*del\\s*ESS' + V, 'i'));
+      var car = g(new RegExp('Consumida\\s*por\\s*(?:los\\s*)?aparatos' + V, 'i'));
+      if(out.red==null){ if(red!=null && red!==undefined) out.red = red; else if(exp!=null && exp!==undefined) out.red = -exp; }
+      if(out.bess==null){ if(dis!=null && dis!==undefined) out.bess = dis; else if(chg!=null && chg!==undefined) out.bess = -chg; }
+      if(out.carga==null && car!=null && car!==undefined) out.carga = car;
+      if(out.red!=null && out.carga!=null && out.bess!=null) break;
+    }
+    out.found = out.red!=null || out.carga!=null || out.bess!=null;
+    return out;
+  }
+  /* FusionSolar: el sitio es el renglón seleccionado (fondo azul) del árbol de plantas a la izquierda */
+  async function loteFusionSelectedSite(dataUrl){
+    var img = await _loteLoadImg(dataUrl), W = img.naturalWidth, H = img.naturalHeight;
+    var pw = Math.round(W*0.2);
+    var c = document.createElement('canvas'); c.width = pw; c.height = H;
+    var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(img, 0, 0, pw, H, 0, 0, pw, H);
+    var d = ctx.getImageData(0,0,pw,H).data, y0 = -1, y1 = -1, x0 = pw, x1 = 0;
+    for(var y=Math.round(H*0.12); y<H; y++){
+      var n = 0, rx0 = pw, rx1 = 0;
+      for(var x=0; x<pw; x++){ var i=(y*pw+x)*4; if(d[i+2]>180 && d[i]<90 && d[i+1]>70 && d[i+1]<190){ n++; if(x<rx0) rx0=x; if(x>rx1) rx1=x; } }
+      if(n > pw*0.3){ if(y0<0) y0 = y; y1 = y; if(rx0<x0) x0=rx0; if(rx1>x1) x1=rx1; }
+      else if(y0>=0 && y>y1+3) break;
+    }
+    if(y0<0 || y1-y0 < 8) return '';
+    var z = 4, bw = x1-x0+1, bh = y1-y0+1;
+    var c2 = document.createElement('canvas'); c2.width = bw*z; c2.height = bh*z;
+    var x2 = c2.getContext('2d', { willReadFrequently:true }); x2.imageSmoothingQuality='high';
+    x2.drawImage(img, x0, y0, bw, bh, 0, 0, c2.width, c2.height);
+    var base = x2.getImageData(0,0,c2.width,c2.height), texts = [];
+    /* dos versiones (gris continuo y blanco/negro): según la captura una u otra se lee mejor */
+    for(var vi=0; vi<2; vi++){
+      var id = new ImageData(new Uint8ClampedArray(base.data), base.width, base.height), dd = id.data;
+      for(var q=0;q<dd.length;q+=4){ var v = 255 - Math.min(dd[q],dd[q+1],dd[q+2]); if(vi===1) v = v>110 ? 0 : 255; dd[q]=dd[q+1]=dd[q+2]=v; }
+      x2.putImageData(id,0,0);
+      var t = ((await loteOcr(c2.toDataURL('image/png'), 'eng', { logger:function(){} }, 7)).data.text||'').trim();
+      texts.push(t);
+      if(_loteSiteFromText(t).length) break;
+    }
+    return texts.join(' | ');
+  }
+  /* "J IPASA", "Fisfiber Local 18 BESS +", "oy Abadimex |" → sitio(s) del catálogo:
+     se prueba el texto completo y cada palabra de 3+ letras; gana la mejor coincidencia */
+  function _loteSiteFromText(text){
+    var parts = String(text||'').split('|').map(function(x){ return x.trim(); }).filter(Boolean);
+    var best = null;
+    parts.forEach(function(p){
+      var cands = [p].concat(p.split(/\s+/).filter(function(w){ return w.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ]/g,'').length >= 3; }));
+      cands.forEach(function(cd){
+        var rk = _loteRankSites(cd);
+        if(rk[0] && rk[0].score <= LOTE_GOOD_THRESHOLD && (!best || rk[0].score < best.rk[0].score)) best = { rk:rk };
+      });
+    });
+    if(!best) return [];
+    return best.rk.filter(function(x){ return x.score <= best.rk[0].score + 0.01; }).map(function(x){ return x.name; });
+  }
+  window._loteReadTesla = loteReadTesla; window._loteReadFusion = loteReadFusion;
+  /* Sitios de los que solo se guarda la gráfica (sin CARGA/RED/BESS) — pedido del equipo */
+  var LOTE_GRAPH_ONLY = ['IPASA','Bocar'];
+  function loteIsGraphOnly(site){
+    var g = window.bessGroupForSite ? window.bessGroupForSite(site||'') : site;
+    return LOTE_GRAPH_ONLY.some(function(n){ return n.toLowerCase() === String(g||'').toLowerCase(); });
+  }
+  window._loteIsGraphOnly = loteIsGraphOnly;
   async function loteReadRtacTooltip(dataUrl){
     var img = await _loteLoadImg(dataUrl), k = 3;
     var box = _loteFindWhiteBox(img);
@@ -30050,11 +30231,13 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     var text = (await loteOcr(c.toDataURL('image/png'), 'eng', { logger:function(){} }, 6)).data.text || '';
     if(!/RTAC/i.test(text)) return null;
     var out = { red:null, carga:null, bess:null, bessParts:[], multi:false, found:false };
-    var re = /RTAC\s*[:;.]\s*([A-Z]+)[^\n:;]*[:;]\s*(-?[\d.,]+)\s*k?W/gi, m;
+    /* la etiqueta puede venir traducida por Chrome ("RTAC: P.EOI.60 DE CARGA"): se busca la palabra clave */
+    var re = /RTAC\s*[:;.]?\s*([^\n]*?)\s*[:;]\s*(-?[\d.,]+)\s*k?W/gi, m;
     while((m = re.exec(text))){
       var v = parseFloat(m[2].replace(/\./g,'').replace(',', '.'));
       if(!isFinite(v)) continue;
-      var kind = (_loteClassifyLabel(m[1], true)||{}).kind;
+      var lab = m[1].toUpperCase();
+      var kind = /BESS|BAT/.test(lab) ? 'bess' : (/PCC|RED|GRID|MAIN/.test(lab) ? 'red' : (/CARGA|LOAD/.test(lab) ? 'carga' : null));
       if(kind==='red' && out.red==null) out.red = v;
       if(kind==='carga' && out.carga==null) out.carga = v;
       if(kind==='bess' && out.bess==null) out.bess = v;
@@ -30249,21 +30432,33 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     var originalDataUrl = dataUrl, autoCrop = { cropped:false, host:null };
     try{ autoCrop = await loteAutoCrop(dataUrl); dataUrl = autoCrop.dataUrl; }
     catch(e){ console.warn('[Lote] recorte automático falló:', e && e.message); }
-    try{
-      var legendCrop = await loteCropByPercent(dataUrl, LOTE_LEGEND_REGION);
-      legendText = (await loteOcr(legendCrop, 'eng', { logger:function(){} })).data.text;
-    }catch(e){ console.warn('[Lote] OCR leyenda falló:', e && e.message); }
-    try{
-      var bannerCrop = await loteCropByPercent(dataUrl, LOTE_BANNER_REGION);
-      bannerText = (await loteOcr(bannerCrop, 'eng', { logger:function(){} })).data.text;
-    }catch(e){ console.warn('[Lote] OCR banner falló:', e && e.message); }
-
-    var parsed = loteParseLegend(legendText);
-    /* v102 — segunda lectura por posición (pantallas TOTAL MAINS / BESS1..n / CARGA) */
-    var pos = null;
-    try{ pos = await loteReadLegendPositional(dataUrl); }catch(e){ console.warn('[Lote] OCR posicional falló:', e && e.message); }
+    /* v108 — de qué pantalla viene: SCADA propio (IP), Tesla Powerhub, Huawei FusionSolar, VNC */
+    var H0 = autoCrop.host || {};
+    var source = H0.domain || (H0.vnc ? 'vnc' : 'scada');
+    var parsed = {}, pos = null, extraSite = '', solar = null;
+    if(source==='scada'){
+      try{
+        var legendCrop = await loteCropByPercent(dataUrl, LOTE_LEGEND_REGION);
+        legendText = (await loteOcr(legendCrop, 'eng', { logger:function(){} })).data.text;
+      }catch(e){ console.warn('[Lote] OCR leyenda falló:', e && e.message); }
+      try{
+        var bannerCrop = await loteCropByPercent(dataUrl, LOTE_BANNER_REGION);
+        bannerText = (await loteOcr(bannerCrop, 'eng', { logger:function(){} })).data.text;
+      }catch(e){ console.warn('[Lote] OCR banner falló:', e && e.message); }
+      parsed = loteParseLegend(legendText);
+      /* v102 — segunda lectura por posición (pantallas TOTAL MAINS / BESS1..n / CARGA) */
+      try{ pos = await loteReadLegendPositional(dataUrl); }catch(e){ console.warn('[Lote] OCR posicional falló:', e && e.message); }
+    } else if(source==='tesla'){
+      extraSite = 'Vidanta';
+      try{ pos = await loteReadTesla(dataUrl); if(pos) solar = pos.solar; }catch(e){ console.warn('[Lote] Tesla falló:', e && e.message); }
+    } else if(source==='fusion'){
+      try{ pos = await loteReadFusion(dataUrl); }catch(e){ console.warn('[Lote] FusionSolar falló:', e && e.message); }
+      try{ extraSite = await loteFusionSelectedSite(dataUrl); }catch(e){}
+    } else if(source==='vnc'){
+      extraSite = H0.name || H0.title || '';
+    }
     var isSel = autoCrop.host && (autoCrop.host.ip==='100.96.4.210' || autoCrop.host.port==='7020');
-    if(!pos || !pos.found || isSel){
+    if(source==='scada' && (!pos || !pos.found || isSel)){
       try{ var rt = await loteReadRtacTooltip(dataUrl); if(rt) pos = rt; }catch(e){ console.warn('[Lote] OCR RTAC falló:', e && e.message); }
     }
     if(pos && pos.found){
@@ -30278,6 +30473,8 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     var hostSites = autoCrop.host ? _loteSitesForHost(autoCrop.host.ip, autoCrop.host.port) : [];
     /* IP no registrada (o mal leída) → se intenta con el nombre en la ruta de la URL */
     if(!hostSites.length && autoCrop.host) hostSites = _loteSitesForPath(autoCrop.host.path);
+    /* Tesla → Vidanta; FusionSolar → planta seleccionada; VNC → nombre en el título */
+    if(!hostSites.length && extraSite) hostSites = _loteSiteFromText(extraSite);
     if(hostSites.length===1) match = { kind:'match', site: hostSites[0] };
     else if(hostSites.length>1) match = { kind:'ambiguous', candidates: hostSites };
     /* Sitios de una sola gráfica con varios BESS → nombre del grupo (T4 B2 → T4) */
@@ -30322,7 +30519,8 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       id: _loteIdSeq, filename: filename, fullDataUrl: dataUrl,
       originalDataUrl: originalDataUrl, autoCropped: autoCrop.cropped, usingOriginal: false,
       hostIp: autoCrop.host ? (autoCrop.host.ip + (autoCrop.host.port ? ':'+autoCrop.host.port : '')) : '',
-      hostMatched: hostSites.length>0,
+      hostMatched: hostSites.length>0, source: source, solar: solar,
+      hostLabel: source==='tesla' ? 'Tesla Powerhub' : (source==='fusion' ? 'FusionSolar · planta seleccionada' : (source==='vnc' ? 'Ventana VNC · título' : '')),
       bessParts: loteInitParts(pos && pos.bessParts && pos.bessParts.length>1 ? pos.bessParts.slice() : null, match.kind==='match' ? match.site : ''),
       derived: _bal.derived || {}, balanceWarn: _bal.balanceWarn || '',
       legendText: legendText, bannerText: bannerText,
@@ -30382,6 +30580,13 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     return html;
   }
 
+  /* Vidanta (Tesla) trae además "Energía solar real": el formulario no tiene campo para eso,
+     así que se agrega a las observaciones del registro */
+  function loteCommentWithExtras(row){
+    var c = row.comment || '';
+    if(row.solar!=null) c = (c ? c + ' · ' : '') + 'Energía solar real: ' + row.solar + ' kW';
+    return c;
+  }
   function loteBessPartsHtml(row){
     var dis = row.published ? 'disabled' : '';
     return '<div class="lote-bess-parts">'+row.bessParts.map(function(v, i){
@@ -30404,7 +30609,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       else if(row.publishError) statusHtml = '<span class="lote-badge err" title="'+_esc(row.publishError)+'">✗ Error</span>';
       else if(!row.tipo) statusHtml = '<span class="lote-badge warn">⚠ Revisar tipo</span>';
       else if(!row.siteValue) statusHtml = '<span class="lote-badge warn">⚠ Revisar sitio</span>';
-      else if(row.carga==null || row.red==null || row.bess==null) statusHtml = '<span class="lote-badge warn">⚠ Revisar valores</span>';
+      else if(!loteIsGraphOnly(row.siteValue) && (row.carga==null || row.red==null || row.bess==null)) statusHtml = '<span class="lote-badge warn">⚠ Revisar valores</span>';
       else statusHtml = '<span class="lote-badge ok">✓ Listo</span>';
 
       var candHint = '';
@@ -30417,11 +30622,14 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       }
       if(row.hostIp){
         candHint += '<div class="lote-cand-hint">🌐 '+(row.hostMatched ? 'Por URL: ' : 'URL sin sitio registrado: ')+_esc(row.hostIp)+'</div>';
+      } else if(row.hostLabel){
+        candHint += '<div class="lote-cand-hint">🌐 '+_esc(row.hostLabel)+'</div>';
       }
+      if(loteIsGraphOnly(row.siteValue)) candHint += '<div class="lote-cand-hint" style="font-weight:700">📈 Solo gráfica — no lleva CARGA/RED/BESS</div>';
 
       var tipoHint = !row.tipoAuto ? '<div class="lote-cand-hint">No se detectó BESS — confirma el tipo a mano.</div>' : '';
       if(row.signMismatch && row.tipo) tipoHint += '<div class="lote-nocomm-hint">⚠ El BESS se lee '+(row.tipo==='descarga'?'negativo (parece carga)':'positivo (parece descarga)')+'</div>';
-      if(row.possibleNoComm) tipoHint += '<div class="lote-nocomm-hint">⚠ Sin datos legibles — ¿sitio sin comunicación?</div>';
+      if(row.possibleNoComm && !loteIsGraphOnly(row.siteValue)) tipoHint += '<div class="lote-nocomm-hint">⚠ Sin datos legibles — ¿sitio sin comunicación?</div>';
       var tipoSelect = '<select class="lote-site-select'+(!row.tipo?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'tipo\',this.value)">'+
         '<option value="">— Selecciona —</option>'+
         '<option value="descarga"'+(row.tipo==='descarga'?' selected':'')+'>⚡ Descarga</option>'+
@@ -30435,7 +30643,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
         '<td>'+tipoSelect+'</td>'+
         '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
         '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="carga" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'carga\',this.value)" onblur="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
-        '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="red" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'red\',this.value)" onblur="window._loteUpdateField('+row.id+',\'red\',this.value)"></td>'+
+        '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="red" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'red\',this.value)" onblur="window._loteUpdateField('+row.id+',\'red\',this.value)">'+(row.solar!=null ? '<div class="lote-cand-hint">☀ Solar: '+row.solar+' kW<br>(va en observaciones)</div>' : '')+'</td>'+
         '<td>'+(row.bessParts ? loteBessPartsHtml(row) : '<input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="bess" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'bess\',this.value)" onblur="window._loteUpdateField('+row.id+',\'bess\',this.value)">')+
           (row.derived && (row.derived.bess||row.derived.red||row.derived.carga) ? '<div class="lote-cand-hint">⚖ '+(row.derived.bess?'BESS':row.derived.red?'RED':'CARGA')+' calculado por balance</div>' : '')+
           (row.balanceWarn ? '<div class="lote-nocomm-hint">⚠ '+_esc(row.balanceWarn)+'</div>' : '')+
@@ -30571,7 +30779,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
         }));
         window._batchDescClearImages();
         if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
-        var obsElM = document.getElementById('observations'); if(obsElM) obsElM.value = row.comment || '';
+        var obsElM = document.getElementById('observations'); if(obsElM) obsElM.value = loteCommentWithExtras(row);
         if(typeof render === 'function') render();
         return;
       }
@@ -30586,7 +30794,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       window.updateUnit(unitId, 'load', row.carga!=null ? Math.abs(row.carga) : '');
       window._batchDescClearImages();
       if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
-      var obsEl = document.getElementById('observations'); if(obsEl) obsEl.value = row.comment || '';
+      var obsEl = document.getElementById('observations'); if(obsEl) obsEl.value = loteCommentWithExtras(row);
       if(typeof render === 'function') render();
     } else {
       window.bitacoraSetMode('carga');
@@ -30613,7 +30821,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       var cgPot = document.getElementById('cg-pot'); if(cgPot) cgPot.value = row.bess!=null ? Math.abs(row.bess) : '';
       if(typeof window._batchCargaClearImages === 'function') window._batchCargaClearImages();
       if(row.fullDataUrl && typeof window._batchCargaPushImage === 'function') window._batchCargaPushImage(row.filename, row.fullDataUrl);
-      var cgCom = document.getElementById('cg-comentario'); if(cgCom) cgCom.value = row.comment || '';
+      var cgCom = document.getElementById('cg-comentario'); if(cgCom) cgCom.value = loteCommentWithExtras(row);
       /* Si el OCR no leyó ningún dato en esta captura, se sugiere (no se fuerza) el motivo
          "Sin comunicación" en Anomalía — la operadora lo confirma o lo cambia. */
       if(row.possibleNoComm){

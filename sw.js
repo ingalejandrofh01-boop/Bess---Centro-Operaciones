@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1790200000_bess_v107_curva_sin_etiqueta_encima';
+const DEPLOY_TS  = '1790205000_bess_v108_lote_vnc_tesla_fusion';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
