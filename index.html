@@ -12877,11 +12877,53 @@ function getBessSeasonForDate(date) {
 }
 
 /* Obtener potencia por rack usando tabla maestra + fecha */
+/* ══ SITIOS DE UNA SOLA GRÁFICA CON VARIOS BESS (v102) ══
+   Regla del equipo: T4 (B1/B2/B3), T2, IPASA 1-4, THOR, DESA, Plastiexports, Tuk, TUGAL,
+   BIDASOA, etc. se ven en UNA sola gráfica del SCADA → la bitácora los registra como UN sitio
+   con el nombre del grupo ("T4", "IPASA", "THOR"…). ÚNICA excepción: RegioPet 1/2/3 son tres
+   sistemas distintos con tres gráficas, así que siguen separados. El registro del grupo usa la
+   SUMA de racks y potencias de sus unidades (ver getMasterSiteData). */
+var BESS_SPLIT_SITES = /^regio\s*pet/i;   /* familias que NO se agrupan */
+function bessGroupBase(sitio){
+  var s = String(sitio||'').trim();
+  if(!s || BESS_SPLIT_SITES.test(s)) return null;
+  if(/^ipasa\s*\d+$/i.test(s)) return 'IPASA';
+  var b = s.replace(/\s+B\d+$/i,'').trim();
+  return b !== s ? b : null;
+}
+function bessSiteGroups(){
+  var g = {};
+  (window.MASTER_SITES_DB||[]).forEach(function(m){
+    var b = bessGroupBase(m.sitio); if(!b) return;
+    (g[b] = g[b] || []).push(m);
+  });
+  Object.keys(g).forEach(function(k){ if(g[k].length < 2) delete g[k]; });
+  return g;
+}
+/* "T4 B2" → "T4"; "RegioPet 2" → "RegioPet 2"; "BHS" → "BHS" */
+function bessGroupForSite(sitio){
+  var b = bessGroupBase(sitio);
+  return (b && bessSiteGroups()[b]) ? b : sitio;
+}
+window.bessGroupForSite = bessGroupForSite;
+window.bessSiteGroups = bessSiteGroups;
 function getMasterSiteData(siteName) {
   if (!siteName) return null;
   var s = siteName.trim().toLowerCase();
-  return (window.MASTER_SITES_DB||[]).find(function(m){ return m.sitio.trim().toLowerCase() === s; }) || null;
+  var exact = (window.MASTER_SITES_DB||[]).find(function(m){ return m.sitio.trim().toLowerCase() === s; }) || null;
+  if (exact) return exact;
+  /* Nombre de grupo ("T4") → registro sintético con la suma de sus unidades */
+  var groups = bessSiteGroups();
+  var key = Object.keys(groups).filter(function(k){ return k.toLowerCase() === s; })[0];
+  if (!key) return null;
+  var units = groups[key], f = units[0];
+  var sum = function(field){ return units.reduce(function(a,u){ return a + (Number(u[field])||0); }, 0); };
+  return { sku:f.sku, sitio:key, cliente:f.cliente, ciudad:f.ciudad, marca:f.marca, plat:f.plat, bessId:1,
+    numRacks:sum('numRacks'), powCarga:sum('powCarga'), horasCarga:f.horasCarga, kwhTotal:sum('kwhTotal'),
+    powSummer:sum('powSummer'), powWinter:sum('powWinter'), energiaBESS:sum('energiaBESS'),
+    grupo:true, unidades: units.map(function(u){ return u.sitio; }) };
 }
+window.getMasterSiteData = getMasterSiteData;
 
 function getMasterPowerForDate(siteName, dateStr) {
   var master = getMasterSiteData(siteName);
@@ -13145,7 +13187,14 @@ function onSiteChange() {
   document.getElementById('custom-site-group').style.display = val === 'custom' ? 'block' : 'none';
   if (val && val !== 'custom') {
     const pcField = document.getElementById('project-code');
-    const bessCode = SITE_CODES[val];
+    let bessCode = SITE_CODES[val];
+    if (!bessCode) {
+      /* v102: nombres de grupo ("THOR", "T3"…) — busca sin distinguir mayúsculas o toma el de su 1ª unidad */
+      const low = val.trim().toLowerCase();
+      const k = Object.keys(SITE_CODES).find(x => x.toLowerCase() === low);
+      if (k) bessCode = SITE_CODES[k];
+      else { const g = bessSiteGroups()[val]; if (g) bessCode = g.map(u => SITE_CODES[u.sitio]).find(Boolean) || ''; }
+    }
     if (bessCode) {
       pcField.value = bessCode;
       pcField.style.transition = 'border-color .3s';
@@ -29174,7 +29223,17 @@ table.lote-table th{background:var(--s2);color:var(--t3);font-family:var(--mono)
 table.lote-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
 table.lote-table tr.lote-row-needsfix{background:rgba(245,158,11,.08)}
 table.lote-table tr.lote-row-published{opacity:.55}
-.lote-thumb{width:56px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--b1);display:block}
+.lote-thumb{width:120px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--b1);display:block;cursor:zoom-in;transition:transform .15s}
+.lote-thumb:hover{transform:scale(1.04);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+#lote-preview{position:fixed;inset:0;z-index:9000;background:rgba(4,8,15,.97);display:none;flex-direction:column}
+.lote-pv-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;color:#fff;font-family:var(--mono);font-size:12px;border-bottom:1px solid rgba(255,255,255,.12)}
+.lote-pv-title{font-weight:700}
+.lote-pv-vals{flex:1;min-width:220px}
+.lote-pv-vals b{color:#7dd3fc;font-size:14px}
+.lote-pv-close{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 12px;cursor:pointer;font-family:var(--mono)}
+.lote-pv-body{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:12px}
+.lote-pv-body img{max-width:100%;max-height:calc(100vh - 90px);object-fit:contain;cursor:zoom-in;border-radius:6px}
+.lote-pv-body img.zoom{max-width:none;max-height:none;cursor:zoom-out}
 .lote-num-input{width:72px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
   font-family:var(--mono);font-size:11px;outline:none}
 .lote-num-input.lote-empty{border-color:#f59e0b;background:rgba(245,158,11,.08)}
@@ -29190,7 +29249,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
 .lote-badge.pub{background:rgba(26,63,204,.14);color:var(--accent)}
 .lote-badge.err{background:rgba(220,38,38,.14);color:#dc2626}
 .lote-cand-hint{font-size:9.5px;color:var(--t3);margin-top:2px}
-.lote-crop-toggle{display:block;margin-top:3px;font-family:var(--mono);font-size:8.5px;padding:1px 5px;border-radius:5px;border:1px solid var(--b1);background:var(--s1);color:var(--t3);cursor:pointer;white-space:nowrap}
+button.lote-crop-toggle{display:block;width:120px!important;min-width:0!important;height:auto!important;min-height:0!important;margin-top:4px;font-family:var(--mono);font-size:8.5px!important;line-height:1.3!important;padding:2px 4px!important;border-radius:5px;border:1px solid var(--b1);background:transparent!important;color:var(--t3);cursor:pointer;white-space:nowrap;box-shadow:none!important;text-align:center}
 .lote-cand-hint button{background:none;border:none;color:var(--sky);cursor:pointer;font-size:9.5px;padding:0;margin-right:6px;text-decoration:underline}
 /* El botón "Publicar todo" vivía al final del flujo normal del documento — con más de un puñado
    de filas quedaba varias pantallas abajo y, como #lote-app no tenía su propio scroll (dependía
@@ -29313,7 +29372,14 @@ table.lote-table tr.lote-row-published{opacity:.55}
   ];
   function _loteSitesForHost(ip, port){
     var master = (window.MASTER_SITES_DB||[]).map(function(m){ return m.sitio; });
-    var keep = function(list){ return list.filter(function(n){ return master.indexOf(n)>-1; }); };
+    var keep = function(list){
+      var out = [];
+      list.filter(function(n){ return master.indexOf(n)>-1; }).forEach(function(n){
+        var g = window.bessGroupForSite ? window.bessGroupForSite(n) : n;
+        if(out.indexOf(g)===-1) out.push(g);
+      });
+      return out;
+    };
     var i, exact = ip + (port ? ':'+port : '');
     for(i=0;i<LOTE_IP_SITES.length;i++) if(LOTE_IP_SITES[i][0]===exact) return keep(LOTE_IP_SITES[i][1]);
     var byIp = LOTE_IP_SITES.filter(function(e){ return e[0].split(':')[0]===ip; });
@@ -29400,6 +29466,132 @@ table.lote-table tr.lote-row-published{opacity:.55}
     return out;
   }
   window._loteAutoCrop = loteAutoCrop;
+
+  /* ══════════════════════════════════════════════════════════════
+     v102 — LECTURA DE LA LEYENDA POR POSICIÓN (CARGA / RED / BESS)
+     Pantallas como "POTENCIA REAL" de T4 no traen SOC/CARGA/RED/BESS sino
+     TOTAL MAINS / BESS1 / BESS2 / BESS3 / CARGA, con números de colores sobre
+     fondo oscuro. Aquí: (1) se recorta la zona de la leyenda, (2) se pasa a
+     "texto negro sobre blanco" usando el canal más brillante de cada píxel
+     (así el azul del BESS3 también se lee), (3) se amplía 3×, y (4) con la
+     POSICIÓN de cada palabra se asigna cada número a la etiqueta que tiene
+     justo arriba (o a su izquierda en la misma línea).
+       TOTAL MAINS / RED → red · BESS, BESS1..n → bess (se SUMAN: una sola
+       gráfica = un solo registro) · CARGA → carga · SOC → se ignora.
+     Balance: CARGA = RED + BESS. Si falta uno de los tres se calcula con los
+     otros dos; si los tres están y no cuadran se marca para revisar.
+     ══════════════════════════════════════════════════════════════ */
+  var LOTE_LEGEND_WIDE = { x0:0.08, x1:0.60, y0:0.62, y1:1.0 };
+  function _loteLabelKind(txt){
+    var t = String(txt||'').toUpperCase().replace(/[^A-Z0-9!|]/g,'');
+    if(!t) return null;
+    if(t.indexOf('MAIN')>-1 || t==='RED' || t==='GRID') return 'red';
+    if(/^B[E3]S{1,2}[0-9!|IL]?$/.test(t)) return 'bess';
+    if(/^C?ARGA$/.test(t) || t==='CARGAS' || t==='LOAD') return 'carga';
+    if(t==='SOC' || t==='S0C') return 'soc';
+    return null;
+  }
+  function _loteNumber(txt){
+    var t = String(txt||'').replace(/[—–]/g,'-').replace(/[^0-9.,\-]/g,'');
+    if(!t || /:/.test(txt) || !/\d/.test(t)) return null;
+    if(!/^-?\d{1,3}(,\d{3})*(\.\d+)?$/.test(t) && !/^-?\d+(\.\d+)?$/.test(t)) return null;
+    var v = parseFloat(t.replace(/,/g,''));
+    return isFinite(v) ? v : null;
+  }
+  async function loteReadLegendPositional(dataUrl){
+    var img = await _loteLoadImg(dataUrl), R = LOTE_LEGEND_WIDE, k = 3;
+    var W = img.naturalWidth, H = img.naturalHeight;
+    var sx = Math.round(W*R.x0), sy = Math.round(H*R.y0), sw = Math.round(W*(R.x1-R.x0)), sh = Math.round(H*(R.y1-R.y0));
+    var c = document.createElement('canvas'); c.width = sw*k; c.height = sh*k;
+    var ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw*k, sh*k);
+    var id = ctx.getImageData(0, 0, c.width, c.height), d = id.data;
+    for(var i=0;i<d.length;i+=4){
+      var m = Math.max(d[i], d[i+1], d[i+2]);
+      var v = 255 - Math.max(0, Math.min(255, (m-60)*2));
+      d[i]=d[i+1]=d[i+2]=v;
+    }
+    ctx.putImageData(id, 0, 0);
+    var data = (await Tesseract.recognize(c.toDataURL('image/png'), 'eng', { logger:function(){} })).data;
+    var words = (data.words||[]).filter(function(w){ return w && w.bbox && String(w.text||'').trim(); });
+    var labels = [], nums = [];
+    words.forEach(function(w){
+      var kind = _loteLabelKind(w.text);
+      if(kind){ labels.push({ kind:kind, b:w.bbox, text:w.text }); return; }
+      var n = _loteNumber(w.text);
+      if(n!=null) nums.push({ v:n, b:w.bbox });
+    });
+    /* distancia número→etiqueta: debajo de la etiqueta (misma columna) o a su derecha (misma línea) */
+    var pairs = [];
+    labels.forEach(function(L, li){
+      var lh = Math.max(1, L.b.y1-L.b.y0), lw = Math.max(1, L.b.x1-L.b.x0);
+      nums.forEach(function(N, ni){
+        var ncy = (N.b.y0+N.b.y1)/2, lcy = (L.b.y0+L.b.y1)/2, dist = null;
+        var below = N.b.y0 >= L.b.y1 - lh*0.3 && (N.b.y0 - L.b.y1) < lh*3;
+        var overlap = N.b.x1 >= L.b.x0 - lw*0.3 && N.b.x0 <= L.b.x1 + lw*0.6;
+        if(below && overlap) dist = (N.b.y0 - L.b.y1) + 0.2*Math.abs((N.b.x0+N.b.x1)/2 - (L.b.x0+L.b.x1)/2);
+        else if(Math.abs(ncy-lcy) < lh*0.7 && N.b.x0 >= L.b.x1 - 2 && (N.b.x0 - L.b.x1) < lh*6) dist = 0.5*(N.b.x0 - L.b.x1);
+        if(dist!=null) pairs.push({ li:li, ni:ni, dist:dist });
+      });
+    });
+    pairs.sort(function(a,b){ return a.dist-b.dist; });
+    var usedL = {}, usedN = {};
+    pairs.forEach(function(p){ if(usedL[p.li] || usedN[p.ni]) return; usedL[p.li]=true; usedN[p.ni]=true; labels[p.li].value = nums[p.ni].v; });
+    var out = { red:null, carga:null, bess:null, bessParts:[], multi:false, found:false };
+    var bessLabels = labels.filter(function(L){ return L.kind==='bess'; }).sort(function(a,b){ return a.b.x0-b.b.x0; });
+    labels.forEach(function(L){
+      if(L.value==null) return;
+      if(L.kind==='red' && out.red==null) out.red = L.value;
+      if(L.kind==='carga' && out.carga==null) out.carga = L.value;
+    });
+    out.bessParts = bessLabels.map(function(L){ return L.value; });
+    out.multi = bessLabels.length > 1 || labels.some(function(L){ return L.kind==='red' && /MAIN/i.test(L.text); });
+    if(bessLabels.length && out.bessParts.every(function(v){ return v!=null; }))
+      out.bess = out.bessParts.reduce(function(a,v){ return a+v; }, 0);
+    out.found = out.red!=null || out.carga!=null || out.bessParts.some(function(v){ return v!=null; });
+    return out;
+  }
+  window._loteReadLegendPositional = loteReadLegendPositional;
+  /* Completa con el balance CARGA = RED + BESS y avisa si no cuadra (>5%) */
+  function loteApplyBalance(row){
+    row.derived = row.derived || {};
+    var c = row.carga, r = row.red, b = row.bess;
+    if(c!=null && r!=null && b==null){ row.bess = Math.round((c - r)*100)/100; row.derived.bess = true; }
+    else if(c!=null && b!=null && r==null){ row.red = Math.round((c - b)*100)/100; row.derived.red = true; }
+    else if(r!=null && b!=null && c==null){ row.carga = Math.round((r + b)*100)/100; row.derived.carga = true; }
+    if(row.carga!=null && row.red!=null && row.bess!=null){
+      var diff = Math.abs(row.red + row.bess - row.carga);
+      row.balanceWarn = diff > Math.max(5, Math.abs(row.carga)*0.05)
+        ? 'No cuadra: RED + BESS = '+(Math.round((row.red+row.bess)*100)/100)+' kW, CARGA = '+row.carga+' kW'
+        : '';
+    } else row.balanceWarn = '';
+  }
+
+  /* ══ VISOR GRANDE DE LA CAPTURA ══ */
+  window._loteOpenPreview = function(id){
+    var row = _loteRows.filter(function(r){ return r.id===id; })[0];
+    if(!row || !row.fullDataUrl) return;
+    var ov = document.getElementById('lote-preview');
+    if(!ov){
+      ov = document.createElement('div'); ov.id = 'lote-preview';
+      ov.onclick = function(e){ if(e.target===ov || e.target.id==='lote-preview-close') window._loteClosePreview(); };
+      document.body.appendChild(ov);
+      document.addEventListener('keydown', function(e){ if(e.key==='Escape') window._loteClosePreview(); });
+    }
+    var fmt = function(v){ return v==null ? '—' : (Math.round(v*100)/100).toLocaleString('es-MX'); };
+    var parts = (row.bessParts && row.bessParts.length>1) ? ' <span style="opacity:.7">('+row.bessParts.map(fmt).join(' + ')+')</span>' : '';
+    ov.innerHTML =
+      '<div class="lote-pv-bar">'+
+        '<div class="lote-pv-title">'+_esc(row.siteValue||'Sin sitio')+' · <span style="opacity:.7">'+_esc(row.filename)+'</span></div>'+
+        '<div class="lote-pv-vals">CARGA <b>'+fmt(row.carga)+'</b> kW · RED <b>'+fmt(row.red)+'</b> kW · BESS <b>'+fmt(row.bess)+'</b> kW'+parts+'</div>'+
+        '<button type="button" id="lote-preview-close" class="lote-pv-close">✕ Cerrar</button>'+
+      '</div>'+
+      '<div class="lote-pv-body"><img id="lote-preview-img" src="'+row.fullDataUrl+'" title="Clic para acercar / alejar"></div>';
+    var im = document.getElementById('lote-preview-img');
+    im.onclick = function(){ im.classList.toggle('zoom'); };
+    ov.style.display = 'flex';
+  };
+  window._loteClosePreview = function(){ var ov = document.getElementById('lote-preview'); if(ov) ov.style.display = 'none'; };
 
   /* ══════════════════════════════════════════════════════════════
      PARSEO TOLERANTE DE LA TABLITA DE LEYENDA (SOC/CARGA/RED/BESS)
@@ -29538,11 +29730,29 @@ table.lote-table tr.lote-row-published{opacity:.55}
     }catch(e){ console.warn('[Lote] OCR banner falló:', e && e.message); }
 
     var parsed = loteParseLegend(legendText);
+    /* v102 — segunda lectura por posición (pantallas TOTAL MAINS / BESS1..n / CARGA) */
+    var pos = null;
+    try{ pos = await loteReadLegendPositional(dataUrl); }catch(e){ console.warn('[Lote] OCR posicional falló:', e && e.message); }
+    if(pos && pos.found){
+      ['carga','red','bess'].forEach(function(f){
+        if(pos[f]!=null && (pos.multi || parsed[f]==null)) parsed[f] = pos[f];
+      });
+      if(pos.multi && pos.bess==null) parsed.bess = null; /* suma incompleta: que la complete el balance */
+    }
     var match = loteMatchSite(bannerText, filename);
     /* La URL del HMI manda sobre el OCR del banner y el nombre de archivo */
     var hostSites = autoCrop.host ? _loteSitesForHost(autoCrop.host.ip, autoCrop.host.port) : [];
     if(hostSites.length===1) match = { kind:'match', site: hostSites[0] };
     else if(hostSites.length>1) match = { kind:'ambiguous', candidates: hostSites };
+    /* Sitios de una sola gráfica con varios BESS → nombre del grupo (T4 B2 → T4) */
+    if(window.bessGroupForSite){
+      if(match.kind==='match') match.site = window.bessGroupForSite(match.site);
+      if(match.kind==='ambiguous'){
+        var gc = [];
+        match.candidates.forEach(function(n){ var g = window.bessGroupForSite(n); if(gc.indexOf(g)===-1) gc.push(g); });
+        match = gc.length===1 ? { kind:'match', site: gc[0] } : { kind:'ambiguous', candidates: gc };
+      }
+    }
 
     /* ── Detección automática de TIPO (Descarga/Carga) ──
        Confirmado con el usuario con ejemplos reales: BESS positivo (+) =
@@ -29550,6 +29760,9 @@ table.lote-table tr.lote-row-published{opacity:.55}
        de esta imagen, tipoAuto queda false y se usa el "Modo por defecto"
        del selector como respaldo — pero se marca para que el usuario lo
        confirme a mano, nunca se adivina en silencio. */
+    var _bal = { carga: parsed.carga!=null ? parsed.carga : null, red: parsed.red!=null ? parsed.red : null, bess: parsed.bess!=null ? parsed.bess : null };
+    loteApplyBalance(_bal);
+    parsed.carga = _bal.carga; parsed.red = _bal.red; parsed.bess = _bal.bess;
     var bessVal = parsed.bess != null ? parsed.bess : null;
     var tipoAuto = bessVal != null;
     var tipoVal = tipoAuto ? (bessVal >= 0 ? 'descarga' : 'carga') : '';
@@ -29569,6 +29782,8 @@ table.lote-table tr.lote-row-published{opacity:.55}
       originalDataUrl: originalDataUrl, autoCropped: autoCrop.cropped, usingOriginal: false,
       hostIp: autoCrop.host ? (autoCrop.host.ip + (autoCrop.host.port ? ':'+autoCrop.host.port : '')) : '',
       hostMatched: hostSites.length>0,
+      bessParts: (pos && pos.bessParts && pos.bessParts.length>1) ? pos.bessParts : null,
+      derived: _bal.derived || {}, balanceWarn: _bal.balanceWarn || '',
       legendText: legendText, bannerText: bannerText,
       carga: cargaVal, red: redVal, bess: bessVal,
       tipo: tipoVal, tipoAuto: tipoAuto, possibleNoComm: possibleNoComm,
@@ -29615,7 +29830,12 @@ table.lote-table tr.lote-row-published{opacity:.55}
      TABLA DE REVISIÓN
      ══════════════════════════════════════════════════════════════ */
   function loteSiteOptions(selected){
-    var sites = (window.MASTER_SITES_DB||[]).map(function(m){return m.sitio;});
+    var sites = [];
+    (window.MASTER_SITES_DB||[]).forEach(function(m){
+      var g = window.bessGroupForSite ? window.bessGroupForSite(m.sitio) : m.sitio;
+      if(sites.indexOf(g)===-1) sites.push(g);
+    });
+    if(selected && sites.indexOf(selected)===-1) sites.unshift(selected);
     var html = '<option value="">— Selecciona —</option>';
     html += sites.map(function(s){ return '<option value="'+_esc(s)+'"'+(s===selected?' selected':'')+'>'+_esc(s)+'</option>'; }).join('');
     return html;
@@ -29659,14 +29879,18 @@ table.lote-table tr.lote-row-published{opacity:.55}
       '</select>'+tipoHint;
 
       return '<tr class="'+rowCls+'" data-row-id="'+row.id+'">'+
-        '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'">'+
+        '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'" title="Clic para ver la captura en grande" onclick="window._loteOpenPreview('+row.id+')">'+
           (row.autoCropped && !row.published ? '<button type="button" class="lote-crop-toggle" title="La captura se recortó sola para quitar Chrome y la barra de tareas" onclick="window._loteToggleCrop('+row.id+')">'+(row.usingOriginal?'↺ original · recortar':'✂ recortada · ver original')+'</button>' : '') : '—')+'</td>'+
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:9.5px;color:var(--t3)" title="'+_esc(row.filename)+'">'+_esc(row.filename)+'</td>'+
         '<td>'+tipoSelect+'</td>'+
         '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
         '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="carga" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'carga\',this.value)" onblur="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
         '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="red" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'red\',this.value)" onblur="window._loteUpdateField('+row.id+',\'red\',this.value)"></td>'+
-        '<td><input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="bess" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'bess\',this.value)" onblur="window._loteUpdateField('+row.id+',\'bess\',this.value)"></td>'+
+        '<td><input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="bess" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'bess\',this.value)" onblur="window._loteUpdateField('+row.id+',\'bess\',this.value)">'+
+          (row.bessParts ? '<div class="lote-cand-hint">= '+row.bessParts.map(function(v){ return v==null?'?':v; }).join(' + ')+'</div>' : '')+
+          (row.derived && (row.derived.bess||row.derived.red||row.derived.carga) ? '<div class="lote-cand-hint">⚖ '+(row.derived.bess?'BESS':row.derived.red?'RED':'CARGA')+' calculado por balance</div>' : '')+
+          (row.balanceWarn ? '<div class="lote-nocomm-hint">⚠ '+_esc(row.balanceWarn)+'</div>' : '')+
+          '</td>'+
         '<td><input type="text" class="lote-comment-input" data-row-id="'+row.id+'" data-field="comment" '+(row.published?'disabled':'')+' placeholder="(vacío = sin novedad)" value="'+_esc(row.comment)+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'comment\',this.value)" onblur="window._loteUpdateField('+row.id+',\'comment\',this.value)"></td>'+
         '<td>'+statusHtml+'</td>'+
         '<td><button type="button" class="lote-remove-btn" title="Quitar esta captura de la lista" onclick="window._loteRemoveRow('+row.id+')">✕</button></td>'+
@@ -29700,6 +29924,14 @@ table.lote-table tr.lote-row-published{opacity:.55}
       if(field==='bess' && !row.tipo && row.bess != null){
         row.tipo = row.bess >= 0 ? 'descarga' : 'carga';
       }
+      /* v102: el valor ya es manual — se quita la marca de "calculado" y se revisa el balance */
+      if(row.derived) row.derived[field] = false;
+      if(field==='bess') row.bessParts = null;
+      if(row.carga!=null && row.red!=null && row.bess!=null){
+        var diff = Math.abs(row.red + row.bess - row.carga);
+        row.balanceWarn = diff > Math.max(5, Math.abs(row.carga)*0.05)
+          ? 'No cuadra: RED + BESS = '+(Math.round((row.red+row.bess)*100)/100)+' kW, CARGA = '+row.carga+' kW' : '';
+      } else row.balanceWarn = '';
     } else {
       row[field] = value;
     }
@@ -29777,7 +30009,13 @@ table.lote-table tr.lote-row-published{opacity:.55}
       window.bitacoraSetMode('carga');
       await _loteNextFrame();
       if(typeof window._batchPopulateCargaSites === 'function') window._batchPopulateCargaSites();
-      var cgSite = document.getElementById('cg-site'); if(cgSite) cgSite.value = row.siteValue;
+      var cgSite = document.getElementById('cg-site');
+      if(cgSite){
+        if(row.siteValue && !Array.prototype.some.call(cgSite.options, function(o){ return o.value===row.siteValue; })){
+          var opt = document.createElement('option'); opt.value = row.siteValue; opt.textContent = row.siteValue; cgSite.appendChild(opt);
+        }
+        cgSite.value = row.siteValue;
+      }
       var cgDate = document.getElementById('cg-date'); if(cgDate) cgDate.value = dateStr;
       /* Carga (a diferencia de Descarga) NO tiene mains/bessKw/load por
          separado — solo un único campo "Pot. carga kW" (cg-pot). Decisión

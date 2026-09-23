@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1790118000_bess_v101_lote_recorte_url';
+const DEPLOY_TS  = '1790121000_bess_v102_lote_leyenda_grupos';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
