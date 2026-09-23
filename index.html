@@ -3345,7 +3345,7 @@ main{grid-row:2}
 .curve-label{background:rgba(26,63,204,.05);padding:5px 12px;display:flex;align-items:center;justify-content:space-between}
 .curve-label-l{font-family:'DM Mono',monospace;font-size:9px;color:var(--t2);letter-spacing:1.5px;text-transform:uppercase}
 .curve-label-r{font-family:'DM Mono',monospace;font-size:9px;color:var(--t3);letter-spacing:1px}
-.curve-featured-badge{position:absolute;top:8px;left:8px;background:rgba(26,63,204,.92);color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:600;padding:2px 8px;border-radius:3px;letter-spacing:1px;text-transform:uppercase}
+.curve-featured-badge{position:static;display:inline-block;margin-right:8px;vertical-align:middle;background:rgba(26,63,204,.92);color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:600;padding:2px 8px;border-radius:3px;letter-spacing:1px;text-transform:uppercase}
 .curve-featured-badge.summer-b{background:rgba(255,140,0,.9)}
 .curves-empty{padding:40px;text-align:center;color:#9ab;font-style:italic;font-size:13px}
 
@@ -14090,13 +14090,14 @@ function render() {
     grid.innerHTML = curveImages.map((img, i) => {
       const isFeatured = n === 1 || i === 0;
       const featClass = isFeatured ? (isWinter ? 'featured' : 'featured-s') : '';
-      const featBadge = isFeatured ? `<div class="curve-featured-badge ${isWinter?'':'summer-b'}">PRINCIPAL</div>` : '';
+      /* v107: la etiqueta PRINCIPAL va en el pie de la tarjeta, ya no ENCIMA de la captura (tapaba
+         el logo/encabezado del SCADA). Con una sola curva no se muestra — es obvio que es la principal. */
+      const featBadge = (isFeatured && n > 1) ? `<span class="curve-featured-badge ${isWinter?'':'summer-b'}">PRINCIPAL</span>` : '';
       return `
         <div class="curve-card ${featClass}">
-          ${featBadge}
           <img src="${img.src}" alt="Curva ${i+1}">
           <div class="curve-label">
-            <span class="curve-label-l">Curva ${i+1} de ${n}</span>
+            <span class="curve-label-l">${featBadge}Curva ${i+1} de ${n}</span>
             <span class="curve-label-r">${img.name.length > 28 ? img.name.slice(0,28)+'…' : img.name}</span>
           </div>
         </div>`;
