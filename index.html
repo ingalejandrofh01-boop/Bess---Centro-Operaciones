@@ -32178,14 +32178,16 @@ function _fpSiteHistory(site, modoFiltro){
     var modo = _fpReadingModo(r);
     var prev = prevByModo[modo] || null;
     var fpAcum = _fpCalc(r.codigo1, r.codigo5);
-    var fpPeriodo = null, deltaC1 = null, deltaC5 = null;
+    var fpPeriodo = null, deltaC1 = null, deltaC5 = null, esInicioMes = false;
     /* Modo 'directo': codigo1/codigo5 YA son kW/kVAr instantáneos, no un acumulado de medidor —
        no tiene sentido restar contra nada, cada lectura trae su propio FP ya "listo". Solo el
        modo 'acumulado' calcula el delta, y lo hace contra la ancla del mes (arriba), no contra
        la lectura anterior. */
     if(modo==='acumulado'){
       var anchor = monthOpenFor(r.fecha);
-      if(anchor){
+      if(anchor && anchor.id===r.id){
+        esInicioMes = true; /* esta lectura ES el inicio de su mes — no se resta contra sí misma */
+      } else if(anchor){
         deltaC1 = r.codigo1 - anchor.codigo1;
         deltaC5 = r.codigo5 - anchor.codigo5;
         if(deltaC1 >= 0 && deltaC5 >= 0 && (deltaC1>0 || deltaC5>0)) fpPeriodo = _fpCalc(deltaC1, deltaC5);
@@ -32217,7 +32219,7 @@ function _fpSiteHistory(site, modoFiltro){
     }
     var pctRow = fpPeriodo!=null ? fpPeriodo : fpAcum;
     var fpDeltaVsPrev = (prev && prev.pctRow!=null && pctRow!=null) ? (pctRow - prev.pctRow) : null;
-    var enriched = Object.assign({}, r, { modo:modo, fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5, pctRow:pctRow, fpDeltaVsPrev:fpDeltaVsPrev,
+    var enriched = Object.assign({}, r, { modo:modo, fpAcum:fpAcum, fpPeriodo:fpPeriodo, deltaC1:deltaC1, deltaC5:deltaC5, esInicioMes:esInicioMes, pctRow:pctRow, fpDeltaVsPrev:fpDeltaVsPrev,
       mesIncKwh:mesIncKwh, mesIncKvarh:mesIncKvarh, mesDias:mesDias, mesKvarhDia:mesKvarhDia, mesKvarhDiaDelta:mesKvarhDiaDelta });
     out.push(enriched);
     prevByModo[modo] = enriched;
@@ -32631,7 +32633,7 @@ window._fpRenderHist = function(){
       ? '<span style="color:var(--t3)">lectura directa</span>'
       : r.modo==='mensual'
         ? _fpMesIncrementoHtml(r, false)
-        : ((r.deltaC1==null) ? '<span style="color:var(--t3)">— primera lectura</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh'));
+        : ((r.deltaC1==null) ? '<span style="color:var(--t3)">'+(r.esInicioMes?'— inicio del mes':'— primera lectura')+'</span>' : ('Δ'+_fpFmtNum(r.deltaC1)+' kWh / Δ'+_fpFmtNum(r.deltaC5)+' kVArh'));
     return '<tr style="border-bottom:1px solid var(--b1)">'+
       '<td style="padding:8px 10px;font-weight:700;font-family:var(--body);font-size:11.5px;color:var(--text)">'+_fpEsc(r.sitio)+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--t2)">'+_fpFechaCorta(r.fecha)+'</td>'+
@@ -32703,13 +32705,52 @@ function _fpMonthlyGroupsMensual(hist){
       trendVsFirst: inMonth.length>1 ? (last.fpAcum-first.fpAcum) : null, note:'' };
   });
 }
+/* ══ INICIO Y CIERRE DE CADA MES (código acumulado) ══
+   Regla del equipo: cada mes es un registro independiente, con su propio inicio y su propio final.
+   · INICIO del mes = la lectura MÁS CERCANA al día 1: la última lectura antes del mes (p.ej. 31/07
+     para agosto) o la primera dentro del mes, la que quede más cerca del día 1.
+   · CIERRE del mes = la lectura MÁS CERCANA al último día: la última dentro del mes o la primera
+     del mes siguiente, la que quede más cerca. Si el mes sigue en curso (aún no hay lectura del mes
+     siguiente), el cierre es la lectura más reciente — el FP se va actualizando.
+   · En empate de distancia gana la lectura del propio mes.
+   FP del mes = √ con los Δ de kWh y kVArh entre ese inicio y ese cierre, nada más. */
+function _fpDayNum(fecha){
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha||''); if(!m) return null;
+  return Math.round(Date.UTC(+m[1], +m[2]-1, +m[3])/86400000);
+}
+function _fpMonthFirstDayNum(key){ var p=key.split('-'); return Math.round(Date.UTC(+p[0], +p[1]-1, 1)/86400000); }
+function _fpMonthLastDayNum(key){ var p=key.split('-'); return Math.round(Date.UTC(+p[0], +p[1], 0)/86400000); }
+/* sorted = lecturas de un sitio+modo ordenadas por fecha */
+function _fpPickMonthOpen(sorted, key){
+  var prevOut=null, firstIn=null;
+  for(var i=0;i<sorted.length;i++){
+    var k=_fpMonthKey(sorted[i].fecha); if(!k) continue;
+    if(k<key) prevOut=sorted[i];
+    else if(k===key && !firstIn) firstIn=sorted[i];
+  }
+  if(!prevOut) return firstIn;
+  if(!firstIn) return prevOut;
+  var d0=_fpMonthFirstDayNum(key);
+  var distOut=d0-_fpDayNum(prevOut.fecha), distIn=_fpDayNum(firstIn.fecha)-d0;
+  return distOut<distIn ? prevOut : firstIn;
+}
+function _fpPickMonthClose(sorted, key){
+  var lastIn=null, nextOut=null;
+  for(var i=0;i<sorted.length;i++){
+    var k=_fpMonthKey(sorted[i].fecha); if(!k) continue;
+    if(k===key) lastIn=sorted[i];
+    else if(k>key && !nextOut) nextOut=sorted[i];
+  }
+  if(!nextOut) return lastIn;
+  if(!lastIn) return nextOut;
+  var dN=_fpMonthLastDayNum(key);
+  var distIn=dN-_fpDayNum(lastIn.fecha), distOut=_fpDayNum(nextOut.fecha)-dN;
+  return distOut<distIn ? nextOut : lastIn;
+}
 /* Calcula el FP de cada mes calendario. Tres modos, según el tipo de lectura (ver FP_MODO_LABELS):
-   'acumulado' (T4) — MISMA lógica que la hoja de cálculo del equipo: FP del mes = diferencia de
-   Código 1 y Código 5 entre la ÚLTIMA lectura de ese mes (o la más reciente disponible, si el mes
-   sigue en curso) y la ÚLTIMA lectura del mes anterior — "cuánto avanzamos código contra código
-   durante el mes". Encadenado: la apertura de cada mes es siempre el cierre del mes anterior. Un
-   mes sin lecturas propias se salta — su periodo se acumula en el siguiente mes que sí tenga
-   datos. El primer mes con datos de un sitio queda marcado "sin datos suficientes".
+   'acumulado' (T3/T4) — FP del mes = diferencia de kWh (Código 1) y kVArh (Código 5) entre la
+   lectura más cercana al INICIO del mes y la más cercana al FINAL del mes (o la más reciente si
+   el mes sigue en curso). Ver _fpPickMonthOpen / _fpPickMonthClose arriba.
    'directo' (T3) — ver _fpMonthlyGroupsDirecto: promedio simple de los FP ya calculados de cada
    lectura del mes, destacando la mejor lectura.
    'mensual' (T3, sumatoria) — ver _fpMonthlyGroupsMensual: el FP del mes es el de la última
@@ -32724,14 +32765,12 @@ function _fpMonthlyGroups(site, modoOverride){
   hist.forEach(function(h){ var k=_fpMonthKey(h.fecha); if(k) monthsWithData[k]=true; });
   var monthKeys = Object.keys(monthsWithData).sort();
   var groups = [];
-  var prevClose = null;
   monthKeys.forEach(function(key){
-    var inMonth = hist.filter(function(h){ return _fpMonthKey(h.fecha)===key; });
-    var closeReading = inMonth[inMonth.length-1];
-    var openReading = prevClose;
+    var openReading = _fpPickMonthOpen(hist, key);
+    var closeReading = _fpPickMonthClose(hist, key);
     var g = { key:key, label:_fpMonthLabel(key), modo:'acumulado', openReading:openReading, closeReading:closeReading,
       deltaC1:null, deltaC5:null, fp:null, note:'' };
-    if(openReading && closeReading && openReading.id!==closeReading.id){
+    if(openReading && closeReading && openReading.id!==closeReading.id && (openReading.fecha||'') < (closeReading.fecha||'')){
       var d1 = closeReading.codigo1 - openReading.codigo1;
       var d5 = closeReading.codigo5 - openReading.codigo5;
       if(d1>=0 && d5>=0 && (d1>0||d5>0)){
@@ -32740,10 +32779,9 @@ function _fpMonthlyGroups(site, modoOverride){
         g.note='⚠️ Los códigos son menores a la lectura anterior — probable reinicio del medidor.';
       }
     } else {
-      g.note='Sin lectura del mes anterior con la cual comparar (primeros datos del sitio).';
+      g.note='Solo hay una lectura para este mes — falta una lectura de cierre para calcular el FP.';
     }
     groups.push(g);
-    prevClose = closeReading;
   });
   return groups;
 }
@@ -33000,13 +33038,25 @@ window._fpLiveCheck = function(){
     var hist = _fpSiteHistory(site, 'acumulado'); /* solo lecturas 'acumulado' de este sitio, para no comparar contra una instantánea */
     var editId = document.getElementById('fp-edit-id').value;
     var prevList = hist.filter(function(h){ return h.id!==editId; });
-    var prev = prevList.length ? prevList[prevList.length-1] : null;
-    var fpPeriodo=null, deltaMsg='Esta será la primera lectura del sitio — no hay FP de periodo.';
+    var fechaNueva = document.getElementById('fp-in-fecha').value;
+    var keyNueva = _fpMonthKey(fechaNueva);
+    var prev = null;
+    if(keyNueva){
+      var conNueva = prevList.concat([{ id:'__nueva__', fecha:fechaNueva, codigo1:c1, codigo5:c5 }])
+        .sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); });
+      prev = _fpPickMonthOpen(conNueva, keyNueva);
+      if(prev && prev.id==='__nueva__') prev = null;
+    } else {
+      prev = prevList.length ? prevList[prevList.length-1] : null;
+    }
+    var fpPeriodo=null, deltaMsg = prevList.length
+      ? 'Esta lectura será el inicio del mes — el FP del mes se calcula a partir de la siguiente lectura.'
+      : 'Esta será la primera lectura del sitio — no hay FP de periodo.';
     if(prev){
       var d1=c1-prev.codigo1, d5=c5-prev.codigo5;
       if(d1>=0 && d5>=0 && (d1>0||d5>0)){
         fpPeriodo = _fpCalc(d1,d5);
-        deltaMsg = 'Contra la lectura del '+_fpFechaCorta(prev.fecha)+': Δ'+_fpFmtNum(d1)+' kWh / Δ'+_fpFmtNum(d5)+' kVArh';
+        deltaMsg = 'Contra el inicio del mes ('+_fpFechaCorta(prev.fecha)+'): Δ'+_fpFmtNum(d1)+' kWh / Δ'+_fpFmtNum(d5)+' kVArh';
       } else {
         deltaMsg = '⚠️ Los códigos son menores a la lectura anterior ('+_fpFechaCorta(prev.fecha)+') — probable reinicio del medidor, no se calcula FP de periodo.';
       }
@@ -33357,7 +33407,7 @@ function _fpReportDeltaChip(delta){
 function _fpReportDeltaColHtml(h){
   if(h.modo==='mensual') return _fpMesIncrementoHtml(h, true);
   if(h.modo==='acumulado'){
-    if(h.deltaC1==null) return '<span style="color:#9ca3af;font-size:9.5px">— primera lectura</span>';
+    if(h.deltaC1==null) return '<span style="color:#9ca3af;font-size:9.5px">'+(h.esInicioMes?'— inicio del mes':'— primera lectura')+'</span>';
     return '<div style="color:#111827">Δ +'+_fpFmtNum(h.deltaC1)+' kWh</div><div style="color:#111827">Δ +'+_fpFmtNum(h.deltaC5)+' kVArh</div>';
   }
   return '<span style="color:#9ca3af;font-size:9.5px">—</span>';
@@ -33465,11 +33515,8 @@ window._fpRenderReportPreview = function(){
   function _fpReportPrependMonthAnchor(fullList, filteredList, modo){
     if(!mesesSel || !mesesSel.length || modo!=='acumulado' || !filteredList.length) return filteredList;
     var minKey = mesesSel.slice().sort()[0];
-    var candidate = null;
-    for(var ai=0; ai<fullList.length; ai++){
-      var k = _fpMonthKey(fullList[ai].fecha);
-      if(k && k < minKey) candidate = fullList[ai];
-    }
+    var open = _fpPickMonthOpen(fullList.filter(function(h){ return _fpReadingModo(h)==='acumulado'; }), minKey);
+    var candidate = open ? (fullList.filter(function(h){ return h.id===open.id; })[0]||null) : null;
     if(!candidate) return filteredList;
     if(filteredList.some(function(h){ return h.id===candidate.id; })) return filteredList;
     var tagged = Object.assign({}, candidate, { _fpAnchorRef:true });
