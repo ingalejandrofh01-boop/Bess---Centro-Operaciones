@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1790132000_bess_v105_lote_ocr_todos_los_sitios';
+const DEPLOY_TS  = '1790136000_bess_v106_lote_columnas_jpg';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

@@ -13716,12 +13716,12 @@ function renderBessUnitsSidebar() {
           <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">⚡ Mediciones del evento</div>
           <div class="input-row" style="margin-bottom:6px">
             <div class="form-group" style="margin:0"><label>Mains (kW)</label>
-              <input type="number" value="${u.mains||''}" placeholder="kW" oninput="updateUnit(${u.id},'mains',this.value)"></div>
+              <input type="number" value="${(u.mains!==''&&u.mains!=null)?u.mains:''}" placeholder="kW" oninput="updateUnit(${u.id},'mains',this.value)"></div>
             <div class="form-group" style="margin:0"><label>BESS (kW)</label>
-              <input type="number" value="${u.bessKw||''}" placeholder="kW" oninput="updateUnit(${u.id},'bessKw',this.value)"></div>
+              <input type="number" value="${(u.bessKw!==''&&u.bessKw!=null)?u.bessKw:''}" placeholder="kW" oninput="updateUnit(${u.id},'bessKw',this.value)"></div>
           </div>
           <div class="form-group" style="margin:0;margin-bottom:6px"><label>Carga / Consumo (kW)</label>
-            <input type="number" value="${u.load||''}" placeholder="kW" oninput="updateUnit(${u.id},'load',this.value)"></div>
+            <input type="number" value="${(u.load!==''&&u.load!=null)?u.load:''}" placeholder="kW" oninput="updateUnit(${u.id},'load',this.value)"></div>
 
           <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--sky);letter-spacing:2px;text-transform:uppercase;margin:8px 0 6px;border-top:1px solid var(--border2);padding-top:8px">🔋 Estado de carga / salud</div>
           <div class="input-row" style="margin-bottom:6px">
@@ -29668,6 +29668,10 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     }
     /* modo 11 = "texto disperso": lee los números mucho mejor que el automático */
     var data = (await loteOcr(c.toDataURL('image/png'), 'eng', { logger:function(){} }, 11)).data;
+    /* v106: método por columnas (ancla = cada "kW"); si no aplica, el emparejado por renglones */
+    var colRes = null;
+    try{ colRes = await loteReadByColumns(img, sx, sy, k, data.words||[]); }catch(e){ console.warn('[Lote] columnas falló:', e && e.message); }
+    if(colRes && colRes.found) return colRes;
     var res = loteParseLegendWords(data.words||[]);
     /* números dudosos ("08"): se recorta SOLO ese número, se amplía 2× más y se lee como una
        sola línea con dígitos únicamente */
@@ -29715,6 +29719,120 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     x2.putImageData(id2,0,0);
     return ((await loteOcr(c2.toDataURL('image/png'), 'eng', { logger:function(){} }, 'digits')).data.text||'').replace(/\s+/g,'');
   }
+  /* ══ v106 — LECTURA POR COLUMNAS ══
+     Con capturas .jpg el ruido hace que el OCR de TODA la leyenda junta confunda etiquetas y
+     dígitos (THOR: RED=903 y B1 vacío; DISEKO: 2908). Lo único que se lee de forma confiable es
+     la unidad "kW", así que cada "kW" es un ancla y, por separado:
+       · el NÚMERO = lo que está justo a la izquierda del kW → se relee del original, ampliado,
+         como una sola línea y solo con dígitos;
+       · la ETIQUETA = el texto justo ARRIBA de ese número, dentro de su columna (entre el kW de
+         la columna anterior y el número de la siguiente) → se lee aparte y se clasifica.
+     Todo en coordenadas del lienzo de la pasada (escala k, origen sx,sy de la imagen). */
+  async function _loteOcrOriginal(img, ox, oy, ow, oh, psm, targetH, wantData){
+    ox = Math.max(0, ox); oy = Math.max(0, oy);
+    ow = Math.min(img.naturalWidth-ox, ow); oh = Math.min(img.naturalHeight-oy, oh);
+    if(ow < 4 || oh < 4) return '';
+    var z = Math.max(2, Math.min(8, (targetH||90)/Math.max(1,oh)));
+    var c2 = document.createElement('canvas'); c2.width = Math.round(ow*z); c2.height = Math.round(oh*z);
+    var x2 = c2.getContext('2d', { willReadFrequently:true }); x2.imageSmoothingQuality='high';
+    x2.drawImage(img, ox, oy, ow, oh, 0, 0, c2.width, c2.height);
+    var id2 = x2.getImageData(0,0,c2.width,c2.height), d2 = id2.data, lum = 0;
+    for(var q=0;q<d2.length;q+=4) lum += (d2[q]+d2[q+1]+d2[q+2])/3;
+    var darkBg = (lum/(d2.length/4)) < 128;
+    for(var q2=0;q2<d2.length;q2+=4){
+      var mx = Math.max(d2[q2],d2[q2+1],d2[q2+2]), mn = Math.min(d2[q2],d2[q2+1],d2[q2+2]);
+      var vv = darkBg ? 255-mx : mn;
+      d2[q2]=d2[q2+1]=d2[q2+2]=vv;
+    }
+    x2.putImageData(id2,0,0);
+    var dd = (await loteOcr(c2.toDataURL('image/png'), 'eng', { logger:function(){} }, psm)).data;
+    if(wantData){ dd._z = z; dd._ox = ox; dd._oy = oy; return dd; }
+    return dd.text || '';
+  }
+  async function loteReadByColumns(img, sx, sy, k, rawWords){
+    var words = rawWords.filter(function(w){ return w && w.bbox && String(w.text||'').trim(); })
+      .map(function(w){ return { text:String(w.text).trim(), b:w.bbox }; });
+    var units = words.filter(function(w){ return _loteIsUnit(w.text); });
+    if(!units.length) return null;
+    var rows = _loteGroupRows(units).sort(function(a,b){ return a.cy-b.cy; });
+    var toOx = function(x){ return sx + x/k; }, toOy = function(y){ return sy + y/k; };
+    var cols = [];
+    rows.forEach(function(R, ri){
+      R.items.forEach(function(U, ui){
+        var h = Math.max(8, U.b.y1-U.b.y0), cy = (U.b.y0+U.b.y1)/2;
+        var prevU = R.items[ui-1], nextU = R.items[ui+1];
+        var leftLimit = prevU ? prevU.b.x1 + 2 : U.b.x0 - h*6;
+        /* número: la palabra numérica más cercana a la izquierda del kW, si el OCR la vio */
+        var tok = words.filter(function(w){
+          var wcy = (w.b.y0+w.b.y1)/2;
+          return w!==U && Math.abs(wcy-cy) < h*0.8 && w.b.x1 <= U.b.x0 + 6 && w.b.x0 >= leftLimit && /\d/.test(w.text) && !/[A-Za-z]{2}/.test(w.text);
+        }).sort(function(a,b){ return b.b.x1-a.b.x1; })[0];
+        var vb = tok ? tok.b : { x0: Math.max(leftLimit, U.b.x0 - h*3.2), x1: U.b.x0 - 2, y0: U.b.y0, y1: U.b.y1 };
+        cols.push({ row:ri, U:U, h:h, vb:vb, tokText: tok ? tok.text : '', prevU:prevU, nextU:nextU });
+      });
+    });
+    /* columnas: límites horizontales para buscar la etiqueta */
+    for(var i=0;i<cols.length;i++){
+      var C = cols[i];
+      var nextC = cols.filter(function(o){ return o.row===C.row && o.U===C.nextU; })[0];
+      C.lx0 = C.prevU ? C.prevU.b.x1 + 2 : C.vb.x0 - C.h*3.5;
+      C.lx1 = nextC ? nextC.vb.x0 - 2 : C.U.b.x1 + C.h*3;
+      /* arriba: hasta 3.4 alturas, pero sin meterse en el renglón de valores de arriba */
+      var top = C.vb.y0 - C.h*3.4;
+      rows.forEach(function(R){ if(R.cy < (C.vb.y0 - C.h*0.5)){ var rb = Math.max.apply(null, R.items.map(function(u){ return u.b.y1; })); if(rb + 2 > top) top = rb + 2; } });
+      C.ly0 = top; C.ly1 = C.vb.y0 - C.h*0.1;
+    }
+    var labels = [];
+    for(var j=0;j<cols.length;j++){
+      var K = cols[j];
+      /* número (con margen izquierdo para alcanzar el signo "−") */
+      var pad = K.h*0.3, pl = K.h*0.9;
+      /* voto entre 3 lecturas: dos relecturas del original a distinta escala + la del OCR general.
+         Con .jpg un 9 puede salir 3 en una lectura, rara vez en dos. */
+      var reads = [];
+      for(var zi=0; zi<2; zi++){
+        var tv = await _loteOcrOriginal(img, toOx(K.vb.x0 - pl), toOy(K.vb.y0 - pad), (K.vb.x1 - K.vb.x0 + pl + pad)/k, (K.vb.y1 - K.vb.y0 + pad*2)/k, 'digits', zi ? 60 : 96);
+        tv = tv.replace(/\s+/g,'').replace(/^[.,]+|[.,]+$/g,'');
+        var nv = _loteNumber(tv); if(typeof nv==='number' && !isNaN(nv)) reads.push(nv);
+      }
+      var vt = _loteNumber(K.tokText); if(typeof vt==='number' && !isNaN(vt)) reads.push(vt);
+      var v = null;
+      if(reads.length){
+        var cnt = {}; reads.forEach(function(r){ cnt[r] = (cnt[r]||0)+1; });
+        v = reads.slice().sort(function(a,b){ return (cnt[b]-cnt[a]) || (reads.indexOf(a)-reads.indexOf(b)); })[0];
+        /* el signo: si alguna lectura trae "−" con los mismos dígitos, es negativo */
+        if(v>0 && reads.some(function(r){ return r === -v; })) v = -v;
+      }
+      /* etiqueta */
+      var ld = await _loteOcrOriginal(img, toOx(K.lx0), toOy(K.ly0), (K.lx1 - K.lx0)/k, (K.ly1 - K.ly0)/k, 6, 140, true);
+      var tl = ld.text || '';
+      /* de las palabras de la zona, la etiqueta más cercana en horizontal al número de la columna
+         (si se coló la etiqueta de la columna vecina, queda más lejos) */
+      var vcx = toOx((K.vb.x0 + K.vb.x1)/2), lw = (ld.words||[]).filter(function(w){ return w && w.bbox && String(w.text||'').trim(); });
+      var best = null, bestD = Infinity;
+      lw.forEach(function(w, wi){
+        var nxt = lw[wi+1];
+        var cands = [{ t:w.text, b:w.bbox }];
+        if(nxt && (nxt.bbox.x0 - w.bbox.x1) < (w.bbox.y1-w.bbox.y0)*0.6) cands.push({ t:w.text + nxt.text, b:{ x0:w.bbox.x0, x1:nxt.bbox.x1 } }); /* "BE SS_02" */
+        cands.forEach(function(cd){
+          var cl = _loteClassifyLabel(cd.t, true); if(!cl) return;
+          var wx0 = ld._ox + cd.b.x0/ld._z, wx1 = ld._ox + cd.b.x1/ld._z;
+          var dist = (vcx >= wx0 - 4 && vcx <= wx1 + 4) ? 0 : Math.min(Math.abs(vcx-wx0), Math.abs(vcx-wx1));
+          if(cl.kind==='bess' && cl.index!=null) dist -= 0.5;
+          if(dist < bestD){ bestD = dist; best = cl; }
+        });
+      });
+      labels.push({ kind: best ? best.kind : null, index: best ? best.index : null, value: v, b: K.vb, text: tl.trim(), row: K.row });
+    }
+    /* columna sin etiqueta reconocible: si es la única y falta la RED (p.ej. "ROJO" ilegible), es la RED */
+    var unk = labels.filter(function(L){ return !L.kind; });
+    if(unk.length===1 && !labels.some(function(L){ return L.kind==='red'; })) unk[0].kind = 'red';
+    var known = labels.filter(function(L){ return L.kind && L.kind!=='soc'; });
+    if(!known.length) return null;
+    var out = _loteLegendFromLabels(known, { labels:'' });
+    out.labels = 'cols: ' + known.map(function(L){ return L.kind+(L.index?L.index:'')+'='+(L.value==null?'?':L.value); }).join(' ');
+    return out;
+  }
   function _loteLegendComplete(o){
     return o && o.red!=null && o.carga!=null && o.bessParts.length>0 && o.bessParts.every(function(v){ return v!=null; });
   }
@@ -29727,6 +29845,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     try{ b = await _loteLegendPass(img, 'dark'); }catch(e){}
     if(!b || !b.found) return a;
     if(!a || !a.found) return b;
+    if(_loteLegendComplete(b)) return b;
     if(a.red==null) a.red = b.red;
     if(a.carga==null) a.carga = b.carga;
     if(!a.bessParts.length) a.bessParts = b.bessParts.slice();
