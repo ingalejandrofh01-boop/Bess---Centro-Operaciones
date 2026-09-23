@@ -29190,6 +29190,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
 .lote-badge.pub{background:rgba(26,63,204,.14);color:var(--accent)}
 .lote-badge.err{background:rgba(220,38,38,.14);color:#dc2626}
 .lote-cand-hint{font-size:9.5px;color:var(--t3);margin-top:2px}
+.lote-crop-toggle{display:block;margin-top:3px;font-family:var(--mono);font-size:8.5px;padding:1px 5px;border-radius:5px;border:1px solid var(--b1);background:var(--s1);color:var(--t3);cursor:pointer;white-space:nowrap}
 .lote-cand-hint button{background:none;border:none;color:var(--sky);cursor:pointer;font-size:9.5px;padding:0;margin-right:6px;text-decoration:underline}
 /* El botón "Publicar todo" vivía al final del flujo normal del documento — con más de un puñado
    de filas quedaba varias pantallas abajo y, como #lote-app no tenía su propio scroll (dependía
@@ -29275,6 +29276,130 @@ table.lote-table tr.lote-row-published{opacity:.55}
     });
   }
   window._loteCropByPercent = loteCropByPercent;
+
+  /* ══════════════════════════════════════════════════════════════
+     v101 — RECORTE AUTOMÁTICO DEL NAVEGADOR + SITIO POR URL
+     Las capturas suelen ser de pantalla completa: barra de Chrome (pestañas,
+     dirección, marcadores), panel lateral de pestañas y barra de tareas de
+     Windows. Eso (1) se veía mal en la bitácora y (2) confundía al OCR del
+     sitio — p.ej. el marcador "LG" de la barra de marcadores hacía que TODO
+     saliera como LG. Ahora:
+       1. Se lee con OCR la franja superior buscando la dirección IP:puerto del
+          HMI (p.ej. 100.96.1.226:7000 → T4). Esa IP decide el sitio.
+       2. Si se encontró la barra de dirección, se busca el borde donde empieza
+          la página (debajo de la barra de marcadores), el borde del panel
+          lateral de pestañas y el borde de la barra de tareas, y se recorta a
+          solo la pantalla del SCADA. Si la captura ya venía recortada (no hay
+          barra de dirección) NO se toca.
+     ══════════════════════════════════════════════════════════════ */
+  /* IP:puerto de cada HMI → sitio(s) del catálogo maestro. Si un HMI controla
+     varios BESS (p.ej. T4 → B1/B2/B3) se ofrecen todos para que se elija uno. */
+  var LOTE_IP_SITES = [
+    ['100.96.1.146:7000',['Almacén General']], ['100.96.3.146:7000',['Alpha']], ['100.96.4.82:7000',['Alysa']],
+    ['100.96.5.114:7000',['Atotonilco']], ['100.96.3.18:7000',['BHS']], ['100.96.3.226:7000',['BIDASOA B1','BIDASOA B2']],
+    ['100.96.2.210:6000',['Bocar']], ['100.96.3.194:7000',['Brom']], ['100.96.5.2:7000',['Park Royal CBE']],
+    ['100.96.1.34:7000',['Chihuahua']], ['100.96.1.130:7000',['Comedor']], ['100.96.4.242:7000',['Park Royal Cozumel']],
+    ['100.96.5.130:7000',['DESA B1','DESA B2']], ['100.96.2.98:7000',['DISEKO']], ['100.96.1.114:7000',['Durango']],
+    ['100.96.1.18:7000',['FBO']], ['100.96.5.82:7000',['Fisfiber']], ['100.96.2.82:5900',['FM Boca del Río']],
+    ['100.96.2.66:7000',['HUX 01']], ['100.96.2.34:7000',['HUX 02']], ['100.96.1.66:5900',['IPASA 1','IPASA 2','IPASA 3','IPASA 4']],
+    ['100.96.4.210:7010',['LG']], ['100.96.4.178:7000',['Park Royal Luna']], ['100.96.1.242:7000',['Minatitlán']],
+    ['100.96.5.18:7000',['Plastiexports 1 B1','Plastiexports 1 B2']], ['100.96.5.34:7000',['Plastiexports 3 B1','Plastiexports 3 B2']],
+    ['100.96.4.66:7000',['PTAR']], ['100.96.2.246:7000',['RegioPet 1','RegioPet 2','RegioPet 3']], ['100.96.4.2:7000',['Resideo']],
+    ['100.96.4.162:7000',['Park Royal Sol']], ['100.96.3.242:7000',['Tejidos y Texturizados']], ['100.96.1.178:7000',['T2 B1','T2 B2']],
+    ['100.96.1.226:7000',['T4 B1','T4 B2','T4 B3']], ['100.96.4.130:7000',['THOR B1','THOR B2']], ['100.96.2.50:7000',['Torreón']],
+    ['100.96.2.2:7000',['TOTIS']], ['100.96.5.162:7000',['TUGAL B1','TUGAL B2']], ['100.96.5.66:7000',['Tuk B1','Tuk B2']],
+    ['100.96.5.98:7000',['Park Royal Vallarta']], ['100.96.2.146:7000',['Veracruz']], ['100.96.4.18:7000',['Vesta']],
+    ['100.96.4.146:7000',['Vitrogenera']], ['100.96.2.162:7000',['Zacatecas']], ['100.96.1.210:7000',['Zihuatanejo']]
+  ];
+  function _loteSitesForHost(ip, port){
+    var master = (window.MASTER_SITES_DB||[]).map(function(m){ return m.sitio; });
+    var keep = function(list){ return list.filter(function(n){ return master.indexOf(n)>-1; }); };
+    var i, exact = ip + (port ? ':'+port : '');
+    for(i=0;i<LOTE_IP_SITES.length;i++) if(LOTE_IP_SITES[i][0]===exact) return keep(LOTE_IP_SITES[i][1]);
+    var byIp = LOTE_IP_SITES.filter(function(e){ return e[0].split(':')[0]===ip; });
+    if(byIp.length===1) return keep(byIp[0][1]);
+    /* Sitios que alguien agregó a mano en el panel de auto-login (nombre + IP:puerto) */
+    try{
+      var prefs = JSON.parse(localStorage.getItem('skysenseAutoLoginPrefs_v1')||'null');
+      var saved = (prefs && prefs.sites) || [];
+      for(i=0;i<saved.length;i++){
+        var h = String(saved[i].host||'').replace(/^https?:\/\//,'').split('/')[0];
+        if(h===exact || (!port && h.split(':')[0]===ip)){
+          var ranked = _loteRankSites(saved[i].name);
+          if(ranked[0] && ranked[0].score <= LOTE_GOOD_THRESHOLD) return [ranked[0].name];
+        }
+      }
+    }catch(e){}
+    return [];
+  }
+  function _loteLoadImg(dataUrl){
+    return new Promise(function(res, rej){
+      var img = new Image();
+      img.onload = function(){ res(img); };
+      img.onerror = function(){ rej(new Error('No se pudo cargar la imagen')); };
+      img.src = dataUrl;
+    });
+  }
+  /* OCR de la franja superior (17% de alto) buscando la URL del HMI. Devuelve
+     { ip, port, url, lineBottom } (lineBottom en px de la imagen original) o null. */
+  async function _loteFindUrl(img){
+    var W = img.naturalWidth, H = img.naturalHeight, sh = Math.round(H*0.17), k = 2;
+    var c = document.createElement('canvas'); c.width = W*k; c.height = sh*k;
+    var ctx = c.getContext('2d'); ctx.filter = 'grayscale(1) contrast(1.4)';
+    ctx.drawImage(img, 0, 0, W, sh, 0, 0, W*k, sh*k);
+    var data = (await Tesseract.recognize(c.toDataURL('image/png'), 'eng', { logger:function(){} })).data;
+    var lines = (data.lines && data.lines.length) ? data.lines : [{ text:data.text||'', bbox:null }];
+    var re = /(\d{1,3})\s?[.,]\s?(\d{1,3})\s?[.,]\s?(\d{1,3})\s?[.,]\s?(\d{1,3})(?:\s?[:;]\s?(\d{2,5}))?/;
+    for(var i=0;i<lines.length;i++){
+      var t = String(lines[i].text||'').replace(/(\d)[lI|](?=\d|[.,:])/g,'$11').replace(/(\d)[oO](?=\d|[.,:])/g,'$10');
+      var m = re.exec(t);
+      if(!m) continue;
+      var parts = [m[1],m[2],m[3],m[4]].map(Number);
+      if(parts.some(function(p){ return p>255; })) continue;
+      var bb = lines[i].bbox;
+      return { ip: parts.join('.'), port: m[5]||'', url: t.trim().slice(m.index, m.index+120),
+        lineBottom: bb ? Math.round(bb.y1/k) : Math.round(sh*0.45) };
+    }
+    return null;
+  }
+  /* Busca los bordes rectos largos que separan la página de la interfaz del
+     navegador/sistema. Trabaja en una copia reducida (≤960 px de ancho). */
+  function _loteDetectContentRect(img, urlBottom){
+    var W0 = img.naturalWidth, H0 = img.naturalHeight, s = Math.min(1, 960/W0);
+    var W = Math.round(W0*s), H = Math.round(H0*s);
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, W, H);
+    var d = ctx.getImageData(0, 0, W, H).data, T = 36;
+    function diff(i, j){ return Math.abs(d[i]-d[j]) + Math.abs(d[i+1]-d[j+1]) + Math.abs(d[i+2]-d[j+2]); }
+    /* fracción de columnas [xa,xb) con borde entre la fila y-1 y y */
+    function rowEdge(y, xa, xb){ var n=0; for(var x=xa;x<xb;x++){ var i=(y*W+x)*4; if(diff(i, i-W*4)>T) n++; } return n/(xb-xa); }
+    function colEdge(x, ya, yb){ var n=0; for(var y=ya;y<yb;y++){ var i=(y*W+x)*4; if(diff(i, i-4)>T) n++; } return n/Math.max(1,yb-ya); }
+    var ub = Math.round(urlBottom*s), top = null, y, x;
+    for(y=ub+1; y<Math.min(H-1, ub+Math.round(H*0.09)); y++) if(rowEdge(y, Math.round(W*0.35), W) >= 0.85) top = y;
+    if(top==null) return null;
+    var bottom = H;
+    for(y=Math.round(H*0.88); y<Math.round(H*0.975); y++) if(rowEdge(y, 0, W) >= 0.97){ bottom = y; break; }
+    var left = 0, right = W;
+    for(x=1; x<Math.round(W*0.3); x++) if(colEdge(x, top+3, bottom-3) >= 0.9) left = x;
+    for(x=W-2; x>Math.round(W*0.7); x--) if(colEdge(x, top+3, bottom-3) >= 0.95){ right = x; break; }
+    if((right-left) < W*0.5 || (bottom-top) < H*0.5) return null;
+    return { x: Math.round(left/s), y: Math.round(top/s), w: Math.round((right-left)/s), h: Math.round((bottom-top)/s) };
+  }
+  async function loteAutoCrop(dataUrl){
+    var out = { dataUrl: dataUrl, cropped: false, host: null };
+    var img = await _loteLoadImg(dataUrl);
+    var host = null;
+    try{ host = await _loteFindUrl(img); }catch(e){ console.warn('[Lote] OCR de URL falló:', e && e.message); }
+    if(!host) return out;
+    out.host = host;
+    var r = _loteDetectContentRect(img, host.lineBottom);
+    if(!r) return out;
+    var c = document.createElement('canvas'); c.width = r.w; c.height = r.h;
+    c.getContext('2d').drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    out.dataUrl = c.toDataURL('image/png'); out.cropped = true;
+    return out;
+  }
+  window._loteAutoCrop = loteAutoCrop;
 
   /* ══════════════════════════════════════════════════════════════
      PARSEO TOLERANTE DE LA TABLITA DE LEYENDA (SOC/CARGA/RED/BESS)
@@ -29399,6 +29524,10 @@ table.lote-table tr.lote-row-published{opacity:.55}
 
   async function loteBuildRow(filename, dataUrl){
     var legendText = '', bannerText = '';
+    /* v101 — primero se quita la interfaz del navegador y se lee la URL (ver loteAutoCrop) */
+    var originalDataUrl = dataUrl, autoCrop = { cropped:false, host:null };
+    try{ autoCrop = await loteAutoCrop(dataUrl); dataUrl = autoCrop.dataUrl; }
+    catch(e){ console.warn('[Lote] recorte automático falló:', e && e.message); }
     try{
       var legendCrop = await loteCropByPercent(dataUrl, LOTE_LEGEND_REGION);
       legendText = (await Tesseract.recognize(legendCrop, 'eng', { logger:function(){} })).data.text;
@@ -29410,6 +29539,10 @@ table.lote-table tr.lote-row-published{opacity:.55}
 
     var parsed = loteParseLegend(legendText);
     var match = loteMatchSite(bannerText, filename);
+    /* La URL del HMI manda sobre el OCR del banner y el nombre de archivo */
+    var hostSites = autoCrop.host ? _loteSitesForHost(autoCrop.host.ip, autoCrop.host.port) : [];
+    if(hostSites.length===1) match = { kind:'match', site: hostSites[0] };
+    else if(hostSites.length>1) match = { kind:'ambiguous', candidates: hostSites };
 
     /* ── Detección automática de TIPO (Descarga/Carga) ──
        Confirmado con el usuario con ejemplos reales: BESS positivo (+) =
@@ -29433,6 +29566,9 @@ table.lote-table tr.lote-row-published{opacity:.55}
     _loteIdSeq++;
     return {
       id: _loteIdSeq, filename: filename, fullDataUrl: dataUrl,
+      originalDataUrl: originalDataUrl, autoCropped: autoCrop.cropped, usingOriginal: false,
+      hostIp: autoCrop.host ? (autoCrop.host.ip + (autoCrop.host.port ? ':'+autoCrop.host.port : '')) : '',
+      hostMatched: hostSites.length>0,
       legendText: legendText, bannerText: bannerText,
       carga: cargaVal, red: redVal, bess: bessVal,
       tipo: tipoVal, tipoAuto: tipoAuto, possibleNoComm: possibleNoComm,
@@ -29510,6 +29646,9 @@ table.lote-table tr.lote-row-published{opacity:.55}
       } else if(row.matchKind==='none' && !row.siteValue){
         candHint = '<div class="lote-cand-hint">Sin sugerencia — elige el sitio a mano.</div>';
       }
+      if(row.hostIp){
+        candHint += '<div class="lote-cand-hint">🌐 '+(row.hostMatched ? 'Por URL: ' : 'URL sin sitio registrado: ')+_esc(row.hostIp)+'</div>';
+      }
 
       var tipoHint = !row.tipoAuto ? '<div class="lote-cand-hint">No se detectó BESS — confirma el tipo a mano.</div>' : '';
       if(row.possibleNoComm) tipoHint += '<div class="lote-nocomm-hint">⚠ Sin datos legibles — ¿sitio sin comunicación?</div>';
@@ -29520,7 +29659,8 @@ table.lote-table tr.lote-row-published{opacity:.55}
       '</select>'+tipoHint;
 
       return '<tr class="'+rowCls+'" data-row-id="'+row.id+'">'+
-        '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'">' : '—')+'</td>'+
+        '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'">'+
+          (row.autoCropped && !row.published ? '<button type="button" class="lote-crop-toggle" title="La captura se recortó sola para quitar Chrome y la barra de tareas" onclick="window._loteToggleCrop('+row.id+')">'+(row.usingOriginal?'↺ original · recortar':'✂ recortada · ver original')+'</button>' : '') : '—')+'</td>'+
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:9.5px;color:var(--t3)" title="'+_esc(row.filename)+'">'+_esc(row.filename)+'</td>'+
         '<td>'+tipoSelect+'</td>'+
         '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
@@ -29534,6 +29674,14 @@ table.lote-table tr.lote-row-published{opacity:.55}
     }).join('');
   }
   window._loteRenderTable = loteRenderTable;
+  /* Alterna entre la captura recortada y la original. Lo que se publica es lo que se ve. */
+  window._loteToggleCrop = function(id){
+    var row = _loteRows.filter(function(r){ return r.id===id; })[0];
+    if(!row || !row.autoCropped || row.published) return;
+    var tmp = row.fullDataUrl; row.fullDataUrl = row.originalDataUrl; row.originalDataUrl = tmp;
+    row.usingOriginal = !row.usingOriginal;
+    loteRenderTable();
+  };
 
   /* Actualiza el dato SIN re-renderizar la tabla — usado en oninput (cada
      tecla). loteRenderTable() reconstruye TODO el tbody, así que si se
