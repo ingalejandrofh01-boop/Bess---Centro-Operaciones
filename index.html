@@ -7120,7 +7120,7 @@ if('serviceWorker' in navigator){
 
     <div class="lote-controls">
       <div class="lote-field">
-        <label>Modo por defecto (solo si no se detecta solo)</label>
+        <label>Tipo de TODO el lote</label>
         <select id="lote-mode-select" onchange="window._loteOnModeChange && window._loteOnModeChange()">
           <option value="descarga">⚡ Bitácora de Descarga</option>
           <option value="carga">🔋 Bitácora de Carga</option>
@@ -7132,7 +7132,7 @@ if('serviceWorker' in navigator){
       </div>
       <div class="lote-field" style="flex:1;min-width:200px">
         <label>&nbsp;</label>
-        <div class="lote-sub" style="margin:0">Esta fecha se aplica a TODAS las filas al publicar. El tipo (Descarga/Carga) se detecta por imagen — este selector solo se usa cuando el OCR no pudo leer el BESS.</div>
+        <div class="lote-sub" style="margin:0">La fecha y el tipo (Descarga o Carga) se aplican a TODAS las filas. Si cambias el tipo aquí, cambia en todas las filas que no se han publicado.</div>
       </div>
     </div>
 
@@ -29319,6 +29319,23 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
      porque cortar de más (perder un dígito) es peor que incluir un poco
      de fondo extra (el OCR tolera mejor el ruido de fondo que un valor
      truncado — ver limitación documentada arriba). ══════════════════ */
+  /* v104 — UN solo motor de OCR reutilizado para todo el lote (antes se creaba y destruía uno
+     por cada lectura, 4 por imagen: con 40 capturas eran 160 arranques del motor). Si el worker
+     falla por cualquier motivo se regresa al método anterior. */
+  var _loteWorkers = {};
+  function loteOcr(img, lang, opts, psm){
+    var key = psm ? String(psm) : 'auto';
+    if(typeof Tesseract.createWorker !== 'function') return Tesseract.recognize(img, lang, opts);
+    if(!_loteWorkers[key]){
+      _loteWorkers[key] = Tesseract.createWorker('eng').then(function(w){
+        if(psm==='digits') return w.setParameters({ tessedit_pageseg_mode: '7', tessedit_char_whitelist: '-0123456789.,' }).then(function(){ return w; });
+        return psm ? w.setParameters({ tessedit_pageseg_mode: String(psm) }).then(function(){ return w; }) : w;
+      }).catch(function(e){ delete _loteWorkers[key]; throw e; });
+    }
+    return _loteWorkers[key].then(function(w){ return w.recognize(img); })
+      .catch(function(e){ console.warn('[Lote] worker OCR falló, uso método simple:', e && e.message); delete _loteWorkers[key]; return Tesseract.recognize(img, lang, opts); });
+  }
+
   var LOTE_LEGEND_REGION = { x0:0.08, x1:0.55, y0:0.78, y1:0.96 };
   var LOTE_BANNER_REGION = { x0:0.15, x1:0.85, y0:0.01, y1:0.14 };
   var LOTE_GOOD_THRESHOLD = 0.34;
@@ -29426,23 +29443,87 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
      { ip, port, url, lineBottom } (lineBottom en px de la imagen original) o null. */
   async function _loteFindUrl(img){
     var W = img.naturalWidth, H = img.naturalHeight, sh = Math.round(H*0.17), k = 2;
-    var c = document.createElement('canvas'); c.width = W*k; c.height = sh*k;
-    var ctx = c.getContext('2d'); ctx.filter = 'grayscale(1) contrast(1.4)';
-    ctx.drawImage(img, 0, 0, W, sh, 0, 0, W*k, sh*k);
-    var data = (await Tesseract.recognize(c.toDataURL('image/png'), 'eng', { logger:function(){} })).data;
+    /* v105: primero SIN filtro (en Chrome claro el filtro de contraste borraba el gris del
+       ":7000" y los puntos de la IP); si no aparece, se reintenta con filtro (Chrome oscuro). */
+    /* varios intentos, del más barato al más caro: barra de dirección sola a 1× y 2×, franja
+       completa, y con filtro para Chrome oscuro. Se detiene en el primero que encuentre la IP. */
+    var tries = [
+      { x0:0.05, x1:0.80, y1:0.10, k:1, f:'none' }, { x0:0.05, x1:0.80, y1:0.10, k:2, f:'none' },
+      { x0:0, x1:1, y1:0.17, k:2, f:'none' }, { x0:0, x1:1, y1:0.17, k:2, f:'grayscale(1) contrast(1.4)' }
+    ];
+    var digitHit = null;
+    for(var ti=0; ti<tries.length; ti++){
+      var T = tries[ti], sx = Math.round(W*T.x0), sw = Math.round(W*(T.x1-T.x0)), hh = Math.round(H*T.y1);
+      var c = document.createElement('canvas'); c.width = sw*T.k; c.height = hh*T.k;
+      var ctx = c.getContext('2d'); ctx.filter = T.f;
+      ctx.drawImage(img, sx, 0, sw, hh, 0, 0, sw*T.k, hh*T.k);
+      var data = (await loteOcr(c.toDataURL('image/png'), 'eng', { logger:function(){} })).data;
+      var hit = _loteParseUrlLines(data, T.k, hh);
+      if(hit) return hit;
+      if(!digitHit) digitHit = _loteUrlByDigits(data, T.k, hh);
+    }
+    return digitHit;
+  }
+  function _loteParseUrlLines(data, k, sh){
     var lines = (data.lines && data.lines.length) ? data.lines : [{ text:data.text||'', bbox:null }];
     var re = /(\d{1,3})\s?[.,]\s?(\d{1,3})\s?[.,]\s?(\d{1,3})\s?[.,]\s?(\d{1,3})(?:\s?[:;]\s?(\d{2,5}))?/;
+    /* todas las IPs del catálogo empiezan con 100.96 — si el OCR se comió el primer punto
+       ("10096.3.194") se reconoce igual */
+    var re2 = /100\s?[.,]?\s?96\s?[.,]\s?(\d{1,3})\s?[.,]\s?(\d{1,3})(?:\s?[:;]\s?(\d{2,5}))?/;
     for(var i=0;i<lines.length;i++){
       var t = String(lines[i].text||'').replace(/(\d)[lI|](?=\d|[.,:])/g,'$11').replace(/(\d)[oO](?=\d|[.,:])/g,'$10');
-      var m = re.exec(t);
-      if(!m) continue;
-      var parts = [m[1],m[2],m[3],m[4]].map(Number);
-      if(parts.some(function(p){ return p>255; })) continue;
+      var ip = null, port = '', idx = -1, m = re2.exec(t);
+      if(m){ ip = '100.96.'+Number(m[1])+'.'+Number(m[2]); port = m[3]||''; idx = m.index; }
+      else if((m = re.exec(t))){
+        var parts = [m[1],m[2],m[3],m[4]].map(Number);
+        if(parts.some(function(p){ return p>255; })) continue;
+        ip = parts.join('.'); port = m[5]||''; idx = m.index;
+      }
+      if(!ip) continue;
+      var rest = t.slice(idx + m[0].length);
+      var pm = /^\s*\/?\s*([A-Za-z0-9_\-. ]{2,60}?)\s*\//.exec(rest); /* primer segmento de la ruta: BROM, SKYSENSE_DISEKO_V02… */
       var bb = lines[i].bbox;
-      return { ip: parts.join('.'), port: m[5]||'', url: t.trim().slice(m.index, m.index+120),
+      return { ip: ip, port: port, url: t.trim().slice(idx, idx+120), path: pm ? pm[1].trim() : '',
         lineBottom: bb ? Math.round(bb.y1/k) : Math.round(sh*0.45) };
     }
     return null;
+  }
+  /* El OCR a veces junta la IP sin puntos ("100963242"). Como todas las IPs del catálogo son
+     conocidas, se comparan solo los dígitos: 100963242 = 100.96.3.242 (sin ambigüedad). */
+  function _loteUrlByDigits(data, k, sh){
+    var lines = (data.lines && data.lines.length) ? data.lines : [{ text:data.text||'', bbox:null }];
+    for(var i=0;i<lines.length;i++){
+      var t = String(lines[i].text||'');
+      var m = /1\s?0\s?0\s?[.,]?\s?9\s?6[\d.,\s]{3,12}/.exec(t);
+      if(!m) continue;
+      var dig = m[0].replace(/\D/g,'');
+      var best = null;
+      LOTE_IP_SITES.forEach(function(e){
+        var ipd = e[0].split(':')[0].replace(/\./g,'');
+        if(dig.indexOf(ipd)===0 && (!best || ipd.length > best.len)) best = { ip:e[0].split(':')[0], len:ipd.length };
+      });
+      if(best){
+        var rest = t.slice(m.index + m[0].length);
+        var pm = /^\s*[:;]?\s*\d{0,5}\s*\/?\s*([A-Za-z0-9_\-. ]{2,60}?)\s*\//.exec(rest);
+        var bb = lines[i].bbox;
+        return { ip: best.ip, port:'', url: t.trim().slice(m.index, m.index+120), path: pm ? pm[1].trim() : '',
+          lineBottom: bb ? Math.round(bb.y1/k) : Math.round(sh*0.45) };
+      }
+    }
+    return null;
+  }
+  /* Sitio a partir del primer segmento de la ruta ("AGI_THOR_03_Mayo_2026" → THOR) */
+  function _loteSitesForPath(path){
+    if(!path) return [];
+    var toks = path.toUpperCase().split(/[_\-. ]+/).filter(function(t){ return t.length>=3 && !/^(SKYSENSE|WEB|HMI|AGI|USB|V\d+|\d+|MAYO|JUNIO|JUNE|PRUEBA\d*|EBB)$/.test(t); });
+    var best = null;
+    toks.forEach(function(tok){
+      var ranked = _loteRankSites(tok);
+      if(ranked[0] && ranked[0].score <= 0.15 && (!best || ranked[0].score < best.score)) best = ranked[0];
+    });
+    if(!best) return [];
+    var g = window.bessGroupForSite ? window.bessGroupForSite(best.name) : best.name;
+    return [g];
   }
   /* Busca los bordes rectos largos que separan la página de la interfaz del
      navegador/sistema. Trabaja en una copia reducida (≤960 px de ancho). */
@@ -29499,87 +29580,367 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
      ══════════════════════════════════════════════════════════════ */
   var LOTE_LEGEND_WIDE = { x0:0.08, x1:0.60, y0:0.62, y1:1.0 };
   function _loteLabelKind(txt){
-    var t = String(txt||'').toUpperCase().replace(/[^A-Z0-9!|]/g,'');
+    var t = String(txt||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9!|_]/g,'');
     if(!t) return null;
-    if(t.indexOf('MAIN')>-1 || t==='RED' || t==='GRID') return 'red';
-    if(/^B[E3]S{1,2}[0-9!|IL]?$/.test(t)) return 'bess';
-    if(/^C?ARGA$/.test(t) || t==='CARGAS' || t==='LOAD') return 'carga';
+    if(t.indexOf('MAIN')>-1 || /^(RED|ROJO|GRID|RE0)$/.test(t)) return 'red';
+    /* BESS, BESS1, BESS!, BESS_01, BESS_O2, BATERIA, BATTERY… (el número del BESS se toma aparte) */
+    if(/^B[E3]S{1,2}_?[0-9O!|IL]{0,2}$/.test(t) || /^BAT+ER[IY]A?S?_?[0-9]{0,2}$/.test(t) || /^BATTERY_?[0-9]{0,2}$/.test(t)) return 'bess';
+    if(/^C?ARGAS?$/.test(t) || t==='LOAD' || t==='CONSUMO') return 'carga';
     if(t==='SOC' || t==='S0C') return 'soc';
     return null;
   }
+  function _loteBessIndexFromText(txt){
+    var t = String(txt||'').toUpperCase().replace(/[^A-Z0-9!|_]/g,'');
+    var m = /(?:BESS|BES|BATERIA|BATTERY)_?([0-9O!|IL]{1,2})$/.exec(t);
+    if(!m) return null;
+    var d = m[1].replace(/O/g,'0').replace(/[!|IL]/g,'1');
+    var n = parseInt(d,10);
+    return isFinite(n) && n>0 ? n : null;
+  }
   function _loteNumber(txt){
-    var t = String(txt||'').replace(/[—–]/g,'-').replace(/[^0-9.,\-]/g,'');
-    if(!t || /:/.test(txt) || !/\d/.test(t)) return null;
+    var raw = String(txt||'').trim();
+    /* solo tokens que SON un número: "BESS1" o "13:15" no cuentan */
+    if(!raw || /[A-Za-z:]/.test(raw)) return null;
+    var t = raw.replace(/[—–−]/g,'-').replace(/[^0-9.,\-]/g,'');
+    if(!t || !/\d/.test(t)) return null;
     if(!/^-?\d{1,3}(,\d{3})*(\.\d+)?$/.test(t) && !/^-?\d+(\.\d+)?$/.test(t)) return null;
+    /* "08" en vez de "98": un cero a la izquierda es casi siempre un dígito mal leído */
+    if(/^-?0\d/.test(t)) return NaN;
     var v = parseFloat(t.replace(/,/g,''));
     return isFinite(v) ? v : null;
   }
-  async function loteReadLegendPositional(dataUrl){
-    var img = await _loteLoadImg(dataUrl), R = LOTE_LEGEND_WIDE, k = 3;
-    var W = img.naturalWidth, H = img.naturalHeight;
-    var sx = Math.round(W*R.x0), sy = Math.round(H*R.y0), sw = Math.round(W*(R.x1-R.x0)), sh = Math.round(H*(R.y1-R.y0));
-    var c = document.createElement('canvas'); c.width = sw*k; c.height = sh*k;
-    var ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw*k, sh*k);
-    var id = ctx.getImageData(0, 0, c.width, c.height), d = id.data;
-    for(var i=0;i<d.length;i+=4){
-      var m = Math.max(d[i], d[i+1], d[i+2]);
-      var v = 255 - Math.max(0, Math.min(255, (m-60)*2));
-      d[i]=d[i+1]=d[i+2]=v;
+  /* NaN = "hay un número aquí pero se leyó dudoso" (se vuelve a leer ampliado) */
+  function _loteIsNum(x){ return x!=null; }
+
+  /* Pasa el recorte a "texto negro sobre blanco" midiendo qué tan distinto es cada píxel del
+     FONDO DE SU ZONA (mediana de colores en bloques de ~40 px). Así funciona igual con números
+     de colores sobre fondo oscuro (T4, DISEKO) que con turquesa claro sobre blanco (Brom). */
+  function _lotePrepLegend(ctx, w, h, tile){
+    var id = ctx.getImageData(0, 0, w, h), d = id.data;
+    var tx = Math.ceil(w/tile), ty = Math.ceil(h/tile), bg = [];
+    function med(a){ a.sort(function(x,y){ return x-y; }); return a[a.length>>1]||0; }
+    for(var by=0; by<ty; by++){
+      for(var bx=0; bx<tx; bx++){
+        var rs=[], gs=[], bs=[], step = Math.max(1, Math.floor(tile/16));
+        for(var y=by*tile; y<Math.min(h,(by+1)*tile); y+=step){
+          for(var x=bx*tile; x<Math.min(w,(bx+1)*tile); x+=step){
+            var i=(y*w+x)*4; rs.push(d[i]); gs.push(d[i+1]); bs.push(d[i+2]);
+          }
+        }
+        bg.push([med(rs), med(gs), med(bs)]);
+      }
+    }
+    for(var yy=0; yy<h; yy++){
+      for(var xx=0; xx<w; xx++){
+        var j=(yy*w+xx)*4, b = bg[Math.floor(yy/tile)*tx + Math.floor(xx/tile)];
+        var dist = Math.abs(d[j]-b[0]) + Math.abs(d[j+1]-b[1]) + Math.abs(d[j+2]-b[2]);
+        var v = 255 - Math.max(0, Math.min(255, (dist-30)*1.6));
+        d[j]=d[j+1]=d[j+2]=v;
+      }
     }
     ctx.putImageData(id, 0, 0);
-    var data = (await Tesseract.recognize(c.toDataURL('image/png'), 'eng', { logger:function(){} })).data;
-    var words = (data.words||[]).filter(function(w){ return w && w.bbox && String(w.text||'').trim(); });
-    var labels = [], nums = [];
-    words.forEach(function(w){
-      var kind = _loteLabelKind(w.text);
-      if(kind){ labels.push({ kind:kind, b:w.bbox, text:w.text }); return; }
-      var n = _loteNumber(w.text);
-      if(n!=null) nums.push({ v:n, b:w.bbox, text:w.text });
+  }
+  function _loteGroupRows(items){
+    /* agrupa palabras en renglones por altura */
+    var rows = [];
+    items.slice().sort(function(a,b){ return (a.b.y0+a.b.y1)-(b.b.y0+b.b.y1); }).forEach(function(it){
+      var cy = (it.b.y0+it.b.y1)/2, h = Math.max(1, it.b.y1-it.b.y0);
+      var row = rows.filter(function(r){ return Math.abs(r.cy-cy) < Math.max(r.h, h)*0.6; })[0];
+      if(row){ row.items.push(it); row.cy = (row.cy*(row.items.length-1)+cy)/row.items.length; row.h = Math.max(row.h,h); }
+      else rows.push({ cy:cy, h:h, items:[it] });
     });
-    /* "BESS 2" puede salir como dos palabras: la etiqueta "BESS" y un "2" pegado a su derecha.
-       Ese dígito es el NÚMERO del BESS, no su valor — se une a la etiqueta y se descarta como dato. */
-    labels.forEach(function(L){
-      if(L.kind!=='bess') return;
-      var lh = Math.max(1, L.b.y1-L.b.y0), lcy = (L.b.y0+L.b.y1)/2;
-      for(var ni=0; ni<nums.length; ni++){
-        var N = nums[ni], ncy = (N.b.y0+N.b.y1)/2, gap = N.b.x0 - L.b.x1;
-        if(Math.abs(ncy-lcy) < lh*0.6 && gap > -3 && gap < lh*1.3 && /^\d{1,2}$/.test(String(N.text).trim()) && N.v>=1 && N.v<=20){
-          L.index = N.v; nums.splice(ni,1); break;
+    rows.forEach(function(r){ r.items.sort(function(a,b){ return a.b.x0-b.b.x0; }); r.y1 = Math.max.apply(null, r.items.map(function(i){ return i.b.y1; })); });
+    return rows;
+  }
+  async function _loteLegendPass(img, mode){
+    var R = LOTE_LEGEND_WIDE, k = 3, W = img.naturalWidth, H = img.naturalHeight;
+    var sx = Math.round(W*R.x0), sy = Math.round(H*R.y0), sw = Math.round(W*(R.x1-R.x0)), sh = Math.round(H*(R.y1-R.y0));
+    var c = document.createElement('canvas'); c.width = sw*k; c.height = sh*k;
+    var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw*k, sh*k);
+    if(mode === 'bg'){
+      _lotePrepLegend(ctx, c.width, c.height, Math.max(24, Math.round(W/34)*k));
+    } else {
+      /* texto brillante sobre fondo oscuro: canal más brillante → negro sobre blanco */
+      var id = ctx.getImageData(0, 0, c.width, c.height), d = id.data;
+      for(var i=0;i<d.length;i+=4){ var m = Math.max(d[i], d[i+1], d[i+2]); var v = 255 - Math.max(0, Math.min(255, (m-60)*2)); d[i]=d[i+1]=d[i+2]=v; }
+      ctx.putImageData(id, 0, 0);
+    }
+    /* modo 11 = "texto disperso": lee los números mucho mejor que el automático */
+    var data = (await loteOcr(c.toDataURL('image/png'), 'eng', { logger:function(){} }, 11)).data;
+    var res = loteParseLegendWords(data.words||[]);
+    /* números dudosos ("08"): se recorta SOLO ese número, se amplía 2× más y se lee como una
+       sola línea con dígitos únicamente */
+    var sus = (res._labels||[]).filter(function(L){ return L.value==null && L.susBox; });
+    if(sus.length){
+      for(var si=0; si<sus.length; si++){
+        var t2 = await _loteRereadNumber(img, sx, sy, k, sus[si].susBox, 0.4);
+        var v2 = _loteNumber(t2);
+        if(typeof v2==='number' && !isNaN(v2)) sus[si].value = v2;
+      }
+      res = _loteLegendFromLabels(res._labels, res);
+    }
+    /* signo: el "−" delgado y claro se pierde al binarizar (Tejidos: −22 salía 22). Se relee cada
+       valor positivo del original con margen a la izquierda; si aparece el mismo número con "−",
+       se toma negativo. */
+    var pos = (res._labels||[]).filter(function(L){ return L.value!=null && L.value>0 && L.numBox; });
+    for(var pi=0; pi<pos.length; pi++){
+      try{
+        var t3 = await _loteRereadNumber(img, sx, sy, k, pos[pi].numBox, 0.3, 1.1);
+        var v3 = _loteNumber(t3);
+        if(typeof v3==='number' && !isNaN(v3) && v3 === -pos[pi].value) pos[pi].value = v3;
+      }catch(e){}
+    }
+    if(pos.length) res = _loteLegendFromLabels(res._labels, res);
+    return res;
+  }
+  /* Relee UN número del original: bbox en coordenadas del lienzo de la pasada (escala k, origen sx,sy).
+     padL = margen extra a la izquierda (en alturas de texto) para alcanzar un posible signo "−". */
+  async function _loteRereadNumber(img, sx, sy, k, bx, padR, padL){
+    var ph = (bx.y1-bx.y0)/k, pad = ph*padR, pl = ph*(padL!=null ? padL : padR);
+    var ox = Math.max(0, sx + bx.x0/k - pl), oy = Math.max(0, sy + bx.y0/k - pad);
+    var ow = Math.min(img.naturalWidth-ox, (sx + bx.x1/k + pad) - ox), oh = Math.min(img.naturalHeight-oy, ph + pad*2);
+    var z = Math.max(4, Math.round(90/Math.max(1,oh)));
+    var c2 = document.createElement('canvas'); c2.width = Math.round(ow*z); c2.height = Math.round(oh*z);
+    var x2 = c2.getContext('2d', { willReadFrequently:true }); x2.imageSmoothingQuality='high';
+    x2.drawImage(img, ox, oy, ow, oh, 0, 0, c2.width, c2.height);
+    var id2 = x2.getImageData(0,0,c2.width,c2.height), d2 = id2.data, lum = 0;
+    for(var q=0;q<d2.length;q+=4) lum += (d2[q]+d2[q+1]+d2[q+2])/3;
+    var darkBg = (lum/(d2.length/4)) < 128;
+    for(var q2=0;q2<d2.length;q2+=4){
+      var mx = Math.max(d2[q2],d2[q2+1],d2[q2+2]), mn = Math.min(d2[q2],d2[q2+1],d2[q2+2]);
+      var vv = darkBg ? 255-mx : mn;   /* fondo oscuro: canal más brillante; fondo claro: el más oscuro */
+      d2[q2]=d2[q2+1]=d2[q2+2]=vv;
+    }
+    x2.putImageData(id2,0,0);
+    return ((await loteOcr(c2.toDataURL('image/png'), 'eng', { logger:function(){} }, 'digits')).data.text||'').replace(/\s+/g,'');
+  }
+  function _loteLegendComplete(o){
+    return o && o.red!=null && o.carga!=null && o.bessParts.length>0 && o.bessParts.every(function(v){ return v!=null; });
+  }
+  async function loteReadLegendPositional(dataUrl){
+    var img = await _loteLoadImg(dataUrl);
+    var a = await _loteLegendPass(img, 'bg');
+    if(_loteLegendComplete(a)) return a;
+    /* 2ª pasada con el otro preprocesado — solo RELLENA lo que faltó, nunca reemplaza */
+    var b = null;
+    try{ b = await _loteLegendPass(img, 'dark'); }catch(e){}
+    if(!b || !b.found) return a;
+    if(!a || !a.found) return b;
+    if(a.red==null) a.red = b.red;
+    if(a.carga==null) a.carga = b.carga;
+    if(!a.bessParts.length) a.bessParts = b.bessParts.slice();
+    else if(b.bessParts.length === a.bessParts.length) a.bessParts = a.bessParts.map(function(v,i){ return v!=null ? v : b.bessParts[i]; });
+    a.multi = a.bessParts.length > 1;
+    a.bess = (a.bessParts.length && a.bessParts.every(function(v){ return v!=null; })) ? Math.round(a.bessParts.reduce(function(x,v){ return x+v; },0)*100)/100 : null;
+    a.found = a.red!=null || a.carga!=null || a.bessParts.some(function(v){ return v!=null; });
+    a.labels = (a.labels||'') + ' | 2ª: ' + (b.labels||'');
+    return a;
+  }
+  /* Etiquetas conocidas (se comparan con tolerancia a errores del OCR) */
+  var LOTE_LABEL_DICT = [
+    ['red','MAINS'],['red','TOTALMAINS'],['red','RED'],['red','ROJO'],['red','GRID'],['red','PCC'],['red','CFE'],
+    ['bess','BESS'],['bess','BATERIA'],['bess','BATTERY'],
+    ['carga','CARGA'],['carga','LOAD'],['carga','CONSUMO'],['soc','SOC'],
+    /* palabras que aparecen junto a las etiquetas pero NO son etiqueta */
+    ['skip','TOTAL'],['skip','REPORTE'],['skip','EXCEL'],['skip','TENDENCIA'],['skip','INFORMES'],['skip','OFF'],['skip','ON'],['skip','APAGADO']
+  ];
+  function _loteLev(a,b){
+    var m=a.length,n=b.length; if(!m) return n; if(!n) return m;
+    var d=[],i,j; for(i=0;i<=m;i++){d[i]=[i];} for(j=0;j<=n;j++){d[0][j]=j;}
+    for(i=1;i<=m;i++){ for(j=1;j<=n;j++){ d[i][j]=Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); } }
+    return d[m][n];
+  }
+  /* "BESS_02" → {kind:'bess', index:2}; "carca" → carga; "r010" → red (ROJO); null si no parece etiqueta */
+  function _loteClassifyLabel(txt, loose){
+    var raw = String(txt||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    var idx = null, m = /[_\s]*([0-9O!|IL]{1,2})$/.exec(raw.replace(/[^A-Z0-9!|_ ]/g,''));
+    var t = raw.replace(/[^A-Z0-9!|]/g,'');
+    if(!t || t.length < 2) return null;
+    if(/^(BESS|BES|BE5S|BATERIA|BATTERY|BATERA)/.test(t.replace(/0/g,'O')) && m){
+      var dd = m[1].replace(/O/g,'0').replace(/[!|IL]/g,'1'); var nn = parseInt(dd,10); if(nn>0 && nn<30) idx = nn;
+    }
+    var core = t.replace(/0/g,'O').replace(/1/g,'I');
+    if(idx!=null) core = core.replace(/[OI!|L]{1,2}$/,'').replace(/_+$/,'');
+    var best = null;
+    LOTE_LABEL_DICT.forEach(function(e){
+      var sc = _loteLev(core, e[1]) / e[1].length;
+      if(core.indexOf(e[1])===0) sc = Math.min(sc, 0.1);
+      if(!best || sc < best.sc) best = { kind:e[0], sc:sc };
+    });
+    var lim = core.length <= 2 ? 0.34 : (loose ? 0.45 : 0.34);
+    if(!best || best.sc > lim || best.kind==='skip') return null;
+    return { kind: best.kind, index: idx };
+  }
+  function _loteIsUnit(txt){ return /^[kKhHpPwWi|l1]{0,2}[wWvV]$/.test(String(txt||'').trim()) || /^kw$/i.test(String(txt||'').trim()); }
+  function loteParseLegendWords(rawWords){
+    var words = rawWords.filter(function(w){ return w && w.bbox && String(w.text||'').trim(); })
+      .map(function(w){ return { text:String(w.text).trim(), b:w.bbox }; });
+    words.sort(function(a,b){ return a.b.x0-b.b.x0; });
+    /* números de la leyenda: los que traen "kW" justo a su derecha */
+    var nums = [];
+    words.forEach(function(w, i){
+      var n = _loteNumber(w.text); if(n==null) return;
+      var sus = (typeof n==='number' && isNaN(n)); if(sus) n = null;
+      var h = Math.max(1, w.b.y1-w.b.y0), cy = (w.b.y0+w.b.y1)/2;
+      var unit = words.some(function(u){ return u!==w && _loteIsUnit(u.text) && Math.abs((u.b.y0+u.b.y1)/2 - cy) < h*0.8 && u.b.x0 >= w.b.x1 - 4 && u.b.x0 - w.b.x1 < h*2.2; });
+      nums.push({ v:n, b:w.b, text:w.text, unit:unit, sus:sus });
+    });
+    var withUnit = nums.filter(function(n){ return n.unit; });
+    var valueNums = withUnit.length ? withUnit : nums;
+    var valueRows = _loteGroupRows(valueNums);
+    var labelsAll = [], usedLabelRows = {};
+    valueRows.sort(function(a,b){ return a.cy-b.cy; });
+    valueRows.forEach(function(VR){
+      /* palabras del renglón de etiquetas: el renglón de texto más cercano ARRIBA de los valores */
+      var cands = words.filter(function(w){
+        var cy = (w.b.y0+w.b.y1)/2;
+        return cy < VR.cy - VR.h*0.5 && (VR.cy - w.b.y1) < VR.h*3.5 && _loteNumber(w.text)==null && !_loteIsUnit(w.text) && /[A-Za-z]{2}/.test(w.text);
+      });
+      if(!cands.length) return;
+      /* de los renglones de texto de arriba, el que tenga MÁS etiquetas reconocibles (a igualdad,
+         el más cercano) — así no se confunde con "Reporte Excel" u otro texto suelto de en medio */
+      var rows = _loteGroupRows(cands).filter(function(r){ return !r.consumedKey || true; }).sort(function(a,b){ return b.cy-a.cy; });
+      var labels = null, bestN = 0;
+      rows.forEach(function(LR){
+        var key = Math.round(LR.cy/Math.max(1,LR.h*0.6));
+        if(usedLabelRows[key]) return;
+        var merged = [];
+        LR.items.forEach(function(w){
+          var last = merged[merged.length-1], h = Math.max(1, w.b.y1-w.b.y0);
+          if(last && (w.b.x0 - last.b.x1) < h*0.45){ last.text += w.text; last.b = { x0:last.b.x0, y0:Math.min(last.b.y0,w.b.y0), x1:w.b.x1, y1:Math.max(last.b.y1,w.b.y1) }; }
+          else merged.push({ text:w.text, b:{ x0:w.b.x0, y0:w.b.y0, x1:w.b.x1, y1:w.b.y1 } });
+        });
+        var ls = [], unk = [];
+        merged.forEach(function(w){ var c = _loteClassifyLabel(w.text, true); if(c) ls.push({ kind:c.kind, index:c.index, b:w.b, text:w.text }); else unk.push(w); });
+        /* 2ª oportunidad: en un renglón que YA tiene etiquetas, una palabra dudosa ("ceca") se
+           compara solo contra las etiquetas que faltan en ese renglón, con más tolerancia */
+        if(ls.length){
+          var have = {}; ls.forEach(function(l){ if(l.kind!=='bess') have[l.kind] = true; });
+          unk.forEach(function(w){
+            var core = String(w.text).toUpperCase().replace(/[^A-Z]/g,'');
+            if(core.length < 3) return;
+            var best = null;
+            LOTE_LABEL_DICT.forEach(function(e){
+              if(e[0]==='skip' || e[0]==='soc' || have[e[0]]) return;
+              var sc = _loteLev(core, e[1]) / Math.max(core.length, e[1].length);
+              if(!best || sc < best.sc) best = { kind:e[0], sc:sc };
+            });
+            var skipSc = Math.min.apply(null, LOTE_LABEL_DICT.filter(function(e){ return e[0]==='skip'; }).map(function(e){ return _loteLev(core, e[1]) / Math.max(core.length, e[1].length); }));
+            if(best && best.sc <= 0.6 && best.sc < skipSc){ ls.push({ kind:best.kind, index:null, b:w.b, text:w.text }); have[best.kind] = true; }
+          });
+          ls.sort(function(a,b){ return a.b.x0-b.b.x0; });
+        }
+        if(ls.length > bestN){ bestN = ls.length; labels = ls; labels._key = key; }
+      });
+      if(!labels) return;
+      usedLabelRows[labels._key] = true;
+      if(!labels.length) return;
+      var vals = VR.items.slice().sort(function(a,b){ return a.b.x0-b.b.x0; });
+      if(labels.length === vals.length){
+        labels.forEach(function(L, i){ L.value = vals[i].v; L.numBox = vals[i].b; if(vals[i].sus) L.susBox = vals[i].b; });
+      } else {
+        /* distinto número: cada etiqueta toma el valor libre más cercano en horizontal */
+        var used = {}, usedL = {}, prs = [];
+        labels.forEach(function(L, li){
+          var lc = (L.b.x0+L.b.x1)/2, lim = Math.max(L.b.x1-L.b.x0, VR.h*4)*1.8;
+          vals.forEach(function(v, vi){ var d = Math.abs((v.b.x0+v.b.x1)/2 - lc); if(d < lim) prs.push({ li:li, vi:vi, d:d }); });
+        });
+        prs.sort(function(a,b){ return a.d-b.d; });
+        prs.forEach(function(p){ if(used[p.vi] || usedL[p.li]) return; used[p.vi] = usedL[p.li] = true; labels[p.li].value = vals[p.vi].v; labels[p.li].numBox = vals[p.vi].b; if(vals[p.vi].sus) labels[p.li].susBox = vals[p.vi].b; });
+        /* si en el renglón sobra exactamente UN valor y no hay etiqueta de RED (p.ej. "ROJO" leído
+           como "00"), ese valor es la RED — todas las leyendas del SCADA la traen */
+        var left = vals.filter(function(v, vi){ return !used[vi] && !v.sus; });
+        if(left.length===1 && vals.length===labels.length+1 && !labels.some(function(L){ return L.kind==='red'; })){
+          labels.push({ kind:'red', index:null, b:left[0].b, text:'(RED)', value:left[0].v, inferred:true });
         }
       }
+      labelsAll = labelsAll.concat(labels);
     });
-    /* distancia número→etiqueta: debajo de la etiqueta (misma columna) o a su derecha (misma línea) */
-    var pairs = [];
-    labels.forEach(function(L, li){
-      var lh = Math.max(1, L.b.y1-L.b.y0), lw = Math.max(1, L.b.x1-L.b.x0);
-      nums.forEach(function(N, ni){
-        var ncy = (N.b.y0+N.b.y1)/2, lcy = (L.b.y0+L.b.y1)/2, dist = null;
-        var below = N.b.y0 >= L.b.y1 - lh*0.3 && (N.b.y0 - L.b.y1) < lh*3;
-        var overlap = N.b.x1 >= L.b.x0 - lw*0.3 && N.b.x0 <= L.b.x1 + lw*0.6;
-        if(below && overlap) dist = (N.b.y0 - L.b.y1) + 0.2*Math.abs((N.b.x0+N.b.x1)/2 - (L.b.x0+L.b.x1)/2);
-        else if(Math.abs(ncy-lcy) < lh*0.7 && N.b.x0 >= L.b.x1 - 2 && (N.b.x0 - L.b.x1) < lh*6) dist = 0.5*(N.b.x0 - L.b.x1);
-        if(dist!=null) pairs.push({ li:li, ni:ni, dist:dist });
-      });
-    });
-    pairs.sort(function(a,b){ return a.dist-b.dist; });
-    var usedL = {}, usedN = {};
-    pairs.forEach(function(p){ if(usedL[p.li] || usedN[p.ni]) return; usedL[p.li]=true; usedN[p.ni]=true; labels[p.li].value = nums[p.ni].v; });
     var out = { red:null, carga:null, bess:null, bessParts:[], multi:false, found:false };
-    var bessLabels = labels.filter(function(L){ return L.kind==='bess'; }).sort(function(a,b){ return a.b.x0-b.b.x0; });
-    labels.forEach(function(L){
+    labelsAll.forEach(function(L){
       if(L.value==null) return;
       if(L.kind==='red' && out.red==null) out.red = L.value;
       if(L.kind==='carga' && out.carga==null) out.carga = L.value;
     });
-    bessLabels.forEach(function(L){ if(L.index==null){ var m = /(\d+)\s*$/.exec(String(L.text).replace(/[!|IL]$/,'1')); if(m) L.index = Number(m[1]); } });
-    if(bessLabels.every(function(L){ return L.index!=null; })) bessLabels.sort(function(a,b){ return a.index-b.index; });
-    out.bessParts = bessLabels.map(function(L){ return L.value; });
-    out.multi = bessLabels.length > 1 || labels.some(function(L){ return L.kind==='red' && /MAIN/i.test(L.text); });
+    var bessLabels = labelsAll.filter(function(L){ return L.kind==='bess'; });
+    if(bessLabels.length && bessLabels.every(function(L){ return L.index!=null; })) bessLabels.sort(function(a,b){ return a.index-b.index; });
+    else bessLabels.sort(function(a,b){ return (a.b.y0-b.b.y0) || (a.b.x0-b.b.x0); });
+    out.bessParts = bessLabels.map(function(L){ return L.value!=null ? L.value : null; });
+    out.multi = bessLabels.length > 1;
     if(bessLabels.length && out.bessParts.every(function(v){ return v!=null; }))
-      out.bess = out.bessParts.reduce(function(a,v){ return a+v; }, 0);
+      out.bess = Math.round(out.bessParts.reduce(function(a,v){ return a+v; }, 0)*100)/100;
+    out.found = out.red!=null || out.carga!=null || out.bessParts.some(function(v){ return v!=null; });
+    out.labels = labelsAll.map(function(L){ return L.kind+(L.index?L.index:'')+'='+(L.value==null?'?':L.value); }).join(' ');
+    out._labels = labelsAll;
+    return out;
+  }
+  /* rearma red/carga/bess desde la lista de etiquetas (después de releer dudosos) */
+  function _loteLegendFromLabels(labelsAll, base){
+    var out = { red:null, carga:null, bess:null, bessParts:[], multi:false, found:false, labels: base.labels, _labels: labelsAll };
+    labelsAll.forEach(function(L){
+      if(L.value==null) return;
+      if(L.kind==='red' && out.red==null) out.red = L.value;
+      if(L.kind==='carga' && out.carga==null) out.carga = L.value;
+    });
+    var bl = labelsAll.filter(function(L){ return L.kind==='bess'; });
+    if(bl.length && bl.every(function(L){ return L.index!=null; })) bl.sort(function(a,b){ return a.index-b.index; });
+    else bl.sort(function(a,b){ return (a.b.y0-b.b.y0) || (a.b.x0-b.b.x0); });
+    out.bessParts = bl.map(function(L){ return L.value!=null ? L.value : null; });
+    out.multi = bl.length > 1;
+    if(bl.length && out.bessParts.every(function(v){ return v!=null; })) out.bess = Math.round(out.bessParts.reduce(function(a,v){ return a+v; },0)*100)/100;
     out.found = out.red!=null || out.carga!=null || out.bessParts.some(function(v){ return v!=null; });
     return out;
+  }
+  window._loteParseLegendWords = loteParseLegendWords;
+  /* LG (gestor de informes SEL): los valores salen en el recuadro del cursor como
+     "RTAC:BESS P.EOI.60 : 0,000 kW" / "RTAC:PCC … : 12.550 kW" / "RTAC:CARGA … : 12.550 kW".
+     Formato de número mexicano del SEL: punto = miles, coma = decimales. */
+  /* Busca el recuadro blanco del cursor (el único bloque blanco sólido en la pantalla oscura del SEL) */
+  function _loteFindWhiteBox(img){
+    var W0 = img.naturalWidth, H0 = img.naturalHeight, sc = Math.min(1, 480/W0);
+    var W = Math.max(1, Math.round(W0*sc)), H = Math.max(1, Math.round(H0*sc));
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(img, 0, 0, W, H);
+    var d = ctx.getImageData(0, 0, W, H).data, mask = new Uint8Array(W*H), seen = new Uint8Array(W*H), best = null;
+    for(var i=0;i<W*H;i++){ var j=i*4; mask[i] = (d[j]>225 && d[j+1]>225 && d[j+2]>225) ? 1 : 0; }
+    for(var st=0; st<W*H; st++){
+      if(!mask[st] || seen[st]) continue;
+      var q=[st], qi=0, x0=W, y0=H, x1=0, y1=0, n=0; seen[st]=1;
+      while(qi<q.length){
+        var p=q[qi++], px=p%W, py=(p-px)/W; n++;
+        if(px<x0)x0=px; if(px>x1)x1=px; if(py<y0)y0=py; if(py>y1)y1=py;
+        [p-1,p+1,p-W,p+W].forEach(function(nb){ if(nb>=0 && nb<W*H && !seen[nb] && mask[nb] && Math.abs((nb%W)-px)<=1){ seen[nb]=1; q.push(nb); } });
+      }
+      var bw=x1-x0+1, bh=y1-y0+1, area=bw*bh;
+      /* un recuadro: relleno ≥ 55% (el texto de colores le quita blanco), más ancho que alto, tamaño razonable */
+      if(area > W*H*0.004 && area < W*H*0.2 && n/area > 0.55 && bw > bh*1.3 && (!best || area > best.area))
+        best = { x:x0/sc, y:y0/sc, w:bw/sc, h:bh/sc, area:area };
+    }
+    return best;
+  }
+  async function loteReadRtacTooltip(dataUrl){
+    var img = await _loteLoadImg(dataUrl), k = 3;
+    var box = _loteFindWhiteBox(img);
+    var sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+    if(box){ sx = Math.max(0, Math.round(box.x-4)); sy = Math.max(0, Math.round(box.y-4)); sw = Math.min(img.naturalWidth-sx, Math.round(box.w+8)); sh = Math.min(img.naturalHeight-sy, Math.round(box.h+8)); }
+    else k = 2;
+    var c = document.createElement('canvas'); c.width = sw*k; c.height = sh*k;
+    var cx = c.getContext('2d'); cx.imageSmoothingQuality = 'high'; cx.drawImage(img, sx, sy, sw, sh, 0, 0, sw*k, sh*k);
+    var text = (await loteOcr(c.toDataURL('image/png'), 'eng', { logger:function(){} }, 6)).data.text || '';
+    if(!/RTAC/i.test(text)) return null;
+    var out = { red:null, carga:null, bess:null, bessParts:[], multi:false, found:false };
+    var re = /RTAC\s*[:;.]\s*([A-Z]+)[^\n:;]*[:;]\s*(-?[\d.,]+)\s*k?W/gi, m;
+    while((m = re.exec(text))){
+      var v = parseFloat(m[2].replace(/\./g,'').replace(',', '.'));
+      if(!isFinite(v)) continue;
+      var kind = (_loteClassifyLabel(m[1], true)||{}).kind;
+      if(kind==='red' && out.red==null) out.red = v;
+      if(kind==='carga' && out.carga==null) out.carga = v;
+      if(kind==='bess' && out.bess==null) out.bess = v;
+    }
+    out.found = out.red!=null || out.carga!=null || out.bess!=null;
+    return out.found ? out : null;
   }
   window._loteReadLegendPositional = loteReadLegendPositional;
   /* v103 — Una gráfica, varios BESS: cada BESS lleva su propio valor en el MISMO registro.
@@ -29605,27 +29966,15 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     row.bess = loteSumParts(row.bessParts);
     if(row.derived) row.derived.bess = false;
     if(!row.tipo && row.bess!=null) row.tipo = row.bess >= 0 ? 'descarga' : 'carga';
-    if(row.carga!=null && row.red!=null && row.bess!=null){
-      var diff = Math.abs(row.red + row.bess - row.carga);
-      row.balanceWarn = diff > Math.max(5, Math.abs(row.carga)*0.05)
-        ? 'No cuadra: RED + BESS = '+(Math.round((row.red+row.bess)*100)/100)+' kW, CARGA = '+row.carga+' kW' : '';
-    } else row.balanceWarn = '';
+    row.balanceWarn = '';
     if(rerender) loteRenderTable();
   };
   /* Completa con el balance CARGA = RED + BESS y avisa si no cuadra (>5%) */
-  function loteApplyBalance(row){
-    row.derived = row.derived || {};
-    var c = row.carga, r = row.red, b = row.bess;
-    if(c!=null && r!=null && b==null){ row.bess = Math.round((c - r)*100)/100; row.derived.bess = true; }
-    else if(c!=null && b!=null && r==null){ row.red = Math.round((c - b)*100)/100; row.derived.red = true; }
-    else if(r!=null && b!=null && c==null){ row.carga = Math.round((r + b)*100)/100; row.derived.carga = true; }
-    if(row.carga!=null && row.red!=null && row.bess!=null){
-      var diff = Math.abs(row.red + row.bess - row.carga);
-      row.balanceWarn = diff > Math.max(5, Math.abs(row.carga)*0.05)
-        ? 'No cuadra: RED + BESS = '+(Math.round((row.red+row.bess)*100)/100)+' kW, CARGA = '+row.carga+' kW'
-        : '';
-    } else row.balanceWarn = '';
-  }
+  /* v105: ya NO se calcula ni se compara por balance — en varios sitios CARGA ≠ RED + BESS
+     (p.ej. DISEKO 9 + 470 vs 298), así que un valor que falta se deja en blanco para capturarlo
+     viendo la captura en grande, nunca se inventa. */
+  function loteApplyBalance(row){ row.derived = {}; row.balanceWarn = ''; }
+
 
   /* ══ VISOR GRANDE DE LA CAPTURA ══ */
   window._loteOpenPreview = function(id){
@@ -29782,26 +30131,33 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     catch(e){ console.warn('[Lote] recorte automático falló:', e && e.message); }
     try{
       var legendCrop = await loteCropByPercent(dataUrl, LOTE_LEGEND_REGION);
-      legendText = (await Tesseract.recognize(legendCrop, 'eng', { logger:function(){} })).data.text;
+      legendText = (await loteOcr(legendCrop, 'eng', { logger:function(){} })).data.text;
     }catch(e){ console.warn('[Lote] OCR leyenda falló:', e && e.message); }
     try{
       var bannerCrop = await loteCropByPercent(dataUrl, LOTE_BANNER_REGION);
-      bannerText = (await Tesseract.recognize(bannerCrop, 'eng', { logger:function(){} })).data.text;
+      bannerText = (await loteOcr(bannerCrop, 'eng', { logger:function(){} })).data.text;
     }catch(e){ console.warn('[Lote] OCR banner falló:', e && e.message); }
 
     var parsed = loteParseLegend(legendText);
     /* v102 — segunda lectura por posición (pantallas TOTAL MAINS / BESS1..n / CARGA) */
     var pos = null;
     try{ pos = await loteReadLegendPositional(dataUrl); }catch(e){ console.warn('[Lote] OCR posicional falló:', e && e.message); }
+    var isSel = autoCrop.host && (autoCrop.host.ip==='100.96.4.210' || autoCrop.host.port==='7020');
+    if(!pos || !pos.found || isSel){
+      try{ var rt = await loteReadRtacTooltip(dataUrl); if(rt) pos = rt; }catch(e){ console.warn('[Lote] OCR RTAC falló:', e && e.message); }
+    }
     if(pos && pos.found){
-      ['carga','red','bess'].forEach(function(f){
-        if(pos[f]!=null && (pos.multi || parsed[f]==null)) parsed[f] = pos[f];
-      });
-      if(pos.multi && pos.bess==null) parsed.bess = null; /* suma incompleta: que la complete el balance */
+      /* v105: la lectura por posición manda (entiende todas las leyendas); la anterior solo rellena */
+      /* solo lo que leyó por posición: la lectura antigua (por orden de aparición) confundía
+         valores en leyendas con otras etiquetas, mejor dejar el campo vacío que con otro número */
+      ['carga','red','bess'].forEach(function(f){ parsed[f] = pos[f]; });
+      if(pos.multi && pos.bess==null) parsed.bess = null; /* suma incompleta: se captura a mano */
     }
     var match = loteMatchSite(bannerText, filename);
     /* La URL del HMI manda sobre el OCR del banner y el nombre de archivo */
     var hostSites = autoCrop.host ? _loteSitesForHost(autoCrop.host.ip, autoCrop.host.port) : [];
+    /* IP no registrada (o mal leída) → se intenta con el nombre en la ruta de la URL */
+    if(!hostSites.length && autoCrop.host) hostSites = _loteSitesForPath(autoCrop.host.path);
     if(hostSites.length===1) match = { kind:'match', site: hostSites[0] };
     else if(hostSites.length>1) match = { kind:'ambiguous', candidates: hostSites };
     /* Sitios de una sola gráfica con varios BESS → nombre del grupo (T4 B2 → T4) */
@@ -29825,7 +30181,12 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     parsed.carga = _bal.carga; parsed.red = _bal.red; parsed.bess = _bal.bess;
     var bessVal = parsed.bess != null ? parsed.bess : null;
     var tipoAuto = bessVal != null;
-    var tipoVal = tipoAuto ? (bessVal >= 0 ? 'descarga' : 'carga') : '';
+    /* v104: el tipo lo decide el selector de arriba para TODO el lote (pedido del equipo). El signo
+       del BESS solo sirve para avisar si una captura parece de otro tipo. */
+    var _modeSel = document.getElementById('lote-mode-select');
+    var tipoVal = (_modeSel && _modeSel.value) || 'descarga';
+    var signMismatch = tipoAuto && ((bessVal >= 0 ? 'descarga' : 'carga') !== tipoVal) && bessVal !== 0;
+    tipoAuto = true;
     var cargaVal = parsed.carga != null ? parsed.carga : null;
     var redVal = parsed.red != null ? parsed.red : null;
 
@@ -29846,7 +30207,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       derived: _bal.derived || {}, balanceWarn: _bal.balanceWarn || '',
       legendText: legendText, bannerText: bannerText,
       carga: cargaVal, red: redVal, bess: bessVal,
-      tipo: tipoVal, tipoAuto: tipoAuto, possibleNoComm: possibleNoComm,
+      tipo: tipoVal, tipoAuto: tipoAuto, signMismatch: signMismatch, possibleNoComm: possibleNoComm,
       matchKind: match.kind, candidates: match.candidates || [],
       siteValue: match.kind === 'match' ? match.site : '',
       comment: '', published: false, publishError: null
@@ -29939,6 +30300,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       }
 
       var tipoHint = !row.tipoAuto ? '<div class="lote-cand-hint">No se detectó BESS — confirma el tipo a mano.</div>' : '';
+      if(row.signMismatch && row.tipo) tipoHint += '<div class="lote-nocomm-hint">⚠ El BESS se lee '+(row.tipo==='descarga'?'negativo (parece carga)':'positivo (parece descarga)')+'</div>';
       if(row.possibleNoComm) tipoHint += '<div class="lote-nocomm-hint">⚠ Sin datos legibles — ¿sitio sin comunicación?</div>';
       var tipoSelect = '<select class="lote-site-select'+(!row.tipo?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'tipo\',this.value)">'+
         '<option value="">— Selecciona —</option>'+
@@ -29965,6 +30327,15 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     }).join('');
   }
   window._loteRenderTable = loteRenderTable;
+  window._loteOnModeChange = function(){
+    var v = document.getElementById('lote-mode-select').value;
+    _loteRows.forEach(function(r){
+      if(r.published) return;
+      if(r.signMismatch!=null && r.bess!=null && r.bess!==0) r.signMismatch = ((r.bess>=0?'descarga':'carga') !== v);
+      r.tipo = v; r.tipoAuto = true;
+    });
+    loteRenderTable();
+  };
   /* Alterna entre la captura recortada y la original. Lo que se publica es lo que se ve. */
   window._loteToggleCrop = function(id){
     var row = _loteRows.filter(function(r){ return r.id===id; })[0];
@@ -29994,11 +30365,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       /* v102: el valor ya es manual — se quita la marca de "calculado" y se revisa el balance */
       if(row.derived) row.derived[field] = false;
       if(field==='bess') row.bessParts = null;
-      if(row.carga!=null && row.red!=null && row.bess!=null){
-        var diff = Math.abs(row.red + row.bess - row.carga);
-        row.balanceWarn = diff > Math.max(5, Math.abs(row.carga)*0.05)
-          ? 'No cuadra: RED + BESS = '+(Math.round((row.red+row.bess)*100)/100)+' kW, CARGA = '+row.carga+' kW' : '';
-      } else row.balanceWarn = '';
+      row.balanceWarn = '';
     } else {
       row[field] = value;
       if(field==='siteValue'){
