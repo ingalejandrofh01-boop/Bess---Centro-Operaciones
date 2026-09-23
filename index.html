@@ -13805,6 +13805,18 @@ window._batchDescEnsureFirstUnitId = function(){
   if(!bessUnits.length) addBessUnit();
   return bessUnits[0].id;
 };
+/* v103 — Carga por lote: una gráfica con varios BESS → una unidad por BESS en el MISMO
+   registro. list = [{name, power, mains, bessKw, load}]. Mains y Load van solo en la 1ª
+   unidad porque el registro SUMA todas las unidades (ver render: kwMains/kwBess/kwLoad). */
+window._batchDescSetUnits = function(list){
+  bessUnits = (list||[]).map(function(u){
+    unitCounter++;
+    return { id: unitCounter, name: u.name || ('BESS-'+unitCounter), power: u.power!=null ? u.power : '', storage: '', brand: '',
+      status: 'ok', mains: u.mains!=null ? u.mains : '', bessKw: u.bessKw!=null ? u.bessKw : '', load: u.load!=null ? u.load : '' };
+  });
+  renderBessUnitsSidebar();
+  render();
+};
 
 // ══════════════════════════════════════════
 // AUTO-CALC TOTAL STORAGE
@@ -29249,6 +29261,10 @@ table.lote-table tr.lote-row-published{opacity:.55}
 .lote-badge.pub{background:rgba(26,63,204,.14);color:var(--accent)}
 .lote-badge.err{background:rgba(220,38,38,.14);color:#dc2626}
 .lote-cand-hint{font-size:9.5px;color:var(--t3);margin-top:2px}
+.lote-bess-parts{display:flex;flex-direction:column;gap:3px}
+.lote-bess-part{display:flex;align-items:center;gap:4px;margin:0}
+.lote-bess-part span{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t3);width:18px}
+.lote-bess-part input{width:78px!important;padding:4px 6px!important}
 button.lote-crop-toggle{display:block;width:120px!important;min-width:0!important;height:auto!important;min-height:0!important;margin-top:4px;font-family:var(--mono);font-size:8.5px!important;line-height:1.3!important;padding:2px 4px!important;border-radius:5px;border:1px solid var(--b1);background:transparent!important;color:var(--t3);cursor:pointer;white-space:nowrap;box-shadow:none!important;text-align:center}
 .lote-cand-hint button{background:none;border:none;color:var(--sky);cursor:pointer;font-size:9.5px;padding:0;margin-right:6px;text-decoration:underline}
 /* El botón "Publicar todo" vivía al final del flujo normal del documento — con más de un puñado
@@ -29519,7 +29535,19 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       var kind = _loteLabelKind(w.text);
       if(kind){ labels.push({ kind:kind, b:w.bbox, text:w.text }); return; }
       var n = _loteNumber(w.text);
-      if(n!=null) nums.push({ v:n, b:w.bbox });
+      if(n!=null) nums.push({ v:n, b:w.bbox, text:w.text });
+    });
+    /* "BESS 2" puede salir como dos palabras: la etiqueta "BESS" y un "2" pegado a su derecha.
+       Ese dígito es el NÚMERO del BESS, no su valor — se une a la etiqueta y se descarta como dato. */
+    labels.forEach(function(L){
+      if(L.kind!=='bess') return;
+      var lh = Math.max(1, L.b.y1-L.b.y0), lcy = (L.b.y0+L.b.y1)/2;
+      for(var ni=0; ni<nums.length; ni++){
+        var N = nums[ni], ncy = (N.b.y0+N.b.y1)/2, gap = N.b.x0 - L.b.x1;
+        if(Math.abs(ncy-lcy) < lh*0.6 && gap > -3 && gap < lh*1.3 && /^\d{1,2}$/.test(String(N.text).trim()) && N.v>=1 && N.v<=20){
+          L.index = N.v; nums.splice(ni,1); break;
+        }
+      }
     });
     /* distancia número→etiqueta: debajo de la etiqueta (misma columna) o a su derecha (misma línea) */
     var pairs = [];
@@ -29544,6 +29572,8 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       if(L.kind==='red' && out.red==null) out.red = L.value;
       if(L.kind==='carga' && out.carga==null) out.carga = L.value;
     });
+    bessLabels.forEach(function(L){ if(L.index==null){ var m = /(\d+)\s*$/.exec(String(L.text).replace(/[!|IL]$/,'1')); if(m) L.index = Number(m[1]); } });
+    if(bessLabels.every(function(L){ return L.index!=null; })) bessLabels.sort(function(a,b){ return a.index-b.index; });
     out.bessParts = bessLabels.map(function(L){ return L.value; });
     out.multi = bessLabels.length > 1 || labels.some(function(L){ return L.kind==='red' && /MAIN/i.test(L.text); });
     if(bessLabels.length && out.bessParts.every(function(v){ return v!=null; }))
@@ -29552,6 +29582,36 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     return out;
   }
   window._loteReadLegendPositional = loteReadLegendPositional;
+  /* v103 — Una gráfica, varios BESS: cada BESS lleva su propio valor en el MISMO registro.
+     Cuántos BESS: los que leyó el OCR en la leyenda (BESS1, BESS2…) o, si faltó alguno, las
+     unidades que tiene el sitio en la Lista Maestra (T4 → 3, T2 → 2…). RegioPet no se agrupa. */
+  function loteGroupSize(site){
+    var g = (site && window.bessSiteGroups) ? window.bessSiteGroups()[site] : null;
+    return g ? g.length : 1;
+  }
+  function loteInitParts(parts, site){
+    var k = loteGroupSize(site);
+    if(parts && parts.length>1){ while(parts.length < k) parts.push(null); return parts; }
+    return null;
+  }
+  function loteSumParts(parts){
+    if(!parts || !parts.length || parts.some(function(v){ return v==null || isNaN(v); })) return null;
+    return Math.round(parts.reduce(function(a,v){ return a+v; }, 0)*100)/100;
+  }
+  window._loteUpdateBessPart = function(id, idx, value, rerender){
+    var row = _loteRows.filter(function(r){ return r.id===id; })[0];
+    if(!row || !row.bessParts) return;
+    row.bessParts[idx] = value==='' ? null : parseFloat(value);
+    row.bess = loteSumParts(row.bessParts);
+    if(row.derived) row.derived.bess = false;
+    if(!row.tipo && row.bess!=null) row.tipo = row.bess >= 0 ? 'descarga' : 'carga';
+    if(row.carga!=null && row.red!=null && row.bess!=null){
+      var diff = Math.abs(row.red + row.bess - row.carga);
+      row.balanceWarn = diff > Math.max(5, Math.abs(row.carga)*0.05)
+        ? 'No cuadra: RED + BESS = '+(Math.round((row.red+row.bess)*100)/100)+' kW, CARGA = '+row.carga+' kW' : '';
+    } else row.balanceWarn = '';
+    if(rerender) loteRenderTable();
+  };
   /* Completa con el balance CARGA = RED + BESS y avisa si no cuadra (>5%) */
   function loteApplyBalance(row){
     row.derived = row.derived || {};
@@ -29579,7 +29639,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       document.addEventListener('keydown', function(e){ if(e.key==='Escape') window._loteClosePreview(); });
     }
     var fmt = function(v){ return v==null ? '—' : (Math.round(v*100)/100).toLocaleString('es-MX'); };
-    var parts = (row.bessParts && row.bessParts.length>1) ? ' <span style="opacity:.7">('+row.bessParts.map(fmt).join(' + ')+')</span>' : '';
+    var parts = (row.bessParts && row.bessParts.length>1) ? ' <span style="opacity:.7">('+row.bessParts.map(function(v,i){ return 'B'+(i+1)+' '+fmt(v); }).join(' · ')+')</span>' : '';
     ov.innerHTML =
       '<div class="lote-pv-bar">'+
         '<div class="lote-pv-title">'+_esc(row.siteValue||'Sin sitio')+' · <span style="opacity:.7">'+_esc(row.filename)+'</span></div>'+
@@ -29782,7 +29842,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       originalDataUrl: originalDataUrl, autoCropped: autoCrop.cropped, usingOriginal: false,
       hostIp: autoCrop.host ? (autoCrop.host.ip + (autoCrop.host.port ? ':'+autoCrop.host.port : '')) : '',
       hostMatched: hostSites.length>0,
-      bessParts: (pos && pos.bessParts && pos.bessParts.length>1) ? pos.bessParts : null,
+      bessParts: loteInitParts(pos && pos.bessParts && pos.bessParts.length>1 ? pos.bessParts.slice() : null, match.kind==='match' ? match.site : ''),
       derived: _bal.derived || {}, balanceWarn: _bal.balanceWarn || '',
       legendText: legendText, bannerText: bannerText,
       carga: cargaVal, red: redVal, bess: bessVal,
@@ -29841,6 +29901,14 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     return html;
   }
 
+  function loteBessPartsHtml(row){
+    var dis = row.published ? 'disabled' : '';
+    return '<div class="lote-bess-parts">'+row.bessParts.map(function(v, i){
+      return '<label class="lote-bess-part"><span>B'+(i+1)+'</span><input type="number" class="lote-num-input'+(v==null?' lote-empty':'')+'" '+dis+' value="'+(v!=null?v:'')+'" '+
+        'oninput="window._loteUpdateBessPart('+row.id+','+i+',this.value,false)" onblur="window._loteUpdateBessPart('+row.id+','+i+',this.value,true)"></label>';
+    }).join('')+'</div>'+
+    '<div class="lote-cand-hint" style="font-weight:700">Σ BESS = '+(row.bess!=null ? row.bess : '?')+' kW</div>';
+  }
   function loteRenderTable(){
     var wrap = document.getElementById('lote-table-wrap');
     var btn = document.getElementById('lote-publish-btn');
@@ -29886,8 +29954,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
         '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
         '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="carga" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'carga\',this.value)" onblur="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
         '<td><input type="number" class="lote-num-input'+(row.red==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="red" '+(row.published?'disabled':'')+' value="'+(row.red!=null?row.red:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'red\',this.value)" onblur="window._loteUpdateField('+row.id+',\'red\',this.value)"></td>'+
-        '<td><input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="bess" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'bess\',this.value)" onblur="window._loteUpdateField('+row.id+',\'bess\',this.value)">'+
-          (row.bessParts ? '<div class="lote-cand-hint">= '+row.bessParts.map(function(v){ return v==null?'?':v; }).join(' + ')+'</div>' : '')+
+        '<td>'+(row.bessParts ? loteBessPartsHtml(row) : '<input type="number" class="lote-num-input'+(row.bess==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="bess" '+(row.published?'disabled':'')+' value="'+(row.bess!=null?row.bess:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'bess\',this.value)" onblur="window._loteUpdateField('+row.id+',\'bess\',this.value)">')+
           (row.derived && (row.derived.bess||row.derived.red||row.derived.carga) ? '<div class="lote-cand-hint">⚖ '+(row.derived.bess?'BESS':row.derived.red?'RED':'CARGA')+' calculado por balance</div>' : '')+
           (row.balanceWarn ? '<div class="lote-nocomm-hint">⚠ '+_esc(row.balanceWarn)+'</div>' : '')+
           '</td>'+
@@ -29934,6 +30001,19 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       } else row.balanceWarn = '';
     } else {
       row[field] = value;
+      if(field==='siteValue'){
+        var k = loteGroupSize(value);
+        if(k>1){
+          if(!row.bessParts) row.bessParts = [];
+          while(row.bessParts.length < k) row.bessParts.push(null);
+          if(row.bessParts.length > k) row.bessParts = row.bessParts.slice(0,k);
+          /* si aún no hay valores por BESS se conserva el total leído hasta que se capturen */
+          var sum = loteSumParts(row.bessParts);
+          if(sum!=null || row.bessParts.some(function(v){ return v!=null; })) row.bess = sum;
+        } else if(row.bessParts){
+          row.bess = loteSumParts(row.bessParts); row.bessParts = null;
+        }
+      }
     }
   }
   window._loteUpdateFieldSilent = function(id, field, value){
@@ -29992,6 +30072,22 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       await _loteNextFrame();
       window.siteComboSelect(row.siteValue, row.siteValue);
       var dEl = document.getElementById('discharge-date'); if(dEl) dEl.value = dateStr;
+      if(row.bessParts && row.bessParts.length>1 && typeof window._batchDescSetUnits === 'function'){
+        var gUnits = (window.bessSiteGroups && window.bessSiteGroups()[row.siteValue]) || [];
+        window._batchDescSetUnits(row.bessParts.map(function(v, i){
+          var mu = gUnits[i], pw = null;
+          if(mu && typeof getMasterPowerForDate === 'function'){ var mp = getMasterPowerForDate(mu.sitio, dateStr); if(mp) pw = mp.pow; }
+          return { name: 'BESS '+(i+1), power: pw,
+            mains: i===0 && row.red!=null ? Math.abs(row.red) : '',
+            bessKw: v!=null ? Math.abs(v) : '',
+            load: i===0 && row.carga!=null ? Math.abs(row.carga) : '' };
+        }));
+        window._batchDescClearImages();
+        if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
+        var obsElM = document.getElementById('observations'); if(obsElM) obsElM.value = row.comment || '';
+        if(typeof render === 'function') render();
+        return;
+      }
       var unitId = window._batchDescEnsureFirstUnitId();
       /* Mapeo confirmado con el usuario: RED→mains, BESS→bessKw, CARGA→load.
          El SOC nunca se toca. BESS se guarda como magnitud (Math.abs) — el
@@ -30072,7 +30168,13 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
   function _loteMasterSiteOrder(){
     var db = window._masterSitesCloud || window.MASTER_SITES_DB || [];
     var order = {};
-    db.forEach(function(m, i){ if(m && m.sitio) order[m.sitio] = i; });
+    db.forEach(function(m, i){
+      if(!m || !m.sitio) return;
+      order[m.sitio] = i;
+      /* v103: el grupo ("T4") va en el lugar de su primera unidad */
+      var g = window.bessGroupForSite ? window.bessGroupForSite(m.sitio) : m.sitio;
+      if(!order.hasOwnProperty(g)) order[g] = i;
+    });
     return order;
   }
 
