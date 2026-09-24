@@ -7153,7 +7153,7 @@ if('serviceWorker' in navigator){
       <table class="lote-table">
         <thead>
           <tr>
-            <th>Captura</th><th>Archivo</th><th>Tipo</th><th>Sitio</th>
+            <th>Captura</th><th>Tipo</th><th>Sitio</th>
             <th>Carga (kW)</th><th>Red (kW)</th><th>BESS (kW)</th>
             <th>Comentario</th><th>Estado</th><th></th>
           </tr>
@@ -29229,14 +29229,15 @@ window.addEventListener('firebase-ready', function(){
 .lote-dropzone .lz-title{font-family:var(--disp);font-weight:800;font-size:14px;color:var(--text);margin-bottom:4px}
 .lote-dropzone .lz-sub{font-family:var(--mono);font-size:10px;color:var(--t3)}
 #lote-progress{font-family:var(--mono);font-size:11px;color:var(--sky);margin-bottom:14px;display:none}
-.lote-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:16px}
-table.lote-table{width:100%;border-collapse:collapse;font-size:11.5px;min-width:920px}
+.lote-table-wrap{overflow-x:visible;border:1px solid var(--border);border-radius:12px;margin-bottom:16px}
+table.lote-table{width:100%;border-collapse:collapse;font-size:11.5px;table-layout:auto}
 table.lote-table th{background:var(--s2);color:var(--t3);font-family:var(--mono);font-size:8.5px;text-transform:uppercase;
   letter-spacing:1px;padding:8px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
-table.lote-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.lote-table td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.lote-table td .lote-cand-hint,table.lote-table td .lote-nocomm-hint{max-width:170px;white-space:normal}
 table.lote-table tr.lote-row-needsfix{background:rgba(245,158,11,.08)}
 table.lote-table tr.lote-row-published{opacity:.55}
-.lote-thumb{width:120px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--b1);display:block;cursor:zoom-in;transition:transform .15s}
+.lote-thumb{width:104px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--b1);display:block;cursor:zoom-in;transition:transform .15s}
 .lote-thumb:hover{transform:scale(1.04);box-shadow:0 4px 14px rgba(0,0,0,.18)}
 #lote-preview{position:fixed;inset:0;z-index:9000;background:rgba(4,8,15,.97);display:none;flex-direction:column}
 .lote-pv-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;color:#fff;font-family:var(--mono);font-size:12px;border-bottom:1px solid rgba(255,255,255,.12)}
@@ -29247,13 +29248,13 @@ table.lote-table tr.lote-row-published{opacity:.55}
 .lote-pv-body{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:12px}
 .lote-pv-body img{max-width:100%;max-height:calc(100vh - 90px);object-fit:contain;cursor:zoom-in;border-radius:6px}
 .lote-pv-body img.zoom{max-width:none;max-height:none;cursor:zoom-out}
-.lote-num-input{width:72px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
+.lote-num-input{width:66px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
   font-family:var(--mono);font-size:11px;outline:none}
 .lote-num-input.lote-empty{border-color:#f59e0b;background:rgba(245,158,11,.08)}
-.lote-site-select{width:170px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
+.lote-site-select{width:100%;min-width:118px;max-width:170px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
   font-family:var(--mono);font-size:10.5px;outline:none}
 .lote-site-select.lote-empty{border-color:#dc2626;background:rgba(220,38,38,.08)}
-.lote-comment-input{width:150px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
+.lote-comment-input{width:100%;min-width:90px;max-width:150px;padding:6px 7px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--text);
   font-family:var(--body);font-size:11px;outline:none}
 .lote-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:9px;font-weight:800;
   letter-spacing:.5px;white-space:nowrap}
@@ -29266,7 +29267,7 @@ table.lote-table tr.lote-row-published{opacity:.55}
 .lote-bess-part{display:flex;align-items:center;gap:4px;margin:0}
 .lote-bess-part span{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t3);width:18px}
 .lote-bess-part input{width:78px!important;padding:4px 6px!important}
-button.lote-crop-toggle{display:block;width:120px!important;min-width:0!important;height:auto!important;min-height:0!important;margin-top:4px;font-family:var(--mono);font-size:8.5px!important;line-height:1.3!important;padding:2px 4px!important;border-radius:5px;border:1px solid var(--b1);background:transparent!important;color:var(--t3);cursor:pointer;white-space:nowrap;box-shadow:none!important;text-align:center}
+button.lote-crop-toggle{display:block;width:104px!important;min-width:0!important;height:auto!important;min-height:0!important;margin-top:4px;font-family:var(--mono);font-size:8.5px!important;line-height:1.3!important;padding:2px 4px!important;border-radius:5px;border:1px solid var(--b1);background:transparent!important;color:var(--t3);cursor:pointer;white-space:nowrap;box-shadow:none!important;text-align:center}
 .lote-cand-hint button{background:none;border:none;color:var(--sky);cursor:pointer;font-size:9.5px;padding:0;margin-right:6px;text-decoration:underline}
 /* El botón "Publicar todo" vivía al final del flujo normal del documento — con más de un puñado
    de filas quedaba varias pantallas abajo y, como #lote-app no tenía su propio scroll (dependía
@@ -29479,6 +29480,17 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
         var parts = [m[1],m[2],m[3],m[4]].map(Number);
         if(parts.some(function(p){ return p>255; })) continue;
         ip = parts.join('.'); port = m[5]||''; idx = m.index;
+      }
+      /* v109: IP que no existe en el catálogo (p.ej. "100.96.1.347" = Chihuahua 100.96.1.34 con el
+         ":" del puerto perdido) → se compara por dígitos contra el catálogo */
+      if(ip && !LOTE_IP_SITES.some(function(e){ return e[0].split(':')[0]===ip; })){
+        var dig = t.slice(m.index).replace(/[^\d]/g,'').slice(0,16), bestIp = null, bl = 0;
+        LOTE_IP_SITES.forEach(function(e){
+          var ipd = e[0].split(':')[0].replace(/\./g,''), prt = e[0].split(':')[1]||'';
+          /* debe coincidir la IP completa y, si hay más dígitos, que sigan con el puerto */
+          if(dig.indexOf(ipd)===0 && ipd.length > bl && (dig.length===ipd.length || prt==='' || dig.slice(ipd.length).indexOf(prt.slice(0,2))===0)){ bestIp = e[0].split(':')[0]; bl = ipd.length; }
+        });
+        if(bestIp){ ip = bestIp; port = ''; }
       }
       if(!ip){
         /* v108: plataformas web sin IP propia */
@@ -29708,8 +29720,25 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     rows.forEach(function(r){ r.items.sort(function(a,b){ return a.b.x0-b.b.x0; }); r.y1 = Math.max.apply(null, r.items.map(function(i){ return i.b.y1; })); });
     return rows;
   }
-  async function _loteLegendPass(img, mode){
-    var R = LOTE_LEGEND_WIDE, k = 3, W = img.naturalWidth, H = img.naturalHeight;
+  /* "75kw" / "7Skw" (número pegado a su unidad) → dos palabras: "75" y "kw", repartiendo el ancho.
+     Dentro del número, S→5, O→0, l/I/|→1 (confusiones típicas del OCR). */
+  function _loteSplitNumUnit(words){
+    var out = [];
+    (words||[]).forEach(function(w){
+      if(!w || !w.bbox){ return; }
+      var t = String(w.text||'').trim();
+      var m = /^([-−–]?[\dSOIl|.,]*\d[\dSOIl|.,]*)(k?[wW]|[kK][wW]|hw)$/.exec(t);
+      if(m && m[1].replace(/[^\d]/g,'').length >= 1){
+        var num = m[1].replace(/S/g,'5').replace(/O/g,'0').replace(/[Il|]/g,'1');
+        var frac = m[1].length / t.length, b = w.bbox, xm = b.x0 + (b.x1-b.x0)*frac;
+        out.push({ text:num, bbox:{ x0:b.x0, y0:b.y0, x1:xm - 1, y1:b.y1 } });
+        out.push({ text:m[2], bbox:{ x0:xm + 1, y0:b.y0, x1:b.x1, y1:b.y1 } });
+      } else out.push(w);
+    });
+    return out;
+  }
+  async function _loteLegendPass(img, mode, region){
+    var R = region || LOTE_LEGEND_WIDE, k = 3, W = img.naturalWidth, H = img.naturalHeight;
     var sx = Math.round(W*R.x0), sy = Math.round(H*R.y0), sw = Math.round(W*(R.x1-R.x0)), sh = Math.round(H*(R.y1-R.y0));
     var c = document.createElement('canvas'); c.width = sw*k; c.height = sh*k;
     var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.imageSmoothingQuality = 'high';
@@ -29724,11 +29753,12 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     }
     /* modo 11 = "texto disperso": lee los números mucho mejor que el automático */
     var data = (await loteOcr(c.toDataURL('image/png'), 'eng', { logger:function(){} }, 11)).data;
+    var splitWords = _loteSplitNumUnit(data.words||[]);
     /* v106: método por columnas (ancla = cada "kW"); si no aplica, el emparejado por renglones */
     var colRes = null;
-    try{ colRes = await loteReadByColumns(img, sx, sy, k, data.words||[]); }catch(e){ console.warn('[Lote] columnas falló:', e && e.message); }
+    try{ colRes = await loteReadByColumns(img, sx, sy, k, splitWords); }catch(e){ console.warn('[Lote] columnas falló:', e && e.message); }
     if(colRes && colRes.found) return colRes;
-    var res = loteParseLegendWords(data.words||[]);
+    var res = loteParseLegendWords(splitWords);
     /* números dudosos ("08"): se recorta SOLO ese número, se amplía 2× más y se lee como una
        sola línea con dígitos únicamente */
     var sus = (res._labels||[]).filter(function(L){ return L.value==null && L.susBox; });
@@ -29805,10 +29835,49 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     if(wantData){ dd._z = z; dd._ox = ox; dd._oy = oy; return dd; }
     return dd.text || '';
   }
+  /* Lee un número (bbox en coords del lienzo) 3 veces del original a distinta escala + el texto del
+     OCR general, y vota. Si una lectura es la otra con un dígito más al frente ("521" vs "21"), se
+     prefiere la más larga (el primer dígito claro es el que más se pierde). */
+  async function _loteVoteNumber(img, sx, sy, k, vb, h, tokText, unitX0){
+    var pad = h*0.3, pl = h*0.9, reads = [];
+    /* borde derecho: sin llegar a la "k" de "kW" (si se cuela, la lee como "1": 146 → 1461) */
+    var xr = vb.x1 + pad;
+    if(unitX0!=null) xr = Math.max(vb.x1 + 1, Math.min(xr, unitX0 - h*0.12));
+    var scales = [96, 64, 128];
+    for(var zi=0; zi<scales.length; zi++){
+      var tv = await _loteOcrOriginal(img, sx + (vb.x0 - pl)/k, sy + (vb.y0 - pad)/k, (xr - vb.x0 + pl)/k, (vb.y1 - vb.y0 + pad*2)/k, 'digits', scales[zi]);
+      tv = tv.replace(/\s+/g,'').replace(/^[.,]+|[.,]+$/g,'');
+      var nv = _loteNumber(tv); if(typeof nv==='number' && !isNaN(nv)) reads.push(nv);
+    }
+    var vt = _loteNumber(tokText); if(typeof vt==='number' && !isNaN(vt)) reads.push(vt);
+    if(!reads.length) return null;
+    var cnt = {}; reads.forEach(function(r){ cnt[r] = (cnt[r]||0)+1; });
+    var v = reads.slice().sort(function(a,b){ return (cnt[b]-cnt[a]) || (reads.indexOf(a)-reads.indexOf(b)); })[0];
+    /* sin número visto por el OCR general (recorte "a ciegas"): solo vale si 2+ lecturas coinciden */
+    if(!(typeof vt==='number' && !isNaN(vt)) && cnt[v] < 2) return null;
+    var sv = String(Math.abs(v));
+    reads.forEach(function(r){ var sr = String(Math.abs(r)); if(sr.length === sv.length+1 && sr.slice(1) === sv) v = (v<0?-1:1)*Number(sr); });
+    /* el número completo que vio el OCR general gana si las relecturas perdieron su último dígito
+       (un "1" delgado y claro: 391 → 39) */
+    if(typeof vt==='number' && !isNaN(vt)){
+      var st = String(Math.abs(vt)), sv2 = String(Math.abs(v));
+      if(st.length === sv2.length+1 && st.indexOf(sv2)===0) v = (v<0?-1:1)*Math.abs(vt);
+    }
+    if(v>0 && reads.some(function(r){ return r === -v; })) v = -v;
+    return v;
+  }
   async function loteReadByColumns(img, sx, sy, k, rawWords){
     var words = rawWords.filter(function(w){ return w && w.bbox && String(w.text||'').trim(); })
       .map(function(w){ return { text:String(w.text).trim(), b:w.bbox }; });
-    var units = words.filter(function(w){ return _loteIsUnit(w.text); });
+    var units0 = words.filter(function(w){ return _loteIsUnit(w.text); }), units = [];
+    /* la misma "kW" leída dos veces en el mismo lugar ("ww" + "kw") cuenta una sola vez */
+    units0.forEach(function(u){
+      var dup = units.some(function(o){
+        var ix = Math.min(o.b.x1,u.b.x1) - Math.max(o.b.x0,u.b.x0), iy = Math.min(o.b.y1,u.b.y1) - Math.max(o.b.y0,u.b.y0);
+        return ix > 0 && iy > 0 && ix > Math.min(o.b.x1-o.b.x0, u.b.x1-u.b.x0)*0.5;
+      });
+      if(!dup) units.push(u);
+    });
     if(!units.length) return null;
     var rows = _loteGroupRows(units).sort(function(a,b){ return a.cy-b.cy; });
     var toOx = function(x){ return sx + x/k; }, toOy = function(y){ return sy + y/k; };
@@ -29823,9 +29892,22 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
           var wcy = (w.b.y0+w.b.y1)/2;
           return w!==U && Math.abs(wcy-cy) < h*0.8 && w.b.x1 <= U.b.x0 + 6 && w.b.x0 >= leftLimit && /\d/.test(w.text) && !/[A-Za-z]{2}/.test(w.text);
         }).sort(function(a,b){ return b.b.x1-a.b.x1; })[0];
-        var vb = tok ? tok.b : { x0: Math.max(leftLimit, U.b.x0 - h*3.2), x1: U.b.x0 - 2, y0: U.b.y0, y1: U.b.y1 };
-        cols.push({ row:ri, U:U, h:h, vb:vb, tokText: tok ? tok.text : '', prevU:prevU, nextU:nextU });
+        var vb = tok ? { x0:tok.b.x0, x1:tok.b.x1, y0:tok.b.y0, y1:tok.b.y1 } : { x0: Math.max(leftLimit, U.b.x0 - h*3.2), x1: U.b.x0 - 2, y0: U.b.y0, y1: U.b.y1 };
+        var tokText = tok ? tok.text : '';
+        /* v110: si la unidad salió solo como "W", la "k" quedó pegada al número ("151k" → "1511"):
+           se quita el último carácter del número y su ancho del recorte */
+        if(tok && !/[kK]/.test(U.text) && tokText.replace(/\D/g,'').length >= 2 && (U.b.x0 - tok.b.x1) < h*0.15){
+          var cw = (tok.b.x1 - tok.b.x0) / Math.max(1, tokText.length);
+          tokText = tokText.slice(0, -1); vb.x1 = tok.b.x1 - cw*0.9;
+        }
+        cols.push({ row:ri, U:U, h:h, vb:vb, tokText: tokText, prevU:prevU, nextU:nextU });
       });
+    });
+    /* una unidad sin número propio cuyo recorte cae sobre el número de otra columna es un "kW"
+       leído dos veces (RegioPet: "ww" + "kw") → se descarta */
+    cols = cols.filter(function(C){
+      if(C.tokText) return true;
+      return !cols.some(function(O){ return O!==C && O.tokText && O.row===C.row && O.vb.x1 > C.vb.x0 - 2 && O.vb.x0 < C.vb.x1 + 2; });
     });
     /* columnas: límites horizontales para buscar la etiqueta */
     for(var i=0;i<cols.length;i++){
@@ -29845,20 +29927,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       var pad = K.h*0.3, pl = K.h*0.9;
       /* voto entre 3 lecturas: dos relecturas del original a distinta escala + la del OCR general.
          Con .jpg un 9 puede salir 3 en una lectura, rara vez en dos. */
-      var reads = [];
-      for(var zi=0; zi<2; zi++){
-        var tv = await _loteOcrOriginal(img, toOx(K.vb.x0 - pl), toOy(K.vb.y0 - pad), (K.vb.x1 - K.vb.x0 + pl + pad)/k, (K.vb.y1 - K.vb.y0 + pad*2)/k, 'digits', zi ? 60 : 96);
-        tv = tv.replace(/\s+/g,'').replace(/^[.,]+|[.,]+$/g,'');
-        var nv = _loteNumber(tv); if(typeof nv==='number' && !isNaN(nv)) reads.push(nv);
-      }
-      var vt = _loteNumber(K.tokText); if(typeof vt==='number' && !isNaN(vt)) reads.push(vt);
-      var v = null;
-      if(reads.length){
-        var cnt = {}; reads.forEach(function(r){ cnt[r] = (cnt[r]||0)+1; });
-        v = reads.slice().sort(function(a,b){ return (cnt[b]-cnt[a]) || (reads.indexOf(a)-reads.indexOf(b)); })[0];
-        /* el signo: si alguna lectura trae "−" con los mismos dígitos, es negativo */
-        if(v>0 && reads.some(function(r){ return r === -v; })) v = -v;
-      }
+      var v = await _loteVoteNumber(img, sx, sy, k, K.vb, K.h, K.tokText, K.U.b.x0);
       /* etiqueta */
       var ld = await _loteOcrOriginal(img, toOx(K.lx0), toOy(K.ly0), (K.lx1 - K.lx0)/k, (K.ly1 - K.ly0)/k, 6, 140, true);
       var tl = ld.text || '';
@@ -29880,12 +29949,64 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       });
       labels.push({ kind: best ? best.kind : null, index: best ? best.index : null, value: v, b: K.vb, text: tl.trim(), row: K.row });
     }
+    /* v110 — RESPALDO POR ETIQUETA: si el OCR general vio una etiqueta (TOTAL MAINS, BATERIA,
+       CARGA…) pero su valor no quedó en ninguna columna (no se detectó su "kW"), se busca el
+       número justo DEBAJO de esa etiqueta y se lee igual (3 lecturas + voto). */
+    var haveKinds = {}; labels.forEach(function(L){ if(L.kind && L.value!=null) haveKinds[L.kind + (L.kind==='bess' ? (L.index||'') : '')] = true; });
+    var usedBoxes = labels.map(function(L){ return L.b; });
+    var sw = words.slice().sort(function(a,b){ return (a.b.y0-b.b.y0) || (a.b.x0-b.b.x0); });
+    for(var wi=0; wi<sw.length; wi++){
+      var W1 = sw[wi], W2 = sw[wi+1], txt = W1.text, bb = W1.b;
+      if(W2 && Math.abs(W2.b.y0-W1.b.y0) < (W1.b.y1-W1.b.y0)*0.6 && (W2.b.x0 - W1.b.x1) < (W1.b.y1-W1.b.y0)*0.8){ /* "TOTAL MAINS", "BESS 2" */
+        var c2 = _loteClassifyLabel(W1.text + W2.text, true);
+        if(c2 && (!_loteClassifyLabel(W1.text, true) || c2.index!=null)){ txt = W1.text + W2.text; bb = { x0:W1.b.x0, y0:Math.min(W1.b.y0,W2.b.y0), x1:W2.b.x1, y1:Math.max(W1.b.y1,W2.b.y1) }; }
+      }
+      var cl = _loteClassifyLabel(txt, false) || (txt.length>=4 ? _loteClassifyLabel(txt, true) : null);
+      if(!cl || cl.kind==='soc') continue;
+      var key = cl.kind + (cl.kind==='bess' ? (cl.index||'') : '');
+      if(haveKinds[key]) continue;
+      var lh = Math.max(8, bb.y1-bb.y0);
+      var cand = words.filter(function(w){
+        var n = _loteNumber(w.text); if(n==null) return false;
+        var cx = (w.b.x0+w.b.x1)/2;
+        return w.b.y0 >= bb.y1 - lh*0.2 && (w.b.y0 - bb.y1) < lh*3 && cx >= bb.x0 - lh*1.6 && cx <= bb.x1 + lh*1.2 &&
+          !usedBoxes.some(function(u){ return Math.abs(u.x0-w.b.x0) < 4 && Math.abs(u.y0-w.b.y0) < 4; });
+      }).sort(function(a,b){ return (a.b.y0-b.b.y0) || (Math.abs(a.b.x0-bb.x0)-Math.abs(b.b.x0-bb.x0)); })[0];
+      if(!cand) continue;
+      var vv = await _loteVoteNumber(img, sx, sy, k, cand.b, Math.max(8, cand.b.y1-cand.b.y0), cand.text);
+      if(vv==null) continue;
+      usedBoxes.push(cand.b); haveKinds[key] = true;
+      labels.push({ kind:cl.kind, index:cl.index, value:vv, b:cand.b, text:txt, row:-1, fromLabel:true });
+    }
     /* columna sin etiqueta reconocible: si es la única y falta la RED (p.ej. "ROJO" ilegible), es la RED */
     var unk = labels.filter(function(L){ return !L.kind; });
     if(unk.length===1 && !labels.some(function(L){ return L.kind==='red'; })) unk[0].kind = 'red';
-    var known = labels.filter(function(L){ return L.kind && L.kind!=='soc'; });
+    /* una columna sin etiqueta legible ("@s:ss") y un solo tipo faltante entre CARGA/RED/BESS → es ese */
+    unk = labels.filter(function(L){ return !L.kind; });
+    var missing = ['carga','red','bess'].filter(function(kd){ return !labels.some(function(L){ return L.kind===kd; }); });
+    if(unk.length===1 && missing.length===1) unk[0].kind = missing[0];
+    /* varias columnas ilegibles ("r0", "s:ss"): cada una al tipo faltante al que más se parezca */
+    unk = labels.filter(function(L){ return !L.kind; });
+    missing = ['carga','red','bess'].filter(function(kd){ return !labels.some(function(L){ return L.kind===kd; }); });
+    if(unk.length && missing.length){
+      var DICT = { carga:['CARGA','LOAD'], red:['RED','ROJO','MAINS','PCC'], bess:['BESS','BATERIA'] }, prs = [];
+      unk.forEach(function(L, ui){
+        var words2 = String(L.text||'').toUpperCase().replace(/0/g,'O').split(/[^A-Z]+/).filter(function(w){ return w.length>=2; });
+        missing.forEach(function(kd){
+          var best = 9;
+          words2.forEach(function(w){ DICT[kd].forEach(function(d){ best = Math.min(best, _loteLev(w, d)/Math.max(w.length, d.length)); }); });
+          if(best <= 0.7) prs.push({ ui:ui, kd:kd, sc:best });
+        });
+      });
+      prs.sort(function(a,b){ return a.sc-b.sc; });
+      var uU = {}, uK = {};
+      prs.forEach(function(p){ if(uU[p.ui] || uK[p.kd]) return; uU[p.ui] = uK[p.kd] = true; unk[p.ui].kind = p.kd; });
+    }
+    var solarL = labels.filter(function(L){ return L.kind==='solar' && L.value!=null; })[0];
+    var known = labels.filter(function(L){ return L.kind && L.kind!=='soc' && L.kind!=='solar'; });
     if(!known.length) return null;
     var out = _loteLegendFromLabels(known, { labels:'' });
+    if(solarL) out.solar = solarL.value;
     out.labels = 'cols: ' + known.map(function(L){ return L.kind+(L.index?L.index:'')+'='+(L.value==null?'?':L.value); }).join(' ');
     return out;
   }
@@ -29896,12 +30017,33 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
     var img = await _loteLoadImg(dataUrl);
     var a = await _loteLegendPass(img, 'bg');
     if(_loteLegendComplete(a)) return a;
+    /* v110: con mucha gráfica en el recorte, el OCR a veces descarta la fila de valores — se
+       reintenta SOLO con la franja de abajo (donde siempre está la leyenda) y se rellena */
+    try{
+      var low = await _loteLegendPass(img, 'bg', { x0:0.05, x1:0.62, y0:0.72, y1:1.0 });
+      if(low && low.found){
+        if(!a || !a.found) a = low;
+        else {
+          if(a.red==null) a.red = low.red;
+          if(a.carga==null) a.carga = low.carga;
+          if(a.solar==null && low.solar!=null) a.solar = low.solar;
+          if(!a.bessParts.length) a.bessParts = low.bessParts.slice();
+          else if(low.bessParts.length === a.bessParts.length) a.bessParts = a.bessParts.map(function(v,i){ return v!=null ? v : low.bessParts[i]; });
+          else if(low.bessParts.length > a.bessParts.length && low.bessParts.filter(function(v){return v!=null;}).length >= a.bessParts.filter(function(v){return v!=null;}).length) a.bessParts = low.bessParts.slice();
+          a.multi = a.bessParts.length > 1;
+          a.bess = (a.bessParts.length && a.bessParts.every(function(v){ return v!=null; })) ? Math.round(a.bessParts.reduce(function(x,v){ return x+v; },0)*1000)/1000 : null;
+          a.found = true;
+        }
+        if(_loteLegendComplete(a)) return a;
+      }
+    }catch(e){}
     /* 2ª pasada con el otro preprocesado — solo RELLENA lo que faltó, nunca reemplaza */
     var b = null;
     try{ b = await _loteLegendPass(img, 'dark'); }catch(e){}
     if(!b || !b.found) return a;
     if(!a || !a.found) return b;
-    if(_loteLegendComplete(b)) return b;
+    if(_loteLegendComplete(b)){ if(b.solar==null && a.solar!=null) b.solar = a.solar; return b; }
+    if(a.solar==null && b.solar!=null) a.solar = b.solar;
     if(a.red==null) a.red = b.red;
     if(a.carga==null) a.carga = b.carga;
     if(!a.bessParts.length) a.bessParts = b.bessParts.slice();
@@ -29916,7 +30058,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
   var LOTE_LABEL_DICT = [
     ['red','MAINS'],['red','TOTALMAINS'],['red','RED'],['red','ROJO'],['red','GRID'],['red','PCC'],['red','CFE'],
     ['bess','BESS'],['bess','BATERIA'],['bess','BATTERY'],
-    ['carga','CARGA'],['carga','LOAD'],['carga','CONSUMO'],['soc','SOC'],
+    ['carga','CARGA'],['carga','LOAD'],['carga','CONSUMO'],['soc','SOC'],['solar','SOLAR'],['solar','FV'],
     /* palabras que aparecen junto a las etiquetas pero NO son etiqueta */
     ['skip','TOTAL'],['skip','REPORTE'],['skip','EXCEL'],['skip','TENDENCIA'],['skip','INFORMES'],['skip','OFF'],['skip','ON'],['skip','APAGADO']
   ];
@@ -30448,6 +30590,7 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       parsed = loteParseLegend(legendText);
       /* v102 — segunda lectura por posición (pantallas TOTAL MAINS / BESS1..n / CARGA) */
       try{ pos = await loteReadLegendPositional(dataUrl); }catch(e){ console.warn('[Lote] OCR posicional falló:', e && e.message); }
+      if(pos && pos.solar!=null) solar = pos.solar;
     } else if(source==='tesla'){
       extraSite = 'Vidanta';
       try{ pos = await loteReadTesla(dataUrl); if(pos) solar = pos.solar; }catch(e){ console.warn('[Lote] Tesla falló:', e && e.message); }
@@ -30637,9 +30780,8 @@ button.lote-crop-toggle{display:block;width:120px!important;min-width:0!importan
       '</select>'+tipoHint;
 
       return '<tr class="'+rowCls+'" data-row-id="'+row.id+'">'+
-        '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'" title="Clic para ver la captura en grande" onclick="window._loteOpenPreview('+row.id+')">'+
+        '<td>'+(row.fullDataUrl ? '<img class="lote-thumb" src="'+row.fullDataUrl+'" title="'+_esc(row.filename)+' — clic para ver en grande" onclick="window._loteOpenPreview('+row.id+')">'+
           (row.autoCropped && !row.published ? '<button type="button" class="lote-crop-toggle" title="La captura se recortó sola para quitar Chrome y la barra de tareas" onclick="window._loteToggleCrop('+row.id+')">'+(row.usingOriginal?'↺ original · recortar':'✂ recortada · ver original')+'</button>' : '') : '—')+'</td>'+
-        '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:9.5px;color:var(--t3)" title="'+_esc(row.filename)+'">'+_esc(row.filename)+'</td>'+
         '<td>'+tipoSelect+'</td>'+
         '<td><select class="lote-site-select'+(!row.siteValue?' lote-empty':'')+'" '+(row.published?'disabled':'')+' onchange="window._loteUpdateField('+row.id+',\'siteValue\',this.value)">'+loteSiteOptions(row.siteValue)+'</select>'+candHint+'</td>'+
         '<td><input type="number" class="lote-num-input'+(row.carga==null?' lote-empty':'')+'" data-row-id="'+row.id+'" data-field="carga" '+(row.published?'disabled':'')+' value="'+(row.carga!=null?row.carga:'')+'" oninput="window._loteUpdateFieldSilent('+row.id+',\'carga\',this.value)" onblur="window._loteUpdateField('+row.id+',\'carga\',this.value)"></td>'+
