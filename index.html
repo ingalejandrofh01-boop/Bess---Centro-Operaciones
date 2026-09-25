@@ -6724,6 +6724,10 @@ if('serviceWorker' in navigator){
       <label>SOC Final (%)</label>
       <input type="number" id="soc-final" placeholder="Ej. 15" min="0" max="100" step="0.1" oninput="render();_updateMissingBadge()" style="font-family:var(--mono)">
     </div>
+    <div class="form-group">
+      <label style="display:flex;justify-content:space-between"><span>DOD (%)</span><span style="font-family:var(--mono);font-size:8px;color:var(--t3)">SOC inicial − final</span></label>
+      <input type="text" id="dod-pct" readonly placeholder="Se calcula solo" style="font-family:var(--mono);background:rgba(26,63,204,.05)">
+    </div>
     <!-- Potencia real medida -->
     <div class="form-group">
       <label style="display:flex;align-items:center;justify-content:space-between">
@@ -7687,7 +7691,7 @@ async function expDoZip(mode){
 
 <!-- ═══ SUMMARY MODAL ═══ -->
 <div id="rv-sum-modal">
-  <div style="padding:28px 32px 40px;max-width:1100px;margin:0 auto">
+  <div style="padding:22px 20px 40px;max-width:1560px;margin:0 auto">
     <!-- "rv-sum-legacy-hdr"/"rv-sum-legacy-ftr" — igual que en el Reporte
          Operativo (ver op-sum-legacy-hdr), esto se oculta siempre que el
          reporte está en modo editable (que ahora es SIEMPRE, desde que
@@ -7704,8 +7708,8 @@ async function expDoZip(mode){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="rv-btn-s" onclick="rvBackSites()">&#8592; Editar</button>
         <button class="rv-btn-s" onclick="window.print()">&#128424; Imprimir</button>
-        <button class="rv-btn-png" onclick="rvExportPNG()">&#128247; Exportar PNG</button>
-        <button class="rv-btn-png" id="rv-btn-pdf" onclick="rvExportPDF()" style="background:linear-gradient(135deg,#0a1f5e,#1a3fcc)">&#128196; Exportar PDF</button>
+        <button class="rv-btn-png" onclick="rvExportPNG()" style="background:linear-gradient(135deg,#065f46,#10b981)">&#128247; PNG horizontal</button>
+        <button class="rv-btn-png" id="rv-btn-pdf" onclick="rvExportPDF()" style="background:linear-gradient(135deg,#0b1220,#111827);border:1px solid #10b981">&#128196; PDF horizontal</button>
         <button class="rv-btn-p" id="rv-save-btn" onclick="rvSave()" style="padding:12px 28px;font-size:14px;box-shadow:0 6px 20px rgba(26,63,204,.35);background:linear-gradient(135deg,#059669,#065f46)">&#10003; Guardar Reporte</button>
       </div>
     </div>
@@ -12925,6 +12929,98 @@ function getMasterSiteData(siteName) {
 }
 window.getMasterSiteData = getMasterSiteData;
 
+/* ══ v112 — SOC / DOD DESDE EL REPORTE DE DESCARGA PROFESIONAL ══
+   El reporte operativo del día (opW, o el guardado con la misma fecha) ya trae por sitio el SOC
+   Inicial y el SOC Final; DOD = Inicial − Final y la energía descargada = DOD × capacidad (misma
+   cuenta que el reporte profesional). Para un sitio de grupo (T4) se toma cada unidad (T4 B1..B3). */
+function _bitOpReportFor(dateStr){
+  var repDate = function(r){ return String((r && (r.date || r.createdAt)) || '').slice(0,10); };
+  if(window.opW && window.opW.srs && (!dateStr || repDate(window.opW)===dateStr)) return window.opW;
+  try{ if(typeof opLoad==='function' && (!window.opReps || !opReps.length)) opLoad(); }catch(e){}
+  var list = (typeof opReps!=='undefined' ? opReps : []).filter(function(r){ return r && r.srs && r.kind!=='monitor' && (!dateStr || repDate(r)===dateStr); });
+  list.sort(function(a,b){ return String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')); });
+  return list[0] || null;
+}
+function _bitOpSocFor(siteName, dateStr){
+  var rep = _bitOpReportFor(dateStr);
+  if(!rep || !siteName) return null;
+  var sites = window.OP_SITES || [];
+  var g = bessSiteGroups()[siteName];
+  var names = g ? g.map(function(u){ return u.sitio; }) : [siteName];
+  var num = function(v){ if(v===''||v==null) return null; var n = parseFloat(v); return isFinite(n) ? n : null; };
+  var out = names.map(function(n){
+    var idx = -1, k = _normSiteKey(n);
+    for(var i=0;i<sites.length;i++){ if(_normSiteKey(sites[i])===k){ idx = i; break; } }
+    var sr = idx>-1 ? (rep.srs[idx] || {}) : {};
+    var ini = num(sr.socIni), fin = num(sr.soc);
+    var m = getMasterSiteData(n), cap = m ? (num(m.energiaBESS)!=null ? num(m.energiaBESS) : num(m.kwhTotal)) : null;
+    var dod = (ini!=null && fin!=null) ? Math.round((ini-fin)*10)/10 : null;
+    return { name:n, socIni:ini, socFin:fin, dod:dod, energyKwh: (dod!=null && cap!=null) ? Math.round(dod/100*cap*10)/10 : null };
+  });
+  return out.some(function(o){ return o.socIni!=null || o.socFin!=null; }) ? out : null;
+}
+window._bitOpSocFor = _bitOpSocFor;
+/* Llena SOC por unidad, SOC global, DOD y energía — solo campos vacíos (nunca pisa lo capturado) */
+window._bitApplyOpSoc = function(){
+  try{
+    var site = (document.getElementById('sel-site')||{}).value;
+    if(!site || site==='custom') return false;
+    var date = (document.getElementById('discharge-date')||{}).value || '';
+    var data = _bitOpSocFor(site, date);
+    if(!data) return false;
+    if(typeof bessUnits!=='undefined'){
+      bessUnits.forEach(function(u, i){
+        var d = data[i] || (data.length===1 ? data[0] : null); if(!d) return;
+        if((u.socIni===''||u.socIni==null) && d.socIni!=null) u.socIni = d.socIni;
+        if((u.socFin===''||u.socFin==null) && d.socFin!=null) u.socFin = d.socFin;
+      });
+    }
+    var avg = function(f){ var v = data.map(function(d){ return d[f]; }).filter(function(x){ return x!=null; }); return v.length ? Math.round(v.reduce(function(a,b){return a+b;},0)/v.length*10)/10 : null; };
+    var si = document.getElementById('soc-initial'), sf = document.getElementById('soc-final'), en = document.getElementById('energy-discharged-kwh');
+    if(si && !si.value && avg('socIni')!=null) si.value = avg('socIni');
+    if(sf && !sf.value && avg('socFin')!=null) sf.value = avg('socFin');
+    var eSum = data.map(function(d){ return d.energyKwh; }).filter(function(x){ return x!=null; });
+    if(en && !en.value && eSum.length) en.value = Math.round(eSum.reduce(function(a,b){return a+b;},0)*10)/10;
+    if(typeof renderBessUnitsSidebar==='function') renderBessUnitsSidebar();
+    return true;
+  }catch(e){ console.warn('[Bitácora] SOC del reporte profesional:', e && e.message); return false; }
+};
+/* DOD del formulario: SOC Inicial − SOC Final (global; si no, promedio de las unidades) */
+function _bitDodPct(){
+  var num = function(v){ var n = parseFloat(v); return isFinite(n) ? n : null; };
+  var si = num((document.getElementById('soc-initial')||{}).value), sf = num((document.getElementById('soc-final')||{}).value);
+  if(si!=null && sf!=null) return Math.round((si-sf)*10)/10;
+  if(typeof bessUnits!=='undefined'){
+    var ds = bessUnits.map(function(u){ var a = num(u.socIni), b = num(u.socFin); return (a!=null && b!=null) ? a-b : null; }).filter(function(x){ return x!=null; });
+    if(ds.length) return Math.round(ds.reduce(function(a,b){return a+b;},0)/ds.length*10)/10;
+  }
+  return null;
+}
+window._bitDodPct = _bitDodPct;
+/* Ing. de monitoreo: el nombre con el que el usuario está registrado en la app (sin duplicar "Ing.") */
+window._bitFillEngineer = function(force){
+  var n = document.getElementById('engineer-name'), a = document.getElementById('engineer-area');
+  var uname = (localStorage.getItem('bess_uname')||'').replace(/^\s*ing\.?\s+/i,'').trim();
+  var role = localStorage.getItem('bess_urole')||'';
+  if(n && (force || !n.value.trim()) && uname && document.activeElement!==n) n.value = uname;
+  if(a && (force || !a.value.trim()) && document.activeElement!==a) a.value = role ? role.replace(/^\s*ing\.?\s+/i,'') : 'Monitoreo BESS';
+};
+/* Qué datos complementarios faltan DE VERDAD (se recalcula en cada render) */
+window._bitMissingItems = function(){
+  var val = function(id){ var el = document.getElementById(id); return el && String(el.value||'').trim(); };
+  var units = (typeof bessUnits!=='undefined') ? bessUnits : [];
+  var has = function(f){ return units.some(function(u){ return u[f]!=='' && u[f]!=null; }); };
+  var imgs = (typeof curveImages!=='undefined' && curveImages.length) || ((document.getElementById('images-list')||{children:[]}).children.length);
+  var missing = [];
+  if(!val('soc-initial') && !has('socIni')) missing.push({icon:'🔋', label:'SOC Inicial (%)', desc:'No está en el reporte profesional de esta fecha — captúralo'});
+  if(!val('soc-final') && !has('socFin')) missing.push({icon:'⬇️', label:'SOC Final (%)', desc:'No está en el reporte profesional de esta fecha — captúralo'});
+  if(!val('real-power-kw') && !has('bessKw')) missing.push({icon:'⚡', label:'Potencia BESS (kW)', desc:'Captura el BESS de la unidad o la potencia real medida'});
+  if(!val('energy-discharged-kwh')) missing.push({icon:'📉', label:'Energía descargada (kWh)', desc:'Se calcula sola con el DOD × capacidad cuando hay SOC'});
+  if(!imgs) missing.push({icon:'📈', label:'Capturas curvas de descarga', desc:'Screenshots del PCS / Sky Control durante el evento'});
+  if(!val('rack-temp-max')) missing.push({icon:'🌡', label:'Temperatura máx. de racks (°C)', desc:'Registrado en pantalla del BMS o SCADA'});
+  return missing;
+};
+
 function getMasterPowerForDate(siteName, dateStr) {
   var master = getMasterSiteData(siteName);
   if (!master) return null;
@@ -13204,6 +13300,7 @@ function onSiteChange() {
     /* ── Auto-fill from master table ── */
     _autoFillFromMaster(val);
     tryLoadSiteTemplate(val);
+    if(window._bitApplyOpSoc) window._bitApplyOpSoc();
   } else {
     updateTemplateInfoStrip(null);
   }
@@ -13243,29 +13340,13 @@ function _autoFillFromMaster(siteName) {
   _showMissingDataPanel(master, result);
 }
 
-/* Panel que indica qué datos complementarios faltan para completar el reporte */
+/* Panel que indica qué datos complementarios faltan para completar el reporte (v112: dinámico —
+   ya no marca como pendiente lo que se capturó, ni la curva si ya hay capturas, ni la potencia
+   si ya está el BESS de las unidades) */
 function _showMissingDataPanel(master, result) {
   var panel = document.getElementById('missing-data-panel');
   if (!panel) return;
-  var missing = [];
-  /* SOC inicial */
-  var socI = document.getElementById('soc-initial') || document.querySelector('[id*="soc"][id*="initial"]') || document.querySelector('[id*="soc-i"]');
-  if (!socI || !socI.value) missing.push({icon:'🔋', label:'SOC Inicial (%)', desc:'Estado de carga al inicio del evento'});
-  /* SOC final */
-  var socF = document.getElementById('soc-final') || document.querySelector('[id*="soc"][id*="final"]') || document.querySelector('[id*="soc-f"]');
-  if (!socF || !socF.value) missing.push({icon:'⬇️', label:'SOC Final (%)', desc:'Estado de carga al final de la descarga'});
-  /* Potencia real medida */
-  var powReal = document.getElementById('var-voltage') || document.getElementById('real-power');
-  missing.push({icon:'⚡', label:'Potencia real medida (kW)', desc:'Potencia registrada durante el evento · nominal: '+result.pow+' kW'});
-  /* Energía descargada */
-  missing.push({icon:'📉', label:'Energía descargada (kWh)', desc:'Total de energía entregada en el evento'});
-  /* Tiempo de descarga */
-  var dur = document.getElementById('var-duration');
-  if (!dur || !dur.value) missing.push({icon:'⏱', label:'Duración del evento', desc:'Tiempo total de descarga (hh:mm)'});
-  /* Curvas de descarga */
-  missing.push({icon:'📈', label:'Capturas curvas de descarga', desc:'Screenshots del PCS / Sky Control durante el evento'});
-  /* Temperatura */
-  missing.push({icon:'🌡', label:'Temperatura máx. de racks (°C)', desc:'Registrado en pantalla del BMS o SCADA'});
+  var missing = window._bitMissingItems();
   /* Render */
   if (missing.length === 0) {
     panel.style.display = 'none';
@@ -13855,6 +13936,9 @@ function render() {
   const temp = document.getElementById('var-temp').value;
   const soh = document.getElementById('var-soh').value;
   const observations = document.getElementById('observations').value;
+  if(window._bitFillEngineer) window._bitFillEngineer(false);
+  (function(){ var dEl = document.getElementById('dod-pct'); if(dEl){ var d = window._bitDodPct ? window._bitDodPct() : null; dEl.value = d!=null ? d+' %' : ''; } })();
+  if(window._updateMissingBadge) try{ window._updateMissingBadge(); }catch(e){}
   const engName = document.getElementById('engineer-name').value;
   const engArea = document.getElementById('engineer-area').value;
   const statusNote = document.getElementById('sys-status-note').value;
@@ -13946,6 +14030,7 @@ function render() {
           <div style="display:flex;justify-content:space-around;gap:6px">
             <div><div style="font-size:9px;color:#9ab;font-family:'DM Mono',monospace;letter-spacing:1px;margin-bottom:2px">SOC ini</div><div style="font-size:16px;font-weight:800;color:#3b82f6;font-family:'DM Mono',monospace">${u.socIni?u.socIni+'%':'—'}</div></div>
             <div><div style="font-size:9px;color:#9ab;font-family:'DM Mono',monospace;letter-spacing:1px;margin-bottom:2px">SOC fin</div><div style="font-size:16px;font-weight:800;color:#6366f1;font-family:'DM Mono',monospace">${u.socFin?u.socFin+'%':'—'}</div></div>
+            <div><div style="font-size:9px;color:#9ab;font-family:'DM Mono',monospace;letter-spacing:1px;margin-bottom:2px">DOD</div><div style="font-size:16px;font-weight:800;color:#0ea875;font-family:'DM Mono',monospace">${(u.socIni!==''&&u.socIni!=null&&u.socFin!==''&&u.socFin!=null)?(Math.round((parseFloat(u.socIni)-parseFloat(u.socFin))*10)/10)+'%':'—'}</div></div>
             <div><div style="font-size:9px;color:#9ab;font-family:'DM Mono',monospace;letter-spacing:1px;margin-bottom:2px">SOH</div><div style="font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:${sohColor}">${u.soh?u.soh+'%':'—'}</div></div>
           </div>
         </div>`;
@@ -19175,7 +19260,9 @@ function rvPersist(){try{localStorage.setItem(RV_SK,JSON.stringify(rvReps));}cat
    ver _rvProInjectInherited — nunca se guarda como bat/cond reales, solo
    contexto de UI). */
 function rvMkS(){return{bat:null,chg:false,soc:'',lp:false,rn:false,clk:null,dsc:null,tmp:'',racks:'',cmt:'',resp:'',skip:false,tSec:0,
-  chgPow:'',commBack:'',followUp:null,inherited:null};}
+  chgPow:'',commBack:'',followUp:null,inherited:null,
+  /* v113 — comportamiento por componente (RED / CONSUMO / BATERÍA / PCS) + mediciones */
+  red:'',redKw:'',cons:'',consKw:'',batSt:'',bessKw:'',pcs:'',fp:''};}
 function _rvFmtDur(sec){
   sec=Math.max(0,Math.round(sec||0));
   var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
@@ -19228,18 +19315,22 @@ function _rvEnsureGlobalBanner(){
   el=document.createElement('div');
   el.id='rv-global-live-banner';
   el.onclick=function(){ if(window.goPage) goPage('repval'); };
-  el.style.cssText='display:none;position:fixed;top:var(--topbar-h,54px);left:0;right:0;z-index:520;'
-    +'background:linear-gradient(135deg,#0a1f5e,#1a3fcc);color:#fff;padding:9px 20px;align-items:center;gap:12px;'
-    +'font-family:var(--mono);font-size:11px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);white-space:nowrap;overflow:hidden';
+  /* v112: dentro del flujo de la página (debajo de la barra superior) — ya no flota encima de las
+     pestañas; el contenido se recorre hacia abajo mientras la franja está visible */
+  el.style.cssText='display:none;position:relative;flex:none;z-index:5;'
+    +'background:linear-gradient(135deg,#0a1f5e,#1a3fcc);color:#fff;padding:7px 20px;align-items:center;gap:12px;'
+    +'font-family:var(--mono);font-size:11px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18);white-space:nowrap;overflow:hidden';
   el.innerHTML='<span id="rv-glb-dot" style="width:8px;height:8px;flex:none;border-radius:50%;background:#4ade80;box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:rvLivePulse 1.6s infinite"></span>'
     +'<span id="rv-glb-txt" style="font-weight:700;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis"></span>'
     +'<span style="margin-left:auto;opacity:.85;flex:none">Ver ronda →</span>';
-  document.body.appendChild(el);
+  var tb = document.querySelector('.main-col > .topbar');
+  if(tb && tb.parentNode) tb.parentNode.insertBefore(el, tb.nextSibling);
+  else { el.style.position='fixed'; el.style.top='var(--topbar-h,54px)'; el.style.left='0'; el.style.right='0'; el.style.zIndex='520'; document.body.appendChild(el); }
   if(!document.getElementById('rv-glb-style')){
     var st=document.createElement('style');
     st.id='rv-glb-style';
     st.textContent='@keyframes rvLivePulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55)}70%{box-shadow:0 0 0 9px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}'
-      +'@media(max-width:768px){#rv-global-live-banner{top:var(--topbar-h,54px)}}';
+      +'';
     document.head.appendChild(st);
   }
   return el;
@@ -28362,11 +28453,8 @@ function _updateSeasonPowerInfo(siteName) {
 
 /* ── Count & show missing fields badge ── */
 window._updateMissingBadge = function() {
-  var fields = ['soc-initial','soc-final','real-power-kw','energy-discharged-kwh','rack-temp-max'];
-  var missing = fields.filter(function(id){ var el=document.getElementById(id); return !el || !el.value.trim(); }).length;
-  // Curvas = check if images list has items
-  var imgList = document.getElementById('images-list');
-  if(!imgList || !imgList.children.length) missing++;
+  var missing = window._bitMissingItems().length;
+  if(typeof _showMissingDataPanel==='function') _showMissingDataPanel();
   var badge = document.getElementById('missing-count-badge');
   if(badge) {
     badge.textContent = missing + ' pendientes';
@@ -29291,7 +29379,7 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
 
 /* Banner de "Revisando lote" — flotante, visible tanto en Bitácora de Descarga como en Carga
    mientras se recorre la fila del lote una por una. Se inyecta/oculta por JS. */
-#lote-queue-banner{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9500;
+#lote-queue-banner{position:fixed;left:50%;bottom:18px;top:auto;transform:translateX(-50%);z-index:9500;
   display:none;align-items:center;gap:14px;max-width:min(920px,92vw);
   background:linear-gradient(135deg,#1a3fcc,#0a1f5e);color:#fff;border-radius:14px;
   padding:12px 18px;box-shadow:0 14px 40px rgba(10,22,80,.4),0 0 0 1px rgba(255,255,255,.08)}
@@ -29866,6 +29954,44 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     if(v>0 && reads.some(function(r){ return r === -v; })) v = -v;
     return v;
   }
+  /* v111 — DETECTOR DE TINTA: dentro de una zona (coords de la imagen original) busca dónde está
+     realmente el texto: píxeles distintos al fondo, agrupados en columnas; descarta líneas delgadas
+     (bordes de la tabla) y une dígitos cercanos. side='right' toma el grupo más a la derecha (el
+     número justo antes del "kW"), side='left' el más a la izquierda (el número debajo de una
+     etiqueta). Devuelve { x0,x1,y0,y1 } en coords originales o null. */
+  function _loteInkBox(img, ox, oy, ow, oh, side, joinGap){
+    ox = Math.max(0, Math.round(ox)); oy = Math.max(0, Math.round(oy));
+    ow = Math.round(Math.min(img.naturalWidth-ox, ow)); oh = Math.round(Math.min(img.naturalHeight-oy, oh));
+    if(ow < 4 || oh < 4) return null;
+    var c = document.createElement('canvas'); c.width = ow; c.height = oh;
+    var ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(img, ox, oy, ow, oh, 0, 0, ow, oh);
+    var d = ctx.getImageData(0,0,ow,oh).data, rs=[], gs=[], bs=[];
+    for(var i=0;i<d.length;i+=16){ rs.push(d[i]); gs.push(d[i+1]); bs.push(d[i+2]); }
+    function med(a){ a.sort(function(x,y){ return x-y; }); return a[a.length>>1]; }
+    var br = med(rs), bgc = med(gs), bb = med(bs);
+    var colInk = new Array(ow).fill(0), rowsOf = [];
+    for(var x=0;x<ow;x++){
+      var y0=-1, y1=-1;
+      for(var y=0;y<oh;y++){
+        var j=(y*ow+x)*4;
+        if(Math.abs(d[j]-br)+Math.abs(d[j+1]-bgc)+Math.abs(d[j+2]-bb) > 90){ colInk[x]++; if(y0<0) y0=y; y1=y; }
+      }
+      rowsOf.push([y0,y1]);
+    }
+    /* grupos de columnas con tinta */
+    var runs = [], cur = null;
+    for(var x2=0;x2<ow;x2++){
+      if(colInk[x2] > 0 && colInk[x2] < oh*0.92){ if(!cur){ cur = { x0:x2, x1:x2, y0:rowsOf[x2][0], y1:rowsOf[x2][1] }; } else { cur.x1 = x2; cur.y0 = Math.min(cur.y0,rowsOf[x2][0]); cur.y1 = Math.max(cur.y1,rowsOf[x2][1]); } }
+      else if(cur){ runs.push(cur); cur = null; }
+    }
+    if(cur) runs.push(cur);
+    runs = runs.filter(function(r){ return (r.x1-r.x0) >= 2 && (r.y1-r.y0) >= oh*0.25; });  /* fuera líneas y puntitos */
+    if(!runs.length) return null;
+    var gap = joinGap || oh*0.25, groups = [], g = null;
+    runs.forEach(function(r){ if(g && r.x0 - g.x1 <= gap){ g.x1 = r.x1; g.y0 = Math.min(g.y0,r.y0); g.y1 = Math.max(g.y1,r.y1); } else { g = { x0:r.x0, x1:r.x1, y0:r.y0, y1:r.y1 }; groups.push(g); } });
+    var G = side==='left' ? groups[0] : groups[groups.length-1];
+    return { x0: ox+G.x0, x1: ox+G.x1+1, y0: oy+G.y0, y1: oy+G.y1+1 };
+  }
   async function loteReadByColumns(img, sx, sy, k, rawWords){
     var words = rawWords.filter(function(w){ return w && w.bbox && String(w.text||'').trim(); })
       .map(function(w){ return { text:String(w.text).trim(), b:w.bbox }; });
@@ -29927,7 +30053,16 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
       var pad = K.h*0.3, pl = K.h*0.9;
       /* voto entre 3 lecturas: dos relecturas del original a distinta escala + la del OCR general.
          Con .jpg un 9 puede salir 3 en una lectura, rara vez en dos. */
-      var v = await _loteVoteNumber(img, sx, sy, k, K.vb, K.h, K.tokText, K.U.b.x0);
+      var v = null;
+      if(K.tokText){
+        v = await _loteVoteNumber(img, sx, sy, k, K.vb, K.h, K.tokText, K.U.b.x0);
+      } else {
+        /* sin número visto: se ubica la tinta real antes del "kW" (ventana ancha, hasta 5 dígitos,
+           sin bordes de tabla) y se relee solo eso; a ciegas, sin tinta, como último recurso */
+        var lx = K.prevU ? Math.max(K.prevU.b.x1 + 2, K.U.b.x0 - K.h*5) : K.U.b.x0 - K.h*5;
+        v = await _loteVoteNumber(img, sx, sy, k, K.vb, K.h, '', K.U.b.x0);
+        K.inkLx = lx;   /* si queda vacío, más abajo se reintenta con el detector de tinta SOLO si falta un tipo */
+      }
       /* etiqueta */
       var ld = await _loteOcrOriginal(img, toOx(K.lx0), toOy(K.ly0), (K.lx1 - K.lx0)/k, (K.ly1 - K.ly0)/k, 6, 140, true);
       var tl = ld.text || '';
@@ -29947,7 +30082,7 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
           if(dist < bestD){ bestD = dist; best = cl; }
         });
       });
-      labels.push({ kind: best ? best.kind : null, index: best ? best.index : null, value: v, b: K.vb, text: tl.trim(), row: K.row });
+      labels.push({ kind: best ? best.kind : null, index: best ? best.index : null, value: v, b: K.vb, text: tl.trim(), row: K.row, col: K });
     }
     /* v110 — RESPALDO POR ETIQUETA: si el OCR general vio una etiqueta (TOTAL MAINS, BATERIA,
        CARGA…) pero su valor no quedó en ninguna columna (no se detectó su "kW"), se busca el
@@ -29972,9 +30107,28 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
         return w.b.y0 >= bb.y1 - lh*0.2 && (w.b.y0 - bb.y1) < lh*3 && cx >= bb.x0 - lh*1.6 && cx <= bb.x1 + lh*1.2 &&
           !usedBoxes.some(function(u){ return Math.abs(u.x0-w.b.x0) < 4 && Math.abs(u.y0-w.b.y0) < 4; });
       }).sort(function(a,b){ return (a.b.y0-b.b.y0) || (Math.abs(a.b.x0-bb.x0)-Math.abs(b.b.x0-bb.x0)); })[0];
-      if(!cand) continue;
+      var blindLbl = false;
+      if(!cand){
+        /* ningún número visto debajo (p.ej. "833" azul oscuro de BESS3): se busca la tinta debajo
+           de la etiqueta y se lee a ciegas (solo vale si 2+ lecturas coinciden). Solo para un tipo
+           que no tenga NINGUNA columna, o un BESS con número que aún no exista. */
+        var anyKind = labels.some(function(L){ return L.kind===cl.kind; });
+        /* si hay columnas con número pero sin etiqueta legible, esas se asignan después — no leer a ciegas */
+        if(labels.some(function(L){ return !L.kind && L.value!=null; })) continue;
+        if(cl.kind==='bess' ? (cl.index==null ? anyKind : labels.some(function(L){ return L.kind==='bess' && L.index===cl.index; })) : anyKind) continue;
+        blindLbl = true;
+        var ib2 = _loteInkBox(img, sx + (bb.x0 - lh*0.6)/k, sy + (bb.y1 + lh*0.15)/k, (bb.x1 - bb.x0 + lh*1.2)/k, (lh*1.9)/k, 'left', (lh*0.28)/k);
+        if(!ib2) continue;
+        cand = { text:'', b:{ x0:(ib2.x0-sx)*k, x1:(ib2.x1-sx)*k, y0:(ib2.y0-sy)*k, y1:(ib2.y1-sy)*k } };
+      }
       var vv = await _loteVoteNumber(img, sx, sy, k, cand.b, Math.max(8, cand.b.y1-cand.b.y0), cand.text);
       if(vv==null) continue;
+      if(blindLbl){
+        /* a ciegas: ≥2 dígitos (o exactamente 0 — el círculo de color se lee como "1") y sin repetir
+           el valor de otra columna */
+        if(String(Math.abs(vv)).length < 2 && vv !== 0) continue;
+        if(labels.some(function(L){ return L.value === vv; })) continue;
+      }
       usedBoxes.push(cand.b); haveKinds[key] = true;
       labels.push({ kind:cl.kind, index:cl.index, value:vv, b:cand.b, text:txt, row:-1, fromLabel:true });
     }
@@ -29985,6 +30139,40 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     unk = labels.filter(function(L){ return !L.kind; });
     var missing = ['carga','red','bess'].filter(function(kd){ return !labels.some(function(L){ return L.kind===kd; }); });
     if(unk.length===1 && missing.length===1) unk[0].kind = missing[0];
+    /* v111 — TIPOS FALTANTES: si falta CARGA, RED o BESS, las columnas que quedaron sin número se
+       releen con el detector de tinta (tablas en recuadro, números deslavados) y se les asigna la
+       etiqueta que el OCR general vio más cerca arriba — solo de un tipo que falte, nunca duplica. */
+    var missingK = ['carga','red','bess'].filter(function(kd){ return !labels.some(function(L){ return L.kind===kd && L.value!=null; }); });
+    if(missingK.length){
+      var sparse = [];
+      words.forEach(function(w){ var c3 = _loteClassifyLabel(w.text, true); if(c3 && missingK.indexOf(c3.kind)>-1) sparse.push({ kind:c3.kind, index:c3.index, b:w.b }); });
+      var usedS = [];
+      for(var li=0; li<labels.length; li++){
+        var L = labels[li];
+        if(L.fromLabel) continue;
+        if(L.kind && missingK.indexOf(L.kind)===-1) continue;          /* ya tiene un tipo que no falta */
+        var lh2 = Math.max(8, L.b.y1-L.b.y0), cx = (L.b.x0+L.b.x1)/2, best = null, bd = Infinity;
+        sparse.forEach(function(S){
+          if(usedS.indexOf(S)>-1) return;
+          if(S.b.y1 > L.b.y0 + lh2*0.2 || (L.b.y0 - S.b.y1) > lh2*4) return;
+          var dd = Math.abs((S.b.x0+S.b.x1)/2 - cx);
+          if(dd < bd && dd < lh2*4){ bd = dd; best = S; }
+        });
+        var kind2 = L.kind || (best ? best.kind : null);
+        if(!kind2 || missingK.indexOf(kind2)===-1) continue;
+        if(L.value==null && L.col && !L.col.tokText){
+          var K2 = L.col, ib = _loteInkBox(img, sx + K2.inkLx/k, sy + (K2.U.b.y0 - K2.h*0.2)/k, (K2.U.b.x0 - K2.h*0.08 - K2.inkLx)/k, (K2.h*1.4)/k, 'right', (K2.h*0.35)/k);
+          if(ib){
+            var vbI = { x0:(ib.x0-sx)*k, x1:(ib.x1-sx)*k, y0:(ib.y0-sy)*k, y1:(ib.y1-sy)*k };
+            L.value = await _loteVoteNumber(img, sx, sy, k, vbI, Math.max(8, vbI.y1-vbI.y0), '', K2.U.b.x0);
+          }
+        }
+        if(L.value==null) continue;
+        L.kind = kind2; if(best && best.kind===kind2){ L.index = best.index; usedS.push(best); }
+        missingK = missingK.filter(function(kd){ return kd!==kind2; });
+        if(!missingK.length) break;
+      }
+    }
     /* varias columnas ilegibles ("r0", "s:ss"): cada una al tipo faltante al que más se parezca */
     unk = labels.filter(function(L){ return !L.kind; });
     missing = ['carga','red','bess'].filter(function(kd){ return !labels.some(function(L){ return L.kind===kd; }); });
@@ -30725,6 +30913,15 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
 
   /* Vidanta (Tesla) trae además "Energía solar real": el formulario no tiene campo para eso,
      así que se agrega a las observaciones del registro */
+  /* después de llenar el formulario de descarga: SOC/DOD/energía del reporte profesional de esa
+     fecha, nombre del Ing. registrado, y refrescar panel izquierdo + pendientes + documento */
+  function loteAfterPrefillDesc(){
+    try{ if(window._bitApplyOpSoc) window._bitApplyOpSoc(); }catch(e){}
+    try{ if(window._bitFillEngineer) window._bitFillEngineer(false); }catch(e){}
+    if(typeof renderBessUnitsSidebar === 'function') renderBessUnitsSidebar();
+    if(typeof render === 'function') render();
+    if(window._updateMissingBadge) try{ window._updateMissingBadge(); }catch(e){}
+  }
   function loteCommentWithExtras(row){
     var c = row.comment || '';
     if(row.solar!=null) c = (c ? c + ' · ' : '') + 'Energía solar real: ' + row.solar + ' kW';
@@ -30922,7 +31119,7 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
         window._batchDescClearImages();
         if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
         var obsElM = document.getElementById('observations'); if(obsElM) obsElM.value = loteCommentWithExtras(row);
-        if(typeof render === 'function') render();
+        loteAfterPrefillDesc();
         return;
       }
       var unitId = window._batchDescEnsureFirstUnitId();
@@ -30934,10 +31131,11 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
       window.updateUnit(unitId, 'mains', row.red!=null ? Math.abs(row.red) : '');
       window.updateUnit(unitId, 'bessKw', row.bess!=null ? Math.abs(row.bess) : '');
       window.updateUnit(unitId, 'load', row.carga!=null ? Math.abs(row.carga) : '');
+      if(typeof renderBessUnitsSidebar === 'function') renderBessUnitsSidebar(); /* v112: que se vea en el panel izquierdo */
       window._batchDescClearImages();
       if(row.fullDataUrl) window._batchDescPushImage(row.filename, row.fullDataUrl);
       var obsEl = document.getElementById('observations'); if(obsEl) obsEl.value = loteCommentWithExtras(row);
-      if(typeof render === 'function') render();
+      loteAfterPrefillDesc();
     } else {
       window.bitacoraSetMode('carga');
       await _loteNextFrame();
@@ -38468,6 +38666,24 @@ var RVPRO_STATUS_GROUPS = [
   {lbl:'N/A',     keys:['na_FUERA_OP','na_MANTENIMIENTO','na_LIBRANZA','na_']}
 ];
 
+/* ══ v113 — COMPORTAMIENTO POR COMPONENTE ══
+   Cada sitio se valida por partes: la RED (acometida), el CONSUMO (carga del cliente), la
+   BATERÍA y el PCS — cada uno con su estado y, donde aplica, su medición en kW. Colores:
+   verde = normal, azul/cian = informativo, ámbar = atención, rojo = falla, gris = sin dato. */
+var RVPRO_COMP = {
+  red:   { label:'RED',      kw:'redKw',  opts:[['ok','OK','#15803d'],['bajo','Bajo consumo','#0891b2'],['medio','Consumo medio','#2563eb'],['alto','Alto consumo','#b45309'],['exporta','Exportando','#7c3aed'],['sinmed','Sin medición','#64748b'],['perdida','Pérdida de red','#dc2626']] },
+  cons:  { label:'CONSUMO',  kw:'consKw', opts:[['ok','OK','#15803d'],['bajo','Bajo','#0891b2'],['medio','Medio','#2563eb'],['alto','Alto','#b45309'],['sincons','Sin consumo','#475569'],['sinmed','Sin medición','#64748b']] },
+  batSt: { label:'BATERÍA',  kw:'bessKw', opts:[['ok','OK','#15803d'],['cargando','Cargando','#2563eb'],['descargando','Descargando','#0891b2'],['reposo','En reposo','#475569'],['balanceando','Balanceando','#7c3aed'],['alarma','Alarma','#b45309'],['falla','Falla','#dc2626'],['racks','Racks fuera','#c2410c'],['fueraop','Fuera de operación','#64748b']] },
+  pcs:   { label:'PCS',      kw:null,     opts:[['ok','OK','#15803d'],['standby','Standby','#0891b2'],['alarma','Alarma','#b45309'],['falla','Falla','#dc2626'],['sincom','Sin comunicación','#991b1b'],['apagado','Apagado','#64748b']] }
+};
+window.RVPRO_COMP = RVPRO_COMP;
+var RVPRO_LIVE_FIELDS = ['bat','cond','batLabel','lp','rn','clk','dsc','racks','tmp','soc','chg','chgPow','cmt','resp','red','redKw','cons','consKw','batSt','bessKw','pcs','fp','skip'];
+function _rvpCompOpt(comp, val){ var c = RVPRO_COMP[comp]; if(!c || !val) return null; for(var k=0;k<c.opts.length;k++){ if(c.opts[k][0]===val) return c.opts[k]; } return null; }
+function _rvpCompColor(comp, val){ var o = _rvpCompOpt(comp, val); return o ? o[2] : '#94a3b8'; }
+function _rvpCompLabel(comp, val){ var o = _rvpCompOpt(comp, val); return o ? o[1] : '—'; }
+window._rvpCompLabel = _rvpCompLabel; window._rvpCompColor = _rvpCompColor;
+
+function _rvpIni(name){ var p=String(name||'?').trim().split(/\s+/).filter(Boolean); return (p.length>=2?p[0][0]+p[p.length-1][0]:String(name||'?').slice(0,2)).toUpperCase(); }
 function _rvpEsc(s){ return (typeof window._oppEsc==='function') ? window._oppEsc(s) : String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _rvpKeyFor(sr){ return sr && sr.bat ? (sr.bat+'_'+(sr.cond||'')) : ''; }
 function _rvpStatusColor(key){ var m=window._BAT_FULL_COLORS; return (key && m && m[key]) ? m[key].color : '#94a3b8'; }
@@ -38496,6 +38712,15 @@ function _rvProComputeAll(){
   var clkOk   = filled.filter(function(r){ return r.sr.clk==='ok'; }).length;
   var commErr = filled.filter(function(r){ return r.sr.bat==='error'; }).length;
   var sinRedAc= filled.filter(function(r){ return r.sr.cond==='SIN_RED_AC'; }).length;
+  /* v113 — por componente */
+  var live = rows.filter(function(r){ return !r.sr.skip; });
+  var redOk    = live.filter(function(r){ return ['ok','bajo','medio','alto','exporta'].indexOf(r.sr.red)>-1; }).length;
+  var redLoss  = live.filter(function(r){ return r.sr.red==='perdida'; }).length;
+  var redAny   = live.filter(function(r){ return !!r.sr.red; }).length;
+  var consHigh = live.filter(function(r){ return r.sr.cons==='alto' || r.sr.red==='alto'; }).length;
+  var batBad   = live.filter(function(r){ return ['alarma','falla','racks'].indexOf(r.sr.batSt)>-1; }).length;
+  var pcsBad   = live.filter(function(r){ return ['alarma','falla','sincom'].indexOf(r.sr.pcs)>-1; }).length;
+  var sinMed   = live.filter(function(r){ return r.sr.red==='sinmed' || r.sr.cons==='sinmed'; }).length;
   var regionOrder = window.OPPRO_REGION_ORDER || ['ASUR','OMA','Industria','Park Royal'];
   var regionGroups = regionOrder.map(function(reg){
     var regRows = rows.filter(function(r){ return r.region===reg; });
@@ -38516,6 +38741,7 @@ function _rvProComputeAll(){
   }).filter(function(x){ return !!x; });
   return { rows:rows, filled:filled, totalSitios:rows.length, totalReportados:total,
     dscSi:dscSi, chgN:chgN, racksN:racksN, clkOk:clkOk, commErr:commErr, sinRedAc:sinRedAc,
+    redOk:redOk, redLoss:redLoss, redAny:redAny, consHigh:consHigh, batBad:batBad, pcsBad:pcsBad, sinMed:sinMed,
     regionGroups:regionGroups, continuity:continuity };
 }
 window._rvProComputeAll = _rvProComputeAll;
@@ -38747,7 +38973,12 @@ function _rvProKpiHtml(d){
     _rvProKpiCard('🗄','Racks Desenclavados', String(d.racksN),    d.racksN?'sitio'+(d.racksN===1?'':'s')+' con racks reportados':'sin novedad', '#b45309'),
     _rvProKpiCard('⏰','Relojes Validados',  d.clkOk+' / '+total, pct(d.clkOk), '#0a7a5c'),
     _rvProKpiCard('📡','Sin Comunicación',   String(d.commErr),   d.commErr?'requiere atención':'todo comunicando', '#dc2626'),
-    _rvProKpiCard('⚡','Sin Red AC',         String(d.sinRedAc),  d.sinRedAc?'operando en respaldo':'con red normal', '#991b1b')
+    _rvProKpiCard('⚡','Sin Red AC',         String(d.sinRedAc),  d.sinRedAc?'operando en respaldo':'con red normal', '#991b1b'),
+    _rvProKpiCard('🔌','Red OK',             d.redOk+' / '+(d.redAny||0), d.redLoss?(d.redLoss+' con pérdida de red'):'sin pérdidas de red', '#0f766e'),
+    _rvProKpiCard('🏭','Consumo alto',       String(d.consHigh),  d.consHigh?'sitios con demanda alta':'demanda normal', '#b45309'),
+    _rvProKpiCard('🔋','Batería con falla',  String(d.batBad),    d.batBad?'alarma / falla / racks':'baterías normales', '#dc2626'),
+    _rvProKpiCard('⚙️','PCS con falla',      String(d.pcsBad),    d.pcsBad?'alarma / falla / sin com.':'PCS normales', '#7c2d12'),
+    _rvProKpiCard('📏','Sin medición',       String(d.sinMed),    d.sinMed?'red o consumo sin lectura':'todo con medición', '#64748b')
   ];
   return '<div class="oppc-kpi-row">'+cards.join('')+'</div>';
 }
@@ -38813,8 +39044,9 @@ function _rvProEditableRowHtml(r, editable){
     return '<tr>'
       +'<td class="oppc-etd-name">'+_rvpEsc(r.name)+(isSpecial?' <span title="Sitio especial (carga tardía/solar)">☀</span>':'')+'</td>'
       +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+_rvpEsc(flagsTxt)+'</td>'
-      +'<td class="oppc-etd-num">'+(sr.clk==='ok'?'OK':sr.clk==='no'?'No':'—')+'</td>'
-      +'<td class="oppc-etd-num">'+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
+      +['red','cons','batSt','pcs'].map(function(c){ var kf = RVPRO_COMP[c].kw; return '<td class="oppc-etd-num" style="color:'+_rvpCompColor(c,sr[c])+';font-weight:800">'+_rvpEsc(_rvpCompLabel(c,sr[c]))+(kf && sr[kf]!=='' && sr[kf]!=null ? '<div style="color:#475569;font-weight:600">'+_rvpEsc(sr[kf])+' kW</div>' : '')+'</td>'; }).join('')
+      +'<td class="oppc-etd-num">'+_rvpEsc(sr.fp||'—')+'</td>'
+      +'<td class="oppc-etd-num">⏰ '+(sr.clk==='ok'?'OK':sr.clk==='no'?'No':'—')+'<br>🔋 '+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
       +'<td class="oppc-etd-num">'+_rvpEsc(sr.racks||'—')+'</td>'
       +'<td class="oppc-etd-num" style="color:'+_rvpTempColor(sr.tmp)+'">'+(sr.tmp?sr.tmp+'°C':'—')+'</td>'
       +(isNoct
@@ -38833,14 +39065,25 @@ function _rvProEditableRowHtml(r, editable){
             }).join('')
           + '</optgroup>';
       }).join('');
+  var compCell = function(comp){
+    var c = RVPRO_COMP[comp], v = sr[comp]||'';
+    var sel = '<select class="oppc-esel rvpc-comp-sel" id="rvpro-'+comp+'-'+i+'" data-idx="'+i+'" data-col="'+comp+'" style="color:'+_rvpCompColor(comp,v)+'" onchange="window._rvProSetField('+i+',\''+comp+'\',this.value)">'
+      +'<option value="" '+(!v?'selected':'')+'>—</option>'
+      + c.opts.map(function(o){ return '<option value="'+o[0]+'" '+(v===o[0]?'selected':'')+'>'+_rvpEsc(o[1])+'</option>'; }).join('')
+      +'</select>';
+    var kw = c.kw ? '<input type="number" class="oppc-einput rvpc-kw-in" id="rvpro-in-'+c.kw+'-'+i+'" data-idx="'+i+'" data-col="'+c.kw+'" value="'+_rvpEsc(sr[c.kw]!=null?sr[c.kw]:'')+'" placeholder="kW" oninput="window._rvProSetField('+i+',\''+c.kw+'\',this.value)">' : '';
+    return '<td class="rvpc-comp-td">'+sel+kw+'</td>';
+  };
   var socOrChgCell = isNoct
-    ? '<td><select class="oppc-esel" data-idx="'+i+'" data-col="chg" onchange="window._rvProSetField('+i+',\'chg\',this.value===\'si\')">'
+    ? '<td><select class="oppc-esel" id="rvpro-chg-'+i+'" data-idx="'+i+'" data-col="chg" onchange="window._rvProSetField('+i+',\'chg\',this.value===\'si\')">'
         +'<option value="si" '+(sr.chg?'selected':'')+'>Sí</option>'
         +'<option value="no" '+(!sr.chg?'selected':'')+'>No</option>'
       +'</select></td>'
     : '<td><input type="number" min="0" max="100" class="oppc-einput" id="rvpro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_rvpEsc(sr.soc!=null?sr.soc:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'soc\',this.value)"></td>';
-  return '<tr id="rvpro-tr-'+i+'">'
-    +'<td class="oppc-etd-name">'+_rvpEsc(r.name)
+  var asg = (typeof _rvProAssigneeFor==='function') ? _rvProAssigneeFor(i) : null;
+  var mine = asg && typeof myId==='function' && asg.id===myId();
+  return '<tr id="rvpro-tr-'+i+'" class="'+(asg ? (mine?'rvpc-mine':'rvpc-other') : '')+'"'+(asg?' style="--rvpc-asg:'+_rvpEsc(asg.color||'#10b981')+'"':'')+'>'
+    +'<td class="oppc-etd-name">'+(asg?'<span class="rvpc-asg-dot" title="Le toca a '+_rvpEsc(asg.name||'')+'">'+_rvpEsc(_rvpIni(asg.name))+'</span>':'')+_rvpEsc(r.name)
       +'<button type="button" data-special-btn="'+_rvpEsc(String(r.name||'').trim().toLowerCase())+'" class="rvpc-special-btn'+(isSpecial?' rvpc-special-on':'')+'" title="Sitio especial (carga tardía/solar) — no cuenta como incidencia por no haber cargado aún" onclick="window._rvToggleSpecialSiteByIdx('+i+')">☀</button>'
     +'</td>'
     +'<td>'
@@ -38850,22 +39093,24 @@ function _rvProEditableRowHtml(r, editable){
         +'<button type="button" class="rvpc-flag-btn'+(sr.rn?' rvpc-flag-on':'')+'" data-flag-btn="'+i+'-rn" title="Acometida negativa" onclick="window._rvProToggleFlag('+i+',\'rn\')">🔌 Acom. neg.</button>'
       +'</div>'
     +'</td>'
-    +'<td><select class="oppc-esel" data-idx="'+i+'" data-col="clk" onchange="window._rvProSetField('+i+',\'clk\',this.value)">'
-        +'<option value="" '+(!sr.clk?'selected':'')+'>—</option>'
-        +'<option value="ok" '+(sr.clk==='ok'?'selected':'')+'>OK</option>'
-        +'<option value="no" '+(sr.clk==='no'?'selected':'')+'>No</option>'
-      +'</select></td>'
-    +'<td><select class="oppc-esel" data-idx="'+i+'" data-col="dsc" onchange="window._rvProSetField('+i+',\'dsc\',this.value)">'
-        +'<option value="" '+(!sr.dsc?'selected':'')+'>—</option>'
-        +'<option value="si" '+(sr.dsc==='si'?'selected':'')+'>Sí</option>'
-        +'<option value="no" '+(sr.dsc==='no'?'selected':'')+'>No</option>'
+    +compCell('red')+compCell('cons')+compCell('batSt')+compCell('pcs')
+    +'<td><input type="number" step="0.01" class="oppc-einput rvpc-fp-in" id="rvpro-in-fp-'+i+'" data-idx="'+i+'" data-col="fp" value="'+_rvpEsc(sr.fp!=null?sr.fp:'')+'" placeholder="FP" oninput="window._rvProSetField('+i+',\'fp\',this.value)"></td>'
+    +'<td class="rvpc-stack-td"><select class="oppc-esel" id="rvpro-clk-'+i+'" data-idx="'+i+'" data-col="clk" title="Reloj validado" onchange="window._rvProSetField('+i+',\'clk\',this.value)">'
+        +'<option value="" '+(!sr.clk?'selected':'')+'>⏰ —</option>'
+        +'<option value="ok" '+(sr.clk==='ok'?'selected':'')+'>⏰ OK</option>'
+        +'<option value="no" '+(sr.clk==='no'?'selected':'')+'>⏰ No</option>'
+      +'</select>'
+      +'<select class="oppc-esel" id="rvpro-dsc-'+i+'" data-idx="'+i+'" data-col="dsc" title="Prueba de descarga" onchange="window._rvProSetField('+i+',\'dsc\',this.value)">'
+        +'<option value="" '+(!sr.dsc?'selected':'')+'>🔋 —</option>'
+        +'<option value="si" '+(sr.dsc==='si'?'selected':'')+'>🔋 Sí</option>'
+        +'<option value="no" '+(sr.dsc==='no'?'selected':'')+'>🔋 No</option>'
       +'</select></td>'
     +'<td><input type="text" class="oppc-einput" style="width:82px" id="rvpro-in-racks-'+i+'" data-idx="'+i+'" data-col="racks" value="'+_rvpEsc(sr.racks||'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'racks\',this.value)"></td>'
     +'<td><input type="number" class="oppc-einput" id="rvpro-in-tmp-'+i+'" data-idx="'+i+'" data-col="tmp" style="color:'+_rvpTempColor(sr.tmp)+';font-weight:800" value="'+_rvpEsc(sr.tmp!=null?sr.tmp:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'tmp\',this.value)"></td>'
     +socOrChgCell
     +'<td><input type="text" class="oppc-einput'+(isNoct?' rvpc-chgpow-emph':'')+'" style="width:'+(isNoct?'70px':'60px')+'" id="rvpro-in-chgpow-'+i+'" data-idx="'+i+'" data-col="chgPow" value="'+_rvpEsc(sr.chgPow||'')+'" placeholder="kW" oninput="window._rvProSetField('+i+',\'chgPow\',this.value)"></td>'
-    +'<td><input type="text" class="oppc-einput-obs" data-idx="'+i+'" data-col="cmt" maxlength="140" value="'+_rvpEsc(sr.cmt||'')+'" placeholder="Comentario breve…" oninput="window._rvProSetField('+i+',\'cmt\',this.value)"></td>'
-    +'<td><input type="text" class="oppc-einput-obs" style="min-width:100px" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
+    +'<td><input type="text" class="oppc-einput-obs" id="rvpro-in-cmt-'+i+'" data-idx="'+i+'" data-col="cmt" maxlength="140" value="'+_rvpEsc(sr.cmt||'')+'" placeholder="Comentario breve…" oninput="window._rvProSetField('+i+',\'cmt\',this.value)"></td>'
+    +'<td><input type="text" class="oppc-einput-obs" style="min-width:90px" id="rvpro-in-resp-'+i+'" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
   +'</tr>';
 }
 function _rvProEditableRegionHtml(g, editable){
@@ -38879,7 +39124,7 @@ function _rvProEditableRegionHtml(g, editable){
       +'<span class="oppc-region-hdr-n" id="rvpro-regn-'+_rvProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
     +'</div>'
     +'<table class="oppc-etable"><thead><tr>'
-      +'<th>Sitio</th><th>Estado</th><th>Reloj</th><th>Descarga</th><th>Racks</th><th>Temp °C</th><th>'+col7Label+'</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
+      +'<th>Sitio</th><th>Estado general</th><th class="rvpc-th-comp">🔌 Red</th><th class="rvpc-th-comp">🏭 Consumo</th><th class="rvpc-th-comp">🔋 Batería</th><th class="rvpc-th-comp">⚙️ PCS</th><th>FP</th><th>Reloj / Desc.</th><th>Racks</th><th>Temp °C</th><th>'+col7Label+'</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
   +'</div>';
 }
@@ -38977,6 +39222,7 @@ function _rvProScheduleSave(){
 }
 function _rvProRefreshSummary(){
   var d = _rvProComputeAll();
+  if(typeof _rvProRefreshDivision==='function'){ var dw = document.getElementById('rvpro-division-wrap'); if(dw) dw.innerHTML = _rvProDivisionHtml(); }
   var kpiWrap = document.getElementById('rvpro-kpi-wrap');
   if(kpiWrap) kpiWrap.innerHTML = _rvProKpiHtml(d);
   d.regionGroups.forEach(function(g){
@@ -39006,6 +39252,14 @@ window._rvProSetField = function(i, field, value){
     var tmpEl = document.getElementById('rvpro-in-tmp-'+i);
     if(tmpEl) tmpEl.style.color = _rvpTempColor(value);
   }
+  if(RVPRO_COMP[field]){
+    var cEl = document.getElementById('rvpro-'+field+'-'+i);
+    if(cEl) cEl.style.color = _rvpCompColor(field, value);
+  }
+  /* v113: en vivo para los demás colaboradores */
+  var livePatch = {}; livePatch[field] = value;
+  if(field==='soc') livePatch.chg = window.rvW.srs[i].chg;
+  _rvProPushLive(i, livePatch);
   _rvProScheduleSummaryRefresh();
   _rvProScheduleSave();
   /* v86: "racks" y "dsc" pueden abrir o cerrar un pendiente
@@ -39043,6 +39297,7 @@ window._rvProSetStatus = function(i, key){
   }
   var sel = document.getElementById('rvpro-sel-'+i);
   if(sel) sel.style.color = _rvpStatusColor(key);
+  _rvProPushLive(i, { bat: sr.bat, cond: sr.cond, batLabel: sr.batLabel });
   _rvProScheduleSummaryRefresh();
   _rvProScheduleSave();
   /* v86: cambiar el estatus es la forma más común de abrir/cerrar un
@@ -39088,6 +39343,7 @@ function _rvProRenderEditablePaper(){
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
     + _rvProHeaderHtml(meta, d.totalSitios)
     + '<div class="oppc-topline"><div id="rvpro-kpi-wrap" style="flex:1 1 100%">'+_rvProKpiHtml(d)+'</div></div>'
+    + '<div id="rvpro-division-wrap">'+_rvProDivisionHtml()+'</div>'
     + '<div id="rvpro-continuity-wrap">'+_rvProContinuityPanelHtml(d)+'</div>'
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estado, reloj, descarga, racks, temperatura, SOC, comentario o responsable de cualquier sitio para editarlo — se guarda automáticamente.'
         + (isHistorical ? ' <span style="opacity:.85">(editando reporte del historial — cierra con ✕ Cerrar arriba cuando termines)</span>' : ' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" onclick="window.rvSave()">✓ Guardar Reporte</button>')
@@ -39096,6 +39352,7 @@ function _rvProRenderEditablePaper(){
     + '</div></div>';
 
   paper.innerHTML = html;
+  if(window._rvProOnlyMine){ var rt0 = paper.querySelector('.oppc-root'); if(rt0) rt0.classList.add('rvpc-onlymine'); }
 }
 window._rvProRenderEditablePaper = _rvProRenderEditablePaper;
 
@@ -39190,6 +39447,413 @@ window._rvProStartDirect = function(){
     }
   }
 };
+
+/* ══════════════════════════════════════════════════════════════════════
+   v113 — VALIDACIÓN EN VIVO + DIVISIÓN AUTOMÁTICA
+   (a) Cada campo editado se escribe al instante en collab_sessions/<sesión>
+       (misma técnica que el Reporte Operativo: objeto anidado srs[i] con
+       _by/_ts) y todos los demás lo ven sin recargar.
+   (b) División en partes iguales: los participantes se ordenan por hora de
+       entrada (el anfitrión primero) y la lista de sitios se reparte en
+       bloques iguales y consecutivos. Todos calculan lo mismo con los mismos
+       datos, sin escrituras extra. Cada quien ve resaltados SUS sitios y
+       puede filtrar "solo mis sitios"; todos pueden ver/editar todo.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+  if(document.getElementById('rvpro-v113-style')) return;
+  var st = document.createElement('style'); st.id = 'rvpro-v113-style';
+  st.textContent =
+    '.rvpc-comp-td{min-width:94px}'+
+    '#rv-paper-content .oppc-eregion{overflow-x:auto}'+
+    '#rv-paper-content .oppc-eregion .oppc-etable td:nth-child(2){min-width:158px}'+
+    '#rv-paper-content .oppc-eregion .rvpc-flagrow{max-width:none;flex-wrap:nowrap}'+
+    '#rv-paper-content .oppc-einput-obs{min-width:130px!important;width:130px!important}'+
+    '.rvpc-comp-sel{width:94px!important;font-size:9.5px!important;font-weight:800!important}'+
+    '.rvpc-kw-in{width:64px!important;margin-top:3px;display:block}'+
+    '.rvpc-fp-in{width:48px!important}'+
+    '.rvpc-stack-td select{display:block;width:74px!important;margin:1px 0}'+
+    '.rvpc-th-comp{background:rgba(16,185,129,.10)!important}'+
+    'tr.rvpc-mine td:first-child{box-shadow:inset 4px 0 0 var(--rvpc-asg,#10b981)}'+
+    'tr.rvpc-other td:first-child{box-shadow:inset 4px 0 0 var(--rvpc-asg,#94a3b8)}'+
+    'tr.rvpc-other{opacity:.74}'+
+    '.rvpc-onlymine tr.rvpc-other{display:none}'+
+    '.rvpc-asg-dot{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--rvpc-asg,#10b981);color:#fff;font:800 7.5px Arial,sans-serif;margin-right:5px;vertical-align:middle}'+
+    'tr.rvpro-remote-flash td{animation:rvpcFlash 1.4s ease}'+
+    '@keyframes rvpcFlash{0%{background:rgba(16,185,129,.28)}100%{background:transparent}}'+
+    '.rvpc-divbar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:6px 0 10px}'+
+    '.rvpc-divcard{flex:1 1 180px;border:1px solid #d7e3f0;border-left:5px solid var(--c);border-radius:9px;padding:7px 10px;background:#fff;font-family:Arial,sans-serif}'+
+    '.rvpc-divcard.me{box-shadow:0 0 0 2px var(--c) inset}'+
+    '.rvpc-divname{font-size:11px;font-weight:800;color:#0f172a}'+
+    '.rvpc-divsub{font-size:9.5px;color:#64748b;margin-top:1px}'+
+    '.rvpc-divprog{height:5px;border-radius:4px;background:#eef2f7;margin-top:5px;overflow:hidden}'+
+    '.rvpc-divprog i{display:block;height:100%;background:var(--c)}'+
+    '.rvpc-divtools{display:flex;align-items:center;gap:8px;font-family:Arial,sans-serif;font-size:10.5px;color:#334155}';
+  document.head.appendChild(st);
+})();
+
+function _rvProParticipants(){
+  if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='val') return [];
+  var ps = (COLLAB._participants||[]).filter(function(p){ return p && p.id; });
+  var seen = {}, out = [];
+  ps.forEach(function(p){ if(!seen[p.id]){ seen[p.id]=1; out.push(p); } });
+  out.sort(function(a,b){
+    if(a.id===COLLAB._hostId) return -1; if(b.id===COLLAB._hostId) return 1;
+    return (a.joinedAt||0)-(b.joinedAt||0) || String(a.id).localeCompare(String(b.id));
+  });
+  return out;
+}
+window._rvProParticipants = _rvProParticipants;
+/* Bloques iguales y consecutivos sobre la lista de sitios */
+function _rvProAssigneeFor(i){
+  var ps = _rvProParticipants(); if(ps.length<2) return null;
+  var total = (window.RV_SITES||[]).length || 1, size = Math.ceil(total/ps.length);
+  return ps[Math.min(ps.length-1, Math.floor(i/size))];
+}
+window._rvProAssigneeFor = _rvProAssigneeFor;
+function _rvProDivisionHtml(){
+  var ps = _rvProParticipants(); if(ps.length<2) return '';
+  var srs = (window.rvW && window.rvW.srs) || [], total = (window.RV_SITES||[]).length, size = Math.ceil(total/ps.length);
+  var me = (typeof myId==='function') ? myId() : '';
+  var cards = ps.map(function(p, k){
+    var from = k*size, to = Math.min(total, (k+1)*size) - 1;
+    if(k===ps.length-1) to = total-1;
+    var n = Math.max(0, to-from+1), done = 0;
+    for(var j=from;j<=to;j++){ var sr = srs[j]; if(sr && (sr.skip || sr.bat || sr.red || sr.batSt)) done++; }
+    var pct = n ? Math.round(done/n*100) : 0;
+    return '<div class="rvpc-divcard'+(p.id===me?' me':'')+'" style="--c:'+_rvpEsc(p.color||'#10b981')+'">'
+      +'<div class="rvpc-divname">'+_rvpEsc(p.name||'Participante')+(p.id===me?' (tú)':'')+'</div>'
+      +'<div class="rvpc-divsub">Sitios '+(from+1)+'–'+(to+1)+' · '+done+'/'+n+' revisados · '+pct+'%</div>'
+      +'<div class="rvpc-divprog"><i style="width:'+pct+'%"></i></div></div>';
+  }).join('');
+  var only = !!window._rvProOnlyMine;
+  return '<div class="oppc-card" style="margin-bottom:8px">'
+    +'<div class="rvpc-divtools"><b>👥 División automática en partes iguales</b> · '+ps.length+' personas · '+total+' sitios'
+    +'<label style="margin-left:auto;cursor:pointer"><input type="checkbox" '+(only?'checked':'')+' onchange="window._rvProSetOnlyMine(this.checked)"> Ver solo mis sitios</label></div>'
+    +'<div class="rvpc-divbar">'+cards+'</div></div>';
+}
+window._rvProSetOnlyMine = function(on){
+  window._rvProOnlyMine = !!on;
+  var root = document.querySelector('#rv-paper-content .oppc-root');
+  if(root) root.classList.toggle('rvpc-onlymine', !!on);
+};
+function _rvProRefreshDivision(){
+  var w = document.getElementById('rvpro-division-wrap');
+  if(w) w.innerHTML = _rvProDivisionHtml();
+  /* reasignar marcas de cada fila sin re-pintar la tabla */
+  var sites = window.RV_SITES||[], me = (typeof myId==='function') ? myId() : '';
+  for(var i=0;i<sites.length;i++){
+    var tr = document.getElementById('rvpro-tr-'+i); if(!tr) continue;
+    var a = _rvProAssigneeFor(i);
+    tr.classList.toggle('rvpc-mine', !!(a && a.id===me));
+    tr.classList.toggle('rvpc-other', !!(a && a.id!==me));
+    if(a) tr.style.setProperty('--rvpc-asg', a.color||'#10b981'); else tr.style.removeProperty('--rvpc-asg');
+    var dot = tr.querySelector('.rvpc-asg-dot');
+    if(a){
+      if(!dot){ dot = document.createElement('span'); dot.className='rvpc-asg-dot'; var td0 = tr.querySelector('td'); if(td0) td0.insertBefore(dot, td0.firstChild); }
+      dot.textContent = _rvpIni(a.name); dot.title = 'Le toca a '+(a.name||'');
+    } else if(dot) dot.remove();
+  }
+}
+window._rvProRefreshDivision = _rvProRefreshDivision;
+
+/* ── escritura en vivo ── */
+var _rvProLiveT = {}, _rvProLiveWarned = false;
+function _rvProPushLive(i, patch){
+  if(window._rvProEditingSavedId || window._rvProReadOnlyView) return;
+  if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='val') return;
+  if(!window._fbFS || !window._fbDB) return;
+  var key = i+':'+Object.keys(patch).join(',');
+  clearTimeout(_rvProLiveT[key]);
+  _rvProLiveT[key] = setTimeout(function(){
+    try{
+      var FS = window._fbFS, DB = window._fbDB, leaf = Object.assign({}, patch, { _by: myId(), _ts: Date.now() });
+      var body = { srs: {}, updatedAt: Date.now() }; body.srs[i] = leaf;
+      FS.setDoc(FS.doc(DB,'collab_sessions',COLLAB.sessionId), body, {merge:true}).catch(function(e){
+        if(!_rvProLiveWarned){ _rvProLiveWarned = true; try{ (window._opProToast||window.showToast||function(){})('⚠️ Validación: no se pudo sincronizar en vivo ('+((e&&e.message)||'error')+')'); }catch(_){} }
+      });
+    }catch(e){}
+  }, 450);
+}
+window._rvProPushLive = _rvProPushLive;
+
+/* ── aplicar cambios de los demás ── */
+function _rvProApplyRemoteSite(i, patch){
+  var sr = window.rvW && window.rvW.srs && window.rvW.srs[i]; if(!sr) return false;
+  var changed = false;
+  RVPRO_LIVE_FIELDS.forEach(function(f){ if(patch[f]!==undefined && sr[f]!==patch[f]){ sr[f] = patch[f]; changed = true; } });
+  if(!changed) return false;
+  var tr = document.getElementById('rvpro-tr-'+i);
+  if(tr){
+    var focusedInside = document.activeElement && tr.contains(document.activeElement);
+    if(!focusedInside){
+      var tmp = document.createElement('tbody');
+      tmp.innerHTML = _rvProEditableRowHtml({ name:(window.RV_SITES||[])[i], sr:sr, _idx:i }, !window._rvProReadOnlyView);
+      if(tmp.firstElementChild){ tr.parentNode.replaceChild(tmp.firstElementChild, tr); tr = document.getElementById('rvpro-tr-'+i); }
+    } else {
+      Array.prototype.forEach.call(tr.querySelectorAll('[data-col]'), function(el){
+        if(el===document.activeElement) return;
+        var col = el.getAttribute('data-col');
+        if(col==='status'){ el.value = _rvpKeyFor(sr); el.style.color = _rvpStatusColor(_rvpKeyFor(sr)); }
+        else if(col==='chg'){ el.value = sr.chg ? 'si' : 'no'; }
+        else if(sr[col]!==undefined){ el.value = sr[col]==null ? '' : sr[col]; if(RVPRO_COMP[col]) el.style.color = _rvpCompColor(col, sr[col]); }
+      });
+    }
+    if(tr){ tr.classList.add('rvpro-remote-flash'); setTimeout(function(){ tr && tr.classList.remove('rvpro-remote-flash'); }, 1400); }
+  }
+  return true;
+}
+function _rvProApplySessionData(data){
+  if(!data || !window.rvW || !window.rvW.srs) return;
+  var prevN = _rvProParticipants().length;
+  if(data.participants) COLLAB._participants = Object.values(data.participants).filter(Boolean);
+  if(data.hostId){ COLLAB._hostId = data.hostId; COLLAB._hostName = data.hostName; COLLAB._hostColor = data.hostColor; }
+  var any = false, me = (typeof myId==='function') ? myId() : '';
+  var srsRemote = data.srs || {};
+  Object.keys(srsRemote).forEach(function(k){
+    var i = parseInt(k,10), patch = srsRemote[k];
+    if(isNaN(i) || !patch || patch._by===me) return;
+    if(_rvProApplyRemoteSite(i, patch)) any = true;
+  });
+  if(any){ _rvProScheduleSummaryRefresh(); _rvProScheduleSave(); }
+  if(any || _rvProParticipants().length!==prevN) _rvProRefreshDivision();
+}
+window._rvProApplySessionData = _rvProApplySessionData;
+var _rvProLiveUnsub = null, _rvProLiveSid = null, _rvProLastSnap = 0;
+function _rvProLiveEnsure(){
+  var active = window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='val' && !window._rvProEditingSavedId;
+  if(!active){
+    if(_rvProLiveUnsub){ try{ _rvProLiveUnsub(); }catch(e){} _rvProLiveUnsub = null; _rvProLiveSid = null; }
+    return;
+  }
+  if(!window._fbFS || !window._fbDB) return;
+  var FS = window._fbFS, DB = window._fbDB;
+  if(_rvProLiveSid !== COLLAB.sessionId){
+    if(_rvProLiveUnsub){ try{ _rvProLiveUnsub(); }catch(e){} }
+    _rvProLiveSid = COLLAB.sessionId;
+    try{
+      _rvProLiveUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',_rvProLiveSid), function(snap){
+        _rvProLastSnap = Date.now();
+        if(snap.exists()) _rvProApplySessionData(snap.data());
+      }, function(err){ console.warn('[VAL-PRO live] listener:', err && err.message); });
+    }catch(e){ console.warn('[VAL-PRO live]', e && e.message); }
+  }
+  /* respaldo: si el listener lleva rato sin entregar nada, leer una vez */
+  if(Date.now() - _rvProLastSnap > 15000 && FS.getDoc){
+    _rvProLastSnap = Date.now();
+    FS.getDoc(FS.doc(DB,'collab_sessions',_rvProLiveSid)).then(function(snap){ if(snap && snap.exists()) _rvProApplySessionData(snap.data()); }).catch(function(){});
+  }
+}
+setInterval(_rvProLiveEnsure, 2500);
+window._rvProLiveEnsure = _rvProLiveEnsure;
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   v113 — REPORTE DE VALIDACIÓN DESCARGABLE (horizontal, tema esmeralda /
+   grafito). Distinto del Operativo (azul) a propósito. Se arma una versión
+   de solo lectura en páginas tamaño carta/A4 horizontal: nunca se corta
+   una fila entre páginas (si no cabe, la región continúa en la siguiente
+   con su encabezado repetido). PDF = una imagen por página; PNG = todas las
+   páginas una debajo de otra.
+   ══════════════════════════════════════════════════════════════════════ */
+var RVX_W = 1600, RVX_H = 1131; /* proporción A4 horizontal */
+var RVX_REGION_GRAD = { 'ASUR':'linear-gradient(135deg,#065f46,#10b981)', 'OMA':'linear-gradient(135deg,#134e4a,#14b8a6)', 'Industria':'linear-gradient(135deg,#1f2937,#4b5563)', 'Park Royal':'linear-gradient(135deg,#14532d,#22c55e)' };
+function _rvxCss(){
+  return '<style>'
+  +'.rvx-page{width:'+RVX_W+'px;height:'+RVX_H+'px;background:#f4f7f6;font-family:Arial,Helvetica,sans-serif;color:#0f172a;position:relative;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column}'
+  +'.rvx-hdr{background:linear-gradient(120deg,#0b1220 0%,#111827 55%,#0f2f2a 100%);color:#fff;padding:22px 34px 18px;display:flex;align-items:center;gap:24px;position:relative}'
+  +'.rvx-hdr:after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:linear-gradient(90deg,#10b981,#14b8a6,#34d399)}'
+  +'.rvx-hdr.compact{padding:12px 34px 11px}'
+  +'.rvx-title{font-size:28px;font-weight:900;letter-spacing:1.5px}'
+  +'.rvx-hdr.compact .rvx-title{font-size:17px}'
+  +'.rvx-sub{font-size:12.5px;color:#a7f3d0;margin-top:3px;letter-spacing:.5px}'
+  +'.rvx-chips{display:flex;gap:10px;margin-left:auto}'
+  +'.rvx-chip{background:rgba(255,255,255,.07);border:1px solid rgba(52,211,153,.35);border-radius:10px;padding:7px 12px;min-width:110px}'
+  +'.rvx-chip b{display:block;font-size:9px;letter-spacing:1.5px;color:#6ee7b7;text-transform:uppercase}'
+  +'.rvx-chip span{font-size:13px;font-weight:800}'
+  +'.rvx-logo{height:34px;filter:brightness(0) invert(1);opacity:.95}'
+  +'.rvx-body{flex:1;padding:14px 30px 8px;overflow:hidden}'
+  +'.rvx-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:12px}'
+  +'.rvx-kpi{background:#fff;border-radius:10px;padding:9px 12px;border-top:4px solid var(--c);box-shadow:0 1px 3px rgba(15,23,42,.08)}'
+  +'.rvx-kpi b{display:block;font-size:9.5px;color:#475569;text-transform:uppercase;letter-spacing:.8px}'
+  +'.rvx-kpi span{font-size:21px;font-weight:900;color:var(--c)}'
+  +'.rvx-kpi i{display:block;font-style:normal;font-size:9.5px;color:#64748b}'
+  +'.rvx-sec{background:#fff;border-radius:10px;padding:9px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(15,23,42,.08)}'
+  +'.rvx-sec h4{margin:0 0 6px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#065f46}'
+  +'.rvx-pill{display:inline-block;border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:700;margin:2px 4px 2px 0;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}'
+  +'.rvx-pill.bad{background:#fef2f2;color:#991b1b;border-color:#fecaca}'
+  +'.rvx-region{background:#fff;border-radius:10px;overflow:hidden;margin-bottom:10px;box-shadow:0 1px 3px rgba(15,23,42,.08)}'
+  +'.rvx-rh{color:#fff;font-weight:900;font-size:12.5px;letter-spacing:1.5px;padding:7px 14px;display:flex;justify-content:space-between}'
+  +'table.rvx-t{width:100%;border-collapse:collapse;font-size:10.5px}'
+  +'table.rvx-t th{background:#ecfdf5;color:#065f46;font-size:9px;letter-spacing:.8px;text-transform:uppercase;padding:6px 6px;text-align:left;border-bottom:2px solid #a7f3d0}'
+  +'table.rvx-t td{padding:5px 6px;border-bottom:1px solid #eef2f1;vertical-align:middle}'
+  +'table.rvx-t tr:nth-child(even) td{background:#fafcfb}'
+  +'.rvx-st{display:inline-block;border-radius:6px;padding:2px 7px;font-weight:800;font-size:9.5px;color:#fff;background:var(--c);white-space:nowrap}'
+  +'.rvx-comp{font-weight:800;color:var(--c);white-space:nowrap}'
+  +'.rvx-comp small{display:block;color:#475569;font-weight:600;font-size:9.5px}'
+  +'.rvx-name{font-weight:800;white-space:nowrap}'
+  +'.rvx-asg{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--c);color:#fff;font-size:7px;font-weight:800;text-align:center;line-height:14px;margin-right:5px;vertical-align:middle}'
+  +'.rvx-ftr{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font-size:10px;color:#475569;border-top:1px solid #d1e7dd;background:#fff}'
+  +'.rvx-ftr b{color:#065f46}'
+  +'</style>';
+}
+function _rvxHeader(meta, d, compact, pageNo){
+  var rt = (window.RV_TYPES && window.RV_TYPES[meta.type]) || {label:meta.type||'', ico:'🕓'};
+  var fdl = typeof window.rvFd==='function' ? window.rvFd(meta.date) : '';
+  var ps = _rvProParticipants();
+  var ops = ps.length ? ps.map(function(p){ return p.name; }).join(', ') : meta.op;
+  if(compact) return '<div class="rvx-hdr compact"><div class="rvx-title">VALIDACIÓN DE SISTEMAS BESS · '+_rvpEsc(rt.label||'')+' · '+_rvpEsc(fdl)+'</div><div class="rvx-chips"><div class="rvx-chip"><b>Página</b><span>'+pageNo+'</span></div></div></div>';
+  return '<div class="rvx-hdr">'
+    +(window.SKYSENSE_LOGO_B64 ? '<img class="rvx-logo" src="'+window.SKYSENSE_LOGO_B64+'">' : '<b style="font-size:20px">SKYSENSE</b>')
+    +'<div><div class="rvx-title">VALIDACIÓN DE SISTEMAS BESS</div><div class="rvx-sub">Revisión por componente · Red · Consumo · Batería · PCS · '+d.totalSitios+' sitios</div></div>'
+    +'<div class="rvx-chips">'
+      +'<div class="rvx-chip"><b>Fecha</b><span>'+_rvpEsc(fdl)+'</span></div>'
+      +'<div class="rvx-chip"><b>Turno</b><span>'+_rvpEsc((rt.ico||'')+' '+(rt.label||''))+'</span></div>'
+      +'<div class="rvx-chip" style="max-width:360px"><b>Operador'+(ps.length>1?'es':'')+'</b><span>'+_rvpEsc(ops)+'</span></div>'
+    +'</div></div>';
+}
+function _rvxKpis(d){
+  var t = d.totalReportados, pct = function(n){ return t ? Math.round(n/t*100)+'%' : '—'; };
+  var k = function(c,l,v,sub){ return '<div class="rvx-kpi" style="--c:'+c+'"><b>'+l+'</b><span>'+v+'</span><i>'+sub+'</i></div>'; };
+  return '<div class="rvx-kpis">'
+    +k('#059669','Sitios revisados', t+' / '+d.totalSitios, pct(t)+' del total')
+    +k('#0f766e','Red OK', d.redOk+' / '+(d.redAny||0), d.redLoss?d.redLoss+' pérdida de red':'sin pérdidas')
+    +k('#b45309','Consumo alto', d.consHigh, 'sitios con demanda alta')
+    +k('#dc2626','Batería con falla', d.batBad, 'alarma · falla · racks')
+    +k('#7c2d12','PCS con falla', d.pcsBad, 'alarma · falla · sin com.')
+    +k('#991b1b','Sin comunicación', d.commErr, d.sinRedAc+' sin red AC')
+    +k('#15803d','Prueba de descarga', d.dscSi+' / '+t, pct(d.dscSi))
+    +k('#1d4ed8','Cargando', d.chgN+' / '+t, pct(d.chgN))
+    +k('#0a7a5c','Relojes validados', d.clkOk+' / '+t, pct(d.clkOk))
+    +k('#c2410c','Racks desenclavados', d.racksN, d.racksN?'con racks reportados':'sin novedad')
+    +k('#64748b','Sin medición', d.sinMed, 'red o consumo sin lectura')
+    +k('#6d28d9','Pendientes', (d.continuity||[]).length, 'incidencias abiertas')
+  +'</div>';
+}
+function _rvxExtraSections(d){
+  var html = '';
+  var ps = _rvProParticipants();
+  if(ps.length>1){
+    var total = (window.RV_SITES||[]).length, size = Math.ceil(total/ps.length);
+    html += '<div class="rvx-sec"><h4>👥 División de la revisión</h4>'+ps.map(function(p,k){
+      var from = k*size+1, to = (k===ps.length-1) ? total : Math.min(total,(k+1)*size);
+      return '<span class="rvx-pill" style="border-color:'+_rvpEsc(p.color||'#10b981')+'">'+_rvpEsc(p.name)+' · sitios '+from+'–'+to+'</span>';
+    }).join('')+'</div>';
+  }
+  if(d.continuity && d.continuity.length){
+    html += '<div class="rvx-sec"><h4>⚠️ Pendientes / incidencias abiertas</h4>'+d.continuity.map(function(c){
+      return '<span class="rvx-pill bad">'+_rvpEsc(c.name)+': '+_rvpEsc((c.openIssue&&c.openIssue.label)||(c.inherited&&c.inherited.label)||'pendiente')+'</span>';
+    }).join('')+'</div>';
+  }
+  return html;
+}
+function _rvxHead(){
+  var col7 = _rvProTurnoNow()==='nocturno' ? '¿Cargando?' : 'SOC %';
+  return '<thead><tr><th>Sitio</th><th>Estado</th><th>🔌 Red</th><th>🏭 Consumo</th><th>🔋 Batería</th><th>⚙️ PCS</th><th>FP</th><th>Reloj</th><th>Desc.</th><th>Racks</th><th>Temp</th><th>'+col7+'</th><th>Pot. carga</th><th>Comentarios</th><th>Responsable</th></tr></thead>';
+}
+function _rvxRow(r){
+  var sr = r.sr, key = _rvpKeyFor(sr), isNoct = _rvProTurnoNow()==='nocturno';
+  var a = _rvProAssigneeFor(r._idx);
+  var comp = function(c){ var kf = RVPRO_COMP[c].kw; return '<td><span class="rvx-comp" style="--c:'+_rvpCompColor(c,sr[c])+'">'+_rvpEsc(_rvpCompLabel(c,sr[c]))+(kf && sr[kf]!=='' && sr[kf]!=null ? '<small>'+_rvpEsc(sr[kf])+' kW</small>' : '')+'</span></td>'; };
+  if(sr.skip) return '<tr><td class="rvx-name">'+_rvpEsc(r.name)+'</td><td colspan="14" style="color:#94a3b8;font-style:italic">Omitido en esta ronda</td></tr>';
+  return '<tr>'
+    +'<td class="rvx-name">'+(a?'<span class="rvx-asg" style="--c:'+_rvpEsc(a.color||'#10b981')+'">'+_rvpEsc(_rvpIni(a.name))+'</span>':'')+_rvpEsc(r.name)+'</td>'
+    +'<td><span class="rvx-st" style="--c:'+_rvpStatusColor(key)+'">'+_rvpEsc(key?_rvpStatusLabel(key):'Sin estatus')+'</span>'+(sr.lp?' <small>⚡ Baja pot.</small>':'')+(sr.rn?' <small>🔌 Acom. neg.</small>':'')+'</td>'
+    +comp('red')+comp('cons')+comp('batSt')+comp('pcs')
+    +'<td>'+_rvpEsc(sr.fp||'—')+'</td>'
+    +'<td>'+(sr.clk==='ok'?'✓ OK':sr.clk==='no'?'✗ No':'—')+'</td>'
+    +'<td>'+(sr.dsc==='si'?'✓ Sí':sr.dsc==='no'?'✗ No':'—')+'</td>'
+    +'<td>'+_rvpEsc(sr.racks||'—')+'</td>'
+    +'<td style="color:'+_rvpTempColor(sr.tmp)+';font-weight:800">'+(sr.tmp?_rvpEsc(sr.tmp)+'°C':'—')+'</td>'
+    +'<td>'+(isNoct ? (sr.chg?'Sí':'No') : (sr.soc!=null&&sr.soc!==''?_rvpEsc(sr.soc)+'%':'—'))+'</td>'
+    +'<td>'+_rvpEsc(sr.chgPow||'—')+'</td>'
+    +'<td style="max-width:260px">'+_rvpEsc(sr.cmt||'')+'</td>'
+    +'<td>'+_rvpEsc(sr.resp||'')+'</td>'
+  +'</tr>';
+}
+/* Arma las páginas midiendo de verdad en el DOM (fuera de pantalla) */
+function _rvxBuildPages(){
+  var d = _rvProComputeAll();
+  var meta = { date:(window.rvW&&window.rvW.date)||new Date().toISOString(), type:(window.rvW&&window.rvW.type)||'matutino', op:(window.rvW&&window.rvW.op)||(localStorage.getItem('bess_uname')||'Operador') };
+  var host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-20000px;top:0;z-index:-1;';
+  host.innerHTML = _rvxCss();
+  document.body.appendChild(host);
+  var pages = [], page, body, avail;
+  var genTs = new Date().toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  function newPage(){
+    page = document.createElement('div'); page.className = 'rvx-page';
+    page.innerHTML = _rvxHeader(meta, d, pages.length>0, pages.length+1) + '<div class="rvx-body"></div><div class="rvx-ftr"><span><b>Centro de Operaciones BESS</b> · Skysense · Validación de sistemas</span><span>Generado '+_rvpEsc(genTs)+'</span><span class="rvx-pn"></span></div>';
+    host.appendChild(page); pages.push(page);
+    body = page.querySelector('.rvx-body');
+    avail = body.clientHeight;
+  }
+  function fits(){ return body.scrollHeight <= avail + 1; }
+  newPage();
+  body.insertAdjacentHTML('beforeend', _rvxKpis(d) + _rvxExtraSections(d));
+  d.regionGroups.forEach(function(g){
+    var grad = RVX_REGION_GRAD[g.name] || 'linear-gradient(135deg,#1f2937,#10b981)';
+    var startRegion = function(cont){
+      var w = document.createElement('div'); w.className = 'rvx-region';
+      w.innerHTML = '<div class="rvx-rh" style="background:'+grad+'"><span>'+_rvpEsc(g.name.toUpperCase())+(cont?' (continuación)':'')+'</span><span>'+g.total+' sitio'+(g.total===1?'':'s')+'</span></div><table class="rvx-t">'+_rvxHead()+'<tbody></tbody></table>';
+      body.appendChild(w); return w.querySelector('tbody');
+    };
+    var tb = startRegion(false);
+    if(!fits()){ tb.closest('.rvx-region').remove(); newPage(); tb = startRegion(false); }
+    g.rows.forEach(function(r){
+      tb.insertAdjacentHTML('beforeend', _rvxRow(r));
+      if(!fits()){
+        tb.lastElementChild.remove();
+        if(!tb.children.length) tb.closest('.rvx-region').remove();
+        newPage(); tb = startRegion(true);
+        tb.insertAdjacentHTML('beforeend', _rvxRow(r));
+      }
+    });
+  });
+  pages.forEach(function(p, k){ var pn = p.querySelector('.rvx-pn'); if(pn) pn.textContent = 'Página '+(k+1)+' de '+pages.length; });
+  return { host:host, pages:pages, meta:meta };
+}
+window._rvxBuildPages = _rvxBuildPages;
+function _rvxFileBase(meta){
+  var rt = (window.RV_TYPES && window.RV_TYPES[meta.type]) || {label:'Validacion'};
+  var dt = String(meta.date||'').slice(0,10) || new Date().toISOString().slice(0,10);
+  return 'Validacion_BESS_'+String(rt.label||'').replace(/\s+/g,'_')+'_'+dt;
+}
+async function _rvxRender(kind, btn){
+  if(typeof html2canvas==='undefined'){ alert('html2canvas no disponible.'); return; }
+  if(kind==='pdf' && !(window.jspdf && window.jspdf.jsPDF)){ alert('Librería de PDF no disponible.'); return; }
+  var old = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '⏳ Generando…'; }
+  var built = null;
+  try{
+    built = _rvxBuildPages();
+    var canvases = [];
+    for(var k=0;k<built.pages.length;k++){
+      canvases.push(await html2canvas(built.pages[k], { scale:2, backgroundColor:'#f4f7f6', useCORS:true, logging:false, width:RVX_W, height:RVX_H }));
+    }
+    var base = _rvxFileBase(built.meta);
+    if(kind==='pdf'){
+      var pdf = new window.jspdf.jsPDF({ unit:'pt', format:'a4', orientation:'landscape' });
+      var pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+      canvases.forEach(function(c, k){ if(k) pdf.addPage('a4','landscape'); pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,pw,ph); });
+      pdf.save(base+'.pdf');
+    } else {
+      var W = canvases[0].width, H = canvases.reduce(function(a,c){ return a+c.height; },0);
+      var all = document.createElement('canvas'); all.width = W; all.height = H;
+      var cx = all.getContext('2d'), y = 0;
+      canvases.forEach(function(c){ cx.drawImage(c,0,y); y += c.height; });
+      var a = document.createElement('a'); a.download = base+'.png'; a.href = all.toDataURL('image/png'); a.click();
+    }
+  }catch(e){ console.error('[VAL-PRO export]', e); alert('Error al exportar: '+(e&&e.message||e)); }
+  finally{
+    if(built && built.host) built.host.remove();
+    if(btn){ btn.disabled = false; btn.innerHTML = old; }
+  }
+}
+window._rvxRender = _rvxRender;
+/* Los botones "Exportar PNG / PDF" de la vista de Validación usan el reporte horizontal nuevo */
+window.rvExportPNG = function(){ var b = (window.event && window.event.target && window.event.target.closest) ? window.event.target.closest('button') : null; return _rvxRender('png', b); };
+window.rvExportPDF = function(){ var b = (window.event && window.event.target && window.event.target.closest) ? window.event.target.closest('button') : null; return _rvxRender('pdf', b); };
+
 function _openRvSumEditable(){
   if(typeof _rv==='function'){
     _rv('rv-wizard-modal', function(e){ e.classList.remove('open'); });
