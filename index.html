@@ -8075,6 +8075,28 @@ async function expDoZip(mode){
   </div>
 </div>
 
+<!-- VAL-PRO DASHBOARD — "Reporte de Validación de Sistemas BESS" (vista profesional, v115) -->
+<div id="val-pro-modal" style="display:none;position:fixed;inset:0;z-index:9360;background:rgba(3,10,8,.86);align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:1720px;width:100%;max-height:96vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);font-size:15px">🛡️ <span id="val-pro-ttl">Reporte de Validación de Sistemas BESS — Profesional</span></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:2px">
+          <button id="val-pro-btn-vert" onclick="window._valProSetOrientation('vertical')" style="padding:6px 10px;border-radius:5px;border:none;background:#059669;color:#fff;font-family:var(--mono);font-size:10px;font-weight:800;cursor:pointer">▯ Vertical</button>
+          <button id="val-pro-btn-horiz" onclick="window._valProSetOrientation('horizontal')" style="padding:6px 10px;border-radius:5px;border:none;background:transparent;color:var(--t2);font-family:var(--mono);font-size:10px;font-weight:800;cursor:pointer">▭ Horizontal</button>
+        </div>
+        <button id="val-pro-btn-edit" onclick="window._valProEdit()" style="padding:8px 16px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);border-radius:7px;color:#b45309;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">✏️ Editar reporte</button>
+        <button id="val-pro-btn-png" onclick="window._valProDownloadPNG()" style="padding:8px 16px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.35);border-radius:7px;color:#059669;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">🖼️ Descargar PNG</button>
+        <button id="val-pro-btn-pdf" onclick="window._valProDownloadPDF()" style="padding:8px 16px;background:linear-gradient(135deg,#0b1220,#1f2937);border:1px solid #10b981;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">📄 Descargar PDF</button>
+        <button onclick="window._valProClose()" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t3);font-size:13px;cursor:pointer;padding:8px 12px">✕ Cerrar</button>
+      </div>
+    </div>
+    <div style="overflow:auto;flex:1;background:#0b1512;padding:14px">
+      <div id="val-pro-print" style="max-width:1240px;margin:0 auto"></div>
+    </div>
+  </div>
+</div>
+
 <!-- PAGE: REPORTE OPERATIVO -->
 <div class="page" id="page-repop">
   <div class="page-scroll" style="display:flex;flex-direction:column;align-items:center;padding:40px 24px;min-height:calc(100vh - var(--topbar-h))">
@@ -15835,7 +15857,7 @@ function presValRender(){
       var rt=RV_TYPES[r.type]||RV_TYPES.matutino;
       var st=rvStats(r.srs);
       var hora=r.createdAt?new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';
-      html+='<div class="pres-rep-card kind-val" onclick="window.rvShowDet(\''+r.id+'\')" style="position:relative">';
+      html+='<div class="pres-rep-card kind-val" onclick="window._valProOpenSaved(\''+r.id+'\')" style="position:relative">';
       html+='<div class="pres-rep-ico" style="color:'+(TC[r.type]||'#1a3fcc')+'">'+(ICO_T[r.type]||'📋')+'</div>';
       html+='<div class="pres-rep-info">';
       html+='<div class="pres-rep-title">Reporte '+esc(rt.label)+(r.op?' <span style="font-weight:400;color:var(--t3)">— '+esc(r.op)+'</span>':'')+'</div>';
@@ -15846,7 +15868,7 @@ function presValRender(){
       if(st.alm)html+='<span class="pres-rep-bdg alm">'+st.alm+' alarma'+(st.alm!==1?'s':'')+'</span>';
       if(st.hot)html+='<span class="pres-rep-bdg err">'+st.hot+' alta temp.</span>';
       html+='</div></div>';
-      html+='<button onclick="event.stopPropagation();window.rvShowDet(\''+r.id+'\')" style="flex-shrink:0;padding:6px 14px;background:linear-gradient(135deg,#1a3fcc,#1255d4);color:#fff;border:none;border-radius:7px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.5px;white-space:nowrap">👁 Ver reporte</button>';
+      html+='<button onclick="event.stopPropagation();window._valProOpenSaved(\''+r.id+'\')" style="flex-shrink:0;padding:6px 14px;background:linear-gradient(135deg,#1a3fcc,#1255d4);color:#fff;border:none;border-radius:7px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.5px;white-space:nowrap">👁 Ver reporte</button>';
       html+='</div>';
     });
     html+='</div>';
@@ -20161,7 +20183,7 @@ function rvRenderCal(){
         :dayReps.map(function(r){
             var st=rvStats(r.srs);var rt2=RV_TYPES[r.type]||RV_TYPES.matutino;
             var tc={matutino:'#f59e0b',vespertino:'#ea580c',nocturno:'#6366f1',entrega:'#6366f1'};
-            return '<div class="cal-rep-item" onclick="window.rvShowDet(\''+r.id+'\')">'+
+            return '<div class="cal-rep-item" onclick="window._valProOpenSaved(\''+r.id+'\')">'+
               '<div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:'+rt2.bg+';flex-shrink:0;font-size:16px">'+rt2.ico+'</div>'+
               '<div style="flex:1;min-width:0">'+
                 '<div style="font-weight:700;font-size:13px;color:'+(tc[r.type]||'#1a3fcc')+'">'+rt2.label+'</div>'+
@@ -20677,7 +20699,7 @@ function ucalRender(){
               var st=rvStats(r.srs);
               var rt=RV_TYPES[r.type]||RV_TYPES.matutino;
               var tc={matutino:'#f59e0b',vespertino:'var(--sky)',entrega:'var(--green)'};
-              return '<div class="cal-rep-card kind-val" onclick="window.rvShowDet(\''+r.id+'\')">'+
+              return '<div class="cal-rep-card kind-val" onclick="window._valProOpenSaved(\''+r.id+'\')">'+
                 '<button class="card-del" onclick="event.stopPropagation();rvDelVal(\''+r.id+'\',event)">\u00d7</button>'+
                 '<div class="card-ico">'+rt.ico+'</div>'+
                 '<div class="card-title" style="color:'+(tc[r.type]||'var(--sky)')+'">'+rt.label+'</div>'+
@@ -20687,7 +20709,7 @@ function ucalRender(){
                   (st.alm>0?rvBdg(st.alm+'a','alm'):'')+
                   (st.ok>0?rvBdg(st.ok+'\u2713','ok'):'')+
                 '</div>'+
-                '<button onclick="event.stopPropagation();window.rvShowDet(\''+r.id+'\')" title="Ver reporte" style="position:absolute;top:4px;right:28px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(5,150,105,.3);background:rgba(5,150,105,.08);color:#059669;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s" class="card-view-btn">\uD83D\uDC41</button>'+
+                '<button onclick="event.stopPropagation();window._valProOpenSaved(\''+r.id+'\')" title="Ver reporte" style="position:absolute;top:4px;right:28px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(5,150,105,.3);background:rgba(5,150,105,.08);color:#059669;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s" class="card-view-btn">\uD83D\uDC41</button>'+
                 '</div>';
             }else if(item.kind==='monitor'){
               return '<div class="cal-rep-card kind-monitor" onclick="mbShowCalDet(\''+r.id+'\')" style="border-left-color:#0ea875;">'+
@@ -39045,7 +39067,6 @@ function _rvProEditableRowHtml(r, editable){
       +'<td class="oppc-etd-name">'+_rvpEsc(r.name)+(isSpecial?' <span title="Sitio especial (carga tardía/solar)">☀</span>':'')+'</td>'
       +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+_rvpEsc(flagsTxt)+'</td>'
       +['red','cons','batSt','pcs'].map(function(c){ var kf = RVPRO_COMP[c].kw; return '<td class="oppc-etd-num" style="color:'+_rvpCompColor(c,sr[c])+';font-weight:800">'+_rvpEsc(_rvpCompLabel(c,sr[c]))+(kf && sr[kf]!=='' && sr[kf]!=null ? '<div style="color:#475569;font-weight:600">'+_rvpEsc(sr[kf])+' kW</div>' : '')+'</td>'; }).join('')
-      +'<td class="oppc-etd-num">'+_rvpEsc(sr.fp||'—')+'</td>'
       +'<td class="oppc-etd-num">⏰ '+(sr.clk==='ok'?'OK':sr.clk==='no'?'No':'—')+'<br>🔋 '+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
       +'<td class="oppc-etd-num">'+_rvpEsc(sr.racks||'—')+'</td>'
       +'<td class="oppc-etd-num" style="color:'+_rvpTempColor(sr.tmp)+'">'+(sr.tmp?sr.tmp+'°C':'—')+'</td>'
@@ -39094,7 +39115,6 @@ function _rvProEditableRowHtml(r, editable){
       +'</div>'
     +'</td>'
     +compCell('red')+compCell('cons')+compCell('batSt')+compCell('pcs')
-    +'<td><input type="number" step="0.01" class="oppc-einput rvpc-fp-in" id="rvpro-in-fp-'+i+'" data-idx="'+i+'" data-col="fp" value="'+_rvpEsc(sr.fp!=null?sr.fp:'')+'" placeholder="FP" oninput="window._rvProSetField('+i+',\'fp\',this.value)"></td>'
     +'<td class="rvpc-stack-td"><select class="oppc-esel" id="rvpro-clk-'+i+'" data-idx="'+i+'" data-col="clk" title="Reloj validado" onchange="window._rvProSetField('+i+',\'clk\',this.value)">'
         +'<option value="" '+(!sr.clk?'selected':'')+'>⏰ —</option>'
         +'<option value="ok" '+(sr.clk==='ok'?'selected':'')+'>⏰ OK</option>'
@@ -39124,7 +39144,7 @@ function _rvProEditableRegionHtml(g, editable){
       +'<span class="oppc-region-hdr-n" id="rvpro-regn-'+_rvProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
     +'</div>'
     +'<table class="oppc-etable"><thead><tr>'
-      +'<th>Sitio</th><th>Estado general</th><th class="rvpc-th-comp">🔌 Red</th><th class="rvpc-th-comp">🏭 Consumo</th><th class="rvpc-th-comp">🔋 Batería</th><th class="rvpc-th-comp">⚙️ PCS</th><th>FP</th><th>Reloj / Desc.</th><th>Racks</th><th>Temp °C</th><th>'+col7Label+'</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
+      +'<th>Sitio</th><th>Estado general</th><th class="rvpc-th-comp">🔌 Red</th><th class="rvpc-th-comp">🏭 Consumo</th><th class="rvpc-th-comp">🔋 Batería</th><th class="rvpc-th-comp">⚙️ PCS</th><th>Reloj / Desc.</th><th>Racks</th><th>Temp °C</th><th>'+col7Label+'</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
   +'</div>';
 }
@@ -39346,6 +39366,7 @@ function _rvProRenderEditablePaper(){
     + '<div id="rvpro-division-wrap">'+_rvProDivisionHtml()+'</div>'
     + '<div id="rvpro-continuity-wrap">'+_rvProContinuityPanelHtml(d)+'</div>'
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estado, reloj, descarga, racks, temperatura, SOC, comentario o responsable de cualquier sitio para editarlo — se guarda automáticamente.'
+        + ' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" style="background:linear-gradient(135deg,#065f46,#10b981)" onclick="window._valProOpen()">🛡️ Reporte Profesional</button>'
         + (isHistorical ? ' <span style="opacity:.85">(editando reporte del historial — cierra con ✕ Cerrar arriba cuando termines)</span>' : ' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" onclick="window.rvSave()">✓ Guardar Reporte</button>')
         + ' <span id="rvpro-autosave-badge" class="oppro-autosave-badge">💾 Todo guardado</span></div>' : '')
     + _rvProEditableRegionsHtml(d.regionGroups, editable)
@@ -39748,7 +39769,7 @@ function _rvxExtraSections(d){
 }
 function _rvxHead(){
   var col7 = _rvProTurnoNow()==='nocturno' ? '¿Cargando?' : 'SOC %';
-  return '<thead><tr><th>Sitio</th><th>Estado</th><th>🔌 Red</th><th>🏭 Consumo</th><th>🔋 Batería</th><th>⚙️ PCS</th><th>FP</th><th>Reloj</th><th>Desc.</th><th>Racks</th><th>Temp</th><th>'+col7+'</th><th>Pot. carga</th><th>Comentarios</th><th>Responsable</th></tr></thead>';
+  return '<thead><tr><th>Sitio</th><th>Estado</th><th>🔌 Red</th><th>🏭 Consumo</th><th>🔋 Batería</th><th>⚙️ PCS</th><th>Reloj</th><th>Desc.</th><th>Racks</th><th>Temp</th><th>'+col7+'</th><th>Pot. carga</th><th>Comentarios</th><th>Responsable</th></tr></thead>';
 }
 function _rvxRow(r){
   var sr = r.sr, key = _rvpKeyFor(sr), isNoct = _rvProTurnoNow()==='nocturno';
@@ -39759,7 +39780,6 @@ function _rvxRow(r){
     +'<td class="rvx-name">'+(a?'<span class="rvx-asg" style="--c:'+_rvpEsc(a.color||'#10b981')+'">'+_rvpEsc(_rvpIni(a.name))+'</span>':'')+_rvpEsc(r.name)+'</td>'
     +'<td><span class="rvx-st" style="--c:'+_rvpStatusColor(key)+'">'+_rvpEsc(key?_rvpStatusLabel(key):'Sin estatus')+'</span>'+(sr.lp?' <small>⚡ Baja pot.</small>':'')+(sr.rn?' <small>🔌 Acom. neg.</small>':'')+'</td>'
     +comp('red')+comp('cons')+comp('batSt')+comp('pcs')
-    +'<td>'+_rvpEsc(sr.fp||'—')+'</td>'
     +'<td>'+(sr.clk==='ok'?'✓ OK':sr.clk==='no'?'✗ No':'—')+'</td>'
     +'<td>'+(sr.dsc==='si'?'✓ Sí':sr.dsc==='no'?'✗ No':'—')+'</td>'
     +'<td>'+_rvpEsc(sr.racks||'—')+'</td>'
@@ -39989,6 +40009,594 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 <!-- ══════════════ fin VALIDACIÓN → OPERATIVO: PRECARGA DE SOC INICIAL ══════════════ -->
 
+
+
+<!-- ══════════════ VAL-PRO DASHBOARD — "Reporte de Validación de Sistemas BESS" (v115) ══════════════ -->
+<script>
+(function(){
+'use strict';
+/* ══════════════════════════════════════════════════════════════════════════
+   Vista PROFESIONAL (entregable) de las rondas de Validación Matutina /
+   Vespertina (y Nocturna). Mismo principio de organización que el
+   "Reporte Diario de Descarga BESS" (encabezado con chips, KPIs, dona de
+   estatus, franja de leyenda, tarjetas por región, bloque inferior de
+   hallazgos/comentarios/observaciones), pero con su propio contenido
+   (estado general + RED / CONSUMO / BATERÍA / PCS por sitio) y su propio
+   tema: grafito + verde esmeralda.
+
+   Entradas:
+   - window._valProOpen()          → ronda EN CURSO (window.rvW)
+   - window._valProOpenSaved(id)   → reporte guardado (calendario/historial);
+                                     "✏️ Editar reporte" abre la tabla
+                                     editable de siempre (rvShowDet).
+══════════════════════════════════════════════════════════════════════════ */
+
+var VP_CAT = [
+  {k:'ok',   txt:'OK',                  dot:'#10b981', color:'#047857'},
+  {k:'info', txt:'OK con condición',    dot:'#3b82f6', color:'#1d4ed8'},
+  {k:'warn', txt:'Atención',            dot:'#f59e0b', color:'#b45309'},
+  {k:'crit', txt:'Crítico',             dot:'#ef4444', color:'#dc2626'},
+  {k:'na',   txt:'Fuera de op. / Mant.',dot:'#8b5cf6', color:'#6d28d9'},
+  {k:'none', txt:'Sin validar',         dot:'#94a3b8', color:'#64748b'}
+];
+var VP_CAT_BY = {}; VP_CAT.forEach(function(c){ VP_CAT_BY[c.k]=c; });
+
+/* Etiquetas CORTAS para las pastillas de componente dentro de las tarjetas */
+var VP_SHORT = {
+  red:   {ok:'OK',bajo:'Bajo',medio:'Medio',alto:'Alto',exporta:'Export.',sinmed:'S/med',perdida:'Pérdida'},
+  cons:  {ok:'OK',bajo:'Bajo',medio:'Medio',alto:'Alto',sincons:'S/cons',sinmed:'S/med'},
+  batSt: {ok:'OK',cargando:'Carga',descargando:'Desc.',reposo:'Reposo',balanceando:'Balanc.',alarma:'Alarma',falla:'Falla',racks:'Racks',fueraop:'F. op.'},
+  pcs:   {ok:'OK',standby:'Standby',alarma:'Alarma',falla:'Falla',sincom:'S/com',apagado:'Apagado'}
+};
+/* Nivel de cada opción de componente → para la barra de "Salud por componente" */
+var VP_LEVEL = {
+  red:   {ok:'ok',bajo:'ok',medio:'ok',alto:'warn',exporta:'info',sinmed:'none',perdida:'crit'},
+  cons:  {ok:'ok',bajo:'ok',medio:'ok',alto:'warn',sincons:'info',sinmed:'none'},
+  batSt: {ok:'ok',cargando:'ok',descargando:'ok',reposo:'ok',balanceando:'info',alarma:'warn',falla:'crit',racks:'warn',fueraop:'na'},
+  pcs:   {ok:'ok',standby:'info',alarma:'warn',falla:'crit',sincom:'crit',apagado:'na'}
+};
+var VP_LVL_COLOR = {ok:'#10b981', info:'#3b82f6', warn:'#f59e0b', crit:'#ef4444', na:'#8b5cf6', none:'#cbd5e1'};
+var VP_LVL_TXT   = {ok:'Normal', info:'Informativo', warn:'Atención', crit:'Falla', na:'Fuera de op.', none:'Sin dato'};
+var VP_COMP_META = [
+  {c:'red',   ico:'🔌', lbl:'Red'},
+  {c:'cons',  ico:'🏭', lbl:'Consumo'},
+  {c:'batSt', ico:'🔋', lbl:'Batería'},
+  {c:'pcs',   ico:'⚙️', lbl:'PCS'}
+];
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function num(v){ if(v===''||v==null) return null; var n=parseFloat(v); return isFinite(n)?n:null; }
+function regionFor(name){ try{ return typeof window._oppRegionFor==='function' ? window._oppRegionFor(name) : 'Industria'; }catch(e){ return 'Industria'; } }
+function compColor(c,v){ try{ return window._rvpCompColor ? window._rvpCompColor(c,v) : '#94a3b8'; }catch(e){ return '#94a3b8'; } }
+function compLabel(c,v){ try{ return window._rvpCompLabel ? window._rvpCompLabel(c,v) : (v||'—'); }catch(e){ return v||'—'; } }
+function ingName(op){ op = String(op||'').trim(); if(!op) return 'Operador'; return /^ing\.?\s/i.test(op) ? op : 'Ing. '+op; }
+
+/* Estado general (bat+cond de 14 vías) → categoría del tablero */
+function catFor(sr){
+  if(!sr || sr.skip) return null;
+  if(!sr.bat) return 'none';
+  var key = sr.bat+'_'+(sr.cond||'');
+  if(sr.bat==='error') return 'crit';
+  if(key==='alarm_SIN_RED_AC' || key==='alarm_FALLA_DC') return 'crit';
+  if(sr.bat==='alarm') return 'warn';
+  if(sr.bat==='na') return 'na';
+  if(key==='ok_NO_DESCARGA') return 'warn';
+  if(key==='ok_CARGANDO' || key==='ok_BALANCEANDO' || key==='ok_DESCARGADO') return 'info';
+  return 'ok';
+}
+function statusLabel(sr){
+  if(!sr || !sr.bat) return 'Sin validar';
+  var m = window._BAT_LABELS || {};
+  return m[sr.bat+'_'+(sr.cond||'')] || sr.batLabel || sr.bat;
+}
+function tempColor(t){ var n=num(t); if(n==null) return '#64748b'; if(n>=38) return '#dc2626'; if(n>=32) return '#b45309'; return '#047857'; }
+function socColor(v){ if(v==null) return '#64748b'; if(v<80) return '#dc2626'; if(v<90) return '#b45309'; return '#047857'; }
+
+/* ── Datos ── */
+function vpData(rep){
+  var srs = rep.srs || [];
+  var names = (rep._siteNames && rep._siteNames.length===srs.length) ? rep._siteNames : (window.RV_SITES || []);
+  var n = Math.max(srs.length, 0);
+  var rows = [];
+  for(var i=0;i<n;i++){
+    var name = names[i]; if(!name) continue;
+    var sr = srs[i] || {};
+    rows.push({ name:name, sr:sr, region:regionFor(name), cat:catFor(sr), idx:i });
+  }
+  var live = rows.filter(function(r){ return !r.sr.skip; });
+  var validated = live.filter(function(r){ return r.cat && r.cat!=='none'; });
+  var byCat = {}; VP_CAT.forEach(function(c){ byCat[c.k]=0; });
+  live.forEach(function(r){ if(r.cat) byCat[r.cat]++; });
+  function cnt(fn){ return live.filter(fn).length; }
+  var d = {
+    rep:rep, rows:rows, live:live, total:live.length, validated:validated.length, byCat:byCat,
+    skipped: rows.length - live.length,
+    hot:     cnt(function(r){ var t=num(r.sr.tmp); return t!=null && t>=38; }),
+    warm:    cnt(function(r){ var t=num(r.sr.tmp); return t!=null && t>=32 && t<38; }),
+    redAny:  cnt(function(r){ return !!r.sr.red; }),
+    redOk:   cnt(function(r){ return ['ok','bajo','medio','alto','exporta'].indexOf(r.sr.red)>-1; }),
+    redLoss: cnt(function(r){ return r.sr.red==='perdida'; }),
+    consHigh:cnt(function(r){ return r.sr.cons==='alto' || r.sr.red==='alto'; }),
+    batBad:  cnt(function(r){ return ['alarma','falla','racks'].indexOf(r.sr.batSt)>-1; }),
+    pcsBad:  cnt(function(r){ return ['alarma','falla','sincom'].indexOf(r.sr.pcs)>-1; }),
+    sinMed:  cnt(function(r){ return r.sr.red==='sinmed' || r.sr.cons==='sinmed'; }),
+    clkOk:   cnt(function(r){ return r.sr.clk==='ok'; }),
+    clkNo:   cnt(function(r){ return r.sr.clk==='no'; }),
+    dscSi:   cnt(function(r){ return r.sr.dsc==='si'; }),
+    dscNo:   cnt(function(r){ return r.sr.dsc==='no'; }),
+    chgN:    cnt(function(r){ return !!r.sr.chg; }),
+    racksN:  cnt(function(r){ return r.sr.racks && String(r.sr.racks).trim() && String(r.sr.racks).trim()!=='0'; })
+  };
+  var socs = live.map(function(r){ return num(r.sr.soc); }).filter(function(v){ return v!=null; });
+  d.socAvg = socs.length ? socs.reduce(function(a,b){return a+b;},0)/socs.length : null;
+  var tmps = live.map(function(r){ return num(r.sr.tmp); }).filter(function(v){ return v!=null; });
+  d.tmpMax = tmps.length ? Math.max.apply(null,tmps) : null;
+  /* salud por componente */
+  d.comp = {};
+  VP_COMP_META.forEach(function(m){
+    var acc = {ok:0,info:0,warn:0,crit:0,na:0,none:0};
+    live.forEach(function(r){ var v=r.sr[m.c]; var lv = v ? (VP_LEVEL[m.c][v]||'none') : 'none'; acc[lv]++; });
+    d.comp[m.c] = acc;
+  });
+  var order = window.OPPRO_REGION_ORDER || ['ASUR','OMA','Industria','Park Royal'];
+  var catRank = {crit:0,warn:1,na:2,none:3,info:4,ok:5};
+  d.regions = order.map(function(reg){
+    var rr = rows.filter(function(r){ return r.region===reg; });
+    var rl = rr.filter(function(r){ return !r.sr.skip; });
+    var sorted = rr.slice().sort(function(a,b){
+      var ra = a.sr.skip?9:(catRank[a.cat]!=null?catRank[a.cat]:6), rb = b.sr.skip?9:(catRank[b.cat]!=null?catRank[b.cat]:6);
+      return ra-rb || a.idx-b.idx;
+    });
+    var ok = rl.filter(function(r){ return r.cat==='ok' || r.cat==='info'; }).length;
+    var rt = rl.map(function(r){return num(r.sr.tmp);}).filter(function(v){return v!=null;});
+    return { name:reg, rows:sorted, total:rr.length, live:rl.length, ok:ok,
+      tmpAvg: rt.length ? rt.reduce(function(a,b){return a+b;},0)/rt.length : null };
+  }).filter(function(g){ return g.total>0; });
+  /* hallazgos: todo lo que no está normal */
+  d.findings = live.filter(function(r){
+    if(r.cat==='crit' || r.cat==='warn' || r.cat==='na') return true;
+    if(['perdida','alto'].indexOf(r.sr.red)>-1) return true;
+    if(r.sr.cons==='alto') return true;
+    if(['alarma','falla','racks','fueraop'].indexOf(r.sr.batSt)>-1) return true;
+    if(['alarma','falla','sincom','apagado'].indexOf(r.sr.pcs)>-1) return true;
+    var t=num(r.sr.tmp); if(t!=null && t>=38) return true;
+    if(r.sr.dsc==='no' || r.sr.clk==='no') return true;
+    return false;
+  }).sort(function(a,b){ return (catRank[a.cat]||0)-(catRank[b.cat]||0); });
+  d.comments = live.filter(function(r){ return r.sr.cmt && String(r.sr.cmt).trim(); });
+  return d;
+}
+
+/* ── HTML ── */
+function kpi(icon,label,value,sub,accent){
+  return '<div class="vpc-kpi">'
+    +'<div class="vpc-kpi-ico" style="background:'+accent+'1f;color:'+accent+'">'+icon+'</div>'
+    +'<div style="min-width:0"><div class="vpc-kpi-lbl">'+esc(label)+'</div>'
+    +'<div class="vpc-kpi-val" style="color:'+accent+'">'+esc(value)+'</div>'
+    +(sub?'<div class="vpc-kpi-sub">'+esc(sub)+'</div>':'')+'</div></div>';
+}
+function pct(n,t){ return t ? Math.round(n/t*100)+'%' : '—'; }
+function headerHtml(d, meta){
+  var rt = (window.RV_TYPES && window.RV_TYPES[meta.type]) || {label:meta.type||'', ico:'🕓'};
+  var fd = typeof window.rvFd==='function' ? window.rvFd(meta.date) : '';
+  var hora = meta.createdAt ? new Date(meta.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '';
+  var dur = meta.dur ? (typeof window._rvFmtDur==='function' ? window._rvFmtDur(meta.dur) : Math.round(meta.dur/60)+' min') : '';
+  function chip(ico,l,v){ return '<div class="vpc-chip"><span class="vpc-chip-ico">'+ico+'</span><div><div class="vpc-chip-lbl">'+l+'</div><div class="vpc-chip-val">'+esc(v)+'</div></div></div>'; }
+  return '<div class="vpc-hdr">'
+    +'<div><div class="vpc-hdr-kicker">'+(rt.ico||'🛡️')+' Ronda '+esc(rt.label||'')+'</div>'
+      +'<div class="vpc-hdr-title">REPORTE DE VALIDACIÓN DE SISTEMAS BESS</div>'
+      +'<div class="vpc-hdr-accent"></div>'
+      +'<div class="vpc-hdr-sub">Estado de red, consumo, batería y PCS · '+d.total+' sitio'+(d.total===1?'':'s')+' en ronda · '+d.validated+' validado'+(d.validated===1?'':'s')+'</div></div>'
+    +'<div class="vpc-hdr-right"><div class="vpc-chips">'
+      +chip('📅','Fecha',fd+(hora?' · '+hora:''))
+      +chip(rt.ico||'🕓','Ronda',rt.label||'—')
+      +chip('👷','Ingeniero de monitoreo',ingName(meta.op))
+      +(dur?chip('⏱','Duración',dur):'')
+    +'</div><div class="vpc-brand">'
+      +(window.SKYSENSE_LOGO_B64 ? '<img src="'+window.SKYSENSE_LOGO_B64+'" class="vpc-logo" alt="Skysense">' : '<span class="vpc-logotxt">SKYSENSE</span>')
+      +'<span class="vpc-brand-tag">Centro de Operaciones BESS</span></div></div>'
+  +'</div>';
+}
+function kpisHtml(d){
+  var v = d.validated, T = d.total;
+  var night = d.rep.type==='nocturno' || d.rep.type==='entrega';
+  var cards = [
+    kpi('🛡️','Sistemas OK', (d.byCat.ok+d.byCat.info)+' / '+v, pct(d.byCat.ok+d.byCat.info, v)+' de los validados', '#047857'),
+    kpi('⚠️','Con atención', d.byCat.warn+' / '+v, pct(d.byCat.warn,v), '#b45309'),
+    kpi('⛔','Críticos', d.byCat.crit+' / '+v, 'sin com. / sin red AC / falla DC', '#dc2626'),
+    kpi('🛠','Fuera de op. / Mant.', String(d.byCat.na), d.byCat.none?(d.byCat.none+' sin validar'):'todo validado', '#6d28d9'),
+    kpi('🔌','Red OK', d.redOk+' / '+(d.redAny||0), d.redLoss?(d.redLoss+' con pérdida de red'):'sin pérdidas de red', '#0f766e'),
+    kpi('🏭','Consumo alto', String(d.consHigh), d.sinMed?(d.sinMed+' sin medición'):'todo con medición', '#b45309'),
+    kpi('🔋','Batería con falla', String(d.batBad), 'alarma / falla / racks', '#dc2626'),
+    kpi('⚙️','PCS con falla', String(d.pcsBad), 'alarma / falla / sin com.', '#7c2d12'),
+    kpi('🌡','Temp. alta ≥38°C', String(d.hot), d.tmpMax!=null?('máx. '+d.tmpMax+' °C'):'sin lecturas', '#c2410c'),
+    night ? kpi('🔌','Cargando', d.chgN+' / '+v, pct(d.chgN,v), '#1d4ed8')
+          : kpi('📊','SOC promedio', d.socAvg!=null?(Math.round(d.socAvg)+'%'):'—', 'SOC inicial reportado', '#1d4ed8'),
+    kpi('⏰','Relojes OK', d.clkOk+' / '+v, d.clkNo?(d.clkNo+' desfasados'):pct(d.clkOk,v), '#0a7a5c'),
+    kpi('🔋','Prueba de descarga', d.dscSi+' / '+v, d.dscNo?(d.dscNo+' no completaron'):pct(d.dscSi,v), '#065f46')
+  ];
+  return '<div class="vpc-kpi-grid">'+cards.join('')+'</div>';
+}
+function statusCardHtml(d){
+  var legend = VP_CAT.filter(function(c){ return d.byCat[c.k]>0; }).map(function(c){
+    return '<div class="vpc-lg-item"><i style="background:'+c.dot+'"></i>'+esc(c.txt)+' <b>'+d.byCat[c.k]+'</b> <span>('+pct(d.byCat[c.k],d.total)+')</span></div>';
+  }).join('') || '<div class="vpc-lg-item">Sin datos</div>';
+  var seg = VP_CAT.filter(function(c){ return d.byCat[c.k]>0; }).map(function(c){
+    return '<span style="flex:'+d.byCat[c.k]+';background:'+c.dot+'"></span>';
+  }).join('');
+  var okPct = d.validated ? Math.round((d.byCat.ok+d.byCat.info)/d.validated*100) : 0;
+  return '<div class="vpc-card vpc-status">'
+    +'<div class="vpc-donut"><canvas id="vpc-donut" width="240" height="240"></canvas><div class="vpc-donut-ctr"><b>'+okPct+'%</b><span>OK</span></div></div>'
+    +'<div style="flex:1;min-width:0"><div class="vpc-card-ttl"><span class="vpc-ttl-bar"></span>Estado general de la flota</div>'
+    +'<div class="vpc-segbar">'+seg+'</div><div class="vpc-lg">'+legend+'</div></div>'
+  +'</div>';
+}
+function legendBarHtml(night){
+  var dots = VP_CAT.map(function(c){ return '<span class="vpc-lgb-item"><i style="background:'+c.dot+'"></i>'+esc(c.txt)+'</span>'; }).join('');
+  return '<div class="vpc-legendbar"><span class="vpc-lgb-txt"><b>🔌 Red · 🏭 Consumo · 🔋 Batería · ⚙️ PCS</b> — estado y potencia (kW) · <b>T°</b> temp. máx. · <b>'+(night?'Carga':'SOC')+'</b> '+(night?'potencia de carga':'SOC inicial')+'</span><span class="vpc-lgb-sep"></span>'+dots+'</div>';
+}
+function compCell(c, sr){
+  var v = sr[c];
+  if(!v) return '<span class="vpc-pill vpc-pill-empty">—</span>';
+  var col = compColor(c, v);
+  var kwField = (window.RVPRO_COMP && window.RVPRO_COMP[c]) ? window.RVPRO_COMP[c].kw : null;
+  var kw = kwField ? num(sr[kwField]) : null;
+  return '<span class="vpc-pill" style="color:'+col+';background:'+col+'1a;border-color:'+col+'55" title="'+esc(compLabel(c,v))+'">'+esc((VP_SHORT[c]&&VP_SHORT[c][v])||compLabel(c,v))+'</span>'
+    +(kw!=null?'<span class="vpc-kw">'+kw+'</span>':'');
+}
+function rowHtml(r, night){
+  var sr = r.sr;
+  if(sr.skip){
+    return '<div class="vpc-row vpc-row-skip"><span class="vpc-dot" style="background:#e2e8f0"></span><span class="vpc-name">'+esc(r.name)+'</span><span class="vpc-st" style="color:#94a3b8">Omitido</span><span></span><span></span><span></span><span></span><span></span><span></span></div>';
+  }
+  var cat = VP_CAT_BY[r.cat] || VP_CAT_BY.none;
+  var soc = num(sr.soc), t = num(sr.tmp);
+  var last = night
+    ? '<span class="vpc-num" style="color:'+(sr.chg?'#1d4ed8':'#64748b')+'">'+(sr.chg?(num(sr.chgPow)!=null?num(sr.chgPow)+'kW':'Sí'):'No')+'</span>'
+    : '<span class="vpc-num" style="color:'+socColor(soc)+'">'+(soc!=null?soc+'%':'—')+'</span>';
+  var flags = (sr.lp?' ⚡':'')+(sr.rn?' ↩':'');
+  return '<div class="vpc-row">'
+    +'<span class="vpc-dot" style="background:'+cat.dot+'"></span>'
+    +'<span class="vpc-name" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'
+    +'<span class="vpc-st" style="color:'+cat.color+'">'+esc(statusLabel(sr))+flags+'</span>'
+    +'<span class="vpc-cc">'+compCell('red',sr)+'</span>'
+    +'<span class="vpc-cc">'+compCell('cons',sr)+'</span>'
+    +'<span class="vpc-cc">'+compCell('batSt',sr)+'</span>'
+    +'<span class="vpc-cc">'+compCell('pcs',sr)+'</span>'
+    +'<span class="vpc-num" style="color:'+tempColor(sr.tmp)+'">'+(t!=null?t+'°':'—')+'</span>'
+    +last
+  +'</div>';
+}
+function regionCardHtml(g, night, split){
+  var grad = (window.OPPRO_REGION_GRAD||{})[g.name] || 'linear-gradient(135deg,#065f46,#10b981)';
+  var ico = (window.OPPRO_REGION_ICON||{})[g.name] || '';
+  return '<div class="vpc-card vpc-region">'
+    +'<div class="vpc-region-hdr" style="background:'+grad+'"><span>'+ico+' '+esc(String(g.name).toUpperCase())+'</span><span class="vpc-region-n">'+g.total+' sitio'+(g.total===1?'':'s')+'</span></div>'
+    +(function(){
+        var head = '<div class="vpc-row vpc-row-head"><span></span><span>Sitio</span><span>Estado</span><span>🔌 Red</span><span>🏭 Cons.</span><span>🔋 Bat.</span><span>⚙️ PCS</span><span>T°</span><span>'+(night?'Carga':'SOC')+'</span></div>';
+        if(!split || g.rows.length<12) return head+'<div class="vpc-rows">'+g.rows.map(function(r){ return rowHtml(r, night); }).join('')+'</div>';
+        var half = Math.ceil(g.rows.length/2);
+        return '<div class="vpc-split">'+[g.rows.slice(0,half), g.rows.slice(half)].map(function(ch){
+          return '<div class="vpc-split-col">'+head+'<div class="vpc-rows">'+ch.map(function(r){ return rowHtml(r, night); }).join('')+'</div></div>';
+        }).join('')+'</div>';
+      })()
+    +'<div class="vpc-region-ftr">'+g.ok+'/'+g.live+' OK'+(g.tmpAvg!=null?' · T° prom. '+(Math.round(g.tmpAvg*10)/10)+' °C':'')+'</div>'
+  +'</div>';
+}
+function regionsHtml(d, orientation, night){
+  var by = {}; d.regions.forEach(function(g){ by[g.name]=g; });
+  function col(names, cls, split){
+    var cards = names.map(function(n){ return by[n] ? regionCardHtml(by[n], night, split) : ''; }).join('');
+    return cards ? '<div class="vpc-rcol '+(cls||'')+'">'+cards+'</div>' : '';
+  }
+  var known = ['ASUR','OMA','Industria','Park Royal'];
+  var extra = d.regions.filter(function(g){ return known.indexOf(g.name)<0; }).map(function(g){ return g.name; });
+  if(orientation==='horizontal'){
+    return '<div class="vpc-rgrid vpc-rgrid-h">'+col(['ASUR'])+col(['OMA','Park Royal'].concat(extra))+col(['Industria'],'vpc-rcol-wide',true)+'</div>';
+  }
+  return '<div class="vpc-rgrid">'+col(['ASUR','OMA'].concat(extra))+col(['Industria','Park Royal'])+'</div>';
+}
+function findingsHtml(d){
+  var list = d.findings;
+  var body = !list.length
+    ? '<div class="vpc-empty-ok">✅ Sin hallazgos — todos los sistemas validados operan con normalidad.</div>'
+    : '<div class="vpc-find-grid">'+list.slice(0,16).map(function(r){
+        var cat = VP_CAT_BY[r.cat] || VP_CAT_BY.none, sr=r.sr, tags=[];
+        VP_COMP_META.forEach(function(m){ var v=sr[m.c]; if(!v) return; var lv=VP_LEVEL[m.c][v]; if(lv==='warn'||lv==='crit'||lv==='na') tags.push('<span class="vpc-tag" style="color:'+compColor(m.c,v)+';background:'+compColor(m.c,v)+'1a">'+m.ico+' '+esc(compLabel(m.c,v))+'</span>'); });
+        var t=num(sr.tmp); if(t!=null && t>=38) tags.push('<span class="vpc-tag" style="color:#c2410c;background:#fb923c22">🌡 '+t+' °C</span>');
+        if(sr.clk==='no') tags.push('<span class="vpc-tag" style="color:#b45309;background:#f59e0b22">⏰ Reloj desfasado</span>');
+        if(sr.dsc==='no') tags.push('<span class="vpc-tag" style="color:#b45309;background:#f59e0b22">🔋 Sin prueba de descarga</span>');
+        if(sr.racks && String(sr.racks).trim() && String(sr.racks).trim()!=='0') tags.push('<span class="vpc-tag" style="color:#b45309;background:#f59e0b22">🗄 Racks: '+esc(sr.racks)+'</span>');
+        return '<div class="vpc-find">'
+          +'<span class="vpc-dot" style="background:'+cat.dot+';margin-top:4px"></span>'
+          +'<div style="flex:1;min-width:0"><div class="vpc-find-name">'+esc(r.name)+' <span>· '+esc(r.region)+'</span> <b style="color:'+cat.color+'">'+esc(statusLabel(sr))+'</b></div>'
+          +(tags.length?'<div class="vpc-tags">'+tags.join('')+'</div>':'')
+          +(sr.cmt?'<div class="vpc-find-obs">'+esc(sr.cmt)+'</div>':'')
+          +(sr.resp?'<div class="vpc-find-resp">👤 '+esc(sr.resp)+'</div>':'')
+          +'</div></div>';
+      }).join('')+'</div>' + (list.length>16?'<div class="vpc-more">… '+(list.length-16)+' hallazgo'+(list.length-16===1?'':'s')+' más — ver detalle en la tabla editable</div>':'');
+  return '<div class="vpc-card"><div class="vpc-card-ttl" style="color:#b91c1c"><span class="vpc-ttl-bar" style="background:#ef4444"></span>🚨 Hallazgos y seguimiento ('+list.length+')</div>'+body+'</div>';
+}
+function commentsHtml(d){
+  var list = d.comments.filter(function(r){ return d.findings.indexOf(r)<0; });
+  var body = !list.length
+    ? '<div class="vpc-empty">Sin comentarios adicionales en esta ronda.</div>'
+    : list.slice(0,10).map(function(r){
+        var cat = VP_CAT_BY[r.cat] || VP_CAT_BY.none;
+        return '<div class="vpc-find"><span class="vpc-dot" style="background:'+cat.dot+';margin-top:4px"></span><div style="flex:1;min-width:0"><div class="vpc-find-name">'+esc(r.name)+' <span>· '+esc(r.region)+'</span></div><div class="vpc-find-obs">'+esc(r.sr.cmt)+'</div></div></div>';
+      }).join('') + (list.length>10?'<div class="vpc-more">… '+(list.length-10)+' más</div>':'');
+  return '<div class="vpc-card"><div class="vpc-card-ttl"><span class="vpc-ttl-bar" style="background:#10b981"></span>📝 Comentarios ('+list.length+')</div>'+body+'</div>';
+}
+function compHealthHtml(d){
+  var lv = ['ok','info','warn','crit','na','none'];
+  var rows = VP_COMP_META.map(function(m){
+    var acc = d.comp[m.c], tot = d.total||1;
+    var seg = lv.filter(function(k){ return acc[k]>0; }).map(function(k){ return '<span style="flex:'+acc[k]+';background:'+VP_LVL_COLOR[k]+'" title="'+VP_LVL_TXT[k]+' '+acc[k]+'"></span>'; }).join('');
+    var okN = acc.ok+acc.info;
+    return '<div class="vpc-ch-row"><span class="vpc-ch-lbl">'+m.ico+' '+m.lbl+'</span><div class="vpc-ch-bar">'+seg+'</div><span class="vpc-ch-val">'+Math.round(okN/tot*100)+'%</span></div>'
+      +'<div class="vpc-ch-sub">'+lv.filter(function(k){ return acc[k]>0 && k!=='ok'; }).map(function(k){ return '<i style="background:'+VP_LVL_COLOR[k]+'"></i>'+VP_LVL_TXT[k]+' '+acc[k]; }).join(' · ')+'</div>';
+  }).join('');
+  return '<div class="vpc-card"><div class="vpc-card-ttl"><span class="vpc-ttl-bar" style="background:#0ea5e9"></span>Salud por componente</div>'+rows
+    +'<div class="vpc-ch-legend">'+['ok','info','warn','crit','na','none'].map(function(k){ return '<span><i style="background:'+VP_LVL_COLOR[k]+'"></i>'+VP_LVL_TXT[k]+'</span>'; }).join('')+'</div></div>';
+}
+function obsHtml(d){
+  var b = [], v = d.validated;
+  if(v) b.push('Se validaron '+v+' de '+d.total+' sistemas; '+(d.byCat.ok+d.byCat.info)+' operan con normalidad ('+pct(d.byCat.ok+d.byCat.info,v)+').');
+  if(d.byCat.crit) b.push(d.byCat.crit+' sistema'+(d.byCat.crit>1?'s':'')+' en estado crítico (sin comunicación, sin red AC o falla DC).');
+  if(d.byCat.warn) b.push(d.byCat.warn+' sistema'+(d.byCat.warn>1?'s':'')+' con alarma o condición de atención.');
+  if(d.redLoss) b.push(d.redLoss+' sitio'+(d.redLoss>1?'s':'')+' con pérdida de red.');
+  if(d.consHigh) b.push(d.consHigh+' sitio'+(d.consHigh>1?'s':'')+' con consumo alto.');
+  if(d.batBad || d.pcsBad) b.push('Baterías con falla: '+d.batBad+' · PCS con falla: '+d.pcsBad+'.');
+  if(d.sinMed) b.push(d.sinMed+' sitio'+(d.sinMed>1?'s':'')+' sin medición de red o consumo.');
+  if(d.hot) b.push(d.hot+' sitio'+(d.hot>1?'s':'')+' con temperatura ≥ 38 °C (máx. '+d.tmpMax+' °C).');
+  if(d.socAvg!=null && !(d.rep.type==='nocturno'||d.rep.type==='entrega')) b.push('SOC inicial promedio de la flota: '+Math.round(d.socAvg)+'%.');
+  if(d.byCat.none) b.push(d.byCat.none+' sitio'+(d.byCat.none>1?'s':'')+' quedaron sin validar en esta ronda.');
+  if(!b.length) b.push('Sin observaciones relevantes para esta ronda.');
+  return '<div class="vpc-card"><div class="vpc-card-ttl"><span class="vpc-ttl-bar" style="background:#f59e0b"></span>Observaciones generales</div><ul class="vpc-obs">'+b.slice(0,8).map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul></div>';
+}
+
+var VP_STYLE = ''
++'.vpc-root{position:relative;overflow:hidden;font-family:"Inter","Segoe UI",Arial,sans-serif;background:linear-gradient(155deg,#0a0f0d 0%,#111827 45%,#0c2a22 100%);padding:16px;border-radius:14px;color:#0f1f1a}'
++'.vpc-glow{position:absolute;inset:0;pointer-events:none;z-index:0;background:radial-gradient(circle at 10% 14%,rgba(16,185,129,.40),transparent 34%),radial-gradient(circle at 90% 8%,rgba(20,184,166,.30),transparent 32%),radial-gradient(circle at 82% 94%,rgba(52,211,153,.26),transparent 38%),radial-gradient(circle at 6% 90%,rgba(245,158,11,.18),transparent 34%)}'
++'.vpc-content{position:relative;z-index:1}'
++'.vpc-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.18);border-radius:12px;padding:12px 16px;margin-bottom:10px}'
++'.vpc-hdr-kicker{font-size:9.5px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#6ee7b7}'
++'.vpc-hdr-title{font-family:Arial,"Helvetica Neue",sans-serif;font-weight:800;font-size:20px;color:#fff;letter-spacing:.3px;line-height:1.15;margin-top:2px}'
++'.vpc-hdr-accent{width:64px;height:3px;border-radius:2px;background:linear-gradient(90deg,#10b981,#34d399);margin:5px 0}'
++'.vpc-hdr-sub{font-size:10.5px;color:#cbd5e1;font-weight:600}'
++'.vpc-hdr-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap}'
++'.vpc-chips{display:flex;gap:8px;flex-wrap:wrap}'
++'.vpc-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.93);border-radius:9px;padding:6px 10px;border-top:2px solid #10b981}'
++'.vpc-chip-ico{font-size:14px}'
++'.vpc-chip-lbl{font-size:7.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#64748b}'
++'.vpc-chip-val{font-size:11px;font-weight:800;color:#0f172a;white-space:nowrap}'
++'.vpc-brand{background:rgba(255,255,255,.95);border-radius:10px;padding:8px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-bottom:2px solid #10b981}'
++'.vpc-logo{height:20px;display:block}'
++'.vpc-logotxt{font-weight:900;color:#0f172a;letter-spacing:2px;font-size:15px}'
++'.vpc-brand-tag{font-size:7.5px;color:#047857;font-weight:800;letter-spacing:1px;text-transform:uppercase}'
++'.vpc-top{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:10px;margin-bottom:10px}'
++'.vpc-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}'
++'.vpc-kpi{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.95);border-radius:10px;padding:9px 10px;box-shadow:0 4px 14px rgba(0,0,0,.18);min-width:0}'
++'.vpc-kpi-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}'
++'.vpc-kpi-lbl{font-size:7.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#64748b;line-height:1.2}'
++'.vpc-kpi-val{font-size:17px;font-weight:900;line-height:1.1;white-space:nowrap}'
++'.vpc-kpi-sub{font-size:8px;color:#64748b;font-weight:600;line-height:1.2;margin-top:1px}'
++'.vpc-card{background:rgba(255,255,255,.95);border-radius:12px;padding:10px 13px;box-shadow:0 6px 18px rgba(0,0,0,.2);min-width:0}'
++'.vpc-card-ttl{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:#0f172a;margin-bottom:8px}'
++'.vpc-ttl-bar{width:4px;height:14px;border-radius:2px;background:#10b981;display:inline-block}'
++'.vpc-status{display:flex;align-items:center;gap:12px}'
++'.vpc-donut{position:relative;width:120px;height:120px;flex-shrink:0}'
++'.vpc-donut canvas{width:120px!important;height:120px!important}'
++'.vpc-donut-ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}'
++'.vpc-donut-ctr b{font-size:21px;font-weight:900;color:#047857;line-height:1}'
++'.vpc-donut-ctr span{font-size:8px;font-weight:800;color:#64748b;letter-spacing:1px}'
++'.vpc-segbar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:#e2e8f0;margin-bottom:8px}'
++'.vpc-lg{display:flex;flex-direction:column;gap:3px}'
++'.vpc-lg-item{font-size:9px;font-weight:700;color:#334155;display:flex;align-items:center;gap:5px}'
++'.vpc-lg-item i{width:8px;height:8px;border-radius:2px;display:inline-block}'
++'.vpc-lg-item span{color:#94a3b8;font-weight:600}'
++'.vpc-legendbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(255,255,255,.93);border-radius:9px;padding:6px 12px;margin-bottom:10px;font-size:8.5px;color:#334155;font-weight:600}'
++'.vpc-lgb-sep{width:1px;height:14px;background:#cbd5e1}'
++'.vpc-lgb-item{display:inline-flex;align-items:center;gap:4px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;font-size:8px}'
++'.vpc-lgb-item i{width:8px;height:8px;border-radius:50%;display:inline-block}'
++'.vpc-rgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px;align-items:start}'
++'.vpc-rgrid-h{grid-template-columns:1fr 1fr 2fr}'
++'.vpc-split{display:grid;grid-template-columns:1fr 1fr;gap:0}'
++'.vpc-split-col{min-width:0}'
++'.vpc-split-col+.vpc-split-col{border-left:2px solid #e2e8f0}'
++'.vpc-rcol{display:flex;flex-direction:column;gap:10px;min-width:0}'
++'.vpc-region{padding:0;overflow:hidden}'
++'.vpc-region-hdr{display:flex;justify-content:space-between;align-items:center;color:#fff;font-weight:900;font-size:12px;padding:7px 12px;letter-spacing:.4px}'
++'.vpc-region-n{font-family:monospace;font-size:10px;font-weight:800;opacity:.95}'
++'.vpc-rows{padding:0 6px 2px}'
++'.vpc-row{display:grid;grid-template-columns:10px minmax(0,1.35fr) minmax(0,1fr) repeat(4,minmax(0,.9fr)) 34px 38px;align-items:center;gap:5px;padding:3px 6px;border-bottom:1px solid #eef2f1;font-size:10px;min-height:22px}'
++'.vpc-rows .vpc-row:nth-child(even){background:#f4faf8}'
++'.vpc-row-head{font-size:7.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.6px;background:#f1f5f4;border-bottom:1px solid #dfe7e4;min-height:20px;padding:3px 12px}'
++'.vpc-row-skip{opacity:.55}'
++'.vpc-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}'
++'.vpc-name{font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
++'.vpc-st{font-size:9px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
++'.vpc-cc{display:flex;align-items:center;gap:3px;min-width:0;white-space:nowrap}'
++'.vpc-pill{display:inline-block;font-size:8px;font-weight:800;border:1px solid transparent;border-radius:9px;padding:1px 5px;white-space:nowrap;line-height:1.35}'
++'.vpc-pill-empty{color:#cbd5e1;border-color:#e2e8f0}'
++'.vpc-kw{font-family:monospace;font-size:8.5px;font-weight:700;color:#475569}'
++'.vpc-num{font-family:monospace;font-size:9.5px;font-weight:800;text-align:right;white-space:nowrap}'
++'.vpc-region-ftr{font-family:monospace;font-size:9px;font-weight:800;color:#047857;padding:5px 12px;background:#ecfdf5;border-top:1px solid #d1fae5}'
++'.vpc-bottom{display:grid;grid-template-columns:2fr 1fr 1.1fr;gap:10px;margin-bottom:10px;align-items:start}'
++'.vpc-find-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px}'
++'.vpc-find{display:flex;gap:7px;padding:5px 0;border-bottom:1px dashed #e2e8f0}'
++'.vpc-find:last-child{border-bottom:none}'
++'.vpc-find-name{font-size:10px;font-weight:800;color:#0f172a}'
++'.vpc-find-name span{color:#94a3b8;font-weight:600}'
++'.vpc-find-obs{font-size:9px;color:#475569;margin-top:2px;line-height:1.35}'
++'.vpc-find-resp{font-size:8.5px;color:#047857;font-weight:700;margin-top:1px}'
++'.vpc-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}'
++'.vpc-tag{font-size:8px;font-weight:800;border-radius:8px;padding:1px 6px}'
++'.vpc-empty-ok{font-size:10px;font-weight:700;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px}'
++'.vpc-empty{font-size:10px;font-weight:600;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px}'
++'.vpc-more{font-size:9px;color:#64748b;font-weight:700;padding-top:4px}'
++'.vpc-ch-row{display:grid;grid-template-columns:78px 1fr 34px;align-items:center;gap:6px;margin-top:6px}'
++'.vpc-ch-lbl{font-size:10px;font-weight:800;color:#0f172a}'
++'.vpc-ch-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:#e2e8f0}'
++'.vpc-ch-val{font-family:monospace;font-size:10px;font-weight:900;color:#047857;text-align:right}'
++'.vpc-ch-sub{font-size:8px;color:#64748b;font-weight:600;margin:2px 0 0 84px;min-height:10px}'
++'.vpc-ch-sub i,.vpc-ch-legend i{width:7px;height:7px;border-radius:2px;display:inline-block;margin-right:3px}'
++'.vpc-ch-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:8px;font-weight:700;color:#475569}'
++'.vpc-obs{margin:0;padding-left:16px;font-size:9.5px;color:#334155;line-height:1.5}'
++'.vpc-obs li{margin-bottom:2px}'
++'.vpc-ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:#a7f3d0;font-size:9px;font-weight:700;padding:4px 4px 0}'
++'.vpc-h .vpc-root{padding:14px}'
++'.vpc-h .vpc-bottom{grid-template-columns:2.2fr 1fr 1.2fr}'
++'@media (max-width:900px){.vpc-top{grid-template-columns:1fr}.vpc-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.vpc-rgrid,.vpc-rgrid-h,.vpc-bottom{grid-template-columns:1fr}}';
+
+function drawDonut(d){
+  var cv = document.getElementById('vpc-donut'); if(!cv || !cv.getContext) return;
+  var ctx = cv.getContext('2d'), W=cv.width, H=cv.height, cx=W/2, cy=H/2, R=W/2-6, r=R*0.66;
+  ctx.clearRect(0,0,W,H);
+  var tot = d.total || 0, a0 = -Math.PI/2;
+  if(!tot){ ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.arc(cx,cy,r,0,Math.PI*2,true); ctx.fillStyle='#e2e8f0'; ctx.fill(); return; }
+  VP_CAT.forEach(function(c){
+    var v = d.byCat[c.k]; if(!v) return;
+    var a1 = a0 + v/tot*Math.PI*2;
+    ctx.beginPath(); ctx.arc(cx,cy,R,a0,a1); ctx.arc(cx,cy,r,a1,a0,true); ctx.closePath();
+    ctx.fillStyle = c.dot; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+    a0 = a1;
+  });
+}
+
+/* ── Estado del visor ── */
+var _vpRep = null, _vpSavedId = null;
+window._valProOrientation = window._valProOrientation || 'vertical';
+
+function render(){
+  var host = document.getElementById('val-pro-print');
+  if(!host || !_vpRep) return;
+  var d = vpData(_vpRep);
+  var orientation = window._valProOrientation || 'vertical';
+  var night = _vpRep.type==='nocturno' || _vpRep.type==='entrega';
+  host.style.maxWidth = orientation==='horizontal' ? '2200px' : '1240px';
+  host.style.minWidth = orientation==='horizontal' ? '2200px' : '';
+  host.className = orientation==='horizontal' ? 'vpc-h' : '';
+  var meta = { type:_vpRep.type, date:_vpRep.date||_vpRep.createdAt, createdAt:_vpRep.createdAt, op:_vpRep.op,
+    dur: _vpRep.duracionTotalSeg || ((_vpRep.tStart && (_vpRep.tEnd||Date.now())) ? Math.round(((_vpRep.tEnd||Date.now())-_vpRep.tStart)/1000) : 0) };
+  host.innerHTML = '<style>'+VP_STYLE+'</style>'
+    +'<div class="vpc-root"><div class="vpc-glow"></div><div class="vpc-content">'
+    + headerHtml(d, meta)
+    + '<div class="vpc-top">'+kpisHtml(d)+statusCardHtml(d)+'</div>'
+    + legendBarHtml(night)
+    + regionsHtml(d, orientation, night)
+    + '<div class="vpc-bottom">'+findingsHtml(d)+compHealthHtml(d)+'<div class="vpc-rcol">'+obsHtml(d)+commentsHtml(d)+'</div></div>'
+    + '<div class="vpc-ftr"><span>🛡️ Skysense · Centro de Operaciones BESS · Validación de sistemas</span><span>Generado '+esc(new Date().toLocaleString('es-MX'))+' · '+esc(ingName(meta.op))+'</span></div>'
+    +'</div></div>';
+  drawDonut(d);
+  /* En pantalla, la vista horizontal (2200px de ancho real, pensada para la
+     hoja apaisada) se escala para caber en la ventana; al exportar se quita
+     el zoom para capturar a tamaño real (ver capture()). */
+  try{
+    var avail = (host.parentElement ? host.parentElement.clientWidth : 0) - 28;
+    host.style.zoom = (orientation==='horizontal' && avail>200) ? String(Math.min(1, avail/2200)) : '';
+  }catch(e){}
+  var rt = (window.RV_TYPES && window.RV_TYPES[_vpRep.type]) || {label:''};
+  var ttl = document.getElementById('val-pro-ttl');
+  if(ttl) ttl.textContent = 'Reporte de Validación '+(rt.label||'')+' — Profesional';
+}
+
+function openModal(){
+  var m = document.getElementById('val-pro-modal'); if(!m) return false;
+  m.style.display = 'flex';
+  var eb = document.getElementById('val-pro-btn-edit');
+  if(eb) eb.textContent = _vpSavedId ? '✏️ Editar reporte' : '✏️ Volver a editar';
+  render();
+  return true;
+}
+window._valProOpen = function(){
+  if(!window.rvW || !window.rvW.srs){ alert('Primero inicia o abre una ronda de validación.'); return; }
+  _vpSavedId = window._rvProEditingSavedId || null;
+  _vpRep = { type:rvW.type, date:rvW.date, op:rvW.op, srs:rvW.srs, tStart:rvW.tStart, tEnd:rvW.tEnd, _siteNames:rvW._siteNames,
+             createdAt: rvW.date || new Date().toISOString() };
+  openModal();
+};
+window._valProOpenSaved = function(id){
+  try{ if(typeof rvLoad==='function') rvLoad(); }catch(e){}
+  var reps = (typeof rvReps!=='undefined' && rvReps) ? rvReps : (window.rvReps||[]);
+  var r = reps.find(function(x){ return x.id===String(id) || x.fbId===String(id); });
+  if(!r){ if(typeof window.rvShowDet==='function') window.rvShowDet(id); return; }
+  _vpSavedId = r.id; _vpRep = r;
+  if(!openModal() && typeof window.rvShowDet==='function') window.rvShowDet(id);
+};
+window._valProClose = function(){ var m=document.getElementById('val-pro-modal'); if(m) m.style.display='none'; };
+window._valProEdit = function(){
+  var id = _vpSavedId;
+  window._valProClose();
+  var sum = document.getElementById('rv-sum-modal');
+  var sumOpen = !!(sum && sum.classList.contains('open'));
+  if(!id) return; /* ronda en curso: la tabla editable sigue abierta debajo */
+  if(sumOpen && window._rvProEditingSavedId===id) return; /* ya se está editando ese reporte */
+  if(typeof window.rvShowDet==='function') window.rvShowDet(id);
+};
+window._valProSetOrientation = function(mode){
+  window._valProOrientation = mode;
+  var v=document.getElementById('val-pro-btn-vert'), h=document.getElementById('val-pro-btn-horiz');
+  if(v){ v.style.background = mode==='vertical'?'#059669':'transparent'; v.style.color = mode==='vertical'?'#fff':'var(--t2)'; }
+  if(h){ h.style.background = mode==='horizontal'?'#059669':'transparent'; h.style.color = mode==='horizontal'?'#fff':'var(--t2)'; }
+  render();
+};
+window._valProRefresh = render;
+
+function fileBase(){
+  var rt = (_vpRep && _vpRep.type) || 'validacion';
+  var dt = _vpRep && (_vpRep.date||_vpRep.createdAt) ? new Date(_vpRep.date||_vpRep.createdAt) : new Date();
+  var ds = isNaN(dt.getTime()) ? new Date().toISOString().slice(0,10) : dt.toISOString().slice(0,10);
+  return 'BESS_Validacion_'+rt.charAt(0).toUpperCase()+rt.slice(1)+'_'+ds;
+}
+async function capture(){
+  var el = document.getElementById('val-pro-print');
+  var root = el && el.querySelector('.vpc-root');
+  var z = el ? el.style.zoom : '';
+  if(el) el.style.zoom = '';
+  try{
+    await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+    return await window.html2canvas(root||el, { scale:2, backgroundColor:'#0a0f0d', useCORS:true, logging:false });
+  } finally { if(el) el.style.zoom = z; }
+}
+window._valProDownloadPNG = async function(){
+  if(!window.html2canvas){ alert('⚠️ No se pudo generar el PNG.'); return; }
+  var btn=document.getElementById('val-pro-btn-png'), t=btn?btn.textContent:'';
+  if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
+  try{
+    var cv = await capture();
+    var a=document.createElement('a'); a.href=cv.toDataURL('image/png'); a.download=fileBase()+'.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if(typeof showToast==='function') showToast('✅ PNG descargado');
+  }catch(e){ console.error('[VAL-PRO] PNG', e); alert('❌ No se pudo generar el PNG.'); }
+  if(btn){ btn.textContent=t; btn.disabled=false; }
+};
+window._valProDownloadPDF = async function(){
+  var J = window.jspdf && window.jspdf.jsPDF;
+  if(!window.html2canvas || !J){ alert('⚠️ Las librerías necesarias no están disponibles en este momento.'); return; }
+  var btn=document.getElementById('val-pro-btn-pdf'), t=btn?btn.textContent:'';
+  if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; }
+  try{
+    var cv = await capture();
+    var orient = (window._valProOrientation==='horizontal' || cv.width>cv.height) ? 'landscape' : 'portrait';
+    var doc = new J({unit:'pt', format:'a4', orientation:orient});
+    var pw=doc.internal.pageSize.getWidth(), ph=doc.internal.pageSize.getHeight(), m=16;
+    var aw=pw-m*2, ah=ph-m*2, ratio=cv.width/cv.height, dw=aw, dh=dw/ratio;
+    if(dh>ah){ dh=ah; dw=dh*ratio; }
+    doc.setFillColor(10,15,13); doc.rect(0,0,pw,ph,'F');
+    doc.addImage(cv.toDataURL('image/jpeg',0.94),'JPEG', m+(aw-dw)/2, m+(ah-dh)/2, dw, dh);
+    doc.save(fileBase()+'.pdf');
+    if(typeof showToast==='function') showToast('✅ PDF descargado');
+  }catch(e){ console.error('[VAL-PRO] PDF', e); alert('❌ No se pudo generar el PDF.'); }
+  if(btn){ btn.textContent=t; btn.disabled=false; }
+};
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape'){ var m=document.getElementById('val-pro-modal'); if(m && m.style.display==='flex') window._valProClose(); }
+});
+})();
+</script>
+<!-- ══════════════ fin VAL-PRO DASHBOARD ══════════════ -->
 
 </body>
 </html>
