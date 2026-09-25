@@ -8064,6 +8064,7 @@ async function expDoZip(mode){
           <button id="op-pro-btn-vert" onclick="window._opProSetOrientation('vertical')" title="Vertical" style="padding:6px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:10px;font-weight:800;cursor:pointer">▯ Vertical</button>
           <button id="op-pro-btn-horiz" onclick="window._opProSetOrientation('horizontal')" title="Horizontal" style="padding:6px 10px;border-radius:5px;border:none;background:transparent;color:var(--t2);font-family:var(--mono);font-size:10px;font-weight:800;cursor:pointer">▭ Horizontal</button>
         </div>
+        <button id="op-pro-btn-edit" onclick="window._opProEditSaved()" style="display:none;padding:8px 16px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);border-radius:7px;color:#b45309;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">✏️ Editar reporte</button>
         <button id="op-pro-btn-png" onclick="window._opProDownloadPNG()" style="padding:8px 16px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);border-radius:7px;color:#059669;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">🖼️ Descargar PNG</button>
         <button id="op-pro-btn-pdf" onclick="window._opProDownloadPDF()" style="padding:8px 16px;background:linear-gradient(135deg,#0a1f4a,#1a3fcc);border:none;border-radius:7px;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">📄 Descargar PDF</button>
         <button onclick="window._opProClose()" style="background:none;border:1px solid var(--b1);border-radius:7px;color:var(--t3);font-size:13px;cursor:pointer;padding:8px 12px">✕ Cerrar</button>
@@ -15917,7 +15918,7 @@ function presOpRender(){
     byDate[dk].forEach(function(r){
       var kpis=opCalcKpis(r.srs);
       var hora=r.createdAt?new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';
-      html+='<div class="pres-rep-card kind-op" onclick="window.opShowDet(\''+r.id+'\')" style="position:relative">';
+      html+='<div class="pres-rep-card kind-op" onclick="window._opProOpenSaved(\''+r.id+'\')" style="position:relative">';
       html+='<div class="pres-rep-ico" style="color:var(--sky)">⚡</div>';
       html+='<div class="pres-rep-info">';
       html+='<div class="pres-rep-title">Reporte Operativo'+(r.period?' <span style="font-size:11px;font-weight:400;color:var(--t3)">'+esc(r.period)+'</span>':'')+(r.op?' — <span style="font-weight:400;color:var(--t3)">'+esc(r.op)+'</span>':'')+'</div>';
@@ -15927,7 +15928,7 @@ function presOpRender(){
       if(kpis.par)html+='<span class="pres-rep-bdg alm">'+kpis.par+' parciales</span>';
       if(kpis.crit)html+='<span class="pres-rep-bdg err">'+kpis.crit+' críticos</span>';
       html+='</div></div>';
-      html+='<button onclick="event.stopPropagation();window.opShowDet(\''+r.id+'\')" style="flex-shrink:0;padding:6px 14px;background:linear-gradient(135deg,#1a3fcc,#1255d4);color:#fff;border:none;border-radius:7px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.5px;white-space:nowrap">👁 Ver reporte</button>';
+      html+='<button onclick="event.stopPropagation();window._opProOpenSaved(\''+r.id+'\')" style="flex-shrink:0;padding:6px 14px;background:linear-gradient(135deg,#1a3fcc,#1255d4);color:#fff;border:none;border-radius:7px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.5px;white-space:nowrap">👁 Ver reporte</button>';
       html+='</div>';
     });
     html+='</div>';
@@ -20723,7 +20724,7 @@ function ucalRender(){
                 '</div></div>';
             }else{
               var kpis=opCalcKpis(r.srs);
-              return '<div class="cal-rep-card kind-op" onclick="window.opShowDet(\''+r.id+'\')">'+
+              return '<div class="cal-rep-card kind-op" onclick="window._opProOpenSaved(\''+r.id+'\')">'+
                 '<button class="card-del" onclick="event.stopPropagation();rvDelOp(\''+r.id+'\',event)">\u00d7</button>'+
                 '<div class="card-ico">\u26a1</div>'+
                 '<div class="card-title" style="color:#1a3fcc">'+r.period+'</div>'+
@@ -20733,7 +20734,7 @@ function ucalRender(){
                   (kpis.par>0?'<span class="rv-bdg" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">\u26a0'+kpis.par+'!</span>':'')+
                   (kpis.crit>0?rvBdg(kpis.crit+'!','err'):'')+
                 '</div>'+
-                '<button onclick="event.stopPropagation();window.opShowDet(\''+r.id+'\')" title="Ver reporte" style="position:absolute;top:4px;right:28px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(26,63,204,.3);background:rgba(26,63,204,.08);color:#1a3fcc;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s" class="card-view-btn">\uD83D\uDC41</button>'+
+                '<button onclick="event.stopPropagation();window._opProOpenSaved(\''+r.id+'\')" title="Ver reporte" style="position:absolute;top:4px;right:28px;width:20px;height:20px;border-radius:4px;border:1px solid rgba(26,63,204,.3);background:rgba(26,63,204,.08);color:#1a3fcc;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s" class="card-view-btn">\uD83D\uDC41</button>'+
                 '</div>';
             }
           }).join('');
@@ -36015,6 +36016,15 @@ var OPPRO_REGION_WATERMARK = {
   'Industria': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMzAwIj48cmVjdCB4PSI1NSIgeT0iMjYwIiB3aWR0aD0iMTk5LjUiIGhlaWdodD0iMTE1LjUiIGZpbGw9IiNmNTllMGIiIGZpbGwtb3BhY2l0eT0iMC41NSIvPjxwYXRoIGQ9Ik01NSwyNjAgTDU1LjAsMjMwLjEgTDEwNC45LDI2MC4wIEwxMDQuOSwyMzAuMSBMMTU0LjgsMjYwLjAgTDE1NC44LDIzMC4xIEwyMDQuNiwyNjAuMCBMMjA0LjYsMjMwLjEgTDI1NC41LDI2MC4wIFoiIGZpbGw9IiNmNTllMGIiIGZpbGwtb3BhY2l0eT0iMC41NSIvPjxyZWN0IHg9IjcwLjc1IiB5PSIxNjAuMjUiIHdpZHRoPSIxNi44IiBoZWlnaHQ9IjczLjUiIGZpbGw9IiNmNTllMGIiIGZpbGwtb3BhY2l0eT0iMC41NSIvPjxyZWN0IHg9IjEwMi4yNSIgeT0iMTIzLjUiIHdpZHRoPSIxNi44IiBoZWlnaHQ9IjExMC4yNSIgZmlsbD0iI2Y1OWUwYiIgZmlsbC1vcGFjaXR5PSIwLjU1Ii8+PGNpcmNsZSBjeD0iMTEwLjY1IiBjeT0iMTEzLjAiIHI9IjkuNDUwMDAwMDAwMDAwMDAxIiBmaWxsPSIjZjU5ZTBiIiBmaWxsLW9wYWNpdHk9IjAuNDQwMDAwMDAwMDAwMDAwMDYiLz48Y2lyY2xlIGN4PSIxMjAuNjUiIGN5PSI5Ny4wIiByPSIxMi42MDAwMDAwMDAwMDAwMDEiIGZpbGw9IiNmNTllMGIiIGZpbGwtb3BhY2l0eT0iMC40NDAwMDAwMDAwMDAwMDAwNiIvPjxjaXJjbGUgY3g9IjEzMC42NSIgY3k9IjgxLjAiIHI9IjE1Ljc1IiBmaWxsPSIjZjU5ZTBiIiBmaWxsLW9wYWNpdHk9IjAuNDQwMDAwMDAwMDAwMDAwMDYiLz48cmVjdCB4PSI2Ny42IiB5PSIyODEuMCIgd2lkdGg9IjE0LjciIGhlaWdodD0iMTguOSIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTAyLjUiIHk9IjI4MS4wIiB3aWR0aD0iMTQuNyIgaGVpZ2h0PSIxOC45IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSIxMzcuMyIgeT0iMjgxLjAiIHdpZHRoPSIxNC43IiBoZWlnaHQ9IjE4LjkiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE3Mi4yIiB5PSIyODEuMCIgd2lkdGg9IjE0LjciIGhlaWdodD0iMTguOSIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMjA3LjAiIHk9IjI4MS4wIiB3aWR0aD0iMTQuNyIgaGVpZ2h0PSIxOC45IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSI2Ny42IiB5PSIzMjMuMCIgd2lkdGg9IjE0LjciIGhlaWdodD0iMTguOSIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTAyLjUiIHk9IjMyMy4wIiB3aWR0aD0iMTQuNyIgaGVpZ2h0PSIxOC45IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSIxMzcuMyIgeT0iMzIzLjAiIHdpZHRoPSIxNC43IiBoZWlnaHQ9IjE4LjkiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE3Mi4yIiB5PSIzMjMuMCIgd2lkdGg9IjE0LjciIGhlaWdodD0iMTguOSIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMjA3LjAiIHk9IjMyMy4wIiB3aWR0aD0iMTQuNyIgaGVpZ2h0PSIxOC45IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48L3N2Zz4=',
   'Park Royal': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMzAwIj48Y2lyY2xlIGN4PSIyNDAiIGN5PSI1NSIgcj0iMjIiIGZpbGw9IiNhODU1ZjciIGZpbGwtb3BhY2l0eT0iMC41NSIvPjxsaW5lIHgxPSIyNjguMCIgeTE9IjU1LjAiIHgyPSIyODAuMCIgeTI9IjU1LjAiIHN0cm9rZT0iI2E4NTVmNyIgc3Ryb2tlLW9wYWNpdHk9IjAuNTUiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGxpbmUgeDE9IjI1OS44IiB5MT0iNzQuOCIgeDI9IjI2OC4zIiB5Mj0iODMuMyIgc3Ryb2tlPSIjYTg1NWY3IiBzdHJva2Utb3BhY2l0eT0iMC41NSIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMjQwLjAiIHkxPSI4My4wIiB4Mj0iMjQwLjAiIHkyPSI5NS4wIiBzdHJva2U9IiNhODU1ZjciIHN0cm9rZS1vcGFjaXR5PSIwLjU1IiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIyMjAuMiIgeTE9Ijc0LjgiIHgyPSIyMTEuNyIgeTI9IjgzLjMiIHN0cm9rZT0iI2E4NTVmNyIgc3Ryb2tlLW9wYWNpdHk9IjAuNTUiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGxpbmUgeDE9IjIxMi4wIiB5MT0iNTUuMCIgeDI9IjIwMC4wIiB5Mj0iNTUuMCIgc3Ryb2tlPSIjYTg1NWY3IiBzdHJva2Utb3BhY2l0eT0iMC41NSIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMjIwLjIiIHkxPSIzNS4yIiB4Mj0iMjExLjciIHkyPSIyNi43IiBzdHJva2U9IiNhODU1ZjciIHN0cm9rZS1vcGFjaXR5PSIwLjU1IiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIyNDAuMCIgeTE9IjI3LjAiIHgyPSIyNDAuMCIgeTI9IjE1LjAiIHN0cm9rZT0iI2E4NTVmNyIgc3Ryb2tlLW9wYWNpdHk9IjAuNTUiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGxpbmUgeDE9IjI1OS44IiB5MT0iMzUuMiIgeDI9IjI2OC4zIiB5Mj0iMjYuNyIgc3Ryb2tlPSIjYTg1NWY3IiBzdHJva2Utb3BhY2l0eT0iMC41NSIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48cmVjdCB4PSIxMDUiIHk9IjcwIiB3aWR0aD0iMTEwLjAwMDAwMDAwMDAwMDAxIiBoZWlnaHQ9IjE4Ny4wMDAwMDAwMDAwMDAwMyIgZmlsbD0iI2E4NTVmNyIgZmlsbC1vcGFjaXR5PSIwLjU1Ii8+PHJlY3QgeD0iOTkiIHk9IjYwIiB3aWR0aD0iMTIyLjAwMDAwMDAwMDAwMDAxIiBoZWlnaHQ9IjEyIiBmaWxsPSIjYTg1NWY3IiBmaWxsLW9wYWNpdHk9IjAuNTUiLz48cmVjdCB4PSIxMTYuMCIgeT0iODUuNCIgd2lkdGg9IjIzLjMiIGhlaWdodD0iMjAuOCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTQ1LjMiIHk9Ijg1LjQiIHdpZHRoPSIyMy4zIiBoZWlnaHQ9IjIwLjgiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE3NC43IiB5PSI4NS40IiB3aWR0aD0iMjMuMyIgaGVpZ2h0PSIyMC44IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSIxMTYuMCIgeT0iMTEyLjIiIHdpZHRoPSIyMy4zIiBoZWlnaHQ9IjIwLjgiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE0NS4zIiB5PSIxMTIuMiIgd2lkdGg9IjIzLjMiIGhlaWdodD0iMjAuOCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTc0LjciIHk9IjExMi4yIiB3aWR0aD0iMjMuMyIgaGVpZ2h0PSIyMC44IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSIxMTYuMCIgeT0iMTM4LjkiIHdpZHRoPSIyMy4zIiBoZWlnaHQ9IjIwLjgiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE0NS4zIiB5PSIxMzguOSIgd2lkdGg9IjIzLjMiIGhlaWdodD0iMjAuOCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTc0LjciIHk9IjEzOC45IiB3aWR0aD0iMjMuMyIgaGVpZ2h0PSIyMC44IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSIxMTYuMCIgeT0iMTY1LjciIHdpZHRoPSIyMy4zIiBoZWlnaHQ9IjIwLjgiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE0NS4zIiB5PSIxNjUuNyIgd2lkdGg9IjIzLjMiIGhlaWdodD0iMjAuOCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTc0LjciIHk9IjE2NS43IiB3aWR0aD0iMjMuMyIgaGVpZ2h0PSIyMC44IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSIxMTYuMCIgeT0iMTkyLjUiIHdpZHRoPSIyMy4zIiBoZWlnaHQ9IjIwLjgiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE0NS4zIiB5PSIxOTIuNSIgd2lkdGg9IjIzLjMiIGhlaWdodD0iMjAuOCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTc0LjciIHk9IjE5Mi41IiB3aWR0aD0iMjMuMyIgaGVpZ2h0PSIyMC44IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cmVjdCB4PSIxMTYuMCIgeT0iMjE5LjIiIHdpZHRoPSIyMy4zIiBoZWlnaHQ9IjIwLjgiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC43NyIvPjxyZWN0IHg9IjE0NS4zIiB5PSIyMTkuMiIgd2lkdGg9IjIzLjMiIGhlaWdodD0iMjAuOCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjc3Ii8+PHJlY3QgeD0iMTc0LjciIHk9IjIxOS4yIiB3aWR0aD0iMjMuMyIgaGVpZ2h0PSIyMC44IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuNzciLz48cGF0aCBkPSJNMCAyNzIgcTIwLjAgLTE0IDQwIDAgcTIwLjAgMTQgNDAgMCBxMjAuMCAtMTQgNDAgMCBxMjAuMCAxNCA0MCAwIHEyMC4wIC0xNCA0MCAwIHEyMC4wIDE0IDQwIDAgcTIwLjAgLTE0IDQwIDAgIiBmaWxsPSJub25lIiBzdHJva2U9IiNhODU1ZjciIHN0cm9rZS1vcGFjaXR5PSIwLjU1IiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zNC40IDI3MC4wIFEyOC44IDIwNS4wIDUxLjIgMTQwLjAgUTU1LjQgMTQyLjggNTUuNCAxNDQuMiBRMzguNiAyMDUuMCA0NS42IDI3MC4wIFoiIGZpbGw9IiNhODU1ZjciIGZpbGwtb3BhY2l0eT0iMC41NSIvPjxwYXRoIGQ9Ik0wLDAgUTE0LjIsLTkuMSAzMC40LDEuMCBRNDAuNiw4LjMgNDIuNiwxMC40IFEzMC40LDUuNSAxNC4yLDUuMCBRNC45LDMuMiAwLDAgWiIgZmlsbD0iI2E4NTVmNyIgZmlsbC1vcGFjaXR5PSIwLjU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1MS4yLDE0MC4wKSByb3RhdGUoLTE4NS4wKSIvPjxwYXRoIGQ9Ik0wLDAgUTE0LjIsLTkuMSAzMC40LDIuMyBRNDAuNiwxMC45IDQyLjYsMTMuNiBRMzAuNCw2LjggMTQuMiw1LjAgUTQuOSwzLjIgMCwwIFoiIGZpbGw9IiNhODU1ZjciIGZpbGwtb3BhY2l0eT0iMC41NSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTEuMiwxNDAuMCkgcm90YXRlKC0xNDcuMCkiLz48cGF0aCBkPSJNMCwwIFExNC4yLC05LjEgMzAuNCwzLjQgUTQwLjYsMTMuMSA0Mi42LDE2LjQgUTMwLjQsNy45IDE0LjIsNS4wIFE0LjksMy4yIDAsMCBaIiBmaWxsPSIjYTg1NWY3IiBmaWxsLW9wYWNpdHk9IjAuNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUxLjIsMTQwLjApIHJvdGF0ZSgtMTA5LjApIi8+PHBhdGggZD0iTTAsMCBRMTQuMiwtOS4xIDMwLjQsMy40IFE0MC42LDEzLjEgNDIuNiwxNi40IFEzMC40LDcuOSAxNC4yLDUuMCBRNC45LDMuMiAwLDAgWiIgZmlsbD0iI2E4NTVmNyIgZmlsbC1vcGFjaXR5PSIwLjU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1MS4yLDE0MC4wKSByb3RhdGUoLTcxLjApIi8+PHBhdGggZD0iTTAsMCBRMTQuMiwtOS4xIDMwLjQsMi4zIFE0MC42LDEwLjkgNDIuNiwxMy42IFEzMC40LDYuOCAxNC4yLDUuMCBRNC45LDMuMiAwLDAgWiIgZmlsbD0iI2E4NTVmNyIgZmlsbC1vcGFjaXR5PSIwLjU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1MS4yLDE0MC4wKSByb3RhdGUoLTMzLjApIi8+PHBhdGggZD0iTTAsMCBRMTQuMiwtOS4xIDMwLjQsMS4wIFE0MC42LDguMyA0Mi42LDEwLjQgUTMwLjQsNS41IDE0LjIsNS4wIFE0LjksMy4yIDAsMCBaIiBmaWxsPSIjYTg1NWY3IiBmaWxsLW9wYWNpdHk9IjAuNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUxLjIsMTQwLjApIHJvdGF0ZSg1LjApIi8+PGNpcmNsZSBjeD0iNDcuMCIgY3k9IjE0Ni4zIiByPSIyLjgiIGZpbGw9IiNhODU1ZjciIGZpbGwtb3BhY2l0eT0iMC41NSIvPjxjaXJjbGUgY3g9IjUxLjIiIGN5PSIxNDYuMyIgcj0iMi44IiBmaWxsPSIjYTg1NWY3IiBmaWxsLW9wYWNpdHk9IjAuNTUiLz48Y2lyY2xlIGN4PSI1NS40IiBjeT0iMTQ2LjMiIHI9IjIuOCIgZmlsbD0iI2E4NTVmNyIgZmlsbC1vcGFjaXR5PSIwLjU1Ii8+PC9zdmc+'
 };
+/* v116 — Letra más grande en los reportes profesionales (entregables):
+   escala todos los font-size en px de una hoja de estilos. Se aplica SOLO a
+   las vistas profesionales (Descarga y Validación), no a las tablas
+   editables, para no romper sus anchos de columna. */
+window.PRO_FONT_SCALE = 1.25;
+window._proScaleFonts = function(css, f){
+  f = f || window.PRO_FONT_SCALE || 1;
+  return String(css).replace(/font-size:\s*(\d+(?:\.\d+)?)px/g, function(m, n){ return 'font-size:'+(Math.round(parseFloat(n)*f*10)/10)+'px'; });
+};
 var OPPRO_REGION_ORDER = ['ASUR','OMA','Industria','Park Royal'];
 var OPPRO_REGION_COLOR = {ASUR:'#3b82f6', OMA:'#10b981', Industria:'#f59e0b', 'Park Royal':'#a855f7'};
 var OPPRO_REGION_GRAD  = {
@@ -36243,7 +36253,7 @@ function _opProSubColsFor(g, orientation, isWideCol){
     return (isWideCol && n>20) ? 2 : 1;
   }
   /* vertical: la columna de Industria es más ancha que las demás */
-  if(isWideCol) return n>24 ? 3 : (n>9 ? 2 : 1);
+  if(isWideCol) return n>9 ? 2 : 1; /* v116: letra más grande → máx. 2 sub-columnas */
   return n>9 ? 2 : 1;
 }
 function _opProRowHtml(r, regionName){
@@ -36587,7 +36597,10 @@ function _opProDrawCharts(byStatus, regionGroups, totalFilled, ns){
 }
 
 function _opProRender(){
-  var srs = (window.opW && window.opW.srs) || [];
+  /* v116: si se abrió un reporte GUARDADO desde el calendario, se muestra ese
+     (window._opProViewRep) sin tocar el reporte operativo en curso (opW). */
+  var W = window._opProViewRep || window.opW;
+  var srs = (W && W.srs) || [];
   var sites = window.OP_SITES || [];
   var container = document.getElementById('op-pro-print');
   if(!container) return;
@@ -36647,15 +36660,17 @@ function _opProRender(){
   });
 
   var meta = {
-    date: (window.opW && window.opW.date) || new Date().toISOString(),
-    period: (window.opW && window.opW.period) || '',
-    op: (window.opW && window.opW.op) || (localStorage.getItem('bess_uname')||'Operador')
+    date: (W && W.date) || new Date().toISOString(),
+    period: (W && W.period) || '',
+    op: (W && W.op) || (localStorage.getItem('bess_uname')||'Operador')
   };
 
   var orientation = window._opProOrientation || 'vertical';
   container.style.maxWidth = orientation==='horizontal' ? '1680px' : '1240px';
 
-  var html = '<style>'+OPPRO_STYLE+'</style>'
+  var html = '<style>'+window._proScaleFonts(OPPRO_STYLE)
+      .replace(/grid-template-columns:11px 1fr 32px 11px 32px 36px/g,'grid-template-columns:13px 1fr 42px 12px 42px 48px')
+      .replace(/\.oppc-dot\{/,'.oppc-dot{transform:scale(1.2);')+'</style>'
     + '<div class="oppc-root"><div class="oppc-glow"></div><div class="oppc-content">'
     + _opProHeaderHtml(meta,totalSitios)
     + '<div class="oppc-topline">'
@@ -36686,19 +36701,43 @@ window._opProSetOrientation = function(mode){
 };
 
 window._opOpenProReport = function(){
+  window._opProViewRep = null; window._opProViewId = null;
+  var eb = document.getElementById('op-pro-btn-edit'); if(eb) eb.style.display='none';
   var modal = document.getElementById('op-pro-modal');
   if(!modal){ alert('No se encontró el módulo de reporte profesional.'); return; }
   if(!window.opW || !window.opW.srs){ alert('Primero completa o abre un reporte operativo.'); return; }
   modal.style.display='flex';
   _opProRender();
 };
+/* v116 — calendario/historial: abrir de entrada el reporte PROFESIONAL de un
+   reporte operativo guardado; "✏️ Editar reporte" abre la vista editable de
+   siempre (opShowDet). */
+window._opProOpenSaved = function(id){
+  try{ if(typeof opLoad==='function') opLoad(); }catch(e){}
+  var list = (typeof opReps!=='undefined' && opReps) ? opReps : (window.opReps||[]);
+  var r = list.find(function(x){ return x.id===id || x.fbId===id || x.id===String(id); });
+  var modal = document.getElementById('op-pro-modal');
+  if(!r || !modal){ if(typeof window.opShowDet==='function') window.opShowDet(id); return; }
+  window._opProViewRep = { op:r.op||'', period:r.period||'', date:r.date||r.createdAt||new Date().toISOString(), srs:r.srs||[] };
+  window._opProViewId = r.id;
+  var eb = document.getElementById('op-pro-btn-edit'); if(eb) eb.style.display='';
+  modal.style.display='flex';
+  _opProRender();
+};
+window._opProEditSaved = function(){
+  var id = window._opProViewId;
+  window._opProClose();
+  if(id && typeof window.opShowDet==='function') window.opShowDet(id);
+};
 window._opProClose = function(){
   var modal = document.getElementById('op-pro-modal');
   if(modal) modal.style.display='none';
+  window._opProViewRep = null;
 };
 
 function _opProFilenameBase(){
-  var d = (window.opW && window.opW.date) ? new Date(window.opW.date) : new Date();
+  var W = window._opProViewRep || window.opW;
+  var d = (W && W.date) ? new Date(W.date) : new Date();
   var ds = isNaN(d.getTime()) ? new Date().toISOString().slice(0,10) : d.toISOString().slice(0,10);
   return 'BESS_ReporteDescarga_'+ds;
 }
@@ -40475,12 +40514,12 @@ function render(){
   var d = vpData(_vpRep);
   var orientation = window._valProOrientation || 'vertical';
   var night = _vpRep.type==='nocturno' || _vpRep.type==='entrega';
-  host.style.maxWidth = orientation==='horizontal' ? '2200px' : '1240px';
+  host.style.maxWidth = orientation==='horizontal' ? '2200px' : '1400px';
   host.style.minWidth = orientation==='horizontal' ? '2200px' : '';
   host.className = orientation==='horizontal' ? 'vpc-h' : '';
   var meta = { type:_vpRep.type, date:_vpRep.date||_vpRep.createdAt, createdAt:_vpRep.createdAt, op:_vpRep.op,
     dur: _vpRep.duracionTotalSeg || ((_vpRep.tStart && (_vpRep.tEnd||Date.now())) ? Math.round(((_vpRep.tEnd||Date.now())-_vpRep.tStart)/1000) : 0) };
-  host.innerHTML = '<style>'+VP_STYLE+'</style>'
+  host.innerHTML = '<style>'+(window._proScaleFonts?window._proScaleFonts(VP_STYLE):VP_STYLE).replace('repeat(4,minmax(0,.9fr)) 34px 38px','repeat(4,minmax(0,.95fr)) 42px 48px').replace('.vpc-ch-row{display:grid;grid-template-columns:78px','.vpc-ch-row{display:grid;grid-template-columns:100px').replace('margin:2px 0 0 84px','margin:2px 0 0 106px')+'</style>'
     +'<div class="vpc-root"><div class="vpc-glow"></div><div class="vpc-content">'
     + headerHtml(d, meta)
     + '<div class="vpc-top">'+kpisHtml(d)+statusCardHtml(d)+'</div>'
