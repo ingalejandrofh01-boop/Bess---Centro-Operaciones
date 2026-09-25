@@ -19405,7 +19405,8 @@ window._rvBroadcastStart = function(){
 };
 window._rvLiveBroadcastTick = function(force){
   var now=Date.now();
-  if(!force && window._rvLastBTick && (now-window._rvLastBTick)<8000) return;
+  if(!force && window._rvLastBTick && (now-window._rvLastBTick)<60000) return; /* v117: 60s — el banner calcula la duración solo */
+  if(window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='val' && !COLLAB.isHost) return; /* solo el anfitrión transmite */
   window._rvLastBTick=now;
   try{
     if(!window._fbFS||!window._fbDB||!window.rvW||!rvW.tStart) return;
@@ -22207,7 +22208,7 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
      seguridad que no permiten "listar" aunque sí permitan leer un
      documento puntual. Validación (val) sigue con ID aleatorio, sin
      cambios, porque su modelo de división de sitios no usa este flujo. */
-  var sid = (reportType==='op') ? 'op_current' : ('cs_'+Date.now()+'_'+myId().slice(0,6));
+  var sid = (reportType==='op') ? 'op_current' : (reportType==='val' ? 'val_current' : ('cs_'+Date.now()+'_'+myId().slice(0,6)));
   COLLAB.sessionId=sid; COLLAB.reportType=reportType; COLLAB.isHost=true; COLLAB._sessionLabel=reportLabel||'';
   COLLAB._mergeFired=false; // reset para esta nueva sesion
   /* BUG encontrado (causaba el "finalizó el reporte" falso justo al darle
@@ -22290,11 +22291,12 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
            cliente reaccionara solo y se metiera al asistente clásico sin
            que nadie lo pidiera aquí. Para 'val' (Validación) sigue igual,
            ese flujo de dividir/fusionar sigue vigente ahí. */
-        if(reportType!=='op'){
+        if(reportType!=='op' && reportType!=='val'){
           _collabListenSession(COLLAB.sessionId, reportType);
           _collabListenFragments(COLLAB.sessionId, reportType);
         }
         COLLAB._creatingNew = false;
+        if(reportType==='val'&&window._rvProJoinExisting){ window._rvProJoinExisting(ex); return; }
         if(reportType==='op'&&window._opProCollabListen) window._opProCollabListen(); /* refrescar contra la sesión real (la de "ex"), no la que se intentó crear */
         return;
       }
@@ -22302,10 +22304,11 @@ window.collabStartSession = function(reportType, reportLabel, totalSites){
       COLLAB._creatingNew = false;
       /* Arrancar listener DESPUES de que el doc existe en Firestore */
       console.log('[Collab] Doc creado, arrancando listener sid:',sid);
-      if(reportType!=='op'){
+      if(reportType!=='op' && reportType!=='val'){
         _collabListenSession(sid, reportType);
         _collabListenFragments(sid, reportType);
       }
+      if(reportType==='val'&&window._rvProAfterCreate) window._rvProAfterCreate();
 
       /* Notificar a todos — solo si de verdad soy yo quien inició. */
       window._fb.pushNotif({
@@ -22803,7 +22806,10 @@ window.collabJoinSession = function(){
   var lbl=document.getElementById('csb-label'+(rType==='op'?'-op':''));
   if(lbl) lbl.textContent='Conectando a sesion...';
 
-  if(rType==='val'){
+  if(rType==='val' && typeof window._rvProStartDirect==='function'){
+    /* v117: Validación = UN solo reporte compartido en vivo (val_current) */
+    setTimeout(function(){ window._rvProStartDirect(); }, 50);
+  } else if(rType==='val'){
     /* Inicializar rvW directamente en modo sites, saltando el setup */
     if(window.RV_SITES){
       var userName=localStorage.getItem('bess_uname')||'Operador';
@@ -23319,7 +23325,7 @@ function _collabHookSave(){
   var _rv=window.rvSave;
   if(_rv&&!_rv.__cs){
     window.rvSave=function(){
-      if(COLLAB.sessionId&&!COLLAB.isHost){
+      if(COLLAB.sessionId&&!COLLAB.isHost&&Object.keys(COLLAB._assignments||{}).length>0){
         /* Guest: sincronizar ultimo sitio y guardar fragmento */
         if(window.rvSync) rvSync();
         window.collabSaveMyFragment('val');
@@ -23334,9 +23340,12 @@ function _collabHookSave(){
         safeToast('\u2705 Tu parte guardada \u2014 esperando al equipo...');
         return;
       }
-      /* Sin colaboracion o sesion de 1: guardado normal */
+      /* Sin colaboracion, o Validación en vivo (v117): cualquiera (anfitrión o
+         invitado) finaliza y queda UN solo reporte para todo el equipo. */
+      try{ if(window._rvProFlushLive) window._rvProFlushLive(); }catch(e){}
       _rv.apply(this,arguments);
       if(COLLAB.sessionId) window.collabEndSession();
+      try{ localStorage.removeItem('rv:draft:v1'); }catch(e){}
     };
     window.rvSave.__cs=true;
   }
@@ -39406,7 +39415,10 @@ function _rvProRenderEditablePaper(){
     + '<div id="rvpro-continuity-wrap">'+_rvProContinuityPanelHtml(d)+'</div>'
     + (editable ? '<div class="oppc-edithint">✎ Haz clic en el estado, reloj, descarga, racks, temperatura, SOC, comentario o responsable de cualquier sitio para editarlo — se guarda automáticamente.'
         + ' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" style="background:linear-gradient(135deg,#065f46,#10b981)" onclick="window._valProOpen()">🛡️ Reporte Profesional</button>'
-        + (isHistorical ? ' <span style="opacity:.85">(editando reporte del historial — cierra con ✕ Cerrar arriba cuando termines)</span>' : ' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" onclick="window.rvSave()">✓ Guardar Reporte</button>')
+        + (isHistorical ? ' <span style="opacity:.85">(editando reporte del historial — cierra con ✕ Cerrar arriba cuando termines)</span>'
+            : ' <span id="rvpro-live-pill" class="rvpc-live-pill"></span>'
+              +' <button type="button" class="oppc-util-linkbtn" onclick="window._rvProLeaveShared()" title="Cierra tu vista; el reporte sigue en curso para el equipo y puedes volver con Continuar">⏸ Salir (sigue en curso)</button>'
+              +' <button type="button" class="oppc-util-linkbtn oppc-util-linkbtn-pro" style="background:linear-gradient(135deg,#b91c1c,#ef4444)" onclick="window._rvProFinalizeShared()">🏁 Finalizar reporte</button>')
         + ' <span id="rvpro-autosave-badge" class="oppro-autosave-badge">💾 Todo guardado</span></div>' : '')
     + _rvProEditableRegionsHtml(d.regionGroups, editable)
     + '</div></div>';
@@ -39618,21 +39630,32 @@ window._rvProRefreshDivision = _rvProRefreshDivision;
 
 /* ── escritura en vivo ── */
 var _rvProLiveT = {}, _rvProLiveWarned = false;
+/* v117 — escrituras AGRUPADAS: todos los cambios que se hagan en ~600ms
+   (varios campos o varios sitios) viajan en UNA sola escritura a Firestore,
+   en vez de una por campo — menos consumo de cuota. */
+var _rvProPending = {}, _rvProFlushT = null;
+function _rvProFlushLive(){
+  _rvProFlushT = null;
+  var pend = _rvProPending; _rvProPending = {};
+  var keys = Object.keys(pend); if(!keys.length) return;
+  if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='val' || !window._fbFS || !window._fbDB) return;
+  try{
+    var FS = window._fbFS, DB = window._fbDB, now = Date.now(), me = myId();
+    var body = { srs: {}, updatedAt: now };
+    keys.forEach(function(k){ body.srs[k] = Object.assign({}, pend[k], { _by: me, _ts: now }); });
+    FS.setDoc(FS.doc(DB,'collab_sessions',COLLAB.sessionId), body, {merge:true}).catch(function(e){
+      if(!_rvProLiveWarned){ _rvProLiveWarned = true; try{ (window._opProToast||window.showToast||function(){})('⚠️ Validación: no se pudo sincronizar en vivo ('+((e&&e.message)||'error')+')'); }catch(_){} }
+    });
+  }catch(e){}
+}
+window._rvProFlushLive = _rvProFlushLive;
 function _rvProPushLive(i, patch){
   if(window._rvProEditingSavedId || window._rvProReadOnlyView) return;
   if(!window.COLLAB || !COLLAB.sessionId || COLLAB.reportType!=='val') return;
   if(!window._fbFS || !window._fbDB) return;
-  var key = i+':'+Object.keys(patch).join(',');
-  clearTimeout(_rvProLiveT[key]);
-  _rvProLiveT[key] = setTimeout(function(){
-    try{
-      var FS = window._fbFS, DB = window._fbDB, leaf = Object.assign({}, patch, { _by: myId(), _ts: Date.now() });
-      var body = { srs: {}, updatedAt: Date.now() }; body.srs[i] = leaf;
-      FS.setDoc(FS.doc(DB,'collab_sessions',COLLAB.sessionId), body, {merge:true}).catch(function(e){
-        if(!_rvProLiveWarned){ _rvProLiveWarned = true; try{ (window._opProToast||window.showToast||function(){})('⚠️ Validación: no se pudo sincronizar en vivo ('+((e&&e.message)||'error')+')'); }catch(_){} }
-      });
-    }catch(e){}
-  }, 450);
+  _rvProPending[i] = Object.assign(_rvProPending[i]||{}, patch);
+  if(_rvProFlushT) clearTimeout(_rvProFlushT);
+  _rvProFlushT = setTimeout(_rvProFlushLive, 600);
 }
 window._rvProPushLive = _rvProPushLive;
 
@@ -39663,7 +39686,9 @@ function _rvProApplyRemoteSite(i, patch){
   return true;
 }
 function _rvProApplySessionData(data){
-  if(!data || !window.rvW || !window.rvW.srs) return;
+  if(!data) return;
+  if(window._rvProSharedCheck && window._rvProSharedCheck(data)===false) return; /* v117: reporte cerrado/reemplazado */
+  if(!window.rvW || !window.rvW.srs) return;
   var prevN = _rvProParticipants().length;
   if(data.participants) COLLAB._participants = Object.values(data.participants).filter(Boolean);
   if(data.hostId){ COLLAB._hostId = data.hostId; COLLAB._hostName = data.hostName; COLLAB._hostColor = data.hostColor; }
@@ -39676,9 +39701,10 @@ function _rvProApplySessionData(data){
   });
   if(any){ _rvProScheduleSummaryRefresh(); _rvProScheduleSave(); }
   if(any || _rvProParticipants().length!==prevN) _rvProRefreshDivision();
+  if(window._rvProPaintLivePill) window._rvProPaintLivePill();
 }
 window._rvProApplySessionData = _rvProApplySessionData;
-var _rvProLiveUnsub = null, _rvProLiveSid = null, _rvProLastSnap = 0;
+var _rvProLiveUnsub = null, _rvProLiveSid = null, _rvProLastSnap = 0, _rvProListenerOk = false;
 function _rvProLiveEnsure(){
   var active = window.COLLAB && COLLAB.sessionId && COLLAB.reportType==='val' && !window._rvProEditingSavedId;
   if(!active){
@@ -39691,20 +39717,299 @@ function _rvProLiveEnsure(){
     if(_rvProLiveUnsub){ try{ _rvProLiveUnsub(); }catch(e){} }
     _rvProLiveSid = COLLAB.sessionId;
     try{
+      _rvProListenerOk = false;
       _rvProLiveUnsub = FS.onSnapshot(FS.doc(DB,'collab_sessions',_rvProLiveSid), function(snap){
-        _rvProLastSnap = Date.now();
+        _rvProLastSnap = Date.now(); _rvProListenerOk = true;
         if(snap.exists()) _rvProApplySessionData(snap.data());
-      }, function(err){ console.warn('[VAL-PRO live] listener:', err && err.message); });
+      }, function(err){ _rvProListenerOk = false; console.warn('[VAL-PRO live] listener:', err && err.message); });
     }catch(e){ console.warn('[VAL-PRO live]', e && e.message); }
   }
-  /* respaldo: si el listener lleva rato sin entregar nada, leer una vez */
-  if(Date.now() - _rvProLastSnap > 15000 && FS.getDoc){
+  /* respaldo (v117): leer por polling SOLO si el listener en tiempo real
+     falló/nunca conectó — si está sano no se gasta ni una lectura extra. */
+  if(!_rvProListenerOk && Date.now() - _rvProLastSnap > 30000 && FS.getDoc){
     _rvProLastSnap = Date.now();
     FS.getDoc(FS.doc(DB,'collab_sessions',_rvProLiveSid)).then(function(snap){ if(snap && snap.exists()) _rvProApplySessionData(snap.data()); }).catch(function(){});
   }
 }
 setInterval(_rvProLiveEnsure, 2500);
 window._rvProLiveEnsure = _rvProLiveEnsure;
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   v117 — VALIDACIÓN: UN SOLO REPORTE COMPARTIDO, EN VIVO
+   Igual principio que el Reporte Operativo (op_current):
+   · La sesión vive en un documento de ID FIJO: collab_sessions/val_current.
+   · "Iniciar" primero revisa si ya hay un reporte activo (1 lectura). Si lo
+     hay → todos entran a ESE ("▶ Continuar reporte"); si no → se crea uno.
+   · Todos editan la misma tabla; cada cambio viaja en una sola escritura
+     agrupada y llega a los demás por un único listener (onSnapshot).
+   · "🏁 Finalizar reporte" lo guarda y lo cierra para todo el equipo; a los
+     demás se les cierra la vista con aviso. "⏸ Salir" solo cierra tu vista:
+     el reporte sigue en curso y puedes volver con "Continuar".
+   Consumo en Firebase: sin polling mientras el listener esté sano; latido
+   del banner solo del anfitrión cada 60 s; escrituras agrupadas (600 ms).
+   ══════════════════════════════════════════════════════════════════════ */
+var RV_SHARED_ID = 'val_current';
+var RV_SHARED_TTL = 18*60*60*1000;
+window._rvSharedInfo = null; /* último estado conocido de val_current (para el botón Continuar) */
+
+function _rvsToast(m){ try{ (window._opProToast||window.showToast||window.safeToast||function(){})(m); }catch(e){} }
+function _rvsIsFresh(d){
+  return !!(d && d.status==='active' && (Date.now()-(d.updatedAt||d.createdAt||0)) < RV_SHARED_TTL);
+}
+function _rvsGetCurrent(){
+  if(!window._fbFS || !window._fbDB || !window._fbFS.getDoc) return Promise.reject(new Error('Firebase no disponible'));
+  var FS = window._fbFS, DB = window._fbDB;
+  return FS.getDoc(FS.doc(DB,'collab_sessions',RV_SHARED_ID)).then(function(snap){
+    var d = (snap && snap.exists()) ? Object.assign({}, snap.data(), {id:RV_SHARED_ID}) : null;
+    window._rvSharedInfo = d; _rvsPaintStartBtn();
+    return d;
+  });
+}
+window._rvsGetCurrent = _rvsGetCurrent;
+
+/* Carga TODO lo que ya tiene el reporte compartido (incluidos mis propios
+   cambios de otra pestaña/equipo), sin filtrar por autor. */
+function _rvsLoadAllSrs(data){
+  if(!data || !window.rvW || !window.rvW.srs) return 0;
+  var n = 0, srsRemote = data.srs || {};
+  Object.keys(srsRemote).forEach(function(k){
+    var i = parseInt(k,10), patch = srsRemote[k], sr = window.rvW.srs[i];
+    if(isNaN(i) || !patch || !sr) return;
+    RVPRO_LIVE_FIELDS.forEach(function(f){ if(patch[f]!==undefined){ sr[f] = patch[f]; } });
+    n++;
+  });
+  return n;
+}
+function _rvsFreshRvW(data){
+  var sites = window.RV_SITES || [];
+  var prevType = window.rvW && window.rvW.type;
+  window.rvW = {
+    type: (data && data.rvType) || prevType || 'matutino',
+    date: (data && data.rvDate) || new Date().toISOString(),
+    op: myName(), step:'sites', idx:0,
+    srs: sites.map(function(){ return rvMkS(); }),
+    tStart: (data && (data.tStart || data.createdAt)) || Date.now(), tEnd:null,
+    _siteNames: sites.slice(), _sharedCreatedAt: data && data.createdAt
+  };
+}
+function _rvsStartTimerQuiet(){
+  clearInterval(window._rvTimerInt);
+  if(typeof _rvTimerTick==='function') window._rvTimerInt = setInterval(_rvTimerTick, 1000);
+}
+
+/* Entrar al reporte compartido que YA existe */
+function _rvsJoin(active){
+  COLLAB.sessionId = RV_SHARED_ID; COLLAB.reportType = 'val';
+  COLLAB.isHost = (active.hostId===myId()); COLLAB._mergeFired = false; COLLAB._creatingNew = false;
+  COLLAB._hostId = active.hostId; COLLAB._hostName = active.hostName; COLLAB._hostColor = active.hostColor;
+  COLLAB._sessionCreatedAt = active.createdAt; COLLAB._assignments = {};
+  COLLAB._participants = Object.values(active.participants||{}).filter(Boolean);
+  var me = {id:myId(), name:myName(), color:myColor(), role:(typeof myRole==='function'?myRole():''), joinedAt:Date.now()};
+  if(!COLLAB._participants.some(function(p){ return p.id===me.id; })) COLLAB._participants.push(me);
+  if(window._fb && window._fb.collabJoin) window._fb.collabJoin(RV_SHARED_ID, me).catch(function(e){ _rvsToast('⚠️ No se pudo registrar tu entrada al reporte: '+((e&&e.message)||'error')); });
+  _rvsFreshRvW(active);
+  var n = _rvsLoadAllSrs(active);
+  try{ localStorage.removeItem('rv:draft:v1'); }catch(e){}
+  window._rvProEditingSavedId = null; window._rvProReadOnlyView = false;
+  _openRvSumEditable();
+  _rvsStartTimerQuiet();
+  _rvProRenderEditablePaper();
+  try{ _rvProRefreshDivision(); }catch(e){}
+  if(window._collabUpdateBar) window._collabUpdateBar('val');
+  _rvProLiveEnsure();
+  _rvsPaintLivePill();
+  var rt = (window.RV_TYPES && RV_TYPES[rvW.type]) || {label:rvW.type};
+  _rvsToast(COLLAB.isHost ? '▶ Continuando tu reporte '+rt.label+' ('+n+' sitios con datos)'
+                          : '🤝 Te uniste al reporte '+rt.label+' de '+(active.hostName||'un compañero')+' — todo se edita en vivo');
+}
+window._rvProJoinExisting = function(ex){ _rvsJoin(ex); };
+
+/* Recién creé el reporte compartido: subir en UNA escritura lo que ya
+   tenga localmente (si retomé un borrador) + tipo/fecha/inicio de la ronda. */
+window._rvProAfterCreate = function(){
+  if(!window.rvW || !window._fbFS || !window._fbDB) return;
+  var FS = window._fbFS, DB = window._fbDB, now = Date.now(), me = myId();
+  var body = { rvType: rvW.type||'matutino', rvDate: rvW.date||new Date().toISOString(), tStart: rvW.tStart||now, updatedAt: now, srs:{} };
+  (rvW.srs||[]).forEach(function(sr, i){
+    if(!sr) return;
+    var has = sr.skip || sr.bat || sr.red || sr.cons || sr.batSt || sr.pcs || sr.tmp || sr.soc || sr.cmt;
+    if(!has) return;
+    var leaf = { _by: me, _ts: now };
+    RVPRO_LIVE_FIELDS.forEach(function(f){ if(sr[f]!==undefined && sr[f]!==null && sr[f]!=='') leaf[f] = sr[f]; });
+    body.srs[i] = leaf;
+  });
+  rvW._sharedCreatedAt = COLLAB._sessionCreatedAt;
+  FS.setDoc(FS.doc(DB,'collab_sessions',RV_SHARED_ID), body, {merge:true}).catch(function(e){ console.warn('[VAL shared] push inicial:', e && e.message); });
+  _rvsPaintLivePill();
+};
+
+/* ¿El reporte que estoy viendo sigue vivo? Devuelve false si se cerró o si
+   lo reemplazó uno nuevo (y en ese caso me saca de la vista). */
+window._rvProSharedCheck = function(data){
+  if(!window.COLLAB || COLLAB.reportType!=='val' || COLLAB.sessionId!==RV_SHARED_ID) return true;
+  if(COLLAB._creatingNew || window._rvsFinalizing) return true;
+  if(!COLLAB._sessionCreatedAt && data.createdAt) COLLAB._sessionCreatedAt = data.createdAt;
+  var replaced = COLLAB._sessionCreatedAt && data.createdAt && data.createdAt!==COLLAB._sessionCreatedAt;
+  if(data.status==='closed' || replaced){
+    _rvsForceClose(replaced ? '🔄 Se inició otro reporte de validación — vuelve a entrar con "Continuar".'
+      : '✅ '+(data.closedBy ? data.closedBy+' finalizó' : 'Se finalizó')+' el reporte de validación — quedó guardado para todo el equipo.');
+    return false;
+  }
+  return true;
+};
+
+function _rvsForceClose(msg){
+  try{ clearInterval(window._rvTimerInt); window._rvTimerInt=null; }catch(e){}
+  if(window.COLLAB){
+    COLLAB.sessionId=null; COLLAB.reportType=null; COLLAB.isHost=false; COLLAB._participants=[];
+    COLLAB._hostId=null; COLLAB._hostName=null; COLLAB._sessionCreatedAt=null;
+  }
+  try{ _rvProLiveEnsure(); }catch(e){}
+  try{ if(typeof _collabHideBar==='function') _collabHideBar('val'); }catch(e){}
+  try{ localStorage.removeItem('rv:draft:v1'); }catch(e){}
+  var sum = document.getElementById('rv-sum-modal'); if(sum) sum.classList.remove('open');
+  var fab=document.getElementById('fab-nueva'); if(fab) fab.style.display='';
+  var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='';
+  window.rvW = null;
+  try{ if(typeof rvInitSetup==='function') rvInitSetup(); }catch(e){}
+  window._rvSharedInfo = null; _rvsPaintStartBtn();
+  _rvsToast(msg);
+}
+
+/* ── Iniciar / Continuar ── */
+var _rvsOrigStart = window._rvProStartDirect;
+var _rvsStarting = false;
+window._rvProStartDirect = function(){
+  if(_rvsStarting) return;
+  /* ya estoy dentro del reporte compartido → solo reabrir la vista */
+  if(window.COLLAB && COLLAB.sessionId===RV_SHARED_ID && COLLAB.reportType==='val' && window.rvW && window.rvW.srs && !window._rvProEditingSavedId
+     && window.rvW._sharedCreatedAt && window.rvW._sharedCreatedAt===COLLAB._sessionCreatedAt){
+    _openRvSumEditable(); _rvProRenderEditablePaper(); _rvProLiveEnsure(); return;
+  }
+  var btn = document.getElementById('rv-start-btn'), prevHtml = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '⏳ Conectando…'; }
+  _rvsStarting = true;
+  var done = function(){ _rvsStarting = false; if(btn){ btn.disabled = false; btn.innerHTML = prevHtml; } _rvsPaintStartBtn(); };
+  _rvsGetCurrent().then(function(active){
+    if(_rvsIsFresh(active)){ _rvsJoin(active); }
+    else {
+      /* reporte nuevo: descartar borradores que venían de un reporte compartido ya cerrado */
+      try{ var d = JSON.parse(localStorage.getItem('rv:draft:v1')||'null'); if(d && d._sharedCreatedAt) localStorage.removeItem('rv:draft:v1'); }catch(e){}
+      if(window.COLLAB && COLLAB.reportType==='val'){ COLLAB.sessionId=null; }
+      _rvsOrigStart();
+    }
+    done();
+  }).catch(function(e){
+    console.warn('[VAL shared] no se pudo revisar el reporte activo:', e && e.message);
+    _rvsToast('⚠️ Sin conexión para revisar si ya hay un reporte en curso — se abre en modo local');
+    _rvsOrigStart();
+    done();
+  });
+};
+
+/* ── Finalizar (para todos) / Salir (solo mi vista) ── */
+window._rvProFinalizeShared = function(){
+  var shared = window.COLLAB && COLLAB.sessionId===RV_SHARED_ID && COLLAB.reportType==='val';
+  if(!confirm(shared ? '¿Finalizar este reporte de validación para TODO el equipo? Se guardará y se cerrará para todos; el siguiente "Iniciar" abrirá uno nuevo.'
+                     : '¿Finalizar y guardar este reporte de validación?')) return;
+  window._rvsFinalizing = true;
+  try{
+    if(shared && window._fbFS && window._fbDB){
+      var FS = window._fbFS, DB = window._fbDB;
+      FS.setDoc(FS.doc(DB,'collab_sessions',RV_SHARED_ID), {closedBy: myName(), closedById: myId(), closedAt: Date.now()}, {merge:true}).catch(function(){});
+    }
+  }catch(e){}
+  try{ window.rvSave(); }catch(e){ console.error('[VAL shared] rvSave', e); }
+  setTimeout(function(){ window._rvsFinalizing = false; }, 4000);
+  window._rvSharedInfo = null; _rvsPaintStartBtn();
+  _rvsToast('✅ Reporte de validación finalizado y guardado para todo el equipo');
+};
+window._rvProLeaveShared = function(){
+  try{ if(window._rvProFlushLive) window._rvProFlushLive(); }catch(e){}
+  var sum = document.getElementById('rv-sum-modal'); if(sum) sum.classList.remove('open');
+  var fab=document.getElementById('fab-nueva'); if(fab) fab.style.display='';
+  var sd=document.getElementById('sd-wrap'); if(sd) sd.style.display='';
+  _rvsToast('⏸ Saliste de la vista — el reporte sigue en curso. Vuelve con "▶ Continuar reporte".');
+  _rvsPaintStartBtn();
+};
+
+/* ── Indicadores ── */
+function _rvsPaintLivePill(){
+  var el = document.getElementById('rvpro-live-pill'); if(!el) return;
+  var on = window.COLLAB && COLLAB.sessionId===RV_SHARED_ID && COLLAB.reportType==='val';
+  if(!on){ el.innerHTML = '<span style="opacity:.8">● Modo local (sin compartir)</span>'; return; }
+  var ps = _rvProParticipants();
+  el.innerHTML = '<i class="rvpc-live-dot"></i> En vivo · '+ps.length+' en el reporte'
+    + (COLLAB._hostName ? ' · inició '+_rvpEsc(COLLAB._hostName)+(COLLAB.isHost?' (tú)':'') : '')
+    + ' <span class="rvpc-live-avs">'+ps.slice(0,6).map(function(p){ return '<b style="background:'+(p.color||'#10b981')+'" title="'+_rvpEsc(p.name||'')+'">'+_rvpIni(p.name)+'</b>'; }).join('')+'</span>';
+}
+window._rvProPaintLivePill = _rvsPaintLivePill;
+setInterval(_rvsPaintLivePill, 5000);
+
+function _rvsPaintStartBtn(){
+  var btn = document.getElementById('rv-start-btn'); if(!btn || _rvsStarting) return;
+  var d = window._rvSharedInfo;
+  var mine = window.COLLAB && COLLAB.sessionId===RV_SHARED_ID && COLLAB.reportType==='val';
+  var note = document.getElementById('rv-shared-note');
+  if(!note && btn.parentNode && btn.parentNode.parentNode){
+    note = document.createElement('div'); note.id = 'rv-shared-note';
+    note.style.cssText = 'display:none;margin-top:12px;padding:9px 12px;border-radius:8px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.35);color:#047857;font-family:var(--mono);font-size:10.5px;font-weight:700';
+    btn.parentNode.parentNode.parentNode.insertBefore(note, btn.parentNode.parentNode.nextSibling);
+  }
+  var grid = document.querySelector('#page-repval .rv-type-grid');
+  if(_rvsIsFresh(d) || mine){
+    var rt = (window.RV_TYPES && RV_TYPES[(d&&d.rvType)||(window.rvW&&rvW.type)]) || {label:'', ico:'▶'};
+    var ps = d ? Object.values(d.participants||{}).filter(Boolean).length : 0;
+    btn.innerHTML = '▶ Continuar reporte '+(rt.label||'')+' →';
+    btn.style.background = 'linear-gradient(135deg,#047857,#10b981)';
+    if(note){
+      note.style.display = 'block';
+      note.innerHTML = '🟢 Hay un reporte de validación <b>'+_rvpEsc(rt.label||'')+'</b> en curso'
+        +(d && d.hostName ? ', iniciado por <b>'+_rvpEsc(d.hostName)+'</b>' : '')
+        +(d && d.createdAt ? ' a las '+new Date(d.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '')
+        +(ps ? ' · '+ps+' participante'+(ps===1?'':'s') : '')
+        +'. Solo puede haber uno: al continuar entras a ese mismo reporte y todos lo editan en vivo.';
+    }
+    if(grid){ grid.style.opacity = '.45'; grid.style.pointerEvents = 'none'; grid.title = 'El tipo lo define el reporte en curso'; }
+  } else {
+    var n = (window.RV_SITES||[]).length;
+    btn.innerHTML = 'Iniciar — <span id="rv-start-count">'+n+'</span> sitios →';
+    btn.style.background = '';
+    if(note) note.style.display = 'none';
+    if(grid){ grid.style.opacity = ''; grid.style.pointerEvents = ''; grid.title = ''; }
+  }
+}
+window._rvsPaintStartBtn = _rvsPaintStartBtn;
+
+/* Revisar el estado del reporte compartido: al entrar a Validación (1 lectura)
+   y cuando el banner global (live_status/ronda_val, que ya se escucha en toda
+   la app) cambie de activo↔inactivo — sin polling. */
+var _rvsLastActivo = null, _rvsLastCheck = 0;
+function _rvsMaybeCheck(force){
+  if(!window._fbFS || !window._fbDB) return;
+  if(!force && Date.now()-_rvsLastCheck < 4000) return;
+  _rvsLastCheck = Date.now();
+  _rvsGetCurrent().catch(function(){});
+}
+setInterval(function(){
+  var g = window._rvGlobalLiveData, act = !!(g && g.activo);
+  if(_rvsLastActivo!==null && act!==_rvsLastActivo) _rvsMaybeCheck(true);
+  _rvsLastActivo = act;
+  var pg = document.getElementById('page-repval');
+  var visible = pg && pg.classList.contains('active');
+  if(visible && !pg._rvsSeen){ pg._rvsSeen = true; _rvsMaybeCheck(true); }
+  if(!visible && pg) pg._rvsSeen = false;
+}, 1200);
+
+(function(){
+  if(document.getElementById('rvpro-v117-style')) return;
+  var st = document.createElement('style'); st.id = 'rvpro-v117-style';
+  st.textContent = '.rvpc-live-pill{display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#a7f3d0}'
+    +'.rvpc-live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;animation:rvLivePulse 1.6s infinite}'
+    +'.rvpc-live-avs{display:inline-flex}.rvpc-live-avs b{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font:800 7.5px Arial,sans-serif;margin-left:-4px;border:1.5px solid #fff}';
+  document.head.appendChild(st);
+})();
 
 
 /* ══════════════════════════════════════════════════════════════════════
