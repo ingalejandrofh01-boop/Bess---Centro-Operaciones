@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1790980000_bess_v120_validacion_campos_handoff';
+const DEPLOY_TS  = '1790990000_bess_v121_validacion_sin_scroll_sticky';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 

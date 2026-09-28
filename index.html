@@ -7691,7 +7691,7 @@ async function expDoZip(mode){
 
 <!-- ═══ SUMMARY MODAL ═══ -->
 <div id="rv-sum-modal">
-  <div style="padding:22px 20px 40px;max-width:1560px;margin:0 auto">
+  <div style="padding:16px 14px 40px;max-width:none;margin:0 auto">
     <!-- "rv-sum-legacy-hdr"/"rv-sum-legacy-ftr" — igual que en el Reporte
          Operativo (ver op-sum-legacy-hdr), esto se oculta siempre que el
          reporte está en modo editable (que ahora es SIEMPRE, desde que
@@ -39088,7 +39088,8 @@ function _rvProEditableRowHtml(r, editable){
       +'<td class="oppc-etd-name">'+_rvpEsc(r.name)+(isSpecial?' <span title="Sitio especial (carga tardía/solar)">☀</span>':'')+(hfOn?' <span title="Handoff al siguiente turno">🔥</span>':'')+'</td>'
       +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+'</td>'
       +['red','cons','batSt','pcs'].map(function(c){ var kf = RVPRO_COMP[c].kw; var showKw = kf && sr[kf]!=='' && sr[kf]!=null && (c!=='batSt' || sr.batSt==='cargando'); return '<td class="oppc-etd-num" style="color:'+_rvpCompColor(c,sr[c])+';font-weight:800">'+_rvpEsc(_rvpCompLabel(c,sr[c]))+(showKw ? '<div style="color:#475569;font-weight:600">'+_rvpEsc(sr[kf])+' kW</div>' : '')+'</td>'; }).join('')
-      +'<td class="oppc-etd-num">Reloj: '+(sr.clk==='ok'?'Sí':sr.clk==='no'?'No':'—')+'<br>Prueba desc.: '+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
+      +'<td class="oppc-etd-num">'+(sr.clk==='ok'?'Sí':sr.clk==='no'?'No':'—')+'</td>'
+      +'<td class="oppc-etd-num">'+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
       +'<td class="oppc-etd-num">'+_rvpEsc(sr.racks||'—')+'</td>'
       +'<td class="oppc-etd-num" style="color:'+_rvpTempColor(sr.tmp)+'">'+(sr.tmp?sr.tmp+'°C':'—')+'</td>'
       +(isNoct ? '' : '<td class="oppc-etd-num">'+(sr.soc!=null&&sr.soc!==''?sr.soc+'%':'—')+'</td>')
@@ -39107,7 +39108,7 @@ function _rvProEditableRowHtml(r, editable){
   var compCell = function(comp){
     var c = RVPRO_COMP[comp], v = sr[comp]||'';
     var sel = '<select class="oppc-esel rvpc-sel rvpc-comp-sel'+(v?' rvpc-has':'')+'" id="rvpro-'+comp+'-'+i+'" data-idx="'+i+'" data-col="'+comp+'" style="'+(v?_rvpTint(_rvpCompColor(comp,v)):'')+'" onchange="window._rvProSetField('+i+',\''+comp+'\',this.value)">'
-      +'<option value="" '+(!v?'selected':'')+'>Seleccionar…</option>'
+      +'<option value="" '+(!v?'selected':'')+'>Elegir…</option>'
       + c.opts.filter(function(o){ return !o[3] || o[0]===v; }).map(function(o){ return '<option value="'+o[0]+'" '+(v===o[0]?'selected':'')+'>'+_rvpEsc(o[1])+'</option>'; }).join('')
       +'</select>';
     var kw = '';
@@ -39121,12 +39122,11 @@ function _rvProEditableRowHtml(r, editable){
   var yn = function(field, label, ico, vYes){
     var v = sr[field]||'';
     var col = v===vYes ? '#15803d' : (v==='no' ? '#dc2626' : '');
-    return '<label class="rvpc-mini"><span>'+ico+' '+label+'</span>'
-      +'<select class="oppc-esel rvpc-sel rvpc-yn'+(v?' rvpc-has':'')+'" id="rvpro-'+field+'-'+i+'" data-idx="'+i+'" data-col="'+field+'" style="'+(col?_rvpTint(col):'')+'" onchange="window._rvProSetField('+i+',\''+field+'\',this.value)">'
+    return '<select title="'+label+'" class="oppc-esel rvpc-sel rvpc-yn'+(v?' rvpc-has':'')+'" id="rvpro-'+field+'-'+i+'" data-idx="'+i+'" data-col="'+field+'" style="'+(col?_rvpTint(col):'')+'" onchange="window._rvProSetField('+i+',\''+field+'\',this.value)">'
         +'<option value="" '+(!v?'selected':'')+'>—</option>'
         +'<option value="'+vYes+'" '+(v===vYes?'selected':'')+'>Sí</option>'
         +'<option value="no" '+(v==='no'?'selected':'')+'>No</option>'
-      +'</select></label>';
+      +'</select>';
   };
   var socCell = isNoct ? ''
     : '<td><input type="number" min="0" max="100" class="oppc-einput rvpc-num-in" id="rvpro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_rvpEsc(sr.soc!=null?sr.soc:'')+'" placeholder="%" oninput="window._rvProSetField('+i+',\'soc\',this.value)"></td>';
@@ -39139,13 +39139,13 @@ function _rvProEditableRowHtml(r, editable){
     +'</td>'
     +'<td><select class="oppc-esel rvpc-sel rvpc-st-sel'+(key?' rvpc-has':'')+'" id="rvpro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="'+(stCol?_rvpTint(stCol):'')+'" onchange="window._rvProSetStatus('+i+',this.value)">'+optHtml+'</select></td>'
     +compCell('red')+compCell('cons')+compCell('batSt')+compCell('pcs')
-    +'<td class="rvpc-chk-td">'+yn('clk','Reloj correcto','⏰','ok')+yn('dsc','Prueba de descarga','🔋','si')+'</td>'
-    +'<td><input type="text" class="oppc-einput rvpc-num-in" style="width:64px" id="rvpro-in-racks-'+i+'" data-idx="'+i+'" data-col="racks" value="'+_rvpEsc(sr.racks||'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'racks\',this.value)"></td>'
+    +'<td>'+yn('clk','Reloj correcto','⏰','ok')+'</td><td>'+yn('dsc','Prueba de descarga','🔋','si')+'</td>'
+    +'<td><input type="text" class="oppc-einput rvpc-num-in" id="rvpro-in-racks-'+i+'" data-idx="'+i+'" data-col="racks" value="'+_rvpEsc(sr.racks||'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'racks\',this.value)"></td>'
     +'<td><input type="number" class="oppc-einput rvpc-num-in" id="rvpro-in-tmp-'+i+'" data-idx="'+i+'" data-col="tmp" style="color:'+_rvpTempColor(sr.tmp)+';font-weight:800" value="'+_rvpEsc(sr.tmp!=null?sr.tmp:'')+'" placeholder="°C" oninput="window._rvProSetField('+i+',\'tmp\',this.value)"></td>'
     +socCell
     +'<td><div class="rvpc-cmtwrap"><input type="text" class="oppc-einput-obs rvpc-txt-in" id="rvpro-in-cmt-'+i+'" data-idx="'+i+'" data-col="cmt" maxlength="160" value="'+_rvpEsc(sr.cmt||'')+'" placeholder="Comentario…" oninput="window._rvProSetField('+i+',\'cmt\',this.value)">'
       +'<button type="button" class="rvpc-hf-btn'+(hfOn?' on':'')+'" id="rvpro-hf-'+i+'" title="Handoff: entregar este sitio (con su comentario) al siguiente turno para seguimiento" onclick="window._rvProToggleHandoff('+i+')">🔥</button></div></td>'
-    +'<td><input type="text" class="oppc-einput-obs rvpc-txt-in" style="min-width:96px" id="rvpro-in-resp-'+i+'" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
+    +'<td><input type="text" class="oppc-einput-obs rvpc-txt-in" id="rvpro-in-resp-'+i+'" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
   +'</tr>';
 }
 function _rvProEditableRegionHtml(g, editable){
@@ -39158,8 +39158,8 @@ function _rvProEditableRegionHtml(g, editable){
       +'<span>'+icon+' '+_rvpEsc(g.name.toUpperCase())+'</span>'
       +'<span class="oppc-region-hdr-n" id="rvpro-regn-'+_rvProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
     +'</div>'
-    +'<table class="oppc-etable"><thead><tr>'
-      +'<th>Sitio</th><th>Estado general</th><th class="rvpc-th-comp">🔌 Red</th><th class="rvpc-th-comp">🏭 Consumo</th><th class="rvpc-th-comp">🔋 Batería</th><th class="rvpc-th-comp">⚙️ PCS</th><th>Reloj / Prueba</th><th>Racks</th><th>Temp. máxima °C</th>'+(isNoctH?'':'<th>SOC inicial %</th>')+'<th>Comentarios · 🔥 Handoff</th><th>Responsable</th>'
+    +'<table class="oppc-etable rvpc-etable"><colgroup><col class="k-site"><col class="k-st"><col class="k-cc"><col class="k-cc"><col class="k-cc"><col class="k-pcs"><col class="k-yn"><col class="k-yn"><col class="k-num"><col class="k-num">'+(isNoctH?'':'<col class="k-num">')+'<col class="k-cmt"><col class="k-resp"></colgroup><thead><tr>'
+      +'<th class="rvpc-th-site">'+icon+' '+_rvpEsc(g.name)+'</th><th>Estado general</th><th class="rvpc-th-comp">🔌 Red</th><th class="rvpc-th-comp">🏭 Consumo</th><th class="rvpc-th-comp">🔋 Batería</th><th class="rvpc-th-comp">⚙️ PCS</th><th>⏰ Reloj correcto</th><th>🔋 Prueba descarga</th><th>Racks</th><th>Temp. máx. °C</th>'+(isNoctH?'':'<th>SOC inicial %</th>')+'<th>Comentario · 🔥 Handoff</th><th>Responsable</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
   +'</div>';
 }
@@ -39527,8 +39527,22 @@ window._rvProStartDirect = function(){
   var st = document.createElement('style'); st.id = 'rvpro-v113-style';
   st.textContent =
     '.rvpc-comp-td{min-width:94px}'+
-    '#rv-paper-content .oppc-eregion{overflow-x:auto}'+
-    '#rv-paper-content .oppc-eregion .oppc-etable td:nth-child(2){min-width:158px}'+
+    /* v121: la tabla SIEMPRE cabe a lo ancho (sin scroll horizontal) y el
+       encabezado de columnas se queda fijo arriba al bajar. */
+    '#rv-paper-content .oppc-root{overflow:visible}'+
+    '#rv-paper-content .rvpc-etable{table-layout:fixed;width:100%}'+
+    '#rv-paper-content .rvpc-etable col.k-site{width:10.5%}#rv-paper-content .rvpc-etable col.k-st{width:10%}#rv-paper-content .rvpc-etable col.k-cc{width:8.8%}#rv-paper-content .rvpc-etable col.k-pcs{width:8%}#rv-paper-content .rvpc-etable col.k-yn{width:5.4%}#rv-paper-content .rvpc-etable col.k-num{width:4.6%}#rv-paper-content .rvpc-etable col.k-cmt{width:13%}#rv-paper-content .rvpc-etable col.k-resp{width:7.5%}'+
+    '#rv-paper-content .rvpc-etable td{padding:4px 4px;overflow:hidden}'+
+    '#rv-paper-content .rvpc-etable td.oppc-etd-name{white-space:normal;word-break:break-word;font-size:10.5px;line-height:1.25}'+
+    '#rv-paper-content .rvpc-etable thead th{position:sticky;top:0;z-index:6;background:#e8f1ee;color:#1e293b;font-size:9.5px;letter-spacing:.3px;padding:9px 4px;white-space:normal;line-height:1.2;border-bottom:2px solid #10b981;box-shadow:0 3px 6px -3px rgba(15,23,42,.25)}'+
+    '#rv-paper-content .rvpc-etable thead th.rvpc-th-comp{background:#d9efe6!important}'+
+    '#rv-paper-content .rvpc-etable thead th.rvpc-th-site{font-family:Inter,Arial,sans-serif;font-size:11px;color:#0f172a;text-transform:none}'+
+    '#rv-paper-content .rvpc-etable select.rvpc-sel,#rv-paper-content .rvpc-etable .rvpc-comp-sel,#rv-paper-content .rvpc-etable .rvpc-st-sel,#rv-paper-content .rvpc-etable .rvpc-yn{width:100%!important;max-width:none;min-width:0}'+
+    '#rv-paper-content .rvpc-etable .rvpc-kwwrap{width:100%}'+
+    '#rv-paper-content .rvpc-etable .rvpc-comp-td{min-width:0}'+
+    '#rv-paper-content .rvpc-etable .rvpc-num-in{width:100%!important;min-width:0}'+
+    '#rv-paper-content .rvpc-etable .oppc-einput-obs{min-width:0!important;width:100%!important}'+
+    '#rv-paper-content .rvpc-etable .rvpc-cmtwrap .oppc-einput-obs{width:auto!important;flex:1}'+
     '#rv-paper-content .oppc-eregion .rvpc-flagrow{max-width:none;flex-wrap:nowrap}'+
     '#rv-paper-content .oppc-einput-obs{min-width:130px!important;width:130px!important}'+
     '.rvpc-comp-sel{width:94px!important;font-size:9.5px!important;font-weight:800!important}'+
