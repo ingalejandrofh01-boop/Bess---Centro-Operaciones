@@ -38745,13 +38745,15 @@ var RVPRO_STATUS_GROUPS = [
    BATERÍA y el PCS — cada uno con su estado y, donde aplica, su medición en kW. Colores:
    verde = normal, azul/cian = informativo, ámbar = atención, rojo = falla, gris = sin dato. */
 var RVPRO_COMP = {
-  red:   { label:'RED',      kw:'redKw',  opts:[['ok','OK','#15803d'],['bajo','Bajo consumo','#0891b2'],['medio','Consumo medio','#2563eb'],['alto','Alto consumo','#b45309'],['exporta','Exportando','#7c3aed'],['sinmed','Sin medición','#64748b'],['perdida','Pérdida de red','#dc2626']] },
-  cons:  { label:'CONSUMO',  kw:'consKw', opts:[['ok','OK','#15803d'],['bajo','Bajo','#0891b2'],['medio','Medio','#2563eb'],['alto','Alto','#b45309'],['sincons','Sin consumo','#475569'],['sinmed','Sin medición','#64748b']] },
+  red:   { label:'RED',      kw:'redKw',  opts:[['alto','Alto','#b45309'],['medio','Medio','#2563eb'],['bajo','Bajo','#0891b2'],['exporta','Negativa','#7c3aed'],['sinmed','Sin medición','#64748b'],['perdida','Pérdida','#dc2626'],['ok','OK','#15803d',1]] },
+  cons:  { label:'CONSUMO',  kw:'consKw', opts:[['alto','Alto','#b45309'],['medio','Medio','#2563eb'],['bajo','Bajo','#0891b2'],['sincons','Sin consumo','#475569'],['sinmed','Sin medición','#64748b'],['ok','OK','#15803d',1]] },
   batSt: { label:'BATERÍA',  kw:'bessKw', opts:[['ok','OK','#15803d'],['cargando','Cargando','#2563eb'],['descargando','Descargando','#0891b2'],['reposo','En reposo','#475569'],['balanceando','Balanceando','#7c3aed'],['alarma','Alarma','#b45309'],['falla','Falla','#dc2626'],['racks','Racks fuera','#c2410c'],['fueraop','Fuera de operación','#64748b']] },
   pcs:   { label:'PCS',      kw:null,     opts:[['ok','OK','#15803d'],['standby','Standby','#0891b2'],['alarma','Alarma','#b45309'],['falla','Falla','#dc2626'],['sincom','Sin comunicación','#991b1b'],['apagado','Apagado','#64748b']] }
 };
 window.RVPRO_COMP = RVPRO_COMP;
-var RVPRO_LIVE_FIELDS = ['bat','cond','batLabel','lp','rn','clk','dsc','racks','tmp','soc','chg','chgPow','cmt','resp','red','redKw','cons','consKw','batSt','bessKw','pcs','fp','skip'];
+var RVPRO_LIVE_FIELDS = ['bat','cond','batLabel','lp','rn','clk','dsc','racks','tmp','soc','chg','chgPow','cmt','resp','red','redKw','cons','consKw','batSt','bessKw','pcs','fp','skip','handoff','followUp'];
+/* v120 — tinte de fondo/borde de los selectores según el valor elegido */
+function _rvpTint(col){ col = col||'#94a3b8'; return 'color:'+col+';background-color:'+col+'14;border-color:'+col+'66'; }
 function _rvpCompOpt(comp, val){ var c = RVPRO_COMP[comp]; if(!c || !val) return null; for(var k=0;k<c.opts.length;k++){ if(c.opts[k][0]===val) return c.opts[k]; } return null; }
 function _rvpCompColor(comp, val){ var o = _rvpCompOpt(comp, val); return o ? o[2] : '#94a3b8'; }
 function _rvpCompLabel(comp, val){ var o = _rvpCompOpt(comp, val); return o ? o[1] : '—'; }
@@ -38807,16 +38809,14 @@ function _rvProComputeAll(){
      aparecer aquí en cuanto _rvProDetectIssue ya no encuentra nada (p.ej.
      el operador cambió su estatus a OK), sin necesidad de un flag de
      "resuelto" aparte — el estado real de la ronda ES la fuente de verdad. */
-  var continuity = rows.map(function(r){
-    var openIssue = (typeof _rvProDetectIssue==='function') ? _rvProDetectIssue(r.sr, r.name) : null;
-    var inherited = r.sr.inherited || null;
-    if(!openIssue && !inherited) return null;
-    return { name:r.name, region:r.region, _idx:r._idx, sr:r.sr, openIssue:openIssue, inherited:inherited };
-  }).filter(function(x){ return !!x; });
+  /* v120: continuidad = SOLO handoff (recibido del turno anterior) */
+  var continuity = rows.filter(function(r){ return r.sr.inherited && r.sr.inherited.code==='handoff'; })
+    .map(function(r){ return { name:r.name, region:r.region, _idx:r._idx, sr:r.sr, inherited:r.sr.inherited }; });
+  var handoffOut = rows.filter(function(r){ return !r.sr.skip && r.sr.handoff && r.sr.handoff.active; });
   return { rows:rows, filled:filled, totalSitios:rows.length, totalReportados:total,
     dscSi:dscSi, chgN:chgN, racksN:racksN, clkOk:clkOk, commErr:commErr, sinRedAc:sinRedAc,
     redOk:redOk, redLoss:redLoss, redAny:redAny, consHigh:consHigh, batBad:batBad, pcsBad:pcsBad, sinMed:sinMed,
-    regionGroups:regionGroups, continuity:continuity };
+    regionGroups:regionGroups, continuity:continuity, handoffOut:handoffOut };
 }
 window._rvProComputeAll = _rvProComputeAll;
 
@@ -38892,13 +38892,13 @@ function _rvProInjectInherited(){
   var sites = window.RV_SITES || [];
   window.rvW.srs.forEach(function(sr, i){
     if(!sr || sr.inherited) return; /* ya trae algo (p.ej. viene de un borrador) — no pisar */
-    var siteName = sites[i];
     var prevSr = prev.srs[i];
-    var issue = _rvProDetectIssue(prevSr, siteName);
-    if(!issue) return;
+    /* v120: SOLO lo que el turno anterior marcó con 🔥 Handoff */
+    if(!prevSr || !prevSr.handoff || !prevSr.handoff.active) return;
     sr.inherited = {
       fromType: prev.type || '', fromDate: prev.date || prev.createdAt || null,
-      code: issue.code, label: issue.label
+      code: 'handoff', label: (prevSr.cmt && String(prevSr.cmt).trim()) || 'Seguimiento solicitado',
+      by: prevSr.handoff.by || prev.op || '', status: prevSr.batLabel || ''
     };
   });
 }
@@ -38926,73 +38926,41 @@ function _rvProTurnoNow(){
 }
 window._rvProTurnoNow = _rvProTurnoNow;
 function _rvProContinuityPanelHtml(d){
-  var list = (d && d.continuity) || [];
-  /* v87: el panel se quedaba invisible (return '') cuando no había NADA
-     pendiente — eso incluía Matutino (normal, casi nunca hereda nada) pero
-     TAMBIÉN Vespertino/Nocturno recién abiertos sin incidencias, donde el
-     usuario pidió explícitamente poder VER que la función de continuidad
-     existe y está validando, aunque no haya nada que reportar. Regla:
-     Vespertino/Nocturno siempre muestran el panel (con estado vacío claro
-     si no hay pendientes); Matutino solo lo muestra si de verdad heredó
-     algo del Nocturno anterior — igual que antes. */
-  var _turnoNow = (typeof _rvProTurnoNow==='function') ? _rvProTurnoNow() : ((window.rvW&&window.rvW.type)||'matutino');
-  var _alwaysShow = (_turnoNow==='vespertino' || _turnoNow==='nocturno');
-  if(!list.length && !_alwaysShow) return '';
-  if(!list.length){
-    return '<div class="oppc-card oppc-watchcard" data-pdf-avoid-break style="margin-bottom:8px;border-left-color:#22c55e" id="rvpro-continuity-card">'
-      + '<div class="oppc-card-ttl"><span class="oppc-ttl-bar" style="background:#22c55e"></span>🔄 Continuidad y Seguimiento</div>'
-      + '<div style="font-size:10.5px;color:#15803d;font-weight:700;padding:2px 0">✓ Sin incidencias heredadas del turno anterior</div>'
-    + '</div>';
+  var list = (d && d.continuity) || [], out = (d && d.handoffOut) || [];
+  var head = '<div class="rvcn-head"><span class="rvcn-ttl">🔄 Continuidad y seguimiento</span>'
+    +'<span class="rvcn-chip in">⟲ Recibidos: '+list.length+'</span>'
+    +'<span class="rvcn-chip out">🔥 Entregas al siguiente turno: '+out.length+'</span>'
+    +'<span class="rvcn-hint">Solo sitios marcados con 🔥 Handoff</span></div>';
+  if(!list.length && !out.length){
+    return '<div class="rvcn" id="rvpro-continuity-card">'+head
+      +'<div class="rvcn-empty">Sin handoff del turno anterior. Para entregar un sitio al siguiente turno, escribe el comentario y presiona 🔥 en su fila.</div></div>';
   }
-  var rowsHtml = list.map(function(c){
-    var i = c._idx, sr = c.sr;
-    var turnoLbl = (c.inherited && window.RV_TYPES && window.RV_TYPES[c.inherited.fromType]) ? window.RV_TYPES[c.inherited.fromType].label : (c.inherited?c.inherited.fromType:'');
-    var inheritedHtml = c.inherited
-      ? '<div style="font-size:9px;color:#b45309;margin-top:2px">⟲ Viene de '+_rvpEsc(turnoLbl||'turno anterior')+': '+_rvpEsc(c.inherited.label)+'</div>'
-      : '';
-    var statusHtml = c.openIssue
-      ? '<span style="color:#dc2626;font-weight:800;font-size:10px">⚠ Sigue abierto: '+_rvpEsc(c.openIssue.label)+'</span>'
-      : '<span style="color:#15803d;font-weight:800;font-size:10px">✓ Resuelto en este turno</span>';
-    var commBackHtml = (sr.bat==='error')
-      ? '<div style="margin-top:5px;font-size:8.5px;color:#5b6b8c;font-weight:700">¿Regresó la comunicación durante el turno? '
-        + '<select class="oppc-esel" style="font-size:8.5px;font-weight:700" onchange="window._rvProSetCommBack('+i+',this.value)">'
-          + '<option value="" '+(!sr.commBack?'selected':'')+'>Pendiente</option>'
-          + '<option value="si" '+(sr.commBack==='si'?'selected':'')+'>Sí</option>'
-          + '<option value="no" '+(sr.commBack==='no'?'selected':'')+'>No</option>'
-        + '</select></div>'
-      : '';
-    /* El seguimiento (proveedor/cliente/personal) debe poder ofrecerse
-       tanto si el sitio SIGUE con el problema ahora mismo (c.openIssue)
-       como si el turno todavía no lo revalida pero lo trae heredado del
-       turno anterior (c.inherited) — p.ej. el Matutino que recién abre
-       hereda "sin comunicación" de anoche y necesita poder escalar con
-       proveedor/cliente/personal ANTES de que él mismo vuelva a marcar el
-       estatus del sitio. */
-    var openCode = c.openIssue ? c.openIssue.code : null;
-    var inheritedCode = c.inherited ? c.inherited.code : null;
-    var showFollowUp = (openCode==='error' || openCode==='alarm' || inheritedCode==='error' || inheritedCode==='alarm');
+  var cards = list.map(function(c){
+    var i = c._idx, sr = c.sr, inh = c.inherited;
+    var t = (window.RV_TYPES && window.RV_TYPES[inh.fromType]) ? window.RV_TYPES[inh.fromType].label : (inh.fromType||'turno anterior');
     var fu = sr.followUp || {kind:'',note:'',resolved:false};
-    var followUpHtml = showFollowUp
-      ? '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
-        + '<select class="oppc-esel" style="font-size:8.5px" data-col="fukind" onchange="window._rvProSetFollowUp('+i+',\'kind\',this.value)">'
-          + '<option value="" '+(!fu.kind?'selected':'')+'>Seguimiento con…</option>'
-          + '<option value="proveedor" '+(fu.kind==='proveedor'?'selected':'')+'>Proveedor</option>'
-          + '<option value="cliente" '+(fu.kind==='cliente'?'selected':'')+'>Cliente</option>'
-          + '<option value="personal" '+(fu.kind==='personal'?'selected':'')+'>Personal propio</option>'
-        + '</select>'
-        + '<input type="text" class="oppc-einput-obs" style="min-width:140px" placeholder="Nota de seguimiento…" value="'+_rvpEsc(fu.note||'')+'" oninput="window._rvProSetFollowUp('+i+',\'note\',this.value)">'
-        + '<label style="font-size:8.5px;color:#5b6b8c;font-weight:700;white-space:nowrap;cursor:pointer"><input type="checkbox" '+(fu.resolved?'checked':'')+' onchange="window._rvProSetFollowUp('+i+',\'resolved\',this.checked)"> Seguimiento resuelto</label>'
-      + '</div>'
-      : '';
-    return '<div class="oppc-watch-row" style="flex-direction:column;align-items:stretch">'
-      + '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span class="oppc-watch-name">'+_rvpEsc(c.name)+'</span>'+statusHtml+'</div>'
-      + inheritedHtml + commBackHtml + followUpHtml
-    + '</div>';
+    return '<div class="rvcn-card'+(fu.resolved?' done':'')+'">'
+      +'<div class="rvcn-row1"><b>'+_rvpEsc(c.name)+'</b><span class="rvcn-reg">'+_rvpEsc(c.region||'')+'</span>'
+        +'<span class="rvcn-state '+(fu.resolved?'ok':'pend')+'">'+(fu.resolved?'✓ Resuelto':'● Pendiente')+'</span></div>'
+      +'<div class="rvcn-from">⟲ '+_rvpEsc(t)+(inh.by?' · '+_rvpEsc(inh.by):'')+(inh.status?' · '+_rvpEsc(inh.status):'')+'</div>'
+      +'<div class="rvcn-note">'+_rvpEsc(inh.label)+'</div>'
+      +'<div class="rvcn-ctrl">'
+        +'<select class="rvpc-sel'+(fu.kind?' rvpc-has':'')+'" onchange="window._rvProSetFollowUp('+i+',\'kind\',this.value)">'
+          +'<option value="" '+(!fu.kind?'selected':'')+'>Seguimiento con…</option>'
+          +'<option value="proveedor" '+(fu.kind==='proveedor'?'selected':'')+'>Proveedor</option>'
+          +'<option value="cliente" '+(fu.kind==='cliente'?'selected':'')+'>Cliente</option>'
+          +'<option value="personal" '+(fu.kind==='personal'?'selected':'')+'>Personal propio</option>'
+        +'</select>'
+        +'<input type="text" class="rvpc-txt-in" placeholder="Nota de seguimiento…" value="'+_rvpEsc(fu.note||'')+'" oninput="window._rvProSetFollowUp('+i+',\'note\',this.value)">'
+        +'<button type="button" class="rvcn-res'+(fu.resolved?' on':'')+'" onclick="window._rvProSetFollowUp('+i+',\'resolved\','+(!fu.resolved)+');window._rvProRefreshContinuityPanel()">'+(fu.resolved?'✓ Resuelto':'Marcar resuelto')+'</button>'
+      +'</div></div>';
   }).join('');
-  return '<div class="oppc-card oppc-watchcard" data-pdf-avoid-break style="margin-bottom:8px" id="rvpro-continuity-card">'
-    + '<div class="oppc-card-ttl"><span class="oppc-ttl-bar" style="background:#ef4444"></span>🔄 Continuidad y Seguimiento — '+list.length+' pendiente'+(list.length===1?'':'s')+'</div>'
-    + rowsHtml
-  + '</div>';
+  var outHtml = out.length ? '<div class="rvcn-outlist"><span class="rvcn-outttl">🔥 Se entregan al siguiente turno:</span>'
+    + out.map(function(r){ return '<span class="rvcn-outitem" title="'+_rvpEsc(r.sr.cmt||'')+'"><b>'+_rvpEsc(r.name)+'</b>'+(r.sr.cmt?' — '+_rvpEsc(String(r.sr.cmt).slice(0,70))+(String(r.sr.cmt).length>70?'…':''):' <i>(sin comentario)</i>')+'</span>'; }).join('')
+    +'</div>' : '';
+  return '<div class="rvcn" id="rvpro-continuity-card">'+head
+    +(cards?'<div class="rvcn-grid">'+cards+'</div>':'')
+    +outHtml+'</div>';
 }
 function _rvProRefreshContinuityPanel(){
   var wrap = document.getElementById('rvpro-continuity-wrap');
@@ -39014,6 +38982,7 @@ window._rvProSetFollowUp = function(i, field, val){
   var sr = window.rvW.srs[i];
   if(!sr.followUp) sr.followUp = {kind:'', note:'', resolved:false};
   sr.followUp[field] = val;
+  _rvProPushLive(i, { followUp: sr.followUp });
   _rvProScheduleSave();
   /* Deliberadamente NO se refresca el panel completo aquí (a diferencia de
      _rvProSetCommBack) — este setter se dispara en cada tecla del campo de
@@ -39045,7 +39014,7 @@ function _rvProKpiHtml(d){
     _rvProKpiCard('🔋','Prueba de Descarga', d.dscSi+' / '+total, pct(d.dscSi), '#15803d'),
     _rvProKpiCard('🔌','Cargando',           d.chgN+' / '+total,  pct(d.chgN),  '#1d4ed8'),
     _rvProKpiCard('🗄','Racks Desenclavados', String(d.racksN),    d.racksN?'sitio'+(d.racksN===1?'':'s')+' con racks reportados':'sin novedad', '#b45309'),
-    _rvProKpiCard('⏰','Relojes Validados',  d.clkOk+' / '+total, pct(d.clkOk), '#0a7a5c'),
+    _rvProKpiCard('⏰','Reloj correcto',  d.clkOk+' / '+total, pct(d.clkOk), '#0a7a5c'),
     _rvProKpiCard('📡','Sin Comunicación',   String(d.commErr),   d.commErr?'requiere atención':'todo comunicando', '#dc2626'),
     _rvProKpiCard('⚡','Sin Red AC',         String(d.sinRedAc),  d.sinRedAc?'operando en respaldo':'con red normal', '#991b1b'),
     _rvProKpiCard('🔌','Red OK',             d.redOk+' / '+(d.redAny||0), d.redLoss?(d.redLoss+' con pérdida de red'):'sin pérdidas de red', '#0f766e'),
@@ -39113,24 +39082,21 @@ function _rvProEditableRowHtml(r, editable){
   var key = _rvpKeyFor(sr);
   var isSpecial = (typeof _rvIsSpecialSite==='function') && _rvIsSpecialSite(r.name);
   var isNoct = _rvProTurnoNow()==='nocturno';
+  var hfOn = !!(sr.handoff && sr.handoff.active);
   if(!editable){
-    var flagsTxt = (sr.lp?' · Baja pot.':'')+(sr.rn?' · Acom. neg.':'');
     return '<tr>'
-      +'<td class="oppc-etd-name">'+_rvpEsc(r.name)+(isSpecial?' <span title="Sitio especial (carga tardía/solar)">☀</span>':'')+'</td>'
-      +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+_rvpEsc(flagsTxt)+'</td>'
-      +['red','cons','batSt','pcs'].map(function(c){ var kf = RVPRO_COMP[c].kw; return '<td class="oppc-etd-num" style="color:'+_rvpCompColor(c,sr[c])+';font-weight:800">'+_rvpEsc(_rvpCompLabel(c,sr[c]))+(kf && sr[kf]!=='' && sr[kf]!=null ? '<div style="color:#475569;font-weight:600">'+_rvpEsc(sr[kf])+' kW</div>' : '')+'</td>'; }).join('')
-      +'<td class="oppc-etd-num">⏰ '+(sr.clk==='ok'?'OK':sr.clk==='no'?'No':'—')+'<br>🔋 '+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
+      +'<td class="oppc-etd-name">'+_rvpEsc(r.name)+(isSpecial?' <span title="Sitio especial (carga tardía/solar)">☀</span>':'')+(hfOn?' <span title="Handoff al siguiente turno">🔥</span>':'')+'</td>'
+      +'<td style="color:'+_rvpStatusColor(key)+';font-weight:800">'+_rvpEsc(_rvpStatusLabel(key))+'</td>'
+      +['red','cons','batSt','pcs'].map(function(c){ var kf = RVPRO_COMP[c].kw; var showKw = kf && sr[kf]!=='' && sr[kf]!=null && (c!=='batSt' || sr.batSt==='cargando'); return '<td class="oppc-etd-num" style="color:'+_rvpCompColor(c,sr[c])+';font-weight:800">'+_rvpEsc(_rvpCompLabel(c,sr[c]))+(showKw ? '<div style="color:#475569;font-weight:600">'+_rvpEsc(sr[kf])+' kW</div>' : '')+'</td>'; }).join('')
+      +'<td class="oppc-etd-num">Reloj: '+(sr.clk==='ok'?'Sí':sr.clk==='no'?'No':'—')+'<br>Prueba desc.: '+(sr.dsc==='si'?'Sí':sr.dsc==='no'?'No':'—')+'</td>'
       +'<td class="oppc-etd-num">'+_rvpEsc(sr.racks||'—')+'</td>'
       +'<td class="oppc-etd-num" style="color:'+_rvpTempColor(sr.tmp)+'">'+(sr.tmp?sr.tmp+'°C':'—')+'</td>'
-      +(isNoct
-        ? '<td class="oppc-etd-num">'+(sr.chg?'Sí':'No')+'</td>'
-        : '<td class="oppc-etd-num">'+(sr.soc!=null&&sr.soc!==''?sr.soc+'%':'—')+'</td>')
-      +'<td class="oppc-etd-num">'+_rvpEsc(sr.chgPow||'—')+'</td>'
+      +(isNoct ? '' : '<td class="oppc-etd-num">'+(sr.soc!=null&&sr.soc!==''?sr.soc+'%':'—')+'</td>')
       +'<td class="oppc-etd-obs">'+_rvpEsc(sr.cmt||'')+'</td>'
       +'<td class="oppc-etd-obs">'+_rvpEsc(sr.resp||'')+'</td>'
     +'</tr>';
   }
-  var optHtml = '<option value="" '+(!key?'selected':'')+'>— Sin estatus</option>'
+  var optHtml = '<option value="" '+(!key?'selected':'')+'>Sin estatus</option>'
     + RVPRO_STATUS_GROUPS.map(function(g){
         return '<optgroup label="'+g.lbl+'">'
           + g.keys.map(function(k){
@@ -39140,63 +39106,60 @@ function _rvProEditableRowHtml(r, editable){
       }).join('');
   var compCell = function(comp){
     var c = RVPRO_COMP[comp], v = sr[comp]||'';
-    var sel = '<select class="oppc-esel rvpc-comp-sel" id="rvpro-'+comp+'-'+i+'" data-idx="'+i+'" data-col="'+comp+'" style="color:'+_rvpCompColor(comp,v)+'" onchange="window._rvProSetField('+i+',\''+comp+'\',this.value)">'
-      +'<option value="" '+(!v?'selected':'')+'>—</option>'
-      + c.opts.map(function(o){ return '<option value="'+o[0]+'" '+(v===o[0]?'selected':'')+'>'+_rvpEsc(o[1])+'</option>'; }).join('')
+    var sel = '<select class="oppc-esel rvpc-sel rvpc-comp-sel'+(v?' rvpc-has':'')+'" id="rvpro-'+comp+'-'+i+'" data-idx="'+i+'" data-col="'+comp+'" style="'+(v?_rvpTint(_rvpCompColor(comp,v)):'')+'" onchange="window._rvProSetField('+i+',\''+comp+'\',this.value)">'
+      +'<option value="" '+(!v?'selected':'')+'>Seleccionar…</option>'
+      + c.opts.filter(function(o){ return !o[3] || o[0]===v; }).map(function(o){ return '<option value="'+o[0]+'" '+(v===o[0]?'selected':'')+'>'+_rvpEsc(o[1])+'</option>'; }).join('')
       +'</select>';
-    var kw = c.kw ? '<input type="number" class="oppc-einput rvpc-kw-in" id="rvpro-in-'+c.kw+'-'+i+'" data-idx="'+i+'" data-col="'+c.kw+'" value="'+_rvpEsc(sr[c.kw]!=null?sr[c.kw]:'')+'" placeholder="kW" oninput="window._rvProSetField('+i+',\''+c.kw+'\',this.value)">' : '';
+    var kw = '';
+    if(c.kw){
+      var hide = (comp==='batSt' && v!=='cargando');
+      kw = '<span class="rvpc-kwwrap" id="rvpro-kwwrap-'+c.kw+'-'+i+'"'+(hide?' style="display:none"':'')+'>'
+        +'<input type="number" class="rvpc-kw-in" id="rvpro-in-'+c.kw+'-'+i+'" data-idx="'+i+'" data-col="'+c.kw+'" value="'+_rvpEsc(sr[c.kw]!=null?sr[c.kw]:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\''+c.kw+'\',this.value)"><b>kW</b></span>';
+    }
     return '<td class="rvpc-comp-td">'+sel+kw+'</td>';
   };
-  var socOrChgCell = isNoct
-    ? '<td><select class="oppc-esel" id="rvpro-chg-'+i+'" data-idx="'+i+'" data-col="chg" onchange="window._rvProSetField('+i+',\'chg\',this.value===\'si\')">'
-        +'<option value="si" '+(sr.chg?'selected':'')+'>Sí</option>'
-        +'<option value="no" '+(!sr.chg?'selected':'')+'>No</option>'
-      +'</select></td>'
-    : '<td><input type="number" min="0" max="100" class="oppc-einput" id="rvpro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_rvpEsc(sr.soc!=null?sr.soc:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'soc\',this.value)"></td>';
+  var yn = function(field, label, ico, vYes){
+    var v = sr[field]||'';
+    var col = v===vYes ? '#15803d' : (v==='no' ? '#dc2626' : '');
+    return '<label class="rvpc-mini"><span>'+ico+' '+label+'</span>'
+      +'<select class="oppc-esel rvpc-sel rvpc-yn'+(v?' rvpc-has':'')+'" id="rvpro-'+field+'-'+i+'" data-idx="'+i+'" data-col="'+field+'" style="'+(col?_rvpTint(col):'')+'" onchange="window._rvProSetField('+i+',\''+field+'\',this.value)">'
+        +'<option value="" '+(!v?'selected':'')+'>—</option>'
+        +'<option value="'+vYes+'" '+(v===vYes?'selected':'')+'>Sí</option>'
+        +'<option value="no" '+(v==='no'?'selected':'')+'>No</option>'
+      +'</select></label>';
+  };
+  var socCell = isNoct ? ''
+    : '<td><input type="number" min="0" max="100" class="oppc-einput rvpc-num-in" id="rvpro-in-soc-'+i+'" data-idx="'+i+'" data-col="soc" value="'+_rvpEsc(sr.soc!=null?sr.soc:'')+'" placeholder="%" oninput="window._rvProSetField('+i+',\'soc\',this.value)"></td>';
   var asg = (typeof _rvProAssigneeFor==='function') ? _rvProAssigneeFor(i) : null;
   var mine = asg && typeof myId==='function' && asg.id===myId();
-  return '<tr id="rvpro-tr-'+i+'" class="'+(asg ? (mine?'rvpc-mine':'rvpc-other') : '')+'"'+(asg?' style="--rvpc-asg:'+_rvpEsc(asg.color||'#10b981')+'"':'')+'>'
+  var stCol = key ? _rvpStatusColor(key) : '';
+  return '<tr id="rvpro-tr-'+i+'" class="'+(asg ? (mine?'rvpc-mine':'rvpc-other') : '')+(hfOn?' rvpc-hf-row':'')+'"'+(asg?' style="--rvpc-asg:'+_rvpEsc(asg.color||'#10b981')+'"':'')+'>'
     +'<td class="oppc-etd-name">'+(asg?'<span class="rvpc-asg-dot" title="Le toca a '+_rvpEsc(asg.name||'')+'">'+_rvpEsc(_rvpIni(asg.name))+'</span>':'')+_rvpEsc(r.name)
-      +'<button type="button" data-special-btn="'+_rvpEsc(String(r.name||'').trim().toLowerCase())+'" class="rvpc-special-btn'+(isSpecial?' rvpc-special-on':'')+'" title="Sitio especial (carga tardía/solar) — no cuenta como incidencia por no haber cargado aún" onclick="window._rvToggleSpecialSiteByIdx('+i+')">☀</button>'
+      +'<button type="button" data-special-btn="'+_rvpEsc(String(r.name||'').trim().toLowerCase())+'" class="rvpc-special-btn'+(isSpecial?' rvpc-special-on':'')+'" title="Sitio especial (carga tardía/solar)" onclick="window._rvToggleSpecialSiteByIdx('+i+')">☀</button>'
     +'</td>'
-    +'<td>'
-      +'<select class="oppc-esel" id="rvpro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="color:'+_rvpStatusColor(key)+'" onchange="window._rvProSetStatus('+i+',this.value)">'+optHtml+'</select>'
-      +'<div class="rvpc-flagrow">'
-        +'<button type="button" class="rvpc-flag-btn'+(sr.lp?' rvpc-flag-on':'')+'" data-flag-btn="'+i+'-lp" title="Baja potencia" onclick="window._rvProToggleFlag('+i+',\'lp\')">⚡ Baja pot.</button>'
-        +'<button type="button" class="rvpc-flag-btn'+(sr.rn?' rvpc-flag-on':'')+'" data-flag-btn="'+i+'-rn" title="Acometida negativa" onclick="window._rvProToggleFlag('+i+',\'rn\')">🔌 Acom. neg.</button>'
-      +'</div>'
-    +'</td>'
+    +'<td><select class="oppc-esel rvpc-sel rvpc-st-sel'+(key?' rvpc-has':'')+'" id="rvpro-sel-'+i+'" data-idx="'+i+'" data-col="status" style="'+(stCol?_rvpTint(stCol):'')+'" onchange="window._rvProSetStatus('+i+',this.value)">'+optHtml+'</select></td>'
     +compCell('red')+compCell('cons')+compCell('batSt')+compCell('pcs')
-    +'<td class="rvpc-stack-td"><select class="oppc-esel" id="rvpro-clk-'+i+'" data-idx="'+i+'" data-col="clk" title="Reloj validado" onchange="window._rvProSetField('+i+',\'clk\',this.value)">'
-        +'<option value="" '+(!sr.clk?'selected':'')+'>⏰ —</option>'
-        +'<option value="ok" '+(sr.clk==='ok'?'selected':'')+'>⏰ OK</option>'
-        +'<option value="no" '+(sr.clk==='no'?'selected':'')+'>⏰ No</option>'
-      +'</select>'
-      +'<select class="oppc-esel" id="rvpro-dsc-'+i+'" data-idx="'+i+'" data-col="dsc" title="Prueba de descarga" onchange="window._rvProSetField('+i+',\'dsc\',this.value)">'
-        +'<option value="" '+(!sr.dsc?'selected':'')+'>🔋 —</option>'
-        +'<option value="si" '+(sr.dsc==='si'?'selected':'')+'>🔋 Sí</option>'
-        +'<option value="no" '+(sr.dsc==='no'?'selected':'')+'>🔋 No</option>'
-      +'</select></td>'
-    +'<td><input type="text" class="oppc-einput" style="width:82px" id="rvpro-in-racks-'+i+'" data-idx="'+i+'" data-col="racks" value="'+_rvpEsc(sr.racks||'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'racks\',this.value)"></td>'
-    +'<td><input type="number" class="oppc-einput" id="rvpro-in-tmp-'+i+'" data-idx="'+i+'" data-col="tmp" style="color:'+_rvpTempColor(sr.tmp)+';font-weight:800" value="'+_rvpEsc(sr.tmp!=null?sr.tmp:'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'tmp\',this.value)"></td>'
-    +socOrChgCell
-    +'<td><input type="text" class="oppc-einput'+(isNoct?' rvpc-chgpow-emph':'')+'" style="width:'+(isNoct?'70px':'60px')+'" id="rvpro-in-chgpow-'+i+'" data-idx="'+i+'" data-col="chgPow" value="'+_rvpEsc(sr.chgPow||'')+'" placeholder="kW" oninput="window._rvProSetField('+i+',\'chgPow\',this.value)"></td>'
-    +'<td><input type="text" class="oppc-einput-obs" id="rvpro-in-cmt-'+i+'" data-idx="'+i+'" data-col="cmt" maxlength="140" value="'+_rvpEsc(sr.cmt||'')+'" placeholder="Comentario breve…" oninput="window._rvProSetField('+i+',\'cmt\',this.value)"></td>'
-    +'<td><input type="text" class="oppc-einput-obs" style="min-width:90px" id="rvpro-in-resp-'+i+'" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
+    +'<td class="rvpc-chk-td">'+yn('clk','Reloj correcto','⏰','ok')+yn('dsc','Prueba de descarga','🔋','si')+'</td>'
+    +'<td><input type="text" class="oppc-einput rvpc-num-in" style="width:64px" id="rvpro-in-racks-'+i+'" data-idx="'+i+'" data-col="racks" value="'+_rvpEsc(sr.racks||'')+'" placeholder="—" oninput="window._rvProSetField('+i+',\'racks\',this.value)"></td>'
+    +'<td><input type="number" class="oppc-einput rvpc-num-in" id="rvpro-in-tmp-'+i+'" data-idx="'+i+'" data-col="tmp" style="color:'+_rvpTempColor(sr.tmp)+';font-weight:800" value="'+_rvpEsc(sr.tmp!=null?sr.tmp:'')+'" placeholder="°C" oninput="window._rvProSetField('+i+',\'tmp\',this.value)"></td>'
+    +socCell
+    +'<td><div class="rvpc-cmtwrap"><input type="text" class="oppc-einput-obs rvpc-txt-in" id="rvpro-in-cmt-'+i+'" data-idx="'+i+'" data-col="cmt" maxlength="160" value="'+_rvpEsc(sr.cmt||'')+'" placeholder="Comentario…" oninput="window._rvProSetField('+i+',\'cmt\',this.value)">'
+      +'<button type="button" class="rvpc-hf-btn'+(hfOn?' on':'')+'" id="rvpro-hf-'+i+'" title="Handoff: entregar este sitio (con su comentario) al siguiente turno para seguimiento" onclick="window._rvProToggleHandoff('+i+')">🔥</button></div></td>'
+    +'<td><input type="text" class="oppc-einput-obs rvpc-txt-in" style="min-width:96px" id="rvpro-in-resp-'+i+'" data-idx="'+i+'" data-col="resp" value="'+_rvpEsc(sr.resp||'')+'" placeholder="Responsable" oninput="window._rvProSetField('+i+',\'resp\',this.value)"></td>'
   +'</tr>';
 }
 function _rvProEditableRegionHtml(g, editable){
   var rowsHtml = g.rows.map(function(r){ return _rvProEditableRowHtml(r, editable); }).join('');
   var grad = (window.OPPRO_REGION_GRAD && window.OPPRO_REGION_GRAD[g.name]) || 'linear-gradient(135deg,#0a1f5e,#1a3fcc)';
   var icon = (window.OPPRO_REGION_ICON && window.OPPRO_REGION_ICON[g.name]) || '';
-  var col7Label = _rvProTurnoNow()==='nocturno' ? '¿Cargando?' : 'SOC Inicial %';
+  var isNoctH = _rvProTurnoNow()==='nocturno';
   return '<div class="oppc-card oppc-eregion" data-pdf-avoid-break style="margin-bottom:8px">'
     +'<div class="oppc-region-hdr" style="background:'+grad+';border-radius:8px 8px 0 0;margin:-10px -13px 8px">'
       +'<span>'+icon+' '+_rvpEsc(g.name.toUpperCase())+'</span>'
       +'<span class="oppc-region-hdr-n" id="rvpro-regn-'+_rvProRegionSlug(g.name)+'">'+g.total+' sitio'+(g.total===1?'':'s')+'</span>'
     +'</div>'
     +'<table class="oppc-etable"><thead><tr>'
-      +'<th>Sitio</th><th>Estado general</th><th class="rvpc-th-comp">🔌 Red</th><th class="rvpc-th-comp">🏭 Consumo</th><th class="rvpc-th-comp">🔋 Batería</th><th class="rvpc-th-comp">⚙️ PCS</th><th>Reloj / Desc.</th><th>Racks</th><th>Temp °C</th><th>'+col7Label+'</th><th>Pot. Carga</th><th>Comentarios</th><th>Responsable</th>'
+      +'<th>Sitio</th><th>Estado general</th><th class="rvpc-th-comp">🔌 Red</th><th class="rvpc-th-comp">🏭 Consumo</th><th class="rvpc-th-comp">🔋 Batería</th><th class="rvpc-th-comp">⚙️ PCS</th><th>Reloj / Prueba</th><th>Racks</th><th>Temp. máxima °C</th>'+(isNoctH?'':'<th>SOC inicial %</th>')+'<th>Comentarios · 🔥 Handoff</th><th>Responsable</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
   +'</div>';
 }
@@ -39326,7 +39289,16 @@ window._rvProSetField = function(i, field, value){
   }
   if(RVPRO_COMP[field]){
     var cEl = document.getElementById('rvpro-'+field+'-'+i);
-    if(cEl) cEl.style.color = _rvpCompColor(field, value);
+    if(cEl){ cEl.setAttribute('style', value ? _rvpTint(_rvpCompColor(field, value)) : ''); cEl.classList.toggle('rvpc-has', !!value); }
+    if(field==='batSt'){
+      var kwW = document.getElementById('rvpro-kwwrap-bessKw-'+i);
+      if(kwW) kwW.style.display = value==='cargando' ? '' : 'none';
+    }
+  }
+  if(field==='clk' || field==='dsc'){
+    var yEl = document.getElementById('rvpro-'+field+'-'+i);
+    var yes = field==='clk' ? 'ok' : 'si';
+    if(yEl){ yEl.setAttribute('style', value===yes ? _rvpTint('#15803d') : (value==='no' ? _rvpTint('#dc2626') : '')); yEl.classList.toggle('rvpc-has', !!value); }
   }
   /* v113: en vivo para los demás colaboradores */
   var livePatch = {}; livePatch[field] = value;
@@ -39339,7 +39311,7 @@ window._rvProSetField = function(i, field, value){
      (no debounced: es un cambio discreto de un <select>/campo corto, no
      tecleo continuo como cmt/resp/chgPow, así que no hay riesgo real de
      perder el foco de un input de texto). */
-  if((field==='racks' || field==='dsc') && typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel();
+  if(field==='cmt' && window.rvW.srs[i].handoff && window.rvW.srs[i].handoff.active){ clearTimeout(window._rvpHfT); window._rvpHfT = setTimeout(function(){ if(typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel(); }, 900); }
 };
 /* v87: botones-chip lp/rn (baja potencia / acometida negativa) — mismo
    dato subyacente sr.lp/sr.rn que antes (checkboxes), solo cambia el
@@ -39347,6 +39319,21 @@ window._rvProSetField = function(i, field, value){
    _rvProEditableRowHtml). Reusa _rvProSetField para no duplicar el
    guardado/autosave, y solo alterna la clase visual del botón que se
    apretó (sin re-pintar toda la fila/tabla). */
+/* v120 — HANDOFF de Validación: el sitio (con su comentario) se entrega al
+   siguiente turno. Es lo ÚNICO que alimenta "Continuidad y Seguimiento". */
+window._rvProToggleHandoff = function(i){
+  if(window._rvProReadOnlyView) return;
+  if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
+  var sr = window.rvW.srs[i];
+  var on = !(sr.handoff && sr.handoff.active);
+  sr.handoff = on ? { active:true, by:(typeof myName==='function'?myName():''), ts:Date.now() } : { active:false };
+  var b = document.getElementById('rvpro-hf-'+i); if(b) b.classList.toggle('on', on);
+  var tr = document.getElementById('rvpro-tr-'+i); if(tr) tr.classList.toggle('rvpc-hf-row', on);
+  if(on && !(sr.cmt && String(sr.cmt).trim())){ var ci=document.getElementById('rvpro-in-cmt-'+i); if(ci){ ci.focus(); ci.placeholder='Escribe qué debe revisar el siguiente turno…'; } }
+  _rvProPushLive(i, { handoff: sr.handoff });
+  _rvProScheduleSave();
+  if(typeof _rvProRefreshContinuityPanel==='function') _rvProRefreshContinuityPanel();
+};
 window._rvProToggleFlag = function(i, field){
   if(window._rvProReadOnlyView) return;
   if(!window.rvW || !window.rvW.srs || !window.rvW.srs[i]) return;
@@ -39368,7 +39355,7 @@ window._rvProSetStatus = function(i, key){
     sr.batLabel = (window._BAT_LABELS && window._BAT_LABELS[key]) || bat;
   }
   var sel = document.getElementById('rvpro-sel-'+i);
-  if(sel) sel.style.color = _rvpStatusColor(key);
+  if(sel){ sel.setAttribute('style', key ? _rvpTint(_rvpStatusColor(key)) : ''); sel.classList.toggle('rvpc-has', !!key); }
   _rvProPushLive(i, { bat: sr.bat, cond: sr.cond, batLabel: sr.batLabel });
   _rvProScheduleSummaryRefresh();
   _rvProScheduleSave();
@@ -39667,7 +39654,7 @@ window._rvProPushLive = _rvProPushLive;
 function _rvProApplyRemoteSite(i, patch){
   var sr = window.rvW && window.rvW.srs && window.rvW.srs[i]; if(!sr) return false;
   var changed = false;
-  RVPRO_LIVE_FIELDS.forEach(function(f){ if(patch[f]!==undefined && sr[f]!==patch[f]){ sr[f] = patch[f]; changed = true; } });
+  RVPRO_LIVE_FIELDS.forEach(function(f){ if(patch[f]===undefined) return; var a=sr[f], b=patch[f]; var same = (a && typeof a==='object') || (b && typeof b==='object') ? JSON.stringify(a)===JSON.stringify(b) : a===b; if(!same){ sr[f] = b; changed = true; } });
   if(!changed) return false;
   var tr = document.getElementById('rvpro-tr-'+i);
   if(tr){
@@ -39680,11 +39667,12 @@ function _rvProApplyRemoteSite(i, patch){
       Array.prototype.forEach.call(tr.querySelectorAll('[data-col]'), function(el){
         if(el===document.activeElement) return;
         var col = el.getAttribute('data-col');
-        if(col==='status'){ el.value = _rvpKeyFor(sr); el.style.color = _rvpStatusColor(_rvpKeyFor(sr)); }
+        if(col==='status'){ el.value = _rvpKeyFor(sr); el.setAttribute('style', _rvpKeyFor(sr) ? _rvpTint(_rvpStatusColor(_rvpKeyFor(sr))) : ''); }
         else if(col==='chg'){ el.value = sr.chg ? 'si' : 'no'; }
-        else if(sr[col]!==undefined){ el.value = sr[col]==null ? '' : sr[col]; if(RVPRO_COMP[col]) el.style.color = _rvpCompColor(col, sr[col]); }
+        else if(sr[col]!==undefined){ el.value = sr[col]==null ? '' : sr[col]; if(RVPRO_COMP[col]) el.setAttribute('style', sr[col] ? _rvpTint(_rvpCompColor(col, sr[col])) : ''); }
       });
     }
+    var kwW2 = document.getElementById('rvpro-kwwrap-bessKw-'+i); if(kwW2) kwW2.style.display = sr.batSt==='cargando' ? '' : 'none';
     if(tr){ tr.classList.add('rvpro-remote-flash'); setTimeout(function(){ tr && tr.classList.remove('rvpro-remote-flash'); }, 1400); }
   }
   return true;
@@ -39814,6 +39802,7 @@ function _rvsJoin(active){
   if(window._fb && window._fb.collabJoin) window._fb.collabJoin(RV_SHARED_ID, me).catch(function(e){ _rvsToast('⚠️ No se pudo registrar tu entrada al reporte: '+((e&&e.message)||'error')); });
   _rvsFreshRvW(active);
   var n = _rvsLoadAllSrs(active);
+  try{ _rvProInjectInherited(); }catch(e){} /* handoff recibido del turno anterior */
   try{ localStorage.removeItem('rv:draft:v1'); }catch(e){}
   window._rvProEditingSavedId = null; window._rvProReadOnlyView = false;
   _openRvSumEditable();
@@ -40008,6 +39997,60 @@ setInterval(function(){
 
 (function(){
   if(document.getElementById('rvpro-v117-style')) return;
+  var st0 = document.createElement('style'); st0.id = 'rvpro-v120-style';
+  var arrow = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")";
+  st0.textContent =
+    '#rv-paper-content select.rvpc-sel{-webkit-appearance:none;appearance:none;background-image:'+arrow+';background-repeat:no-repeat;background-position:right 8px center;background-color:#f8fafc;border:1.5px solid #dbe3ee;border-radius:9px;padding:6px 24px 6px 10px;font:800 10.5px Inter,Arial,sans-serif;color:#94a3b8;cursor:pointer;transition:box-shadow .15s,border-color .15s,transform .1s;box-shadow:0 1px 2px rgba(15,23,42,.06);min-height:30px}'+
+    '#rv-paper-content select.rvpc-sel:hover{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.12)}'+
+    '#rv-paper-content select.rvpc-sel:focus{outline:none;border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.25)}'+
+    '#rv-paper-content select.rvpc-sel.rvpc-has{background-image:'+arrow+'}'+
+    '#rv-paper-content select.rvpc-sel option,#rv-paper-content select.rvpc-sel optgroup{color:#0f172a;background:#fff;font-weight:700}'+
+    '#rv-paper-content .rvpc-comp-sel{width:118px!important;font-size:10.5px!important}'+
+    '#rv-paper-content .rvpc-st-sel{width:150px}'+
+    '#rv-paper-content .rvpc-comp-td{min-width:122px;vertical-align:middle}'+
+    '.rvpc-kwwrap{display:flex;align-items:center;margin-top:5px;width:118px;border:1.5px solid #dbe3ee;border-radius:8px;background:#fff;overflow:hidden}'+
+    '.rvpc-kwwrap input{border:none!important;outline:none;width:100%!important;padding:4px 6px!important;font:700 10.5px monospace!important;background:transparent!important;margin:0!important;display:block}'+
+    '.rvpc-kwwrap b{font:800 8.5px Arial,sans-serif;color:#64748b;background:#f1f5f9;padding:6px 7px;border-left:1px solid #e2e8f0}'+
+    '.rvpc-kwwrap:focus-within{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.18)}'+
+    '.rvpc-chk-td{min-width:150px}'+
+    '.rvpc-mini{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:2px 0}'+
+    '.rvpc-mini span{font:800 8.5px Arial,sans-serif;color:#475569;white-space:nowrap}'+
+    '#rv-paper-content .rvpc-yn{width:62px;min-height:26px;padding:3px 20px 3px 8px;font-size:10px}'+
+    '#rv-paper-content .rvpc-num-in{border:1.5px solid #dbe3ee!important;border-radius:8px!important;padding:5px 7px!important;min-height:30px;font-weight:800;text-align:center;width:62px}'+
+    '#rv-paper-content .rvpc-txt-in{border:1.5px solid #dbe3ee!important;border-radius:8px!important;padding:6px 9px!important;min-height:30px}'+
+    '#rv-paper-content .rvpc-num-in:focus,#rv-paper-content .rvpc-txt-in:focus{outline:none;border-color:#10b981!important;box-shadow:0 0 0 3px rgba(16,185,129,.2)}'+
+    '.rvpc-cmtwrap{display:flex;gap:5px;align-items:center}'+
+    '.rvpc-hf-btn{flex:none;width:30px;height:30px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:13px;filter:grayscale(1);opacity:.45;transition:all .15s}'+
+    '.rvpc-hf-btn:hover{opacity:.8;filter:none}'+
+    '.rvpc-hf-btn.on{filter:none;opacity:1;border-color:#ef4444;background:#fef2f2;box-shadow:0 0 0 3px rgba(239,68,68,.15)}'+
+    'tr.rvpc-hf-row td:first-child{box-shadow:inset 4px 0 0 #ef4444}'+
+    '.rvcn{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #ef4444;border-radius:12px;padding:10px 12px;margin:0 0 10px;font-family:Inter,Arial,sans-serif}'+
+    '.rvcn-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}'+
+    '.rvcn-ttl{font-weight:900;font-size:13px;color:#0f172a;margin-right:4px}'+
+    '.rvcn-chip{font-size:10px;font-weight:800;border-radius:12px;padding:3px 9px}'+
+    '.rvcn-chip.in{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}'+
+    '.rvcn-chip.out{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}'+
+    '.rvcn-hint{margin-left:auto;font-size:9.5px;color:#94a3b8;font-weight:700}'+
+    '.rvcn-empty{font-size:10.5px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:7px 10px}'+
+    '.rvcn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:8px}'+
+    '.rvcn-card{border:1px solid #fed7aa;background:linear-gradient(180deg,#fffbf5,#fff);border-radius:10px;padding:8px 10px}'+
+    '.rvcn-card.done{border-color:#bbf7d0;background:linear-gradient(180deg,#f0fdf4,#fff)}'+
+    '.rvcn-row1{display:flex;align-items:center;gap:6px}'+
+    '.rvcn-row1 b{font-size:11.5px;color:#0f172a}'+
+    '.rvcn-reg{font-size:9px;color:#94a3b8;font-weight:700}'+
+    '.rvcn-state{margin-left:auto;font-size:9.5px;font-weight:900;border-radius:10px;padding:2px 8px}'+
+    '.rvcn-state.pend{color:#c2410c;background:#ffedd5}.rvcn-state.ok{color:#15803d;background:#dcfce7}'+
+    '.rvcn-from{font-size:9px;color:#b45309;font-weight:700;margin-top:2px}'+
+    '.rvcn-note{font-size:10.5px;color:#1e293b;margin:4px 0 6px;line-height:1.35}'+
+    '.rvcn-ctrl{display:flex;gap:6px;align-items:center}'+
+    '.rvcn-ctrl select{width:130px;min-height:28px!important;padding:4px 22px 4px 8px!important;font-size:9.5px!important}'+
+    '.rvcn-ctrl input{flex:1;min-width:0;font-size:10px;height:28px;border:1.5px solid #dbe3ee;border-radius:8px;padding:0 9px}'+
+    '.rvcn-res{flex:none;white-space:nowrap;height:28px;border:1.5px solid #cbd5e1;background:#fff;border-radius:8px;padding:0 10px;font:800 9.5px Arial,sans-serif;color:#475569;cursor:pointer}'+
+    '.rvcn-res.on{border-color:#22c55e;background:#dcfce7;color:#15803d}'+
+    '.rvcn-outlist{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0}'+
+    '.rvcn-outttl{font-size:10px;font-weight:900;color:#b91c1c}'+
+    '.rvcn-outitem{font-size:9.5px;color:#334155;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:3px 8px;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}';
+  document.head.appendChild(st0);
   var st = document.createElement('style'); st.id = 'rvpro-v117-style';
   st.textContent = '.rvpc-live-pill{display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#a7f3d0}'
     +'.rvpc-live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;animation:rvLivePulse 1.6s infinite}'
@@ -40391,7 +40434,7 @@ var VP_CAT_BY = {}; VP_CAT.forEach(function(c){ VP_CAT_BY[c.k]=c; });
 
 /* Etiquetas CORTAS para las pastillas de componente dentro de las tarjetas */
 var VP_SHORT = {
-  red:   {ok:'OK',bajo:'Bajo',medio:'Medio',alto:'Alto',exporta:'Export.',sinmed:'S/med',perdida:'Pérdida'},
+  red:   {ok:'OK',bajo:'Bajo',medio:'Medio',alto:'Alto',exporta:'Negativa',sinmed:'S/med',perdida:'Pérdida'},
   cons:  {ok:'OK',bajo:'Bajo',medio:'Medio',alto:'Alto',sincons:'S/cons',sinmed:'S/med'},
   batSt: {ok:'OK',cargando:'Carga',descargando:'Desc.',reposo:'Reposo',balanceando:'Balanc.',alarma:'Alarma',falla:'Falla',racks:'Racks',fueraop:'F. op.'},
   pcs:   {ok:'OK',standby:'Standby',alarma:'Alarma',falla:'Falla',sincom:'S/com',apagado:'Apagado'}
@@ -40519,6 +40562,7 @@ function vpData(rep, gk){
   d.findings = live.filter(function(r){
     var sr = r.sr;
     if(hasCmt(sr)) return true;
+    if(sr.handoff && sr.handoff.active) return true;
     if(sr.bat==='alarm') return true;
     if(['alarma','falla','racks'].indexOf(sr.batSt)>-1) return true;
     if(['alarma','falla'].indexOf(sr.pcs)>-1) return true;
@@ -40574,7 +40618,7 @@ function kpisHtml(d){
     kpi('🌡','Temp. alta ≥38°C', String(d.hot), d.tmpMax!=null?('máx. '+d.tmpMax+' °C'):'sin lecturas', '#c2410c'),
     night ? kpi('🔌','Cargando', d.chgN+' / '+v, pct(d.chgN,v), '#1d4ed8')
           : kpi('📊','SOC promedio', d.socAvg!=null?(Math.round(d.socAvg)+'%'):'—', 'SOC inicial reportado', '#1d4ed8'),
-    kpi('⏰','Relojes OK', d.clkOk+' / '+v, d.clkNo?(d.clkNo+' desfasados'):pct(d.clkOk,v), '#0a7a5c'),
+    kpi('⏰','Reloj correcto', d.clkOk+' / '+v, d.clkNo?(d.clkNo+' no correctos'):pct(d.clkOk,v), '#0a7a5c'),
     kpi('🔋','Prueba de descarga', d.dscSi+' / '+v, d.dscNo?(d.dscNo+' no completaron'):pct(d.dscSi,v), '#065f46')
   ];
   return '<div class="vpc-kpi-grid">'+cards.join('')+'</div>';
@@ -40595,7 +40639,7 @@ function statusCardHtml(d){
 }
 function legendBarHtml(night){
   var dots = VP_CAT.map(function(c){ return '<span class="vpc-lgb-item"><i style="background:'+c.dot+'"></i>'+esc(c.txt)+'</span>'; }).join('');
-  return '<div class="vpc-legendbar"><span class="vpc-lgb-txt"><b>🔌 Red · 🏭 Consumo · 🔋 Batería · ⚙️ PCS</b> — estado y potencia (kW) · <b>T°</b> temp. máx. · <b>'+(night?'Carga':'SOC')+'</b> '+(night?'potencia de carga':'SOC inicial')+'</span><span class="vpc-lgb-sep"></span>'+dots+'</div>';
+  return '<div class="vpc-legendbar"><span class="vpc-lgb-txt"><b>🔌 Red · 🏭 Consumo · 🔋 Batería · ⚙️ PCS</b> — estado y potencia (kW) · <b>T° máx.</b> temperatura máxima'+(night?'':' · <b>SOC</b> SOC inicial')+' · 🔋 kW solo cuando está cargando</span><span class="vpc-lgb-sep"></span>'+dots+'</div>';
 }
 function fmtKw(v){ var n=num(v); if(n==null) return ''; return (Math.abs(n)>=1000? Math.round(n).toLocaleString('es-MX') : String(Math.round(n*10)/10)); }
 function compCell(c, sr){
@@ -40603,21 +40647,19 @@ function compCell(c, sr){
   if(!v) return '<span class="vpt-none">—</span>';
   var col = compColor(c, v);
   var kwField = (window.RVPRO_COMP && window.RVPRO_COMP[c]) ? window.RVPRO_COMP[c].kw : null;
-  var kw = kwField ? fmtKw(sr[kwField]) : '';
+  var kw = kwField && (c!=='batSt' || v==='cargando') ? fmtKw(sr[kwField]) : '';
   return '<span class="vpt-pill" style="color:'+col+';background:'+col+'17;border-color:'+col+'66">'+esc((VP_SHORT[c]&&VP_SHORT[c][v])||compLabel(c,v))+'</span>'
     +(kw!=='' ? '<span class="vpt-kw">'+kw+'<small> kW</small></span>' : '');
 }
 function rowHtml(r, night){
   var sr = r.sr;
   if(sr.skip){
-    return '<tr class="vpt-dim" data-vbrk><td class="vpt-site"><i class="vpt-dot" style="background:#e2e8f0"></i>'+esc(r.name)+'</td><td class="vpt-st" style="color:#94a3b8">Omitido</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="vpt-cmt"></td></tr>';
+    return '<tr class="vpt-dim" data-vbrk><td class="vpt-site"><i class="vpt-dot" style="background:#e2e8f0"></i>'+esc(r.name)+'</td><td class="vpt-st" style="color:#94a3b8">Omitido</td><td></td><td></td><td></td><td></td><td></td>'+(night?'':'<td></td>')+'<td class="vpt-cmt"></td></tr>';
   }
   var cat = VP_CAT_BY[r.cat] || VP_CAT_BY.none;
   var soc = num(sr.soc), t = num(sr.tmp);
-  var last = night
-    ? '<td class="vpt-num" style="color:'+(sr.chg?'#1d4ed8':'#64748b')+'">'+(sr.chg?(num(sr.chgPow)!=null?fmtKw(sr.chgPow)+' kW':'Sí'):'No')+'</td>'
-    : '<td class="vpt-num" style="color:'+socColor(soc)+'">'+(soc!=null?soc+'%':'—')+'</td>';
-  var flags = (sr.lp?'<span class="vpt-flag" title="Baja potencia">⚡ Baja pot.</span>':'')+(sr.rn?'<span class="vpt-flag" title="Acometida negativa">↩ Acom. neg.</span>':'');
+  var last = night ? '' : '<td class="vpt-num" style="color:'+socColor(soc)+'">'+(soc!=null?soc+'%':'—')+'</td>';
+  var flags = (sr.handoff && sr.handoff.active) ? '<span class="vpt-flag" title="Handoff al siguiente turno">🔥 Handoff</span>' : '';
   var cmt = hasCmt(sr) ? esc(sr.cmt) : '';
   if(sr.resp) cmt += (cmt?'<br>':'')+'<span class="vpt-resp">👤 '+esc(sr.resp)+'</span>';
   return '<tr class="'+(r.cat==='na'?'vpt-dim':'')+'" data-vbrk>'
@@ -40641,8 +40683,8 @@ function regionCardHtml(g, night, withCmt, part){
   var rowsHtml = g.rows.map(function(r){ var h = rowHtml(r, night); return withCmt ? h : h.replace(/<td class="vpt-cmt">[\s\S]*?<\/td><\/tr>$/, '</tr>'); }).join('');
   return '<div class="vpc-card vpc-region">'
     +'<div class="vpc-region-hdr" style="background:'+grad+'"><span>'+ico+' '+esc(String(g.name).toUpperCase())+(part?' <small style="opacity:.85">('+(part.idx+1)+'/'+part.n+')</small>':'')+'</span><span class="vpc-region-n">'+stats+'</span></div>'
-    +'<table class="vpt"><colgroup><col class="c-site"><col class="c-st"><col class="c-cc"><col class="c-cc"><col class="c-cc"><col class="c-pcs"><col class="c-t"><col class="c-soc">'+(withCmt?'<col>':'')+'</colgroup>'
-    +'<thead><tr><th>Sitio</th><th>Estado</th><th>🔌 Red</th><th>🏭 Consumo</th><th>🔋 Batería</th><th>⚙️ PCS</th><th class="r">T°</th><th class="r">'+(night?'Carga':'SOC')+'</th>'+(withCmt?'<th>Comentario / responsable</th>':'')+'</tr></thead>'
+    +'<table class="vpt"><colgroup><col class="c-site"><col class="c-st"><col class="c-cc"><col class="c-cc"><col class="c-cc"><col class="c-pcs"><col class="c-t">'+(night?'':'<col class="c-soc">')+(withCmt?'<col>':'')+'</colgroup>'
+    +'<thead><tr><th>Sitio</th><th>Estado</th><th>🔌 Red</th><th>🏭 Consumo</th><th>🔋 Batería</th><th>⚙️ PCS</th><th class="r">T° máx.</th>'+(night?'':'<th class="r">SOC</th>')+(withCmt?'<th>Comentario / responsable</th>':'')+'</tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table>'
   +'</div>';
 }
