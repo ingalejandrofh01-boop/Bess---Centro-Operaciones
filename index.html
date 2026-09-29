@@ -5761,6 +5761,10 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
 .mbd-toggle input{accent-color:#1a3fcc;width:14px;height:14px;margin:0}
 .mbd-nodc{margin-top:4px;padding:7px 10px;border-radius:9px;background:#f8fafc;border:1px dashed #cbd5e1;font:600 9.8px/1.6 Inter,Arial;color:#475569}
 .mbd-nodc b{color:#334155;margin-right:4px}.mbd-nodc span{display:inline-block;margin:0 6px 0 0;padding:0 7px;border-radius:8px;background:#fff;border:1px solid #e2e8f0}
+.mbd-sm .n .dl{margin-left:auto;font:800 10px Inter,Arial;padding:1px 7px;border-radius:8px}
+.mbd-sm .n .dl.up{color:#b91c1c;background:#fef2f2}.mbd-sm .n .dl.dn{color:#047857;background:#ecfdf5}
+.mbd-sm .f{display:flex;justify-content:space-between;gap:6px;margin-top:4px;padding-top:5px;border-top:1px solid #eef2f7;font:600 9px Inter,Arial;color:#64748b;white-space:nowrap}
+.mbd-sm .f b{color:#0f172a;font-weight:800}
 </style>
 <style id="fpd-v130-style">
 #fp-report-modal .fpp-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b1);background:linear-gradient(90deg,rgba(26,63,204,.07),transparent)}
@@ -42267,7 +42271,46 @@ document.addEventListener('keydown', function(e){
     return out(o);
   }
 
-  window.SKC = { donut:donut, hbullet:hbullet, line:line, stackedCols:stackedCols, groupedCols:groupedCols, hstack:hstack, spark:spark, gauge:gauge, empty:empty, fmt:fmt };
+
+  /* ── COLUMNAS POR PERIODO (tendencia por sitio con pocos datos) ── */
+  function periodBars(opt){
+    var w=opt.w||240, h=opt.h||120, v=opt.values||[], labels=opt.labels||[], ref=opt.ref||null, n=v.length;
+    var o=mk(w,h), x=o.x, pts=v.filter(function(a){return a!=null;});
+    if(!n || !pts.length){ f(x,700,10); x.fillStyle=MUTED; x.textAlign='center'; x.fillText('Sin historial', w/2, h/2); return out(o); }
+    var T=18, B=18, L=2, R=2, PW=w-L-R, PH=h-T-B;
+    var max=niceMax(Math.max.apply(null, pts.concat(ref?[ref]:[]))*1.14), Y=function(a){ return T+PH-a/max*PH; };
+    var slot=PW/n, bw=Math.max(6, Math.min(34, slot*0.62));
+    /* rejilla suave */
+    x.strokeStyle=GRID; x.lineWidth=1; [0.5,1].forEach(function(r){ var gy=T+PH-PH*r; x.beginPath(); x.moveTo(L,gy); x.lineTo(L+PW,gy); x.stroke(); });
+    /* zona sobre contrato */
+    if(ref){ var ry=Y(ref); x.fillStyle='rgba(220,38,38,.055)'; x.fillRect(L,T,PW,Math.max(0,ry-T)); }
+    var maxI=-1, mv=-1; v.forEach(function(a,i){ if(a!=null && a>mv){ mv=a; maxI=i; } });
+    var lastI=-1; v.forEach(function(a,i){ if(a!=null) lastI=i; });
+    var showAll = slot>=34;
+    v.forEach(function(a,i){
+      var cx=L+slot*i+slot/2;
+      if(a==null){
+        x.strokeStyle='#cbd5e1'; x.setLineDash([3,3]); x.lineWidth=1.2; rr(x,cx-bw/2,T+PH-14,bw,14,3); x.stroke(); x.setLineDash([]);
+        if(showAll){ f(x,700,8); x.fillStyle=MUTED; x.textAlign='center'; x.fillText('s/d', cx, T+PH-22); }
+        return;
+      }
+      var c = opt.colorFn ? opt.colorFn(a) : '#1e40af';
+      var hh=Math.max(2, a/max*PH);
+      var g=x.createLinearGradient(0,T+PH-hh,0,T+PH); g.addColorStop(0,c); g.addColorStop(1,c+'b3');
+      x.fillStyle=g; barV(x,cx-bw/2,T+PH-hh,bw,hh,4); x.fill();
+      if(i===lastI){ x.strokeStyle=INK; x.lineWidth=1.4; barV(x,cx-bw/2,T+PH-hh,bw,hh,4); x.stroke(); }
+      
+    });
+    if(ref){ var ry2=Y(ref); x.strokeStyle='#0f172a'; x.lineWidth=1.3; x.setLineDash([5,3]); x.beginPath(); x.moveTo(L,ry2); x.lineTo(L+PW,ry2); x.stroke(); x.setLineDash([]);
+}
+    v.forEach(function(a,i){ if(a==null) return; if(!(showAll || i===lastI || i===maxI)) return; var cx=L+slot*i+slot/2, hh=Math.max(2, a/max*PH); f(x,800, slot>=44?10:9); x.textAlign='center'; x.lineJoin='round'; x.lineWidth=3.5; x.strokeStyle='#fff'; x.strokeText(fmt(a,0), cx, T+PH-hh-7); x.fillStyle=INK; x.fillText(fmt(a,0), cx, T+PH-hh-7); });
+    x.strokeStyle='#cbd5e1'; x.lineWidth=1; x.beginPath(); x.moveTo(L,T+PH+.5); x.lineTo(L+PW,T+PH+.5); x.stroke();
+    var every = slot>=30 ? 1 : Math.ceil(30/slot);
+    f(x,700,8.5); x.textAlign='center';
+    labels.forEach(function(lb,i){ if(i%every!==0 && i!==n-1) return; x.fillStyle = i===lastI ? INK : MUTED; x.fillText(lb, L+slot*i+slot/2, h-6); });
+    return out(o);
+  }
+  window.SKC = { periodBars:periodBars, donut:donut, hbullet:hbullet, line:line, stackedCols:stackedCols, groupedCols:groupedCols, hstack:hstack, spark:spark, gauge:gauge, empty:empty, fmt:fmt };
 })();
 
 </script>
@@ -42461,20 +42504,27 @@ document.addEventListener('keydown', function(e){
     /* Página 3+: tendencia por sitio (small multiples) */
     var ts = trendSites.sort(function(a,b){ return a.site.localeCompare(b.site,'es'); });
     for(var j=0;j<ts.length;j+=12){
-      var chunk=ts.slice(j,j+12), rows=Math.ceil(chunk.length/4), spH=Math.max(84, Math.min(170, Math.floor(600/rows)-78));
+      var chunk=ts.slice(j,j+12), cols = chunk.length<=6 ? 3 : 4, rows=Math.ceil(chunk.length/cols);
+      var cardW = Math.floor((1067 - (cols-1)*10)/cols), chW = cardW-22, spH = Math.max(100, Math.min(250, Math.floor(636/rows)-96));
+      var tl = D.timeline.map(perShort);
       var grid = chunk.map(function(s){
         var vals = D.timeline.map(function(pk){ return s.vals[pk]!=null ? s.vals[pk] : null; });
-        var last=null; vals.forEach(function(v){ if(v!=null) last=v; });
-        var mx=Math.max.apply(null, vals.filter(function(v){return v!=null;}));
-        var pct = (s.dc>0 && last!=null) ? last/s.dc*100 : null;
+        var have = vals.map(function(v,i){ return {v:v,i:i}; }).filter(function(o){ return o.v!=null; });
+        var last = have.length ? have[have.length-1] : null, prev = have.length>1 ? have[have.length-2] : null;
+        var mx=Math.max.apply(null, have.map(function(o){return o.v;})), avg = have.reduce(function(a,o){return a+o.v;},0)/Math.max(1,have.length);
+        var pct = (s.dc>0 && last) ? last.v/s.dc*100 : null;
         var tone = pct==null?'other':(pct>100?'over':(pct>=90?'near':'ok'));
-        return '<div class="mbd-sm"><div class="h"><b>'+esc(s.site)+'</b><span style="background:'+ST[tone].c+'1f;color:'+ST[tone].c+'">'+(pct==null?'s/contrato':fmt(pct,0)+'%')+'</span></div>'
-          +'<div class="n">'+fmt(last)+' <small>kW último</small><em>máx '+fmt(mx)+' · contrato '+(s.dc?fmt(s.dc):'—')+'</em></div>'
-          + window.SKC.spark({w:232,h:spH,values:vals,ref:s.dc,color:'#1e40af',labels:D.timeline.map(perShort),pointColor:function(v){ return !s.dc?'#1e40af':(v>s.dc?'#dc2626':(v>=s.dc*.9?'#ea6c00':'#1e40af')); }})
+        var d = (last && prev && prev.v>0) ? (last.v-prev.v)/prev.v*100 : null;
+        var colorFn = function(v){ return !s.dc?'#1e40af':(v>s.dc?'#dc2626':(v>=s.dc*.9?'#ea6c00':'#1e40af')); };
+        return '<div class="mbd-sm"><div class="h"><b>'+esc(s.site)+'</b><span style="background:'+ST[tone].c+'1f;color:'+ST[tone].c+'">'+(pct==null?'sin contrato':fmt(pct,0)+'% del contrato')+'</span></div>'
+          +'<div class="n">'+(last?fmt(last.v):'—')+' <small>kW · '+(last?esc(tl[last.i]):'')+'</small>'
+            +(d==null?'':'<b class="dl '+(d>=0?'up':'dn')+'">'+(d>=0?'▲ +':'▼ ')+fmt(d,1)+'%</b>')+'</div>'
+          + window.SKC.periodBars({w:chW,h:spH,values:vals,labels:tl,ref:s.dc,colorFn:colorFn})
+          +'<div class="f"><span>Máx <b>'+fmt(mx)+'</b></span><span>Prom <b>'+fmt(avg)+'</b></span><span>Contrato <b>'+(s.dc?fmt(s.dc):'—')+'</b></span><span>'+have.length+'/'+vals.length+' quinc.</span></div>'
         +'</div>';
       }).join('');
-      pages.push(page(D, gm.ico+' '+g+' · Evolución por sitio', 'Demanda máxima por quincena (últimas '+D.timeline.length+') · línea punteada = contrato', g, gm.color,
-        '<div class="mbd-smgrid">'+grid+'</div><div class="mbd-legend"><span><i style="background:#1e40af"></i>Demanda máxima</span><span><i class="dash"></i>Demanda contratada</span><span><i style="background:#ea6c00"></i>≥ 90%</span><span><i style="background:#dc2626"></i>Excedido</span></div>'));
+      pages.push(page(D, gm.ico+' '+g+' · Evolución por sitio', 'Demanda máxima por quincena (últimas '+D.timeline.length+') · línea punteada = demanda contratada', g, gm.color,
+        '<div class="mbd-smgrid" style="grid-template-columns:repeat('+cols+',1fr)">'+grid+'</div><div class="mbd-legend"><span><i style="background:#1e40af"></i>Dentro de contrato</span><span><i style="background:#ea6c00"></i>≥ 90% del contrato</span><span><i style="background:#dc2626"></i>Excedido</span><span><i class="dash"></i>Demanda contratada</span><span><i style="background:#fff;border:1.5px dashed #cbd5e1"></i>Sin dato en la quincena</span><span><i style="background:#fff;border:1.5px solid #0f172a"></i>Última lectura</span></div>'));
     }
     return pages;
   }
