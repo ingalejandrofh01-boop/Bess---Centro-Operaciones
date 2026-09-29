@@ -5586,6 +5586,43 @@ if('serviceWorker' in navigator){
 .uc-empty{text-align:center;padding:36px 16px;color:var(--t3);font:600 12px Inter,Arial,sans-serif;background:var(--s1);border:1px dashed var(--b2);border-radius:14px;margin-top:10px}
 @media (max-width:900px){ .uc-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:3px} .uc-card .uc-meta,.uc-card .uc-chips{display:none} .uc-cov{display:none} .uc-day{min-height:70px;padding:3px} .uc-nav{grid-template-columns:1fr} .uc-nav-r,.uc-nav-l{justify-content:center} .uc-list-day{grid-template-columns:1fr} .uc-legend-note{display:none} }
 </style>
+<style id="ml-v126-style">
+#page-maestra .ml-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.ml-kpi{display:flex;gap:10px;align-items:center;background:var(--s1);border:1px solid var(--b1);border-left:4px solid var(--c);border-radius:12px;padding:10px 13px;box-shadow:0 2px 8px rgba(15,23,42,.05)}
+.ml-kpi-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;background:color-mix(in srgb,var(--c) 13%,transparent);flex:none}
+.ml-kpi-l{font:800 8.5px var(--mono),monospace;letter-spacing:1px;text-transform:uppercase;color:var(--t3)}
+.ml-kpi-v{font:900 19px Inter,Arial,sans-serif;color:var(--c);line-height:1.15}
+.ml-kpi-s{font:600 9.5px Inter,Arial,sans-serif;color:var(--t3)}
+#page-maestra .ml-table{width:100%;border-collapse:separate;border-spacing:0;min-width:1180px}
+#page-maestra .ml-table thead th{position:sticky;top:0;z-index:5;background:#eef3fb!important;color:#334155!important;font:800 9px var(--mono),monospace!important;letter-spacing:.8px!important;text-transform:uppercase;padding:9px 8px!important;border-bottom:2px solid #c7d6f5!important;white-space:nowrap;box-shadow:none!important}
+#page-maestra .ml-table thead th:first-child,#page-maestra .ml-table thead th:nth-child(2){left:auto!important;position:sticky}
+#page-maestra .ml-grp td{padding:7px 12px;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 16%,#fff),#fff);border-top:1px solid color-mix(in srgb,var(--c) 30%,transparent);border-bottom:1px solid color-mix(in srgb,var(--c) 25%,transparent)}
+.ml-grp-t{font:900 11.5px Inter,Arial,sans-serif;color:var(--c);letter-spacing:.6px}
+.ml-grp-s{margin-left:12px;font:700 10px var(--mono),monospace;color:#64748b}
+#page-maestra .ml-row td{padding:6px 8px;border-bottom:1px solid #eef2f7;font:600 11.5px Inter,Arial,sans-serif;color:var(--text);white-space:nowrap;height:34px}
+#page-maestra .ml-row:nth-child(even) td{background:rgba(241,245,249,.55)}
+#page-maestra .ml-row:hover td{background:rgba(74,120,245,.08)}
+#page-maestra .ml-row.ml-miss td:first-child{box-shadow:inset 3px 0 0 #f59e0b}
+.ml-sku{font:800 10px var(--mono),monospace!important;color:#94a3b8!important;width:44px}
+.ml-site b{font-weight:800;color:var(--text)}
+.ml-bid{margin-left:6px;font:800 8.5px var(--mono),monospace;color:#64748b;background:#f1f5f9;border-radius:5px;padding:1px 5px}
+.ml-pill{font:800 9.5px Inter,Arial,sans-serif;color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent);border:1px solid color-mix(in srgb,var(--c) 30%,transparent);border-radius:8px;padding:1px 8px}
+.ml-tag{font:700 10px Inter,Arial,sans-serif;color:#334155;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:1px 7px}
+.ml-muted{color:#64748b!important;font-weight:500!important;font-size:11px!important}
+.ml-num{text-align:right;font-family:var(--mono),monospace!important;font-size:11px!important}
+.ml-strong{font-weight:900!important;color:#0f172a!important}
+.ml-na{color:#cbd5e1}
+.ml-energy{min-width:130px}
+.ml-ebar{display:inline-block;width:60px;height:6px;border-radius:4px;background:#e2e8f0;margin-right:7px;vertical-align:middle;overflow:hidden}
+.ml-ebar i{display:block;height:100%;background:linear-gradient(90deg,#10b981,#059669)}
+.ml-energy b{color:#047857}
+.ml-act{text-align:center;width:74px}
+#ml-filter-cliente{width:auto!important;flex:none!important;min-width:180px}
+#ml-search{flex:1 1 320px!important}
+.ml-act button{min-height:0!important;width:28px;height:26px;border-radius:7px;border:1px solid #dbe3ee;background:#fff;cursor:pointer;font-size:11px;margin:0 2px;opacity:.75}
+.ml-act button:hover{opacity:1;border-color:#4a78f5}
+.ml-act button.del:hover{border-color:#ef4444;background:#fef2f2}
+</style>
 </head>
 <body>
 <!-- ── Pantalla de Mantenimiento ── -->
@@ -8749,7 +8786,7 @@ async function expDoZip(mode){
 
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--text)">📋 Lista Maestra de Sitios</div>
+        <div style="font:900 24px Inter,'Segoe UI',Arial,sans-serif;color:var(--text);letter-spacing:-.5px">📋 <span style="background:linear-gradient(90deg,#1a3fcc,#4a78f5);-webkit-background-clip:text;background-clip:text;color:transparent">Lista Maestra de Sitios</span></div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:2px">Fuente única de verdad — alimenta Bitácora, Reporte Operativo, Validación, SOC e Histórico</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -8767,13 +8804,16 @@ async function expDoZip(mode){
         <option value="">Todos los clientes</option>
         <option value="ASUR">ASUR</option>
         <option value="OMA">OMA</option>
+        <option value="Park Royal">Park Royal</option>
         <option value="Industria">Industria</option>
       </select>
       <span id="ml-count" style="font-family:var(--mono);font-size:10px;color:var(--t3);white-space:nowrap">0 sitios</span>
     </div>
 
-    <div style="border:1px solid var(--b1);border-radius:12px;overflow:auto;max-height:calc(100vh - 260px);background:var(--s1)">
-      <table style="width:100%;border-collapse:collapse;min-width:1100px">
+    <div id="ml-kpis" class="ml-kpis"></div>
+
+    <div style="border:1px solid var(--b1);border-radius:14px;overflow:auto;max-height:calc(100vh - 330px);background:var(--s1);box-shadow:0 2px 12px rgba(15,23,42,.06)">
+      <table class="ml-table">
         <thead>
           <tr style="position:sticky;top:0;z-index:3">
             <th id="ml-th-sku" onclick="window._mlSort('sku')" style="position:sticky;top:0;left:0;background:var(--s2);z-index:6;padding:8px 12px;text-align:left;cursor:pointer;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25);box-shadow:0 2px 8px rgba(0,0,0,.18)">SKU<span id="ml-arr-sku"> ⇅</span></th>
@@ -13020,6 +13060,8 @@ window.MASTER_SITES_DB = [
   {sku:79, sitio:'TUGAL B1',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:null,  energiaBESS:null},
   {sku:80, sitio:'TUGAL B2',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:null,  energiaBESS:null},
   {sku:81, sitio:'Atotonilco',             cliente:'Industria', ciudad:'Hidalgo',         marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:300,   powWinter:null,  energiaBESS:null},
+  {sku:82, sitio:'Park Royal Acapulco',    cliente:'Industria', ciudad:'Acapulco',        marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
+  {sku:83, sitio:'Clarimex',               cliente:'Industria', ciudad:'',                marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:735,   powWinter:350,   energiaBESS:1720},
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -27562,110 +27604,93 @@ window._mlLoad = function() {
 
 /* ══ RENDER ══ */
 window._mlRender = function() {
+  /* v126 — LISTA MAESTRA REMASTERIZADA: filas compactas agrupadas por región
+     (ASUR · OMA · Park Royal · Industria), KPIs arriba, acciones en íconos. */
   var tbody=document.getElementById('ml-tbody'),count=document.getElementById('ml-count');
   if(!tbody) return;
-  var q=(document.getElementById('ml-search')||{}).value||'';
+  var q=((document.getElementById('ml-search')||{}).value||'').toLowerCase();
   var fc=(document.getElementById('ml-filter-cliente')||{}).value||'';
+  var regOf=function(s){ try{ return window._oppRegionFor ? window._oppRegionFor(s.sitio) : (s.cliente||'Industria'); }catch(e){ return s.cliente||'Industria'; } };
   var filtered=_mlList.filter(function(s){
-    var mq=!q||[s.sitio,s.cliente,s.ciudad,s.marca].join(' ').toLowerCase().includes(q.toLowerCase());
-    var mc=!fc||s.cliente===fc;
+    var mq=!q||[s.sitio,s.cliente,s.ciudad,s.marca,s.plat].join(' ').toLowerCase().indexOf(q)>=0;
+    var mc=!fc||regOf(s)===fc||s.cliente===fc&&fc!=='Industria';
+    if(fc==='Industria') mc = regOf(s)==='Industria';
     return mq&&mc;
   });
-  if(count) count.textContent=_mlList.length+' sitios';
-
-  /* ── Ordenar ── */
-  var sk = _mlSortKey, sd = _mlSortDir;
-  var NUM_KEYS = ['sku','numRacks','powCarga','horasCarga','kwhTotal','powSummer','powWinter','energiaBESS'];
-  filtered = filtered.slice().sort(function(a,b) {
-    var av = a[sk], bv = b[sk];
-    if (av == null) av = NUM_KEYS.indexOf(sk) >= 0 ? -Infinity : '';
-    if (bv == null) bv = NUM_KEYS.indexOf(sk) >= 0 ? -Infinity : '';
-    if (typeof av === 'string') return sd * av.localeCompare(bv, 'es', {sensitivity:'base'});
-    return sd * (av - bv);
+  if(count) count.textContent=filtered.length+' de '+_mlList.length+' sitios';
+  var sk=_mlSortKey, sd=_mlSortDir;
+  var NUM_KEYS=['sku','numRacks','powCarga','horasCarga','kwhTotal','powSummer','powWinter','energiaBESS'];
+  filtered=filtered.slice().sort(function(a,b){
+    var av=a[sk], bv=b[sk];
+    if(av==null) av=NUM_KEYS.indexOf(sk)>=0?-Infinity:''; if(bv==null) bv=NUM_KEYS.indexOf(sk)>=0?-Infinity:'';
+    if(typeof av==='string') return sd*String(av).localeCompare(String(bv),'es',{sensitivity:'base'});
+    return sd*(av-bv);
   });
   _mlUpdateArrows();
-
-
-  var MAX_RACKS = 60; // LG es el máximo
-
-  /* Heatmap: devuelve color según valor relativo al máximo de la columna */
-  function heatColor(val, max, alpha) {
-    if (val == null || max === 0) return 'transparent';
-    var ratio = Math.min(val / max, 1);
-    // frío (azul) → tibio (cian) → caliente (verde lima)
-    var r = Math.round(20  + ratio * 30);
-    var g = Math.round(100 + ratio * 130);
-    var b = Math.round(180 - ratio * 80);
-    return 'rgba('+r+','+g+','+b+','+(alpha||0.18)+')';
+  var REG=[{k:'ASUR',ico:'✈️',c:'#2563eb'},{k:'OMA',ico:'🛫',c:'#059669'},{k:'Park Royal',ico:'🏨',c:'#7c3aed'},{k:'Industria',ico:'🏭',c:'#d97706'}];
+  var fmt=function(v,dec){ if(v==null||v==='') return '<span class="ml-na">—</span>'; var n=Number(v); if(!isFinite(n)) return String(v); return n.toLocaleString('es-MX',{maximumFractionDigits:dec==null?2:dec}); };
+  var maxE=Math.max.apply(null,_mlList.map(function(x){return x.energiaBESS||0;}))||1;
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+  /* KPIs */
+  var k=document.getElementById('ml-kpis');
+  if(k){
+    var sum=function(f){ return filtered.reduce(function(a,s){ return a+(Number(s[f])||0); },0); };
+    var inc=filtered.filter(function(s){ return s.numRacks==null||s.powSummer==null||s.energiaBESS==null; }).length;
+    var card=function(ico,l,v,sub,c){ return '<div class="ml-kpi" style="--c:'+c+'"><span class="ml-kpi-ico">'+ico+'</span><div><div class="ml-kpi-l">'+l+'</div><div class="ml-kpi-v">'+v+'</div><div class="ml-kpi-s">'+sub+'</div></div></div>'; };
+    k.innerHTML = card('📍','Sitios',filtered.length, REG.map(function(r){ return r.ico+' '+filtered.filter(function(s){return regOf(s)===r.k;}).length; }).join(' · '),'#1a3fcc')
+      + card('🗄','Racks instalados',fmt(sum('numRacks'),0),'baterías en todos los sitios','#0891b2')
+      + card('🔋','Capacidad BESS',fmt(sum('energiaBESS')/1000,1)+' MWh','energía total instalada','#059669')
+      + card('☀️','Potencia verano',fmt(sum('powSummer')/1000,2)+' MW','invierno: '+fmt(sum('powWinter')/1000,2)+' MW','#d97706')
+      + card('⚠️','Datos incompletos',inc, inc?'sitios sin racks / potencia / energía':'catálogo completo', inc?'#dc2626':'#059669');
   }
-
-  /* Calcular máximos de columnas numéricas para el heatmap */
-  var maxEnergy  = Math.max.apply(null, _mlList.map(function(x){ return x.energiaBESS||0; }));
-  var maxSummer  = Math.max.apply(null, _mlList.map(function(x){ return x.powSummer||0; }));
-  var maxWinter  = Math.max.apply(null, _mlList.map(function(x){ return x.powWinter||0; }));
-
-  /* Colores de cliente */
-  var CL_STRIPE = {
-    ASUR:      {even:'rgba(74,120,245,.055)', odd:'rgba(74,120,245,.02)'},
-    OMA:       {even:'rgba(0,210,150,.05)',   odd:'rgba(0,210,150,.015)'},
-    Industria: {even:'rgba(245,158,11,.055)', odd:'rgba(245,158,11,.02)'},
-  };
-
-  tbody.innerHTML = filtered.map(function(s, i) {
-    var clC   = CL_COLORS[s.cliente] || {bg:'rgba(255,255,255,.05)', color:'var(--t2)'};
-    var stripe = CL_STRIPE[s.cliente] || {even:'rgba(255,255,255,.03)', odd:'transparent'};
-    var rowBg  = (i % 2 === 0) ? stripe.even : stripe.odd;
-
-    /* SKU badge */
-    var skuBadge = '<span style="display:inline-block;padding:2px 7px;border-radius:5px;'
-      + 'background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);'
-      + 'font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t2);'
-      + 'letter-spacing:.5px">#' + String(s.sku).padStart(2,'0') + '</span>';
-
-    /* Rack — solo número */
-    var rackColor = s.numRacks >= 20 ? '#f59e0b' : s.numRacks >= 8 ? '#00d296' : '#7aa3ff';
-    var rackBar  = '<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:'+rackColor+'">'+s.numRacks+'</span>';
-
-    /* Heatmap cell helper — sin fondo, solo texto con color */
-    function hCell(val, max, textColor, bold) {
-      var txt = val != null ? val : '—';
-      return '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;'
-        + 'font-weight:'+(bold?'700':'400')+';color:'+textColor+'">'
-        + txt + '</td>';
-    }
-
-    /* Freeze styles for SKU + Sitio columns */
-    var tdFreeze0 = 'position:sticky;left:0;background:'+rowBg+';z-index:2;';
-    var tdFreeze1 = 'position:sticky;left:50px;background:'+rowBg+';z-index:2;box-shadow:2px 0 6px rgba(0,0,0,.15);';
-
-    return '<tr style="border-bottom:1px solid rgba(255,255,255,.04);background:'+rowBg+'"'
-      + ' onmouseover="this.style.background=\'rgba(74,120,245,.1)\';Array.from(this.querySelectorAll(\'td[style*=sticky]\')).forEach(function(el){el.style.background=\'rgba(74,120,245,.1)\';})"'
-      + ' onmouseout="this.style.background=\''+rowBg+'\';Array.from(this.querySelectorAll(\'td[style*=sticky]\')).forEach(function(el){el.style.background=\''+rowBg+'\';})">'
-      /* SKU — frozen col 0 */
-      + '<td style="'+tdFreeze0+'padding:8px 12px">'+skuBadge+'</td>'
-      /* Sitio — frozen col 1 */
-      + '<td style="'+tdFreeze1+'padding:8px 12px;font-weight:700;color:var(--text);font-size:12px;white-space:nowrap">'+s.sitio+'</td>'
-      /* Normal cols */
-      + '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:9px;font-weight:700;background:'+clC.bg+';color:'+clC.color+'">'+s.cliente+'</span></td>'
-      + '<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t2)">'+s.ciudad+'</td>'
-      + '<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t2)">'+s.marca+'</td>'
-      + '<td style="padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--t3)">'+s.plat+'</td>'
-      /* Racks con barra */
-      + '<td style="padding:8px 12px;text-align:center">'+rackBar+'</td>'
-      + '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#60a5fa">'+(s.powCarga!=null?s.powCarga:'—')+'</td>'
-      + '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:10px;color:#a78bfa">'+(s.horasCarga!=null?s.horasCarga:'—')+'</td>'
-      + '<td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;color:#f59e0b">'+(s.kwhTotal!=null?s.kwhTotal:'—')+'</td>'
-      /* Heatmap cols */
-      + hCell(s.powSummer, maxSummer, '#00c896', false)
-      + hCell(s.powWinter, maxWinter, '#60a5fa', false)
-      + hCell(s.energiaBESS, maxEnergy, '#00d296', true)
-      + '<td style="padding:8px 12px;text-align:center">'
-        + '<button onclick="window._mlEdit('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(74,120,245,.3);background:rgba(74,120,245,.08);color:#7aa3ff;font-family:var(--mono);font-size:9px;cursor:pointer;margin-right:4px">✏️</button>'
-        + '<button onclick="window._mlDelete('+i+')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#f87171;font-family:var(--mono);font-size:9px;cursor:pointer">✕</button>'
-      + '</td>'
-    + '</tr>';
-  }).join('');
-
+  var html='';
+  REG.forEach(function(r){
+    var rows=filtered.filter(function(s){ return regOf(s)===r.k; });
+    if(!rows.length) return;
+    var racks=rows.reduce(function(a,s){return a+(Number(s.numRacks)||0);},0), en=rows.reduce(function(a,s){return a+(Number(s.energiaBESS)||0);},0);
+    html+='<tr class="ml-grp"><td colspan="14" style="--c:'+r.c+'"><span class="ml-grp-t">'+r.ico+' '+r.k.toUpperCase()+'</span><span class="ml-grp-s">'+rows.length+' sitio'+(rows.length===1?'':'s')+' · '+racks+' racks · '+fmt(en/1000,1)+' MWh</span></td></tr>';
+    html+=rows.map(function(s){
+      var idx=_mlList.indexOf(s);
+      var miss=s.numRacks==null||s.powSummer==null||s.energiaBESS==null;
+      var ePct=s.energiaBESS?Math.max(4,Math.round(Math.sqrt(s.energiaBESS/maxE)*100)):0;
+      return '<tr class="ml-row'+(miss?' ml-miss':'')+'" ondblclick="window._mlEditReal('+idx+')">'
+        +'<td class="ml-sku">#'+String(s.sku==null?'—':s.sku).padStart(2,'0')+'</td>'
+        +'<td class="ml-site"><b>'+esc(s.sitio)+'</b>'+(s.bessId>1?'<span class="ml-bid">BESS '+s.bessId+'</span>':'')+'</td>'
+        +'<td><span class="ml-pill" style="--c:'+r.c+'">'+esc(s.cliente||'')+'</span></td>'
+        +'<td class="ml-muted">'+esc(s.ciudad||'—')+'</td>'
+        +'<td><span class="ml-tag">'+esc(s.marca||'—')+'</span></td>'
+        +'<td class="ml-muted">'+esc(s.plat||'—')+'</td>'
+        +'<td class="ml-num ml-strong">'+fmt(s.numRacks,0)+'</td>'
+        +'<td class="ml-num">'+fmt(s.powCarga)+'</td>'
+        +'<td class="ml-num">'+fmt(s.horasCarga)+'</td>'
+        +'<td class="ml-num">'+fmt(s.kwhTotal)+'</td>'
+        +'<td class="ml-num" style="color:#b45309">'+fmt(s.powSummer)+'</td>'
+        +'<td class="ml-num" style="color:#2563eb">'+fmt(s.powWinter)+'</td>'
+        +'<td class="ml-num ml-energy"><div class="ml-ebar"><i style="width:'+ePct+'%"></i></div><b>'+fmt(s.energiaBESS,0)+'</b></td>'
+        +'<td class="ml-act"><button title="Editar" onclick="window._mlEditReal('+idx+')">✏️</button><button title="Eliminar" class="del" onclick="window._mlDeleteReal('+idx+')">🗑</button></td>'
+      +'</tr>';
+    }).join('');
+  });
+  tbody.innerHTML = html || '<tr><td colspan="14" style="text-align:center;padding:30px;color:var(--t3);font-family:var(--mono);font-size:11px">Sin sitios que coincidan con la búsqueda</td></tr>';
+};
+window._mlEditReal = function(idx){
+  var site=_mlList[idx]; if(!site) return;
+  _mlEditIdx=idx;
+  document.getElementById('ml-modal-title').textContent='✏️ Editar: '+site.sitio;
+  _mlBuildForm(site);
+  document.getElementById('ml-edit-modal').style.display='flex';
+};
+window._mlDeleteReal = function(idx){
+  var site=_mlList[idx];
+  if(!site||!confirm('¿Eliminar "'+site.sitio+'" de la lista maestra?')) return;
+  _mlList.splice(idx,1);
+  if(window.MASTER_SITES_DB){ var di=window.MASTER_SITES_DB.findIndex(function(x){ return x.sitio===site.sitio; }); if(di>=0) window.MASTER_SITES_DB.splice(di,1); }
+  window._masterSitesCloud=_mlList;
+  if(typeof window._rebuildOpSites==='function') window._rebuildOpSites();
+  if(typeof window._rebuildRvSites==='function') window._rebuildRvSites();
+  if(typeof buildSiteSelector==='function') buildSiteSelector();
+  _mlRender(); _mlPersist();
+  if(typeof showToast==='function') showToast('🗑 Sitio eliminado');
 };
 
 /* ══ EDITAR ══ */
@@ -31704,6 +31729,8 @@ var MB_CONFIG_SEED = {
   'Park Royal Cozumel': { dc:990, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
   'Vidanta': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
   'Park Royal CBE': { dc:1400, mult:700, codBase:'', codIntermedio:'', codPunta:'' },
+  'Park Royal Acapulco': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Clarimex': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
   'Plastiexports 1': { dc:2663, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
   'Plastiexports 3': { dc:3201, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
   'Fisfiber': { dc:727, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
@@ -33341,7 +33368,7 @@ var MB_GROUP_META = {
 var MB_GROUP_DEFAULT = {
   'ASUR': ['almacen general','alpha','bhs','comedor','fbo','ptar','sala bravo','t1','t2','t3','t4','hidro','hux 01','hux 02','minatitlan','veracruz','merida'],
   'OMA': ['acapulco','cd juarez','chihuahua 2g','chihuahua','culiacan','durango','monterrey','torreon','zacatecas','zihuatanejo','reynosa'],
-  'Park Royal': ['park royal luna','park royal sol','park royal cozumel','park royal cbe','vallarta','park royal vallarta']
+  'Park Royal': ['park royal luna','park royal sol','park royal cozumel','park royal cbe','vallarta','park royal vallarta','park royal acapulco']
 };
 var MB_LEG_CODES = [
   { k:'c11', cod:'11', lbl:'Base',       unit:'kWh',   color:'#059669' },
@@ -36566,7 +36593,7 @@ window.OPPRO_REGION_ORDER = OPPRO_REGION_ORDER;
 window.OPPRO_REGION_COLOR = OPPRO_REGION_COLOR;
 window.OPPRO_REGION_GRAD  = OPPRO_REGION_GRAD;
 window.OPPRO_REGION_ICON  = OPPRO_REGION_ICON;
-var OPPRO_PARK_ROYAL_HINTS = ['luna','sol','cozumel','cbe','vallarta'];
+var OPPRO_PARK_ROYAL_HINTS = ['park royal','luna','sol','cozumel','cbe','vallarta'];
 var OPPRO_MAX_ROWS_PER_REGION = 999; /* sin truncar — se muestran todos los sitios de cada región */
 
 var OPPRO_STATUS_ORDER = ['PÉRDIDA TOTAL','NO OPERATIVO','DESCONECTADO','INCOMPLETO','MANTENIMIENTO','OK'];
