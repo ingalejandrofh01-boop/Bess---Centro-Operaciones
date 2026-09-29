@@ -2,7 +2,7 @@
 //  BESS Ops — Service Worker v2 (sin auto-reload)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPLOY_TS  = '1790990000_bess_v121_validacion_sin_scroll_sticky';
+const DEPLOY_TS  = '1791000000_bess_v122_medidores_grupos_legado';
 const CACHE_NAME = 'bess-ops-' + DEPLOY_TS;
 const SHELL_FILE = './index.html';
 
