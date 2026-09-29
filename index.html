@@ -5691,6 +5691,13 @@ if('serviceWorker' in navigator){
 @keyframes mbnavFlash{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 3px rgba(74,120,245,.45)}}
 body.dark #page-medidor .mbnav,[data-theme="dark"] #page-medidor .mbnav{background:rgba(15,23,42,.8)}
 body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav button{background:rgba(30,41,59,.9);color:#e2e8f0}
+#page-medidor .mbnav-per{display:inline-flex;align-items:center;gap:3px;padding:3px;border-radius:12px;background:linear-gradient(135deg,rgba(26,63,204,.10),rgba(26,63,204,.04));border:1px solid rgba(26,63,204,.25)}
+#page-medidor .mbnav-per.past{background:linear-gradient(135deg,rgba(234,88,12,.14),rgba(234,88,12,.05));border-color:rgba(234,88,12,.4)}
+#page-medidor .mbnav-per button{padding:5px 9px;border-radius:9px}
+#page-medidor .mbnav-per input,#page-medidor .mbnav-per select{min-height:0!important;padding:5px 8px;border-radius:9px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:800 11px Inter,Arial,sans-serif;outline:none;cursor:pointer}
+#page-medidor .mbnav-per .mbnav-now{background:#ea580c;color:#fff;border-color:#ea580c}
+#page-medidor .mbnav-hist-tag{font:800 10.5px Inter,Arial,sans-serif;color:#c2410c;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:5px 9px}
+
 </style>
 </head>
 <body>
@@ -33260,6 +33267,7 @@ window._mbDeleteLectura = function(id){
 };
 
 /* ══ NAVEGACIÓN POR MES ══ */
+try{ window._mbRenderAlertBanner = _mbRenderAlertBanner; window._mbRenderMesFilter = _mbRenderMesFilter; window._mbRenderStats = _mbRenderStats; window._mbMesLabelX = _mbMesLabel; }catch(e){}
 window._mbOnMesChange = function(){ _mbRenderSummaryGrid(); _mbRenderHist(); };
 window._mbShiftMes = function(dir){
   var sel=document.getElementById('mb-filter-mes'); if(!sel) return;
@@ -41785,10 +41793,48 @@ document.addEventListener('keydown', function(e){
     var target = el.tagName==='TR' ? el.querySelector('div') : el;
     if(target){ target.classList.remove('mbnav-flash'); void target.offsetWidth; target.classList.add('mbnav-flash'); }
   };
+  function _nowMes(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+  function _lbl(m){ try{ return window._mbMesLabelX ? window._mbMesLabelX(m) : m; }catch(e){ return m; } }
+  window._mbNavSetPeriod = function(mes, q){
+    var qm=document.getElementById('mb-qc-mes'), qq=document.getElementById('mb-qc-q');
+    if(mes==='now'){ mes=_nowMes(); var d=new Date().getDate(); q = d<=15 ? '1' : '2'; }
+    if(mes && qm){ if(!/^\d{4}-\d{2}$/.test(mes)) return; qm.value=mes; }
+    if(q && qq) qq.value=q;
+    var m = qm ? qm.value : mes;
+    var fs=document.getElementById('mb-filter-mes');
+    if(fs && m){
+      if(![].some.call(fs.options,function(o){return o.value===m;})){ var o=document.createElement('option'); o.value=m; o.textContent=_lbl(m); fs.appendChild(o); }
+      fs.value=m;
+    }
+    try{ window._mbRenderQuickCapture(); }catch(e){ console.warn(e); }
+    try{ window._mbRenderAlertBanner && window._mbRenderAlertBanner(); }catch(e){}
+    try{ window._mbOnMesChange && window._mbOnMesChange(); }catch(e){}
+    try{ window._mbNavRender(); }catch(e){}
+  };
+  window._mbNavShift = function(dir){
+    var qm=document.getElementById('mb-qc-mes'), qq=document.getElementById('mb-qc-q');
+    var mes=(qm&&qm.value)||_nowMes(), q=(qq&&qq.value)||'1';
+    /* recorre por quincena: 2ª → 1ª del mismo mes, 1ª → 2ª del mes anterior */
+    var y=+mes.slice(0,4), mo=+mes.slice(5,7);
+    if(dir<0){ if(q==='2') q='1'; else { q='2'; mo--; if(mo<1){ mo=12; y--; } } }
+    else { if(q==='1') q='2'; else { q='1'; mo++; if(mo>12){ mo=1; y++; } } }
+    window._mbNavSetPeriod(y+'-'+String(mo).padStart(2,'0'), q);
+  };
   window._mbNavTop = function(){ var sc=scroller(); if(sc) sc.scrollTo({top:0,behavior:'smooth'}); };
   window._mbNavRender = function(){
     var bar=document.getElementById('mbnav'); if(!bar) return;
-    var html='<span class="mbnav-lbl">Ir a</span>';
+    var qm=document.getElementById('mb-qc-mes'), qq=document.getElementById('mb-qc-q');
+    var mes=(qm&&qm.value)||new Date().toISOString().slice(0,7), qv=(qq&&qq.value)||'1';
+    var now=_nowMes(), past = mes<now, fut = mes>now;
+    var html='<div class="mbnav-per'+(past?' past':'')+'" title="Periodo que se muestra en toda la página (captura, legado, resumen e historial)">'
+      +'<button onclick="_mbNavShift(-1)" title="Mes anterior">◀</button>'
+      +'<input type="month" value="'+mes+'" onchange="_mbNavSetPeriod(this.value,null)">'
+      +'<button onclick="_mbNavShift(1)" title="Mes siguiente">▶</button>'
+      +'<select onchange="_mbNavSetPeriod(null,this.value)"><option value="1"'+(qv==='1'?' selected':'')+'>1ª quincena</option><option value="2"'+(qv==='2'?' selected':'')+'>2ª quincena</option></select>'
+      +(past||fut?'<button class="mbnav-now" onclick="_mbNavSetPeriod(\'now\',null)" title="Regresar al mes actual">↺ Mes actual</button>':'')
+      +'</div>'
+      +(past?'<span class="mbnav-hist-tag">📂 Viendo '+_lbl(mes)+' · datos guardados</span>':'')
+      +'<span class="mbnav-sep"></span><span class="mbnav-lbl">Ir a</span>';
     ITEMS.forEach(function(it){
       if(it.sep){ html+='<span class="mbnav-sep"></span>'; return; }
       var el=document.getElementById(it.id);
