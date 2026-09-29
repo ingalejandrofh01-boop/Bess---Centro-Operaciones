@@ -5834,6 +5834,16 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
 .fpd-g{display:flex;flex-direction:column;align-items:center}
 .fpd-g b{font:900 12px Inter,Arial;color:#0a1f5e}
 </style>
+<style id="modal-portal-v131-style">
+#mb-report-modal{z-index:10050!important}
+#fp-report-modal{z-index:10050!important}
+#mb-report-toolbar{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;gap:10px!important;padding:14px 20px!important;background:linear-gradient(90deg,rgba(26,63,204,.07),transparent)}
+#mb-report-toolbar>div{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;gap:8px!important;width:auto!important}
+#mb-report-toolbar select{width:auto!important;min-width:0!important;min-height:0!important;flex:0 0 auto!important;padding:8px 30px 8px 12px!important;border-radius:10px!important;border:1.5px solid var(--b2)!important;font:800 12px Inter,'Segoe UI',Arial,sans-serif!important}
+#mb-report-toolbar button{min-height:0!important;width:auto!important;flex:0 0 auto!important;border-radius:10px!important;padding:9px 14px!important}
+#mb-report-toolbar .mbd-toggle{width:auto!important;flex:0 0 auto!important;margin:0!important}
+#mb-report-toolbar>div:first-child>div:first-child{font:900 16px Inter,'Segoe UI',Arial,sans-serif!important;white-space:nowrap}
+</style>
 </head>
 <body>
 <!-- ── Pantalla de Mantenimiento ── -->
@@ -42731,6 +42741,19 @@ document.addEventListener('keydown', function(e){
   setTimeout(hookRender, 2100);
 })();
 
+</script>
+<script>
+/* v131 — Los modales de reporte se "mueven" al <body>: así quedan por encima del menú lateral
+   y centrados en toda la pantalla (antes vivían dentro de la página y el menú los tapaba). */
+(function(){
+  function portal(){
+    ['mb-report-modal','fp-report-modal'].forEach(function(id){
+      var m=document.getElementById(id); if(m && m.parentElement!==document.body) document.body.appendChild(m);
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', portal); else portal();
+  setTimeout(portal, 1500);
+})();
 </script>
 </body>
 </html>
