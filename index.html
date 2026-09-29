@@ -5675,6 +5675,23 @@ if('serviceWorker' in navigator){
 @media(max-width:800px){.ckr{grid-template-columns:1fr}.ckr-cmt,.ckr-acts{grid-column:auto}}
 </style>
 
+<style id="mbnav-v128-style">
+#page-medidor .mbnav{position:sticky;top:-18px;z-index:30;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;margin:-4px 0 -6px;border-radius:14px;background:rgba(255,255,255,.78);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);border:1px solid rgba(26,63,204,.16);box-shadow:0 8px 24px rgba(10,31,94,.10)}
+#page-medidor .mbnav-lbl{font:800 9px var(--mono),monospace;letter-spacing:1.6px;text-transform:uppercase;color:var(--t3);margin-right:4px}
+#page-medidor .mbnav-sep{width:1px;height:22px;background:rgba(26,63,204,.15);margin:0 3px}
+#page-medidor .mbnav button{min-height:0!important;display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:10px;border:1px solid rgba(26,63,204,.18);background:#fff;color:#1e293b;font:800 11px Inter,'Segoe UI',Arial,sans-serif;cursor:pointer;white-space:nowrap;transition:all .15s}
+#page-medidor .mbnav button:hover{border-color:#4a78f5;color:#1a3fcc;transform:translateY(-1px)}
+#page-medidor .mbnav button i{font-style:normal;font:800 9.5px var(--mono),monospace;padding:1px 6px;border-radius:8px;background:rgba(26,63,204,.08);color:#1a3fcc}
+#page-medidor .mbnav button.on{background:linear-gradient(135deg,#1a3fcc,#1255d4);color:#fff;border-color:#1a3fcc;box-shadow:0 4px 12px rgba(26,63,204,.3)}
+#page-medidor .mbnav button.on i{background:rgba(255,255,255,.22);color:#fff}
+#page-medidor .mbnav .mbnav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+#page-medidor .mbnav-top{margin-left:auto}
+#page-medidor .mbnav-sec{scroll-margin-top:calc(var(--mbnav-h,58px) + 10px)}
+#page-medidor .mbnav-flash{animation:mbnavFlash 1.2s ease}
+@keyframes mbnavFlash{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 3px rgba(74,120,245,.45)}}
+body.dark #page-medidor .mbnav,[data-theme="dark"] #page-medidor .mbnav{background:rgba(15,23,42,.8)}
+body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav button{background:rgba(30,41,59,.9);color:#e2e8f0}
+</style>
 </head>
 <body>
 <!-- ── Pantalla de Mantenimiento ── -->
@@ -8927,6 +8944,9 @@ async function expDoZip(mode){
     </div>
     <div id="mb-sync-indicator" style="flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:-10px">Sincronizando…</div>
 
+    <!-- v128: submenú flotante de navegación -->
+    <div id="mbnav" class="mbnav"></div>
+
     <!-- Banner de alertas activas -->
     <div id="mb-alert-banner" style="flex-shrink:0;display:none"></div>
 
@@ -8934,7 +8954,7 @@ async function expDoZip(mode){
     <div id="mb-stats" style="flex-shrink:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px"></div>
 
     <!-- Captura rápida -->
-    <div style="flex-shrink:0;position:relative;z-index:1;border:1px solid var(--b1);border-radius:12px;background:var(--s1);overflow:hidden;margin-top:2px">
+    <div id="mbnav-qc" class="mbnav-sec" style="flex-shrink:0;position:relative;z-index:1;border:1px solid var(--b1);border-radius:12px;background:var(--s1);overflow:clip;margin-top:2px">
       <div style="position:relative;z-index:1;padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--s1)">
         <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;white-space:nowrap"><span style="width:4px;height:16px;background:#1255d4;border-radius:2px;display:inline-block;flex-shrink:0"></span>⚡ Captura rápida — escribe y se guarda solo</div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -8952,17 +8972,17 @@ async function expDoZip(mode){
         <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#ea6c00;display:inline-block"></span>Intermedia</span>
         <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#dc2626;display:inline-block"></span>Punta</span>
       </div>
-      <div style="overflow:auto;max-height:420px">
-        <table style="width:100%;border-collapse:collapse;min-width:1280px">
+      <div class="mbnav-qcwrap" style="overflow:visible">
+        <table style="width:100%;border-collapse:collapse;min-width:1100px">
           <thead>
             <tr>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mult.</th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Base<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Intermedia<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Punta<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Demanda máx.</th>
-              <th style="position:sticky;top:0;z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
+              <th style="position:sticky;top:var(--mbnav-h,58px);z-index:2;background:var(--s2);padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Sitio</th>
+              <th style="position:sticky;top:var(--mbnav-h,58px);z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Mult.</th>
+              <th style="position:sticky;top:var(--mbnav-h,58px);z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Base<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
+              <th style="position:sticky;top:var(--mbnav-h,58px);z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Intermedia<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
+              <th style="position:sticky;top:var(--mbnav-h,58px);z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Punta<br><span style="font-weight:400;text-transform:none;font-size:8px">video + pico máx.</span></th>
+              <th style="position:sticky;top:var(--mbnav-h,58px);z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Demanda máx.</th>
+              <th style="position:sticky;top:var(--mbnav-h,58px);z-index:2;background:var(--s2);padding:7px 10px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:2px solid rgba(74,120,245,.25)">Estado</th>
             </tr>
           </thead>
           <tbody id="mb-qc-tbody"></tbody>
@@ -8972,7 +8992,7 @@ async function expDoZip(mode){
     </div>
 
     <!-- v122: ASUR · Legado (consumo mensual por códigos) -->
-    <div id="mb-leg-section" style="flex-shrink:0"></div>
+    <div id="mb-leg-section" class="mbnav-sec" style="flex-shrink:0"></div>
 
     <!-- Filtros -->
     <div style="flex-shrink:0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -8991,15 +9011,15 @@ async function expDoZip(mode){
     </div>
 
     <!-- Resumen mensual por sitio -->
-    <div style="flex-shrink:0">
+    <div id="mbnav-sum" class="mbnav-sec" style="flex-shrink:0">
       <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#1255d4;border-radius:2px;display:inline-block"></span>Resumen del mes por sitio — ASUR · OMA · Park Royal · Industria (sin datos al final)</div>
       <div id="mb-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px"></div>
     </div>
 
     <!-- Historial de lecturas -->
-    <div style="flex-shrink:0">
+    <div id="mbnav-hist" class="mbnav-sec" style="flex-shrink:0">
       <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#1255d4;border-radius:2px;display:inline-block"></span>Historial de lecturas (quincenal)</div>
-      <div style="border:1px solid var(--b1);border-radius:12px;overflow:auto;max-height:520px;background:var(--s1)">
+      <div style="border:1px solid var(--b1);border-radius:12px;overflow-x:auto;background:var(--s1)">
         <table style="width:100%;border-collapse:collapse;min-width:1400px">
           <thead>
             <tr style="position:sticky;top:0;z-index:3">
@@ -9022,9 +9042,9 @@ async function expDoZip(mode){
     </div>
 
     <!-- Registro de excedencias -->
-    <div style="flex-shrink:0">
+    <div id="mbnav-exc" class="mbnav-sec" style="flex-shrink:0">
       <div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--red);margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:var(--red);border-radius:2px;display:inline-block"></span>🚨 Registro de sitios con demanda contratada excedida</div>
-      <div style="border:1px solid rgba(220,38,38,.3);border-radius:12px;overflow:auto;max-height:320px;background:var(--s1)">
+      <div style="border:1px solid rgba(220,38,38,.3);border-radius:12px;overflow-x:auto;background:var(--s1)">
         <table style="width:100%;border-collapse:collapse;min-width:820px">
           <thead>
             <tr>
@@ -32495,11 +32515,12 @@ window._mbRenderQuickCapture = function(){
   MB_GROUP_ORDER.forEach(function(g){
     var arr=_groups[g]; if(!arr || !arr.length) return;
     var gm = MB_GROUP_META[g];
-    _html += _mbQcGroupRowHtml(gm.ico+' '+g.toUpperCase()+(g==='ASUR'?' · DEMANDA MÁXIMA':''), arr.length, gm.grad) + arr.map(_rowFor).join('');
+    _html += _mbQcGroupRowHtml(gm.ico+' '+g.toUpperCase()+(g==='ASUR'?' · DEMANDA MÁXIMA':''), arr.length, gm.grad).replace('<tr>','<tr id="mbnav-g-'+g.toLowerCase().replace(/[^a-z]/g,'')+'" class="mbnav-sec" data-n="'+arr.length+'">') + arr.map(_rowFor).join('');
   });
-  if(_noMeter.length) _html += _mbQcGroupRowHtml('⚪ SIN MEDIDOR / SIN MULTIPLICADOR — configúralo en el Catálogo o captura directo', _noMeter.length, 'linear-gradient(135deg,#475569,#94a3b8)') + _noMeter.map(_rowFor).join('');
+  if(_noMeter.length) _html += _mbQcGroupRowHtml('⚪ SIN MEDIDOR / SIN MULTIPLICADOR — configúralo en el Catálogo o captura directo', _noMeter.length, 'linear-gradient(135deg,#475569,#94a3b8)').replace('<tr>','<tr id="mbnav-g-sinmedidor" class="mbnav-sec" data-n="'+_noMeter.length+'">') + _noMeter.map(_rowFor).join('');
   tbody.innerHTML = _html;
   window._mbRenderLegacyCapture && window._mbRenderLegacyCapture();
+  window._mbNavRender && window._mbNavRender();
 };
 /* Evita guardar una fecha a medio escribir (el navegador a veces dispara "change" con un año
    incompleto, p.ej. "0026" mientras se teclea "2026") — solo se acepta vacío o una fecha con
@@ -32847,7 +32868,7 @@ window._mbRenderReportPreview = function(){
           var m = x.m, ok = m.open && m.close && m.estado!=='single';
           return '<tr><td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;font-weight:700;vertical-align:top">'+_mbEsc(x.s)
               +(m.note?'<div style="font-weight:400;font-size:9px;color:#ea6c00;margin-top:2px">'+_mbEsc(m.note)+'</div>':'')+'</td>'
-            +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:10px;color:#4b5563;vertical-align:top">'+(ok?_mbFechaCorta(m.open.fecha)+' → '+_mbFechaCorta(m.close.fecha):m.readings.length+' lectura(s)')+'</td>'
+            +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:10px;color:#4b5563;vertical-align:top">'+(ok?_mbLegFH(m.open)+' → '+_mbLegFH(m.close):m.readings.length+' lectura(s)')+'</td>'
             +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:right;vertical-align:top">'+(m.mult==null?'—':m.mult)+'</td>'
             + (ok ? legCell(m,'c11')+legCell(m,'c12')+legCell(m,'c13')
                     +'<td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:right;vertical-align:top;background:#dbeafe"><b style="color:#1d4ed8;font-size:12px">'+_mbFmtKWh(m.total)+'</b>'+(m.totalParcial?'<div style="font-size:9px;color:#9ca3af">parcial</div>':'')+'</td>'
@@ -32993,7 +33014,7 @@ window._mbDownloadReportExcel = function(){
       var m = _mbLegMonth(sn, mesKey); if(!m.readings.length) return;
       var o = m.open||{}, c = m.close||{};
       function tri(k){ return [o[k]==null?'':o[k], c[k]==null?'':c[k], m.delta[k]==null?'':m.delta[k], m.kwh[k]==null?'':m.kwh[k]]; }
-      aoaL.push([_mbGroupOf(sn), sn, m.mult==null?'':m.mult, o.fecha||'', c.fecha||'']
+      aoaL.push([_mbGroupOf(sn), sn, m.mult==null?'':m.mult, (o.fecha||'')+(o.hora?' '+o.hora:''), (c.fecha||'')+(c.hora?' '+c.hora:'')]
         .concat(tri('c11'), tri('c12'), tri('c13'), [m.total==null?'':m.total], tri('c1'), tri('c5'), [m.note||'']));
     });
     var wsL = XLSX.utils.aoa_to_sheet(aoaL);
@@ -33531,8 +33552,10 @@ _mbLegLoad();
 function _mbLegReadings(sitio){
   var key = _mbNorm(_mbCanonicalSite(sitio));
   return MB_LEG_LIST.filter(function(r){ return r && r.fecha && _mbNorm(_mbCanonicalSite(r.sitio))===key; })
-    .sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||'') || (a.savedAt||0)-(b.savedAt||0); });
+    .sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||'') || (a.hora||'').localeCompare(b.hora||'') || (a.savedAt||0)-(b.savedAt||0); });
 }
+function _mbLegFH(r){ return r ? (_mbFechaCorta(r.fecha)+(r.hora?' '+r.hora:'')) : '—'; }
+window._mbLegFH = _mbLegFH;
 function _mbDayNum(f){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(f||''); return m ? Math.round(Date.UTC(+m[1],+m[2]-1,+m[3])/86400000) : null; }
 function _mbPickOpen(sorted, key){
   var prevOut=null, firstIn=null;
@@ -33555,7 +33578,7 @@ function _mbLegMonth(sitio, mesKey){
   var out = { sitio:sitio, mesKey:mesKey, mult:mult, readings:inMonth, open:null, close:null, delta:{}, kwh:{}, total:null, estado:'pending', note:'' };
   if(!inMonth.length) return out;
   out.open = _mbPickOpen(hist, mesKey); out.close = _mbPickClose(hist, mesKey);
-  if(!out.open || !out.close || out.open.id===out.close.id || (out.open.fecha||'') >= (out.close.fecha||'')){
+  if(!out.open || !out.close || out.open.id===out.close.id || ((out.open.fecha||'')+' '+(out.open.hora||'')) >= ((out.close.fecha||'')+' '+(out.close.hora||''))){
     out.estado = 'single'; out.note = 'Falta otra lectura: se necesita una al inicio y otra al final del mes.'; return out;
   }
   var neg = false;
@@ -33621,7 +33644,7 @@ window._mbRenderLegacyCapture = function(){
       var vals = MB_LEG_CODES.map(function(c){ var v=r[c.k]; return '<span style="color:'+c.color+'">'+c.cod+':</span>'+(v==null||v===''?'—':_mbEsc(v)); }).join(' · ');
       var isO = m.open && m.open.id===r.id, isC = m.close && m.close.id===r.id;
       return '<div style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;padding:3px 6px;border-radius:6px;background:'+(isO||isC?'rgba(37,99,235,.08)':'transparent')+'">'
-        +'<b style="color:var(--text);min-width:62px">'+_mbFechaCorta(r.fecha)+'</b>'
+        +'<b style="color:var(--text);min-width:62px">'+_mbFechaCorta(r.fecha)+'</b>'+(r.hora?'<span style="color:#2563eb;font-weight:800">🕒 '+_mbEsc(r.hora)+'</span>':'<span style="color:var(--t3);font-size:8.5px">sin hora</span>')
         +(isO?'<span style="font-size:8px;font-weight:800;color:#2563eb">INICIO</span>':'')+(isC?'<span style="font-size:8px;font-weight:800;color:#2563eb">CIERRE</span>':'')
         +'<span style="color:var(--t3);flex:1">'+vals+'</span>'
         +'<button onclick="window._mbLegEdit(\''+r.id+'\')" title="Cargar para editar" style="background:none;border:none;cursor:pointer;font-size:11px">✏️</button>'
@@ -33640,7 +33663,7 @@ window._mbRenderLegacyCapture = function(){
       ? '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">'+kcell('c11')+kcell('c12')+kcell('c13')+'</div>'
         +'<div style="margin:5px 0;padding:6px 8px;border-radius:8px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;display:flex;justify-content:space-between;align-items:center"><span style="font:800 9px var(--mono);letter-spacing:.5px">CONSUMO TOTAL (11+12+13)</span><b style="font:900 14px var(--mono)">'+_mbFmtKWh(m.total)+'</b></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'+kcell('c1')+kcell('c5')+'</div>'
-        +'<div style="font:600 8.5px var(--mono);color:var(--t3);margin-top:4px">'+_mbFechaCorta(m.open.fecha)+' → '+_mbFechaCorta(m.close.fecha)+' · × '+(m.mult==null?'—':m.mult)+(m.totalParcial?' · total parcial':'')+'</div>'
+        +'<div style="font:600 8.5px var(--mono);color:var(--t3);margin-top:4px">'+_mbLegFH(m.open)+' → '+_mbLegFH(m.close)+' · × '+(m.mult==null?'—':m.mult)+(m.totalParcial?' · total parcial':'')+'</div>'
         +(m.note?'<div style="font:700 9px var(--body);color:var(--orange);margin-top:3px">'+_mbEsc(m.note)+'</div>':'')
       : '<div style="font:700 10px var(--body);color:var(--t3);padding:10px 6px;text-align:center">'+(m.estado==='single'?'🕒 '+_mbEsc(m.note):'⏳ Captura la primera lectura del mes')+'</div>';
     return '<tr style="border-bottom:1px solid var(--b1);vertical-align:top">'
@@ -33648,7 +33671,8 @@ window._mbRenderLegacyCapture = function(){
         +'<div style="font:700 8.5px var(--mono);color:#2563eb;margin-top:2px">LEGADO · consumo mensual</div>'
         +'<label style="display:flex;align-items:center;gap:4px;margin-top:6px;font:700 8.5px var(--mono);color:var(--t3)">Mult.<input type="number" value="'+(d.mult==null?'':d.mult)+'" onchange="window._mbLegSetMult(\''+se+'\',this.value)" style="width:70px;padding:4px 6px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px"></label></td>'
       +'<td style="padding:8px 10px"><div style="display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap">'
-        +'<label style="display:flex;flex-direction:column;gap:2px"><span style="font:800 8.5px var(--mono);color:var(--t3)">Fecha lectura</span><input type="date" id="mbleg-fecha-'+id+'" value="'+defDate+'" style="width:128px;padding:5px 6px;border-radius:6px;border:1.5px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px"></label>'
+        +'<label style="display:flex;flex-direction:column;gap:2px"><span style="font:800 8.5px var(--mono);color:var(--t3)">📅 Fecha del video</span><input type="date" id="mbleg-fecha-'+id+'" value="'+defDate+'" style="width:128px;padding:5px 6px;border-radius:6px;border:1.5px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px"></label>'
+        +'<label style="display:flex;flex-direction:column;gap:2px" title="Hora en que se grabó el video del medidor"><span style="font:800 8.5px var(--mono);color:#2563eb">🕒 Hora del video</span><input type="time" id="mbleg-hora-'+id+'" style="width:104px;padding:5px 6px;border-radius:6px;border:1.5px solid rgba(37,99,235,.45);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px"></label>'
         +inputs
         +'<button onclick="window._mbLegSave(\''+se+'\')" style="padding:8px 12px;border-radius:7px;border:none;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font:800 10.5px var(--mono);cursor:pointer;white-space:nowrap">＋ Guardar lectura</button>'
       +'</div><div style="margin-top:6px;border-top:1px dashed var(--b1);padding-top:4px">'+list+'</div></td>'
@@ -33673,6 +33697,7 @@ window._mbLegSave = function(sitio){
   var id = _mbNorm(sitio).replace(/ /g,'_');
   var fecha = (document.getElementById('mbleg-fecha-'+id)||{}).value || '';
   if(!_mbValidQuickDate(fecha) || !fecha){ _mbToast('⚠️ Escribe una fecha válida para la lectura'); return; }
+  var hora = (document.getElementById('mbleg-hora-'+id)||{}).value || '';
   var vals = {}, any = false;
   MB_LEG_CODES.forEach(function(c){ var v=_mbNumOrNull((document.getElementById('mbleg-'+c.k+'-'+id)||{}).value); vals[c.k]=v; if(v!=null) any=true; });
   var key = _mbNorm(_mbCanonicalSite(sitio));
@@ -33682,16 +33707,17 @@ window._mbLegSave = function(sitio){
     else _mbToast('⚠️ Escribe al menos un código');
     return;
   }
-  if(ex){ Object.assign(ex, vals, { savedAt:Date.now() }); }
-  else MB_LEG_LIST.push(Object.assign({ id:'leg_'+_mbUid(), sitio:_mbCanonicalSite(sitio), fecha:fecha, savedAt:Date.now() }, vals));
+  if(ex){ Object.assign(ex, vals, { hora:hora, savedAt:Date.now() }); }
+  else MB_LEG_LIST.push(Object.assign({ id:'leg_'+_mbUid(), sitio:_mbCanonicalSite(sitio), fecha:fecha, hora:hora, savedAt:Date.now() }, vals));
   _mbLegPersist();
-  _mbToast('✅ Lectura '+(ex?'actualizada':'guardada')+' · '+_mbCanonicalSite(sitio)+' · '+_mbFechaCorta(fecha));
+  _mbToast('✅ Lectura '+(ex?'actualizada':'guardada')+' · '+_mbCanonicalSite(sitio)+' · '+_mbFechaCorta(fecha)+(hora?' '+hora:'')+(hora?'':' (sin hora del video)'));
   window._mbRenderLegacyCapture(); _mbRenderSummaryGrid();
 };
 window._mbLegEdit = function(rid){
   var r = MB_LEG_LIST.find(function(x){ return x.id===rid; }); if(!r) return;
   var id = _mbNorm(_mbCanonicalSite(r.sitio)).replace(/ /g,'_');
   var f = document.getElementById('mbleg-fecha-'+id); if(f) f.value = r.fecha;
+  var hEl = document.getElementById('mbleg-hora-'+id); if(hEl) hEl.value = r.hora||'';
   MB_LEG_CODES.forEach(function(c){ var el=document.getElementById('mbleg-'+c.k+'-'+id); if(el) el.value = (r[c.k]==null?'':r[c.k]); });
   if(f){ f.scrollIntoView({block:'center'}); }
   _mbToast('✏️ Lectura cargada — cambia los valores y presiona "Guardar lectura" (dejar todo vacío la elimina)');
@@ -41732,6 +41758,70 @@ document.addEventListener('keydown', function(e){
   };
   function init(){ try{ if(localStorage.getItem('bess_nav_compact')==='1'){ document.body.classList.add('nav-compact'); var b=document.querySelector('.nav-collapse-btn'); if(b) b.innerHTML='⇥ <span>Expandir menú</span>'; } }catch(e){} }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+<script>
+/* v128 — Medidores CFE: submenú flotante para saltar directo a cada sección (un solo scroll) */
+(function(){
+  function grads(){ try{ return MB_GROUP_META; }catch(e){ return {}; } }
+  function scroller(){ var p=document.getElementById('page-medidor'); return p && p.querySelector('.page-scroll'); }
+  var ITEMS = [
+    {id:'mbnav-g-asur', l:'✈️ ASUR', c:'#2563eb'},
+    {id:'mbnav-g-oma', l:'🛫 OMA', c:'#059669'},
+    {id:'mbnav-g-parkroyal', l:'🏨 Park Royal', c:'#7c3aed'},
+    {id:'mbnav-g-industria', l:'🏭 Industria', c:'#d97706'},
+    {id:'mbnav-g-sinmedidor', l:'⚪ Sin medidor', c:'#64748b'},
+    {sep:1},
+    {id:'mb-leg-section', l:'🏛 ASUR Legado', c:'#2563eb'},
+    {id:'mbnav-sum', l:'📊 Resumen', c:'#059669'},
+    {id:'mbnav-hist', l:'📜 Historial', c:'#475569'},
+    {id:'mbnav-exc', l:'🚨 Excedencias', c:'#dc2626'}
+  ];
+  window._mbNavGo = function(id){
+    var el=document.getElementById(id), sc=scroller(); if(!el||!sc) return;
+    var bar=document.getElementById('mbnav'), h=bar?bar.offsetHeight:0;
+    var top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - h - 12;
+    sc.scrollTo({top:Math.max(0,top), behavior:'smooth'});
+    var target = el.tagName==='TR' ? el.querySelector('div') : el;
+    if(target){ target.classList.remove('mbnav-flash'); void target.offsetWidth; target.classList.add('mbnav-flash'); }
+  };
+  window._mbNavTop = function(){ var sc=scroller(); if(sc) sc.scrollTo({top:0,behavior:'smooth'}); };
+  window._mbNavRender = function(){
+    var bar=document.getElementById('mbnav'); if(!bar) return;
+    var html='<span class="mbnav-lbl">Ir a</span>';
+    ITEMS.forEach(function(it){
+      if(it.sep){ html+='<span class="mbnav-sep"></span>'; return; }
+      var el=document.getElementById(it.id);
+      if(!el || (it.id==='mb-leg-section' && !el.innerHTML.trim())) return;
+      var n = el.getAttribute('data-n');
+      html+='<button data-mbnav="'+it.id+'" onclick="_mbNavGo(\''+it.id+'\')"><span class="mbnav-dot" style="background:'+it.c+'"></span>'+it.l+(n?' <i>'+n+'</i>':'')+'</button>';
+    });
+    html+='<button class="mbnav-top" onclick="_mbNavTop()" title="Volver arriba">⬆ Arriba</button>';
+    bar.innerHTML=html;
+    var pg=document.getElementById('page-medidor'); if(pg) pg.style.setProperty('--mbnav-h', Math.max(0,(bar.offsetHeight||50)-18-6)+'px');
+    spy();
+  };
+  function spy(){
+    var sc=scroller(), bar=document.getElementById('mbnav'); if(!sc||!bar) return;
+    var ref = sc.getBoundingClientRect().top + bar.offsetHeight + 40, cur=null;
+    bar.querySelectorAll('button[data-mbnav]').forEach(function(b){
+      var el=document.getElementById(b.getAttribute('data-mbnav')); if(el && el.getBoundingClientRect().top<=ref) cur=b;
+    });
+    bar.querySelectorAll('button.on').forEach(function(b){ if(b!==cur) b.classList.remove('on'); });
+    if(cur) cur.classList.add('on');
+  }
+  var t=null;
+  function hook(){
+    var sc=scroller(); if(!sc){ return setTimeout(hook,800); }
+    if(!sc._mbnavHooked){ sc._mbnavHooked=true; sc.addEventListener('scroll', function(){ if(t) return; t=setTimeout(function(){ t=null; spy(); },80); }, {passive:true}); }
+    window.addEventListener('resize', function(){ window._mbNavRender(); });
+    window._mbNavRender();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(hook,500); }); else setTimeout(hook,500);
+  /* re-render cuando se pinta el legado (puede aparecer/desaparecer) */
+  var _ol = window._mbRenderLegacyCapture;
+  function wrapLeg(){ var f=window._mbRenderLegacyCapture; if(f && !f._mbnav){ var w=function(){ var r=f.apply(this,arguments); try{ window._mbNavRender(); }catch(e){} return r; }; w._mbnav=true; window._mbRenderLegacyCapture=w; } }
+  setTimeout(wrapLeg,1500);
 })();
 </script>
 </body>
