@@ -52,7 +52,7 @@ try {
   window._fbSetDoc = setDoc;
   window._fbDoc = doc;
   window._fbGetDocs = getDocs;
-  window._fbFS = { collection, addDoc, getDocs, getDoc, deleteDoc, doc, query, orderBy, setDoc, where, writeBatch, limit, startAfter, onSnapshot };
+  window._fbFS = { collection, addDoc, getDocs, getDoc, deleteDoc, doc, query, orderBy, setDoc, where, writeBatch, limit, startAfter, onSnapshot, runTransaction };
 } catch(initErr) {
   console.error('[BESS] Firebase init error:', initErr.message);
   // firebase-ready will still fire at end of module, _fb won't be set
@@ -5339,7 +5339,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1790112670';
+  var APP_VERSION = '1790896235';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -32079,21 +32079,11 @@ function _mbToast(msg){ if(typeof showToast==='function') showToast(msg); }
 /* ══ PERSISTENCIA (localStorage + espejo best-effort en Firestore) ══ */
 function _mbPersistList(){
   try{ localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); }catch(e){}
-  try{ if(window._fb && window._fb.saveMedidorSnapshot) window._fb.saveMedidorSnapshot(MB_LIST); }catch(e){}
+  _mbSyncQueue('list');   /* v135: sube FUSIONANDO con la nube (ya no pisa lo de los demás) */
 }
 function _mbPersistConfig(){
   try{ localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){ console.error('[Medidor BESS] No se pudo guardar el catálogo localmente:', e); }
-  try{
-    if(window._fb && window._fb.saveMedidorConfig){
-      var r = window._fb.saveMedidorConfig(MB_CONFIG);
-      if(r && typeof r.catch==='function'){
-        r.catch(function(e){
-          console.error('[Medidor BESS] No se pudo sincronizar el catálogo con la nube:', e);
-          _mbToast('⚠️ Catálogo guardado en este dispositivo, pero no se sincronizó con la nube');
-        });
-      }
-    }
-  }catch(e){ console.error('[Medidor BESS] Error al sincronizar el catálogo con la nube:', e); }
+  _mbSyncQueue('cfg');    /* v135: fusión por sitio con la nube */
 }
 function _mbLoadLocal(){
   try{ var s=localStorage.getItem(MB_LS_LIST); MB_LIST = s?JSON.parse(s):[]; }catch(e){ MB_LIST=[]; }
@@ -32171,52 +32161,8 @@ function _mbMigrateConfig(){
   MB_CONFIG = out;
 }
 function _mbPullCloud(cb){
-  var pending = 0, gotAny = false;
-  function done(){ pending--; if(pending<=0){ window._mbLastCloudSync = Date.now(); if(typeof cb==='function') cb(gotAny); } }
-  try{
-    if(window._fb && window._fb.getMedidorConfig){
-      pending++;
-      window._fb.getMedidorConfig().then(function(cfg){
-        if(window._mbForceSeedThisLoad){
-          /* Se acaba de reemplazar el catálogo con la versión nueva — esta vez la nube NO manda,
-             empujamos nuestra semilla para que sea la que todos reciban de ahora en adelante. */
-          window._mbForceSeedThisLoad = false;
-          _mbPersistConfig();
-        } else if(cfg!=null){
-          /* La nube es la fuente de verdad — se REEMPLAZA la config local, no se fusiona,
-             para que un sitio borrado por otra persona no "reviva" con datos viejos de este navegador. */
-          MB_CONFIG = cfg; _mbMigrateConfig(); _mbPurgeGhostSites();
-          try{ localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){}
-          gotAny = true; _mbRenderAll();
-        } else if(Object.keys(MB_CONFIG).length){
-          /* Nunca se ha guardado nada en la nube — subimos la semilla local para que
-             cualquier otra persona que entre vea el mismo catálogo base desde ya. */
-          _mbPersistConfig();
-        }
-        done();
-      }).catch(function(){ done(); });
-    }
-    if(window._fb && window._fb.getMedidorSnapshot){
-      pending++;
-      window._fb.getMedidorSnapshot().then(function(list){
-        if(Array.isArray(list)){
-          /* Igual que arriba: reemplazo completo, la nube manda. Así los borrados y ediciones
-             de cualquier persona se ven de inmediato para todos, sin resucitar registros viejos. */
-          MB_LIST = list;
-          _mbPurgeGhostSites();
-          try{ localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); }catch(e){}
-          gotAny = true; _mbRenderAll();
-          window._mbRenderQuickCapture && window._mbRenderQuickCapture();
-        }
-        done();
-      }).catch(function(){ done(); });
-    }
-    if(window._fbFS && window._fbDB){
-      pending++;
-      _mbLegPull(function(ok){ if(ok){ gotAny=true; window._mbRenderLegacyCapture && window._mbRenderLegacyCapture(); _mbRenderSummaryGrid(); } done(); });
-    }
-    if(!pending && typeof cb==='function') cb(false);
-  }catch(e){ if(typeof cb==='function') cb(false); }
+  /* v135: se FUSIONA la nube con lo de este equipo (antes se reemplazaba y se perdía lo no subido) */
+  _mbPullMerge(function(ok){ window._mbLastCloudSync = Date.now(); if(typeof cb==='function') cb(ok); });
 }
 
 /* ══ SITIOS — normalización de nombres (varias sub-redes = un solo sitio/medidor) ══ */
@@ -32325,7 +32271,9 @@ function _mbSiteDefaults(sitio){
     mult: (v.mult==null||v.mult==='') ? null : Number(v.mult),
     codBase: v.codBase||'', codIntermedio: v.codIntermedio||'', codPunta: v.codPunta||'',
     grupo: v.grupo||'',
-    tipo: v.tipo || (MB_LEGACY_DEFAULT.indexOf(_mbNorm(_mbCanonicalSite(sitio)))>=0 ? 'legado' : 'demanda')
+    /* v134: los sitios de legado por default (Alpha, BHS, Comedor, PTAR, Sala Bravo, T2, T3) son legado salvo que en el Catálogo se haya fijado otro tipo a mano (tipoFijo) */
+    tipo: (v.tipo && (v.tipoFijo || v.tipo==='legado' || MB_LEGACY_DEFAULT.indexOf(_mbNorm(_mbCanonicalSite(sitio)))<0)) ? v.tipo : (MB_LEGACY_DEFAULT.indexOf(_mbNorm(_mbCanonicalSite(sitio)))>=0 ? 'legado' : 'demanda'),
+    tipoFijo: !!v.tipoFijo
   };
 }
 function _mbSetSiteDefault(sitio, patch){
@@ -32409,7 +32357,7 @@ window._mbSyncCloud = function(silent){
     var indicator = document.getElementById('mb-sync-indicator');
     if(indicator){
       var d = new Date(window._mbLastCloudSync||Date.now());
-      indicator.textContent = 'Última sincronización: '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+      indicator.textContent = 'Última sincronización: '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}); try{ _mbSyncIndicator(); }catch(e){}
     }
     if(!silent){ _mbToast(gotAny ? '☁️ Datos actualizados desde la nube' : '⚠️ No se pudo conectar a la nube — usando lo guardado en este dispositivo'); }
   });
@@ -32515,10 +32463,10 @@ function _mbDemandCardHtml(sitio, recs){
 }
 /* v122: lista COMPLETA de sitios, agrupada (ASUR · OMA · Park Royal · Industria) y los sin datos al final */
 function _mbMonthSiteData(sitio, mk){
-  if(_mbIsLegacy(sitio)){ var m=_mbLegMonth(sitio, mk); return { legacy:true, m:m, has: m.readings.length>0 }; }
   var key=_mbNorm(_mbCanonicalSite(sitio));
   var recs = MB_LIST.filter(function(r){ return _mbMesKey(r.fecha)===mk && _mbNorm(_mbCanonicalSite(r.sitio))===key && _mbRecHasData(r); })
     .map(function(r){ return Object.assign({}, r, _mbCalc(r)); });
+  if(_mbIsLegacy(sitio)){ var m=_mbLegMonth(sitio, mk); return { legacy:true, m:m, recs:recs, has: m.readings.length>0 || recs.length>0 }; }   /* v134: legado = consumo + demanda */
   return { legacy:false, recs:recs, has: recs.length>0 };
 }
 function _mbRenderSummaryGrid(){
@@ -32532,7 +32480,8 @@ function _mbRenderSummaryGrid(){
       noData.push({ s:sitio, g:_mbGroupOf(sitio), why:why }); return;
     }
     var g=_mbGroupOf(sitio);
-    (byGroup[g]=byGroup[g]||[]).push(sd.legacy ? _mbLegCardHtml(sitio, sd.m) : _mbDemandCardHtml(sitio, sd.recs));
+    if(sd.legacy){ if(sd.m.readings.length) (byGroup[g]=byGroup[g]||[]).push(_mbLegCardHtml(sitio, sd.m)); if(sd.recs.length) (byGroup[g]=byGroup[g]||[]).push(_mbDemandCardHtml(sitio, sd.recs)); }
+    else (byGroup[g]=byGroup[g]||[]).push(_mbDemandCardHtml(sitio, sd.recs));
   });
   var html='';
   MB_GROUP_ORDER.forEach(function(g){ var arr=byGroup[g]; if(arr && arr.length) html += _mbGroupHeaderHtml(g, arr.length)+arr.join(''); });
@@ -32648,7 +32597,7 @@ window._mbRenderQuickCapture = function(){
   var mes=(document.getElementById('mb-qc-mes')||{}).value || _mbToday().slice(0,7);
   var q=(document.getElementById('mb-qc-q')||{}).value || '1';
   var fecha = mes+'-'+(q==='1'?'01':'16');
-  var sites=_mbSiteNames().filter(function(s){ return !_mbIsLegacy(s); });
+  var sites=_mbSiteNames();   /* v134: los sitios de legado TAMBIÉN capturan demanda (además del consumo por códigos) */
   if(!sites.length){ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--t3);font-family:var(--mono);font-size:10px">Agrega sitios desde 📋 Catálogo de Sitios</td></tr>'; window._mbRenderLegacyCapture && window._mbRenderLegacyCapture(); return; }
   var PART_COLOR = { base:'#059669', intermedia:'#ea6c00', punta:'#dc2626' };
   var _rowFor = function(sitio){
@@ -32841,7 +32790,7 @@ function _mbConfigRow(sitio, d){
   return '<div class="mb-cfg-row" style="display:grid;grid-template-columns:2fr 1.1fr 1.2fr .9fr .8fr .8fr .8fr 1.1fr 24px;gap:6px;align-items:center">'+
     '<input type="text" data-f="sitio" value="'+_mbEsc(sitio)+'" placeholder="Sitio" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--body);font-size:11px;font-weight:600;box-sizing:border-box">'+
     sel('grupo', gSel, [['ASUR','ASUR'],['OMA','OMA'],['Park Royal','Park Royal'],['Industria','Industria']])+
-    sel('tipo', d.tipo||'demanda', [['demanda','Demanda máx.'],['legado','Legado (kWh)']])+
+    sel('tipo', d.tipo||'demanda', [['demanda','Demanda máx.'],['legado','Legado (kWh + demanda)']]).replace('data-f="tipo"','data-f="tipo" data-o="'+(d.tipo||'demanda')+'"'+(d.tipoFijo?' data-fijo="1"':''))+
     inp('mult', d.mult, 'ej. 2800', 'number')+
     inp('codBase', d.codBase, 'ej. 41')+
     inp('codIntermedio', d.codIntermedio, 'ej. 42')+
@@ -32874,7 +32823,9 @@ window._mbSaveConfig = function(){
         codIntermedio: g('codIntermedio')||(prev?prev.codIntermedio:'')||'',
         codPunta: g('codPunta')||(prev?prev.codPunta:'')||'',
         grupo: g('grupo')||(prev?prev.grupo:'')||'',
-        tipo: g('tipo')||(prev?prev.tipo:'')||'demanda'
+        tipo: g('tipo')||(prev?prev.tipo:'')||'demanda',
+        /* v134: solo queda "fijo" si el usuario cambió el tipo a mano en el Catálogo */
+        tipoFijo: (function(){ var el=row.querySelector('[data-f="tipo"]'); return !!(el && (el.getAttribute('data-fijo') || (el.getAttribute('data-o') && el.value!==el.getAttribute('data-o')))) || !!(prev&&prev.tipoFijo); })()
       };
     });
     /* Cualquier sitio que estaba en el catálogo pero ya no tiene fila en pantalla fue borrado
@@ -32946,7 +32897,7 @@ function _mbCloseReportModalClass(){ document.body.classList.remove('mb-report-o
 function _mbReportRows(mesKey, q){
   return MB_LIST.filter(function(r){
     if(_mbMesKey(r.fecha) !== mesKey) return false;
-    if(_mbIsLegacy(r.sitio) || !_mbRecHasData(r)) return false; /* v122 */
+    if(!_mbRecHasData(r)) return false; /* v134: legado también reporta demanda */
     if(q && q!=='0' && String(_mbQuincena(r.fecha)) !== String(q)) return false;
     return true;
   }).sort(function(a,b){ return a.sitio.localeCompare(b.sitio,'es',{sensitivity:'base'}) || (a.fecha||'').localeCompare(b.fecha||''); });
@@ -33025,7 +32976,7 @@ window._mbRenderReportPreview = function(){
   var legTotal = legData.reduce(function(a,x){ return a + (x.m.total||0); }, 0);
   var sitesWithDem = {}; rows.forEach(function(r){ sitesWithDem[_mbNorm(_mbCanonicalSite(r.sitio))]=1; });
   var noData = _mbSiteNames().filter(function(sn){
-    if(_mbIsLegacy(sn)) return !legData.some(function(x){ return x.s===sn; });
+    if(_mbIsLegacy(sn)) return !legData.some(function(x){ return x.s===sn; }) && !sitesWithDem[_mbNorm(_mbCanonicalSite(sn))];
     return !sitesWithDem[_mbNorm(_mbCanonicalSite(sn))];
   });
   var demHead = '<thead><tr style="background:#0a1f5e;color:#fff">'
@@ -33681,7 +33632,7 @@ window._mbImportCSV = function(input){
    ══════════════════════════════════════════════════════════════════════ */
 var MB_LS_LEG = 'bess:medidor_legado:v1';
 var MB_LEG_LIST = [];
-var MB_LEGACY_DEFAULT = ['alpha','bhs','comedor','ptar','t2','sala bravo'];
+var MB_LEGACY_DEFAULT = ['alpha','bhs','comedor','ptar','t2','t3','sala bravo'];   /* v134: + T3 */
 var MB_GROUP_ORDER = ['ASUR','OMA','Park Royal','Industria'];
 var MB_GROUP_META = {
   'ASUR':       { ico:'✈️', color:'#2563eb', grad:'linear-gradient(135deg,#1d4ed8,#3b82f6)' },
@@ -33719,13 +33670,7 @@ function _mbFmtKWh(v, unit){ return v==null ? '—' : (Math.round(v*100)/100).to
 function _mbLegLoad(){ try{ MB_LEG_LIST = JSON.parse(localStorage.getItem(MB_LS_LEG)||'[]')||[]; }catch(e){ MB_LEG_LIST = []; } }
 function _mbLegPersist(){
   try{ localStorage.setItem(MB_LS_LEG, JSON.stringify(MB_LEG_LIST)); }catch(e){}
-  try{
-    if(window._fbFS && window._fbDB){
-      var FS = window._fbFS, DB = window._fbDB;
-      FS.setDoc(FS.doc(DB,'medidor_bess','legado'), { data: JSON.stringify(MB_LEG_LIST), updatedAt: Date.now() })
-        .catch(function(e){ console.warn('[Medidor legado] nube:', e && e.message); });
-    }
-  }catch(e){}
+  _mbSyncQueue('leg');    /* v135 */
 }
 function _mbLegPull(cb){
   try{
@@ -33740,6 +33685,216 @@ function _mbLegPull(cb){
   }catch(e){ if(cb) cb(false); }
 }
 _mbLegLoad();
+
+/* ══════════════════════════════════════════════════════════════════════
+   v135 — SINCRONIZACIÓN SEGURA DE MEDIDORES (ya no se pierden capturas)
+   Antes: cada navegador subía SU lista completa y pisaba la de la nube
+   ("gana el último que guarda") → si dos personas capturaban a la vez,
+   o alguien tenía la página abierta desde antes, se borraban lecturas.
+   Ahora:
+   · Cada lectura lleva su hora de cambio (updatedAt). Los borrados se
+     guardan como "lápidas" (id + hora) para que no revivan.
+   · Al guardar se hace una TRANSACCIÓN: se lee la nube, se FUSIONA
+     registro por registro (gana el cambio más reciente) y se escribe.
+   · Al abrir / cada 3 min se FUSIONA la nube con lo local (no se reemplaza):
+     lo que capturaste y aún no subía no se pierde.
+   · Si la nube falla, queda guardado en este equipo marcado "pendiente"
+     y se reintenta solo (también al recargar).
+   · Las lecturas se reparten en un documento por año (límite 1 MB de Firestore).
+   ══════════════════════════════════════════════════════════════════════ */
+var MB_LS_TOMBS = 'bess:medidor_tombs:v1', MB_LS_DIRTY = 'bess:medidor_dirty:v1';
+var MB_SYNC = { known:{ list:null, leg:null, cfg:null }, tombs:{ list:{}, leg:{} }, dirty:{ list:false, leg:false, cfg:false }, t:{}, busy:{}, again:{}, fails:0, lastOk:0, warned:0 };
+try{ var _t0 = JSON.parse(localStorage.getItem(MB_LS_TOMBS)||'{}'); MB_SYNC.tombs.list = _t0.list||{}; MB_SYNC.tombs.leg = _t0.leg||{}; }catch(e){}
+try{ var _d0 = JSON.parse(localStorage.getItem(MB_LS_DIRTY)||'{}'); MB_SYNC.dirty.list=!!_d0.list; MB_SYNC.dirty.leg=!!_d0.leg; MB_SYNC.dirty.cfg=!!_d0.cfg; }catch(e){}
+function _mbSyncMetaSave(){ try{ localStorage.setItem(MB_LS_TOMBS, JSON.stringify(MB_SYNC.tombs)); localStorage.setItem(MB_LS_DIRTY, JSON.stringify(MB_SYNC.dirty)); }catch(e){} }
+function _mbStamp(r){ return Number((r && (r.updatedAt || r.savedAt)) || 0); }
+function _mbArrOf(kind){ return kind==='list' ? MB_LIST : MB_LEG_LIST; }
+function _mbSetArr(kind, arr){ if(kind==='list') MB_LIST = arr; else MB_LEG_LIST = arr; }
+function _mbSnapKnown(kind){
+  if(kind==='cfg'){ var k={}; Object.keys(MB_CONFIG).forEach(function(s){ k[s]=JSON.stringify(MB_CONFIG[s]); }); MB_SYNC.known.cfg=k; return; }
+  var kk={}; _mbArrOf(kind).forEach(function(r){ if(r && r.id) kk[r.id]=JSON.stringify(r); }); MB_SYNC.known[kind]=kk;
+}
+/* detecta altas / cambios / bajas desde la última vez y les pone hora */
+function _mbStampChanges(kind){
+  if(MB_SYNC.known[kind]==null){ _mbSnapKnown(kind); return false; }
+  var known = MB_SYNC.known[kind], now = Date.now(), changed = false, seen = {};
+  if(kind==='cfg'){
+    Object.keys(MB_CONFIG).forEach(function(s){ var e=MB_CONFIG[s]; if(!e || typeof e!=='object') return; seen[s]=1;
+      var j=JSON.stringify(e); if(known[s]!==j){ e.updatedAt = now; changed = true; } });
+    Object.keys(known).forEach(function(s){ if(!seen[s]){ MB_CONFIG[s] = { deleted:true, updatedAt:now }; changed = true; } });
+  } else {
+    _mbArrOf(kind).forEach(function(r){ if(!r || !r.id) return; seen[r.id]=1;
+      var j=JSON.stringify(r); if(known[r.id]!==j){ r.updatedAt = now; changed = true; delete MB_SYNC.tombs[kind][r.id]; } });
+    Object.keys(known).forEach(function(id){ if(!seen[id]){ MB_SYNC.tombs[kind][id] = now; changed = true; } });
+  }
+  _mbSnapKnown(kind);
+  return changed;
+}
+function _mbMergeTombs(a, b){
+  var o = Object.assign({}, a||{}); Object.keys(b||{}).forEach(function(k){ if(!o[k] || b[k] > o[k]) o[k] = b[k]; });
+  var lim = Date.now() - 200*864e5; Object.keys(o).forEach(function(k){ if(o[k] < lim) delete o[k]; });
+  return o;
+}
+/* fusión registro por registro: gana el cambio más reciente; empate → se queda la nube */
+function _mbMergeRecs(local, cloud, tombs){
+  var m = {}, order = [];
+  (cloud||[]).forEach(function(r){ if(r && r.id){ if(!m[r.id]) order.push(r.id); m[r.id] = r; } });
+  (local||[]).forEach(function(r){ if(!r || !r.id) return; var c = m[r.id]; if(!c){ order.push(r.id); m[r.id] = r; } else if(_mbStamp(r) > _mbStamp(c)) m[r.id] = r; });
+  return order.map(function(id){ return m[id]; }).filter(function(r){ var t = tombs && tombs[r.id]; return !(t && t >= _mbStamp(r)); });
+}
+function _mbMergeCfg(local, cloud){
+  var o = {};
+  Object.keys(cloud||{}).forEach(function(s){ o[s] = cloud[s]; });
+  Object.keys(local||{}).forEach(function(s){ var l = local[s], c = o[s];
+    if(c == null || (l && typeof l==='object' && Number(l.updatedAt||0) > Number((c && c.updatedAt)||0))) o[s] = l; });
+  return o;
+}
+function _mbYearOf(r){ var m = /^(\d{4})/.exec((r && r.fecha) || '') || /_(\d{4})-\d{2}_q/.exec((r && r.id) || ''); return m ? m[1] : 'sin_fecha'; }
+function _mbSyncReady(){ return !!(window._fbFS && window._fbDB && window._fbFS.runTransaction); }
+function _mbSyncIndicator(){
+  var el = document.getElementById('mb-sync-indicator'); if(!el) return;
+  var pend = MB_SYNC.dirty.list || MB_SYNC.dirty.leg || MB_SYNC.dirty.cfg;
+  el.innerHTML = pend ? '<span style="color:#ea6c00;font-weight:800">⏳ Cambios pendientes de subir a la nube…</span>'
+    : ('☁️ Todo guardado en la nube' + (MB_SYNC.lastOk ? ' · ' + new Date(MB_SYNC.lastOk).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : ''));
+}
+/* hay alguien escribiendo en la página de medidores → no repintar encima */
+function _mbUserTyping(){ var a = document.activeElement; return !!(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName) && a.closest && a.closest('#page-medidor')); }
+
+/* ── subir (transacción + fusión) ── */
+async function _mbPushKind(kind){
+  var FS = window._fbFS, DB = window._fbDB;
+  if(kind==='cfg'){
+    var ref = FS.doc(DB,'medidor_bess','config'), merged = null;
+    await FS.runTransaction(DB, async function(tx){
+      var snap = await tx.get(ref), cloud = {};
+      if(snap.exists()){ try{ cloud = JSON.parse(snap.data().data || '{}') || {}; }catch(e){ cloud = {}; } }
+      merged = _mbMergeCfg(MB_CONFIG, cloud);
+      tx.set(ref, { data: JSON.stringify(merged), updatedAt: Date.now() });
+    });
+    MB_CONFIG = merged; _mbSnapKnown('cfg');
+    try{ localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){}
+    return;
+  }
+  if(kind==='leg'){
+    var lref = FS.doc(DB,'medidor_bess','legado2'), out = null, tOut = null;
+    var oref = FS.doc(DB,'medidor_bess','legado');
+    await FS.runTransaction(DB, async function(tx){
+      var snap = await tx.get(lref), osnap = await tx.get(oref), cloud = [], ct = {}, old = [];
+      if(snap.exists()){ try{ cloud = JSON.parse(snap.data().data || '[]') || []; ct = JSON.parse(snap.data().tombs || '{}') || {}; }catch(e){} }
+      if(osnap.exists()){ try{ old = JSON.parse(osnap.data().data || '[]') || []; }catch(e){} }
+      tOut = _mbMergeTombs(MB_SYNC.tombs.leg, ct);
+      out = _mbMergeRecs(MB_LEG_LIST, _mbMergeRecs(cloud, old, {}), tOut);
+      tx.set(lref, { data: JSON.stringify(out), tombs: JSON.stringify(tOut), updatedAt: Date.now() });
+      tx.set(oref, { data: JSON.stringify(out), updatedAt: Date.now() });   /* compatibilidad con la versión anterior */
+    });
+    MB_SYNC.tombs.leg = tOut; MB_LEG_LIST = _mbMergeRecs(MB_LEG_LIST, out, tOut); _mbSnapKnown('leg');
+    try{ localStorage.setItem(MB_LS_LEG, JSON.stringify(MB_LEG_LIST)); }catch(e){}
+    return;
+  }
+  /* lecturas: un documento por año + uno de lápidas */
+  var years = {};
+  MB_LIST.forEach(function(r){ years[_mbYearOf(r)] = 1; });
+  Object.keys(MB_SYNC.tombs.list).forEach(function(id){ var m = /_(\d{4})-\d{2}_q/.exec(id); if(m) years[m[1]] = 1; });
+  var ys = Object.keys(years), tref = FS.doc(DB,'medidor_bess','lecturas2_tombs'), all = [], tAll = null;
+  await FS.runTransaction(DB, async function(tx){
+    all = [];
+    var oref = FS.doc(DB,'medidor_bess','lecturas'), osnap = await tx.get(oref), oldCloud = [];
+    if(osnap.exists()){ try{ oldCloud = JSON.parse(osnap.data().data || '[]') || []; }catch(e){} }
+    var ts = await tx.get(tref), ctombs = {};
+    if(ts.exists()){ try{ ctombs = JSON.parse(ts.data().data || '{}') || {}; }catch(e){} }
+    tAll = _mbMergeTombs(MB_SYNC.tombs.list, ctombs);
+    var reads = [];
+    for(var i = 0; i < ys.length; i++){ var ref = FS.doc(DB,'medidor_bess','lecturas2_'+ys[i]); reads.push({ y:ys[i], ref:ref, snap: await tx.get(ref) }); }
+    reads.forEach(function(x){
+      var cloud = []; if(x.snap.exists()){ try{ cloud = JSON.parse(x.snap.data().data || '[]') || []; }catch(e){} }
+      var loc = MB_LIST.filter(function(r){ return _mbYearOf(r) === x.y; });
+      var oldY = oldCloud.filter(function(r){ return _mbYearOf(r) === x.y; });
+      var merged = _mbMergeRecs(loc, _mbMergeRecs(cloud, oldY, {}), tAll);
+      all = all.concat(merged);
+      tx.set(x.ref, { data: JSON.stringify(merged), updatedAt: Date.now() });
+    });
+    tx.set(tref, { data: JSON.stringify(tAll), updatedAt: Date.now() });
+    /* compatibilidad: quien aún tenga la versión anterior lee el doc único "lecturas" */
+    var full = _mbMergeRecs(all, oldCloud, tAll), fj = JSON.stringify(full);
+    if(fj.length < 900000) tx.set(oref, { data: fj, updatedAt: Date.now() });
+  });
+  MB_SYNC.tombs.list = tAll; MB_LIST = _mbMergeRecs(MB_LIST, all, tAll); _mbSnapKnown('list');
+  try{ localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); }catch(e){}
+}
+function _mbSyncQueue(kind, delay){
+  MB_SYNC.dirty[kind] = true; _mbSyncMetaSave(); _mbSyncIndicator();
+  clearTimeout(MB_SYNC.t[kind]);
+  MB_SYNC.t[kind] = setTimeout(function(){ _mbSyncRun(kind); }, delay==null ? 700 : delay);
+}
+async function _mbSyncRun(kind){
+  if(!_mbSyncReady()){ MB_SYNC.t[kind] = setTimeout(function(){ _mbSyncRun(kind); }, 5000); return; }
+  if(MB_SYNC.busy[kind]){ MB_SYNC.again[kind] = true; return; }
+  MB_SYNC.busy[kind] = true;
+  try{
+    _mbStampChanges(kind);
+    await _mbPushKind(kind);
+    MB_SYNC.dirty[kind] = false; MB_SYNC.fails = 0; MB_SYNC.lastOk = Date.now(); _mbSyncMetaSave();
+    if(!_mbUserTyping()){ try{ _mbRenderAll(); window._mbRenderLegacyCapture && window._mbRenderLegacyCapture(); }catch(e){} }
+  }catch(e){
+    MB_SYNC.fails++;
+    console.warn('[Medidor BESS] no se pudo subir ('+kind+'):', e && e.message);
+    if(Date.now() - MB_SYNC.warned > 60000){ MB_SYNC.warned = Date.now(); _mbToast('⚠️ No se pudo guardar en la nube — quedó guardado en este equipo y se reintenta solo'); }
+    clearTimeout(MB_SYNC.t[kind]); MB_SYNC.t[kind] = setTimeout(function(){ _mbSyncRun(kind); }, Math.min(60000, 8000 * MB_SYNC.fails));
+  }finally{
+    MB_SYNC.busy[kind] = false; _mbSyncIndicator();
+    if(MB_SYNC.again[kind]){ MB_SYNC.again[kind] = false; _mbSyncRun(kind); }
+  }
+}
+/* ── bajar y FUSIONAR (no reemplazar) ── */
+function _mbPullMerge(cb){
+  if(!_mbSyncReady()){ if(cb) cb(false); return; }
+  var FS = window._fbFS, DB = window._fbDB;
+  /* lo que se cambió aquí antes de bajar se marca primero (para no perderlo en la fusión) */
+  ['list','leg','cfg'].forEach(function(k){ if(_mbStampChanges(k)){ MB_SYNC.dirty[k] = true; } });
+  FS.getDocs(FS.collection(DB,'medidor_bess')).then(function(snap){
+    var cList = [], cTombs = {}, cLeg = [], cLegT = {}, cCfg = null, oldList = null, oldLeg = null;
+    snap.forEach(function(d){
+      var id = d.id, v = d.data() || {};
+      try{
+        if(id === 'config') cCfg = JSON.parse(v.data || '{}');
+        else if(id === 'lecturas') oldList = JSON.parse(v.data || '[]');
+        else if(id === 'lecturas2_tombs') cTombs = JSON.parse(v.data || '{}');
+        else if(id.indexOf('lecturas2_') === 0) cList = cList.concat(JSON.parse(v.data || '[]'));
+        else if(id === 'legado') oldLeg = JSON.parse(v.data || '[]');
+        else if(id === 'legado2'){ cLeg = JSON.parse(v.data || '[]'); cLegT = JSON.parse(v.tombs || '{}'); }
+      }catch(e){}
+    });
+    var before = JSON.stringify([MB_LIST.length, MB_LEG_LIST.length, Object.keys(MB_CONFIG).length, MB_LIST.map(_mbStamp).reduce(function(a,b){return Math.max(a,b);},0)]);
+    /* lecturas: versión vieja (doc único) + documentos por año */
+    if(Array.isArray(oldList)) cList = _mbMergeRecs(cList, oldList, {});   /* lo del doc por año gana sobre el viejo */
+    MB_SYNC.tombs.list = _mbMergeTombs(MB_SYNC.tombs.list, cTombs);
+    MB_LIST = _mbMergeRecs(MB_LIST, cList, MB_SYNC.tombs.list);
+    if(Array.isArray(oldLeg)) cLeg = _mbMergeRecs(cLeg, oldLeg, {});
+    MB_SYNC.tombs.leg = _mbMergeTombs(MB_SYNC.tombs.leg, cLegT);
+    MB_LEG_LIST = _mbMergeRecs(MB_LEG_LIST, cLeg, MB_SYNC.tombs.leg);
+    if(cCfg && typeof cCfg === 'object') MB_CONFIG = _mbMergeCfg(MB_CONFIG, cCfg);
+    try{ _mbMigrateConfig(); _mbPurgeGhostSites(); }catch(e){}
+    ['list','leg','cfg'].forEach(_mbSnapKnown);
+    try{ localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); localStorage.setItem(MB_LS_LEG, JSON.stringify(MB_LEG_LIST)); localStorage.setItem(MB_LS_CONFIG, JSON.stringify(MB_CONFIG)); }catch(e){}
+    _mbSyncMetaSave();
+    window._mbLastCloudSync = Date.now();
+    var after = JSON.stringify([MB_LIST.length, MB_LEG_LIST.length, Object.keys(MB_CONFIG).length, MB_LIST.map(_mbStamp).reduce(function(a,b){return Math.max(a,b);},0)]);
+    if(before !== after && !_mbUserTyping()){ try{ _mbRenderAll(); window._mbRenderLegacyCapture && window._mbRenderLegacyCapture(); }catch(e){} }
+    /* si había cambios locales sin subir (o la nube aún no tiene el formato nuevo), se suben ya */
+    if(MB_SYNC.dirty.list || !snap.docs.some(function(d){ return d.id.indexOf('lecturas2_') === 0; }) && MB_LIST.length) _mbSyncQueue('list', 200);
+    if(MB_SYNC.dirty.leg || (!snap.docs.some(function(d){ return d.id === 'legado2'; }) && MB_LEG_LIST.length)) _mbSyncQueue('leg', 300);
+    if(MB_SYNC.dirty.cfg) _mbSyncQueue('cfg', 400);
+    _mbSyncIndicator();
+    if(cb) cb(true);
+  }).catch(function(e){ console.warn('[Medidor BESS] no se pudo bajar de la nube:', e && e.message); if(cb) cb(false); });
+}
+/* revisa la nube cada 3 min mientras la pestaña esté visible (para ver lo que capturan los demás) */
+setInterval(function(){ if(document.visibilityState === 'visible' && window._mbLoaded) _mbPullMerge(); }, 180000);
+window.addEventListener('online', function(){ ['list','leg','cfg'].forEach(function(k){ if(MB_SYNC.dirty[k]) _mbSyncQueue(k, 500); }); });
+/* si se cierra la pestaña con cambios sin subir, al menos quedan en este equipo (y se suben al volver) */
+window.addEventListener('beforeunload', function(){ try{ ['list','leg','cfg'].forEach(function(k){ if(_mbStampChanges(k)) MB_SYNC.dirty[k] = true; }); localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); localStorage.setItem(MB_LS_LEG, JSON.stringify(MB_LEG_LIST)); _mbSyncMetaSave(); }catch(e){} });
+window._mbSyncState = function(){ return { dirty: MB_SYNC.dirty, fails: MB_SYNC.fails, lastOk: MB_SYNC.lastOk, tombs: { list: Object.keys(MB_SYNC.tombs.list).length, leg: Object.keys(MB_SYNC.tombs.leg).length } }; };
+
 
 /* ── cálculo mensual legado ── */
 function _mbLegReadings(sitio){
@@ -33859,9 +34014,18 @@ window._mbRenderLegacyCapture = function(){
         +'<div style="font:600 8.5px var(--mono);color:var(--t3);margin-top:4px">'+_mbLegFH(m.open)+' → '+_mbLegFH(m.close)+' · × '+(m.mult==null?'—':m.mult)+(m.totalParcial?' · total parcial':'')+'</div>'
         +(m.note?'<div style="font:700 9px var(--body);color:var(--orange);margin-top:3px">'+_mbEsc(m.note)+'</div>':'')
       : '<div style="font:700 10px var(--body);color:var(--t3);padding:10px 6px;text-align:center">'+(m.estado==='single'?'🕒 '+_mbEsc(m.note):'⏳ Captura la primera lectura del mes')+'</div>';
+    /* v134: demanda máxima del mes de este sitio (se captura en la tabla de demanda, igual que los demás) */
+    var dRecs = _mbMonthSiteData(sitio, mes).recs || [], dMax = null, dRec = null;
+    dRecs.forEach(function(r){ if(r.maxDemanda!=null && (dMax==null || r.maxDemanda>dMax)){ dMax=r.maxDemanda; dRec=r; } });
+    var dc = d.dc;
+    res += '<div style="margin-top:6px;padding:6px 8px;border-radius:8px;border:1px solid rgba(220,38,38,.3);background:rgba(220,38,38,.05);display:flex;justify-content:space-between;align-items:center;gap:8px">'
+      +'<span style="font:800 9px var(--mono);letter-spacing:.5px;color:#b91c1c">DEMANDA MÁX. DEL MES</span>'
+      +(dMax!=null ? '<b style="font:900 13px var(--mono);color:var(--text)">'+(Math.round(dMax*100)/100).toLocaleString('es-MX')+' kW'+(dc?'<span style="font:700 9px var(--mono);color:'+(dMax>dc?'#dc2626':'var(--t3)')+'"> / '+dc+' kW ('+Math.round(dMax/dc*100)+'%)</span>':'')+'</b>'
+        : '<span style="font:700 9.5px var(--body);color:var(--t3)">captúrala en la tabla de demanda ↑</span>')
+      +'</div>';
     return '<tr style="border-bottom:1px solid var(--b1);vertical-align:top">'
       +'<td style="padding:8px 10px;min-width:130px"><div style="font:800 12px var(--body);color:var(--text)">'+_mbEsc(sitio)+'</div>'
-        +'<div style="font:700 8.5px var(--mono);color:#2563eb;margin-top:2px">LEGADO · consumo mensual</div>'
+        +'<div style="font:700 8.5px var(--mono);color:#2563eb;margin-top:2px">LEGADO · consumo + demanda</div>'
         +'<label style="display:flex;align-items:center;gap:4px;margin-top:6px;font:700 8.5px var(--mono);color:var(--t3)">Mult.<input type="number" value="'+(d.mult==null?'':d.mult)+'" onchange="window._mbLegSetMult(\''+se+'\',this.value)" style="width:70px;padding:4px 6px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px"></label></td>'
       +'<td style="padding:8px 10px"><div style="display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap">'
         +'<label style="display:flex;flex-direction:column;gap:2px"><span style="font:800 8.5px var(--mono);color:var(--t3)">📅 Fecha del video</span><input type="date" id="mbleg-fecha-'+id+'" value="'+defDate+'" style="width:128px;padding:5px 6px;border-radius:6px;border:1.5px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:10.5px"></label>'
@@ -33878,7 +34042,7 @@ window._mbRenderLegacyCapture = function(){
       +'<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+_mbEsc(_mbMesLabel(mes))+' · Δ = lectura más cercana al fin del mes − más cercana al inicio, × multiplicador · Total = 11 + 12 + 13</div>'
     +'</div>'
     +'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>'
-      +'<th style="'+th+';text-align:left">Sitio</th><th style="'+th+';text-align:left">Nueva lectura (códigos acumulados del medidor) · lecturas del mes</th><th style="'+th+'">Consumo del mes</th>'
+      +'<th style="'+th+';text-align:left">Sitio</th><th style="'+th+';text-align:left">Nueva lectura (códigos acumulados del medidor) · lecturas del mes</th><th style="'+th+'">Consumo y demanda del mes</th>'
     +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 };
 window._mbLegSetMult = function(sitio, val){
@@ -42357,7 +42521,7 @@ document.addEventListener('keydown', function(e){
   /* ───────────── DATOS ───────────── */
   function collect(mesKey, q){
     var api=A(), list=api.list();
-    var recs = list.filter(function(r){ return r && r.fecha && !api.isLeg(r.sitio) && api.hasData(r); }).map(function(r){
+    var recs = list.filter(function(r){ return r && r.fecha && api.hasData(r); }).map(function(r){   /* v134: legado también en demanda */
       var c=api.calc(r), mk=api.mesKey(r.fecha), qq=api.q(r.fecha);
       var fr={}; FR.forEach(function(f){ fr[f.k]=api.per(r[f.k], r.multiplicador); });
       return { r:r, site:api.canon(r.sitio), group:api.group(r.sitio), mk:mk, q:qq, pk:mk+'-'+qq, max:c.maxDemanda, dc:c.demandaContratada, pct:c.pctUso, estado:c.estado, fr:fr };
@@ -42375,7 +42539,7 @@ document.addEventListener('keydown', function(e){
     recs.forEach(function(x){ if(timeline.indexOf(x.pk)<0) return; var k=api.norm(x.site); var s = bySite[k] = bySite[k] || { site:x.site, group:x.group, dc:x.dc, vals:{} }; if(x.dc) s.dc=x.dc; if(x.max!=null && (s.vals[x.pk]==null || x.max>s.vals[x.pk])) s.vals[x.pk]=x.max; });
     /* periodo anterior (para variación) */
     var prevPk = null; timeline.forEach(function(pk){ if(pk < (q==='0'?mesKey+'-1':upper)) prevPk=pk; });
-    var allSites = api.sites().filter(function(s){ return !api.isLeg(s); });
+    var allSites = api.sites();
     /* legado */
     var legSites = api.sites().filter(api.isLeg);
     var months = prevMonths(mesKey, 6);
@@ -42574,8 +42738,8 @@ document.addEventListener('keydown', function(e){
         +card('Consumo por sitio y franja · '+mesLbl(D.mesKey), SK.hstack({w:620,h:176,labW:100,rightW:96,items:perSite,names:LEG_FR.map(function(f){return f.l;}),colors:LEG_FR.map(function(f){return f.c;}),empty:'Captura lecturas de inicio y cierre del mes'}), {w:660, dot:'#2563eb'})
         +card('Tendencia de consumo por sitio', SK.line({w:360,h:176,labels:D.months.map(function(mk){ return MES[+mk.slice(5,7)-1]; }),series:lines,unit:'kWh',directLabels:false}), {flex:1, dot:'#2563eb'})
       +'</div>'
-      +'<div class="mbd-note">ℹ️ <b>Cómo se mide el legado:</b> estos sitios de ASUR se reportan por <b>consumo de energía (kWh)</b> con los códigos acumulados del medidor: consumo = (lectura de cierre − lectura de inicio) × multiplicador; Total = 11 + 12 + 13. Los demás sitios se reportan por <b>demanda máxima (kW)</b>. Son magnitudes distintas y <b>no se suman entre sí</b>.</div>';
-    return [page(D, '🏛 ASUR · Legado — Consumo de energía', 'Alpha · BHS · Comedor · PTAR · Sala Bravo · T2 — códigos 11 / 12 / 13', 'ASUR Legado', '#2563eb', body)];
+      +'<div class="mbd-note">ℹ️ <b>Cómo se mide el legado:</b> estos sitios de ASUR se reportan por <b>consumo de energía (kWh)</b> con los códigos acumulados del medidor: consumo = (lectura de cierre − lectura de inicio) × multiplicador; Total = 11 + 12 + 13. Estos sitios <b>también</b> reportan su <b>demanda máxima (kW)</b> junto con los demás sitios. Energía y demanda son magnitudes distintas y <b>no se suman entre sí</b>.</div>';
+    return [page(D, '🏛 ASUR · Legado — Consumo de energía', 'Alpha · BHS · Comedor · PTAR · Sala Bravo · T2 · T3 — códigos 11 / 12 / 13 (además reportan demanda máxima)', 'ASUR Legado', '#2563eb', body)];
   }
 
   window._mbDashSummary = function(mesKey, q){
