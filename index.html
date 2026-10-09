@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>console.log('%c[Centro BESS] build 2026-09-22 bess_v99_lote_revision_uno_por_uno -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
+<script>console.log('%c[Centro BESS] build 2026-10-09 bess_v105_lista_maestra_tiempo_real -- si NO ves este mensaje al recargar, tu navegador tiene una version vieja en cache: Ctrl+Shift+R (Windows) o Cmd+Shift+R (Mac)', 'color:#22c55e;font-weight:bold;font-size:13px;padding:4px');</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <meta charset="UTF-8">
-<meta name="app-version" content="1787644210000">
+<meta name="app-version" content="1791600000000">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a1f5e">
 <meta name="description" content="Centro BESS — Skysense">
@@ -18493,9 +18493,15 @@ function showToast(msg, dur){
     }catch(e){}
     if(!msg){ _showToastBusy=false; return; }
     const m=msg.toString();
-    if(m.includes('Guardada:') || (m.includes('guardad') || m.includes('Guardad'))){
+    /* v105 — un aviso de falla ("⚠️ No se pudo guardar…") ya NO se clasifica como "Bitácora guardada"
+       solo porque trae la palabra "guardado". Y el título dice qué se guardó de verdad. */
+    const _isFail = /⚠|no se pudo|error|fall[óo]|rechaz/i.test(m);
+    if(_isFail){
+      addNotif('alert','⚠️ Aviso', m, null);
+    } else if(m.includes('Guardada:') || (m.includes('guardad') || m.includes('Guardad'))){
       if(!m.includes('Guardada:')){
-        addNotif('save','✅ Bitácora guardada', m, null);
+        var _t = /sitio|lista maestra/i.test(m) ? '✅ Lista Maestra' : /medidor|lectura|catálogo|grabaci/i.test(m) ? '✅ Medidores' : /bit[áa]cora/i.test(m) ? '✅ Bitácora guardada' : '✅ Guardado';
+        addNotif('save', _t, m, null);
         playBessSound('save');
       }
     } else if(m.includes('eliminad') || m.includes('Eliminad')){
@@ -25259,223 +25265,318 @@ window._histPushReporteOp = function(rep){
 function _normKey(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 
 /* Cargar tabla maestra desde Firestore al arrancar */
-async function _loadMasterSitesCloud() {
-  if(!window._fbDB || !window._fbGetDocs || !window._fbCollection) return;
-  if(window._firestoreQuotaExhausted) return;
-  try {
-    var snap = await window._fbGetDocs(window._fbCollection(window._fbDB, 'master_sites'));
-    if(snap.empty) {
-      await _pushMasterSitesToCloud();
-      return;
+/* v105 — LISTA MAESTRA EN TIEMPO REAL PARA TODOS
+   Antes "Guardar" solo cambiaba una copia en memoria de esta pestaña: no se subía a Firebase,
+   y al recargar volvía la lista escrita en el código. Ahora:
+   · Cada cambio (editar / agregar / eliminar) se escribe en Firestore → master_sites.
+   · Todas las pestañas abiertas escuchan esa colección en vivo (onSnapshot) y aplican el cambio
+     al instante sobre window.MASTER_SITES_DB, que es la misma lista que leen Bitácora,
+     Reporte Operativo, Validación, Medidores, FP, SOC, etc. (window._masterSitesCloud apunta
+     al MISMO arreglo, así ya no hay dos listas distintas).
+   · Si no hay internet o Firebase falla, el cambio queda pendiente en este equipo, se aplica
+     aquí mismo y se sube solo cuando se pueda.
+   Reglas de fusión:
+   · Documento editado desde la app (_editedAt) → manda sobre la lista del código.
+   · Documento viejo (sin _editedAt) → la lista del código manda; solo aporta sitios que no
+     están en el código.
+   · _deleted:true → el sitio se oculta para todos (aunque esté en la lista del código). */
+var _MS_BASE = (window.MASTER_SITES_DB||[]).map(function(s){ return Object.assign({}, s); });
+var _MS_BASE_BY = {};
+_MS_BASE.forEach(function(b){ if(b && b.sitio) _MS_BASE_BY[_normKey(b.sitio)] = b; });
+var _MS_PEND_SK = 'bess:ml_pending:v1';
+var _MS_META = ['_fbId','_updatedAt','_editedBy','_deleted'];
+var MS = { docs:{}, byKey:{}, unsub:null, live:false, loaded:false, warnedAt:0, flushing:false, retryT:null };
+window._msState = MS;
+
+function _msPendLoad(){ try{ return JSON.parse(localStorage.getItem(_MS_PEND_SK)||'{}')||{}; }catch(e){ return {}; } }
+function _msPendSave(p){ try{ localStorage.setItem(_MS_PEND_SK, JSON.stringify(p)); }catch(e){} }
+function _msUser(){ try{ return localStorage.getItem('bess_uname')||''; }catch(e){ return ''; } }
+function _msClean(o){
+  var r = {};
+  Object.keys(o||{}).forEach(function(k){
+    var v = o[k];
+    if(v === undefined || typeof v === 'function') return;
+    if(typeof v === 'number' && !isFinite(v)) v = null;
+    r[k] = v;
+  });
+  return r;
+}
+function _msStrip(o){ var r = Object.assign({}, o); _MS_META.forEach(function(k){ delete r[k]; }); return r; }
+function _msBestDoc(key){
+  var ids = MS.byKey[key] || [], best = null;
+  ids.forEach(function(id){
+    var d = MS.docs[id]; if(!d) return;
+    if(!best) { best = d; return; }
+    var a = d._editedAt||0, b = best._editedAt||0;
+    if(a !== b){ if(a > b) best = d; return; }
+    if(d.sku && !best.sku){ best = d; return; }
+    if((d._updatedAt||0) > (best._updatedAt||0) && !!d.sku === !!best.sku) best = d;
+  });
+  return best;
+}
+function _msSkuOf(s){ var n = Number(s && s.sku); return isFinite(n) && n > 0 ? n : Infinity; }
+
+/* Construye la lista final: código + nube + pendientes de este equipo */
+function _msBuild(){
+  var pend = _msPendLoad(), out = [], seen = {};
+  var keys = Object.keys(_MS_BASE_BY).concat(Object.keys(MS.byKey)).concat(Object.keys(pend));
+  keys.forEach(function(k){
+    if(seen[k]) return; seen[k] = 1;
+    var base = _MS_BASE_BY[k], d = _msBestDoc(k), p = pend[k];
+    var src = null;
+    if(d && d._editedAt) src = d;
+    if(p && p.data && (!src || (p.data._editedAt||0) >= (src._editedAt||0))) src = p.data;
+    var rec;
+    if(src){
+      if(src._deleted) return;
+      rec = Object.assign({}, base||{}, _msStrip(src));
+    } else if(base){
+      rec = Object.assign({}, base);           /* doc viejo o sin doc → manda el código */
+    } else if(d){
+      if(d._deleted) return;
+      rec = _msStrip(d);                        /* sitio que solo existe en la nube */
+    } else return;
+    if(!rec.sitio) return;
+    out.push(rec);
+  });
+  out.sort(function(a,b){
+    var x = _msSkuOf(a), y = _msSkuOf(b);
+    if(x !== y) return x - y;
+    return String(a.sitio).localeCompare(String(b.sitio),'es',{sensitivity:'base'});
+  });
+  return out;
+}
+
+/* Aplica la lista EN SITIO sobre window.MASTER_SITES_DB y avisa a toda la app */
+function _msApply(){
+  var list = _msBuild();
+  var db = window.MASTER_SITES_DB;
+  if(!Array.isArray(db)){ db = []; window.MASTER_SITES_DB = db; }
+  var before = JSON.stringify(db);
+  var old = {};
+  db.forEach(function(o){ if(o && o.sitio) old[_normKey(o.sitio)] = o; });
+  var next = list.map(function(r){
+    var o = old[_normKey(r.sitio)];
+    if(!o) return r;
+    Object.keys(o).forEach(function(k){ if(!(k in r)) delete o[k]; });
+    return Object.assign(o, r);
+  });
+  db.length = 0;
+  next.forEach(function(o){ db.push(o); });
+  window._masterSitesCloud = db;
+  if(JSON.stringify(db) === before) return false;
+  try{ if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites(); }catch(e){}
+  try{ if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites(); }catch(e){}
+  try{ if(typeof buildSiteSelector === 'function') buildSiteSelector(); }catch(e){}
+  try{ if(typeof window._mlRefresh === 'function') window._mlRefresh(); }catch(e){}
+  try{ window.dispatchEvent(new CustomEvent('master-sites-updated', {detail:{count:db.length}})); }catch(e){}
+  return true;
+}
+window._msApply = _msApply;
+
+function _msIngest(docs){
+  MS.docs = {}; MS.byKey = {};
+  docs.forEach(function(d){
+    var v = Object.assign({}, d.data() || {}); if(!v.sitio) return;
+    v._fbId = d.id; MS.docs[d.id] = v;
+    var k = _normKey(v.sitio);
+    (MS.byKey[k] = MS.byKey[k] || []).push(d.id);
+  });
+  MS.loaded = true;
+  /* pendientes que la nube ya tiene (o algo más nuevo) se quitan */
+  var p = _msPendLoad(), ch = false;
+  Object.keys(p).forEach(function(k){
+    var d = _msBestDoc(k);
+    if(d && (d._editedAt||0) >= ((p[k].data||{})._editedAt||0)){ delete p[k]; ch = true; }
+  });
+  if(ch) _msPendSave(p);
+}
+
+function _msErrText(e){
+  var c = (e && e.code) || '', m = (e && e.message) || String(e||'');
+  if(/resource-exhausted/.test(c+m)) return 'cuota diaria de Firebase agotada';
+  if(/permission-denied/.test(c+m)) return 'Firebase rechazó el permiso';
+  if(/unavailable|offline|network/i.test(c+m)) return 'sin conexión';
+  return c || m || 'error desconocido';
+}
+function _msWarn(e){
+  if(/resource-exhausted/.test(((e&&e.code)||'')+((e&&e.message)||''))) window._firestoreQuotaExhausted = true;
+  if(Date.now() - MS.warnedAt < 120000) return;
+  MS.warnedAt = Date.now();
+  if(typeof showToast === 'function') showToast('⚠️ Lista Maestra: no se pudo subir a la nube ('+_msErrText(e)+'). Quedó en este equipo y se reintenta solo.', 6000);
+}
+
+/* Escribe un sitio (o su lápida) en Firestore, reutilizando el documento existente */
+async function _msWrite(key, data){
+  var FS = window._fbFS, DB = window._fbDB;
+  var ids = (MS.byKey[key] || []).slice();
+  var best = _msBestDoc(key);
+  var clean = _msClean(_msStrip(data));
+  clean._editedAt = data._editedAt || Date.now();
+  clean._editedBy = data._editedBy || _msUser();
+  clean._updatedAt = Date.now();
+  if(data._deleted) clean._deleted = true;
+  if(best){
+    await FS.setDoc(FS.doc(DB,'master_sites',best._fbId), clean);
+    /* duplicados del mismo sitio: se borran para que ninguno "gane" después */
+    for(var i=0;i<ids.length;i++){
+      if(ids[i] === best._fbId) continue;
+      try{ await FS.deleteDoc(FS.doc(DB,'master_sites',ids[i])); }catch(e){}
     }
-    var cloudRaw = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); })
-      .filter(function(s){ return s && s.sitio; }); /* Guard: skip docs without sitio */
-
-    /* Construir mapa de nombres canónicos + registro completo desde MASTER_SITES_DB
-       local (fuente de verdad). localRecByNormKey se usa más abajo para "sanar"
-       documentos de Firestore incompletos (ej. de una importación CSV que solo
-       trajo 'sitio' y dejó sku/ciudad/marca/etc. sin definir). */
-    var localByNormKey = {};
-    var localRecByNormKey = {};
-    (window.MASTER_SITES_DB||[]).forEach(function(local){
-      if(local&&local.sitio){
-        localByNormKey[_normKey(local.sitio)] = local.sitio;
-        localRecByNormKey[_normKey(local.sitio)] = local;
-      }
-    });
-
-    /* Normalizar nombres cloud al canónico local ANTES de deduplicar */
-    cloudRaw = cloudRaw.map(function(s){
-      var nk = _normKey(s.sitio);
-      if(localByNormKey[nk] && s.sitio !== localByNormKey[nk]) {
-        return Object.assign({}, s, {sitio: localByNormKey[nk]});
-      }
-      return s;
-    });
-
-    /* Deduplicar cloud usando clave normalizada (sin acentos) */
-    var cloudDeduped = [];
-    var cloudSeenKeys = {};
-    cloudRaw.forEach(function(s){
-      var key = _normKey(s.sitio);
-      if(cloudSeenKeys[key] !== undefined) {
-        /* Ya existe: reemplazar solo si el nuevo tiene sku y el anterior no */
-        var prev = cloudDeduped[cloudSeenKeys[key]];
-        if(s.sku && !prev.sku) cloudDeduped[cloudSeenKeys[key]] = s;
-      } else {
-        cloudSeenKeys[key] = cloudDeduped.length;
-        cloudDeduped.push(s);
-      }
-    });
-
-    /* Sanar documentos cloud incompletos: si un doc de Firestore le falta un
-       campo (ej. sku, ciudad, marca, powSummer...) que sí existe en el
-       registro local canónico para ese mismo sitio, se rellena desde ahí.
-       Object.assign no toca claves que SÍ vienen en el doc de cloud (aunque
-       su valor sea 0/''), así que una edición real hecha desde la app se
-       respeta — solo se completa lo que genuinamente falta. Esto evita que
-       una importación CSV mal mapeada (que solo trae 'sitio'/'cliente')
-       deje sitios sin sku — y por lo tanto mal ordenados o con datos técnicos
-       en blanco — de forma permanente en la nube. */
-    var cloud = cloudDeduped.map(function(c){
-      var rec = localRecByNormKey[_normKey(c.sitio)];
-      return rec ? Object.assign({}, rec, c) : c;
-    });
-    var merged = cloud.slice();
-    var cloudNormKeys = cloud.map(function(s){ return _normKey(s.sitio); });
-    (window.MASTER_SITES_DB||[]).forEach(function(local){
-      if(!local||!local.sitio) return;
-      if(!cloudNormKeys.includes(_normKey(local.sitio))) {
-        merged.push(local);
-      }
-    });
-    window._masterSitesCloud = merged;
-    /* Reconstruir OP_SITES y RV_SITES desde la lista maestra actualizada */
-    if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
-    if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
-    if(typeof buildSiteSelector === 'function') buildSiteSelector();
-    console.log('[Master] '+merged.length+' sitios cargados ('+cloud.length+' de Firebase)');
-  } catch(e) {
-    if(e&&e.message&&e.message.includes('resource-exhausted')) {
-      window._firestoreQuotaExhausted = true;
-    }
-    console.warn('[Master] Error cargando tabla maestra:', e.message);
-    window._masterSitesCloud = (window.MASTER_SITES_DB||[]).slice();
+  } else {
+    await FS.addDoc(FS.collection(DB,'master_sites'), clean);
   }
 }
-window._loadMasterSitesCloud = _loadMasterSitesCloud; /* expuesta: otro módulo la usa como fallback vía window._loadMasterSitesCloud */
 
-/* Subir tabla maestra local a Firestore (solo primera vez o al hacer SYNC) */
+async function _msFlush(){
+  if(MS.flushing) return;
+  if(!window._fbDB || !window._fbFS || !MS.loaded) return;
+  var p = _msPendLoad(), keys = Object.keys(p);
+  if(!keys.length) return;
+  MS.flushing = true;
+  try{
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i], item = p[k];
+      try{
+        await _msWrite(k, item.data);
+        var cur = _msPendLoad();
+        if(cur[k] && (cur[k].data||{})._editedAt === (item.data||{})._editedAt){ delete cur[k]; _msPendSave(cur); }
+      }catch(e){
+        console.warn('[Master] no se pudo subir '+k+':', e && (e.code||e.message));
+        _msWarn(e);
+        clearTimeout(MS.retryT); MS.retryT = setTimeout(_msFlush, 30000);
+        break;
+      }
+    }
+  } finally { MS.flushing = false; }
+  if(!MS.live){ try{ await _loadMasterSitesCloud(); }catch(e){} }
+}
+window.addEventListener('online', function(){ setTimeout(_msFlush, 1500); });
+
+/* Guardar (agregar / editar). oldSitio = nombre anterior si se renombró. */
+window._msSaveSite = function(rec, oldSitio){
+  var now = Date.now(), who = _msUser();
+  var p = _msPendLoad();
+  var data = Object.assign({}, _msStrip(rec), { _editedAt: now, _editedBy: who });
+  var newKey = _normKey(data.sitio);
+  p[newKey] = { data: data };
+  if(oldSitio && _normKey(oldSitio) !== newKey){
+    var oldKey = _normKey(oldSitio);
+    p[oldKey] = { data: { sitio: oldSitio, _deleted: true, _editedAt: now, _editedBy: who } };
+  }
+  _msPendSave(p);
+  _msApply();
+  _msFlush();
+};
+window._msDeleteSite = function(sitio){
+  if(!sitio) return;
+  var p = _msPendLoad();
+  p[_normKey(sitio)] = { data: { sitio: sitio, _deleted: true, _editedAt: Date.now(), _editedBy: _msUser() } };
+  _msPendSave(p);
+  _msApply();
+  _msFlush();
+};
+/* "Sincronizar Firebase": publica la lista completa tal como se ve */
+window._msPublishAll = async function(){
+  var p = _msPendLoad(), now = Date.now(), who = _msUser();
+  (window.MASTER_SITES_DB||[]).forEach(function(s, i){
+    if(!s || !s.sitio) return;
+    var k = _normKey(s.sitio);
+    if(p[k]) return;
+    p[k] = { data: Object.assign({}, _msStrip(s), { _editedAt: now + i, _editedBy: who }) };
+  });
+  _msPendSave(p);
+  await _msFlush();
+  return Object.keys(_msPendLoad()).length;   /* 0 = todo subido */
+};
+window._msPendingCount = function(){ return Object.keys(_msPendLoad()).length; };
+
+/* Lectura única (respaldo si no hay tiempo real) */
+async function _loadMasterSitesCloud() {
+  if(!window._fbDB || !window._fbGetDocs || !window._fbCollection) { _msApply(); return; }
+  if(window._firestoreQuotaExhausted) { _msApply(); return; }
+  try {
+    var snap = await window._fbGetDocs(window._fbCollection(window._fbDB, 'master_sites'));
+    if(snap.empty) { await _pushMasterSitesToCloud(); }
+    _msIngest(snap.docs);
+    _msApply();
+    console.log('[Master] '+(window.MASTER_SITES_DB||[]).length+' sitios ('+snap.docs.length+' docs en Firebase)');
+    _msFlush();
+  } catch(e) {
+    if(e&&e.message&&e.message.includes('resource-exhausted')) window._firestoreQuotaExhausted = true;
+    console.warn('[Master] Error cargando tabla maestra:', e && e.message);
+    _msApply();
+  }
+}
+window._loadMasterSitesCloud = _loadMasterSitesCloud;
+
+/* Tiempo real: cualquier cambio de cualquier usuario llega aquí al instante */
+function _msStartLive(){
+  if(MS.unsub || !window._fbDB || !window._fbFS || !window._fbFS.onSnapshot) return false;
+  try{
+    MS.unsub = window._fbFS.onSnapshot(window._fbFS.collection(window._fbDB,'master_sites'), function(snap){
+      MS.live = true;
+      if(snap.empty && !MS.seeded){ MS.seeded = true; _pushMasterSitesToCloud(); }
+      _msIngest(snap.docs);
+      _msApply();
+      _msFlush();
+    }, function(err){
+      console.warn('[Master] tiempo real se cortó:', err && (err.code||err.message));
+      MS.live = false; MS.unsub = null;
+      if(/resource-exhausted/.test(((err&&err.code)||'')+((err&&err.message)||''))) window._firestoreQuotaExhausted = true;
+      _loadMasterSitesCloud();
+      setTimeout(_msStartLive, 120000);
+    });
+    return true;
+  }catch(e){ console.warn('[Master] onSnapshot no disponible:', e && e.message); return false; }
+}
+
+/* Primera vez que la colección está vacía: se sube la lista del código */
 async function _pushMasterSitesToCloud() {
   if(!window._fbDB||!window._fbFS||window._firestoreQuotaExhausted) return;
-  var sites = window.MASTER_SITES_DB||[];
+  var sites = _MS_BASE;
   if(!sites.length) return;
   var col = window._fbFS.collection(window._fbDB, 'master_sites');
   var pushed = 0;
   for(var i=0; i<sites.length; i++) {
-    try {
-      await window._fbFS.addDoc(col, Object.assign({}, sites[i], {_updatedAt: Date.now()}));
-      pushed++;
-    } catch(e) {
-      if(e&&e.message&&e.message.includes('resource-exhausted')) { window._firestoreQuotaExhausted=true; break; }
-    }
+    try { await window._fbFS.addDoc(col, Object.assign({}, sites[i], {_updatedAt: Date.now()})); pushed++; }
+    catch(e) { if(e&&e.message&&e.message.includes('resource-exhausted')) { window._firestoreQuotaExhausted=true; break; } }
   }
   if(pushed) console.log('[Master] '+pushed+' sitios subidos a Firestore master_sites');
 }
 
-/* Auto-limpiar documentos duplicados o con nombre erróneo en Firestore master_sites.
-   Detecta docs cuyo nombre normalizado no coincide con el canónico de MASTER_SITES_DB
-   (ej: "FM MERIDA" en Firestore cuando el canónico es "FM Mérida") y los elimina. */
-async function _cleanupDuplicateCloudSites() {
-  if(!window._fbDB||!window._fbFS||window._firestoreQuotaExhausted) return;
-  try {
-    var fbFS = window._fbFS;
-    var fbDB = window._fbDB;
-    var snap = await window._fbGetDocs(fbFS.collection(fbDB,'master_sites'));
-    if(snap.empty) return;
-    /* Construir mapa de canónicos locales */
-    var localByNorm = {};
-    (window.MASTER_SITES_DB||[]).forEach(function(local){
-      if(local&&local.sitio) localByNorm[_normKey(local.sitio)] = local.sitio;
-    });
-    /* Encontrar docs cuyo nombre difiere del canónico o son duplicados */
-    var seenNorm = {};
-    var toDelete = [];
-    snap.docs.forEach(function(d){
-      var sitio = (d.data()||{}).sitio;
-      if(!sitio){ toDelete.push(d.ref); return; }
-      var nk = _normKey(sitio);
-      var canonical = localByNorm[nk];
-      if(seenNorm[nk]){
-        /* Duplicado — borrar este */
-        toDelete.push(d.ref);
-      } else {
-        seenNorm[nk] = true;
-        if(canonical && sitio !== canonical){
-          /* Nombre incorrecto — borrar y dejar que SYNC lo vuelva a subir con nombre correcto */
-          toDelete.push(d.ref);
-          delete seenNorm[nk]; /* Permitir que el correcto se suba */
-        }
-      }
-    });
-    if(toDelete.length){
-      console.log('[Master] Limpiando '+toDelete.length+' doc(s) duplicados/incorrectos en Firestore…');
-      for(var i=0;i<toDelete.length;i++){
-        try{ await fbFS.deleteDoc ? fbFS.deleteDoc(toDelete[i]) : window._fbFS.deleteDoc(toDelete[i]); }catch(e2){}
-      }
-      console.log('[Master] Limpieza completada. Recargando lista maestra…');
-      await _loadMasterSitesCloud();
-    }
-  } catch(e){ console.warn('[Master] Error en limpieza cloud:', e.message); }
-}
-
-/* Actualizar getMasterSiteData para usar la lista fusionada con búsqueda sin acentos */
+/* búsqueda sin acentos sobre la lista fusionada */
 window._getMasterSiteDataMerged = function(siteName) {
   if(!siteName) return null;
   var nk = _normKey(siteName);
-  var list = window._masterSitesCloud || window.MASTER_SITES_DB || [];
+  var list = window.MASTER_SITES_DB || [];
   return list.find(function(m){ return _normKey(m.sitio)===nk; }) || null;
 };
 
-/* Actualizar el combo selector de sitios con los sitios de cloud */
-function _refreshSitesList(merged) {
-  /* Actualizar SITES array global si existe — solo extender con nuevos sitios */
-  if(window.MASTER_SITES_DB) {
-    var existNorms = window.MASTER_SITES_DB.map(function(s){ return _normKey(s.sitio); });
-    merged.forEach(function(m) {
-      if(!existNorms.includes(_normKey(m.sitio))) {
-        window.MASTER_SITES_DB.push(m);
-        existNorms.push(_normKey(m.sitio));
-      }
-    });
-  }
-  /* Reconstruir listas derivadas para que reflejen los cambios */
-  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
-  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
-  /* Reconstruir combo selector de sitios */
-  if(typeof buildSiteSelector === 'function') buildSiteSelector();
-}
-
-/* Exponer función para que SYNC la llame */
+/* SYNC manual (botón "Sincronizar datos"): si ya hay tiempo real no hace falta leer otra vez */
 window._syncMasterSites = async function() {
-  await _loadMasterSitesCloud();
-  /* También subir cualquier sitio local que no esté en cloud */
-  if(window._fbDB&&window._fbFS&&!window._firestoreQuotaExhausted) {
-    var cloud = window._masterSitesCloud||[];
-    var cloudNames = cloud.map(function(s){ return s.sitio.trim().toLowerCase(); });
-    var toUpload = (window.MASTER_SITES_DB||[]).filter(function(s){
-      return !cloudNames.includes(s.sitio.trim().toLowerCase());
-    });
-    if(toUpload.length) {
-      var col = window._fbFS.collection(window._fbDB,'master_sites');
-      for(var i=0;i<toUpload.length;i++){
-        try { await window._fbFS.addDoc(col, Object.assign({},toUpload[i],{_updatedAt:Date.now()})); }
-        catch(e){ if(e&&e.message&&e.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;break;} }
-      }
-      if(toUpload.length) console.log('[Master] '+toUpload.length+' sitios nuevos subidos a Firestore');
-    }
-  }
-  return (window._masterSitesCloud||[]).length;
+  if(!MS.live) await _loadMasterSitesCloud();
+  await _msFlush();
+  return (window.MASTER_SITES_DB||[]).length;
 };
 
 /* Arrancar cuando Firebase esté listo */
 window.addEventListener('firebase-ready', function(){
-  /* Primero cargar, luego limpiar duplicados en background */
-  setTimeout(async function(){
-    await _loadMasterSitesCloud();
-    /* Limpiar documentos duplicados/incorrectos en Firestore (ej: "FM MERIDA" vs "FM Mérida") */
-    setTimeout(_cleanupDuplicateCloudSites, 2000);
-  }, 1200);
+  setTimeout(function(){
+    if(!_msStartLive()){
+      _loadMasterSitesCloud();
+      setInterval(function(){ if(document.visibilityState==='visible' && !MS.live) _loadMasterSitesCloud(); }, 180000);
+    }
+  }, 800);
 });
 document.addEventListener('DOMContentLoaded', function(){
-  /* Fallback local inmediato */
-  if(!window._masterSitesCloud) {
-    window._masterSitesCloud = (window.MASTER_SITES_DB||[]).slice();
-  }
-  /* Sincronizar OP_SITES y RV_SITES con MASTER_SITES_DB al arrancar */
+  /* cambios pendientes de este equipo se ven desde el arranque, aun sin internet */
+  _msApply();
   if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
   if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
 });
+/* Si la página se carga después de firebase-ready (caché del SW), arrancar igual */
+setTimeout(function(){ if(window._fbDB && !MS.unsub && !MS.loaded) { if(!_msStartLive()) _loadMasterSitesCloud(); } }, 6000);
 
 })();
 
@@ -27912,17 +28013,24 @@ var CL_COLORS = {
   ASUR:      {bg:'rgba(74,120,245,.12)', color:'#7aa3ff'},
   OMA:       {bg:'rgba(0,210,150,.1)',   color:'#00d296'},
   Industria: {bg:'rgba(245,158,11,.1)',  color:'#f59e0b'},
+  'Park Royal': {bg:'rgba(124,58,237,.1)', color:'#7c3aed'},
 };
 
 /* ══ CARGAR ══ */
 window._mlLoad = function() {
   /* Si _mlList ya está cargado (desde DOMContentLoaded), solo renderizar */
-  if (!_mlList || !_mlList.length) {
-    _mlList = (window.MASTER_SITES_DB || []).map(function(s){ return Object.assign({}, s); });
-    window._masterSitesCloud = _mlList.slice();
-  }
+  _mlList = window.MASTER_SITES_DB || [];
   _mlRender();
 };
+/* v105 — la nube avisó un cambio (de este u otro usuario) → repintar si la página está abierta */
+window._mlRefresh = function(){
+  _mlList = window.MASTER_SITES_DB || [];
+  var pg = document.getElementById('ml-tbody');
+  if(pg && pg.offsetParent !== null) _mlRender();
+};
+function _mlRegionOf(s){ try{ return window._oppRegionFor ? window._oppRegionFor(s.sitio) : (s.cliente||'Industria'); }catch(e){ return s.cliente||'Industria'; } }
+function _mlNorm(x){ return String(x||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+var _mlEditKey = null;
 
 /* ══ RENDER ══ */
 window._mlRender = function() {
@@ -27997,22 +28105,16 @@ window._mlRender = function() {
 };
 window._mlEditReal = function(idx){
   var site=_mlList[idx]; if(!site) return;
-  _mlEditIdx=idx;
+  _mlEditIdx=idx; _mlEditKey=site.sitio;
   document.getElementById('ml-modal-title').textContent='✏️ Editar: '+site.sitio;
   _mlBuildForm(site);
   document.getElementById('ml-edit-modal').style.display='flex';
 };
 window._mlDeleteReal = function(idx){
   var site=_mlList[idx];
-  if(!site||!confirm('¿Eliminar "'+site.sitio+'" de la lista maestra?')) return;
-  _mlList.splice(idx,1);
-  if(window.MASTER_SITES_DB){ var di=window.MASTER_SITES_DB.findIndex(function(x){ return x.sitio===site.sitio; }); if(di>=0) window.MASTER_SITES_DB.splice(di,1); }
-  window._masterSitesCloud=_mlList;
-  if(typeof window._rebuildOpSites==='function') window._rebuildOpSites();
-  if(typeof window._rebuildRvSites==='function') window._rebuildRvSites();
-  if(typeof buildSiteSelector==='function') buildSiteSelector();
-  _mlRender(); _mlPersist();
-  if(typeof showToast==='function') showToast('🗑 Sitio eliminado');
+  if(!site||!confirm('¿Eliminar "'+site.sitio+'" de la lista maestra?\n\nSe quita para todos los usuarios.')) return;
+  window._msDeleteSite(site.sitio);
+  if(typeof showToast==='function') showToast('🗑 Sitio eliminado de la lista maestra');
 };
 
 /* ══ EDITAR ══ */
@@ -28024,15 +28126,16 @@ window._mlEdit = function(i) {
   });
   var site=filtered[i];
   if(!site) return;
-  _mlEditIdx=_mlList.indexOf(site);
+  _mlEditIdx=_mlList.indexOf(site); _mlEditKey=site.sitio;
   document.getElementById('ml-modal-title').textContent='✏️ Editar: '+site.sitio;
   _mlBuildForm(site);
   document.getElementById('ml-edit-modal').style.display='flex';
 };
 
 window._mlAddSite = function() {
-  _mlEditIdx=-1;
-  var ns={sku:_mlList.length+1,sitio:'',cliente:'ASUR',ciudad:'',marca:'',plat:'Sky Control',bessId:1,numRacks:1,powCarga:0,horasCarga:0,kwhTotal:0,energiaBESS:0,powSummer:0,powWinter:0};
+  _mlEditIdx=-1; _mlEditKey=null;
+  var _maxSku=_mlList.reduce(function(a,s){ var n=Number(s.sku); return isFinite(n)&&n>a?n:a; },0);
+  var ns={sku:_maxSku+1,sitio:'',cliente:'ASUR',ciudad:'',marca:'',plat:'Sky Control',bessId:1,numRacks:1,powCarga:0,horasCarga:0,kwhTotal:0,energiaBESS:0,powSummer:0,powWinter:0};
   document.getElementById('ml-modal-title').textContent='+ Nuevo Sitio';
   _mlBuildForm(ns);
   document.getElementById('ml-edit-modal').style.display='flex';
@@ -28042,13 +28145,15 @@ function _mlBuildForm(site) {
   var c=document.getElementById('ml-modal-fields');
   c.innerHTML=ML_FIELDS.map(function(f){
     var val=site[f.key]!=null?site[f.key]:'';
+    if(f.key==='cliente' && site.sitio) val=_mlRegionOf(site);
     if(f.key==='cliente'){
       return '<div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
         +'<select id="ml-f-'+f.key+'" style="padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:var(--mono);font-size:11px">'
         +'<option value="ASUR"'+(val==='ASUR'?' selected':'')+'>ASUR</option>'
         +'<option value="OMA"'+(val==='OMA'?' selected':'')+'>OMA</option>'
+        +'<option value="Park Royal"'+(val==='Park Royal'?' selected':'')+'>Park Royal</option>'
         +'<option value="Industria"'+(val==='Industria'?' selected':'')+'>Industria</option>'
-        +'</select></div>';
+        +'</select><span style="font-family:var(--mono);font-size:9px;color:var(--t3)">Define el grupo: ASUR · OMA · Park Royal · Industria</span></div>';
     }
     var span=f.col===2?';grid-column:span 2':'';
     return '<div style="display:flex;flex-direction:column;gap:5px'+span+'"><label style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1px;text-transform:uppercase">'+f.label+'</label>'
@@ -28058,27 +28163,31 @@ function _mlBuildForm(site) {
 }
 
 window._mlSaveSite = function() {
-  var updated={};
+  var existing = null;
+  if(_mlEditIdx!==-1 && _mlEditKey){
+    existing = _mlList.find(function(x){ return x.sitio===_mlEditKey; }) || null;
+  }
+  var updated = Object.assign({}, existing||{});
   ML_FIELDS.forEach(function(f){
     var el=document.getElementById('ml-f-'+f.key);
     if(!el) return;
-    updated[f.key]=f.type==='number'?(parseFloat(el.value)||0):el.value.trim();
+    if(f.type==='number'){
+      var raw=String(el.value).trim();
+      var n=parseFloat(raw);
+      updated[f.key]= raw==='' ? null : (isFinite(n)?n:null);   /* vacío = sin dato (no 0) */
+    } else updated[f.key]=el.value.trim();
   });
   if(!updated.sitio){if(typeof showToast==='function')showToast('⚠️ El nombre del sitio es requerido');return;}
-  if(_mlEditIdx===-1){
-    _mlList.push(updated);
-    if(window.MASTER_SITES_DB) window.MASTER_SITES_DB.push(updated);
-  } else if(_mlEditIdx>=0){
-    Object.assign(_mlList[_mlEditIdx],updated);
-    if(window.MASTER_SITES_DB&&window.MASTER_SITES_DB[_mlEditIdx]) Object.assign(window.MASTER_SITES_DB[_mlEditIdx],updated);
-  }
-  window._masterSitesCloud=_mlList;
-  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
-  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
-  if(typeof buildSiteSelector === 'function') buildSiteSelector();
+  if(updated.bessId==null) updated.bessId=1;
+  var nk=_mlNorm(updated.sitio);
+  var dup=_mlList.find(function(x){ return _mlNorm(x.sitio)===nk && x!==existing; });
+  if(dup){ if(typeof showToast==='function') showToast('⚠️ Ya existe un sitio llamado "'+dup.sitio+'"'); return; }
+  if(typeof window._msSaveSite!=='function'){ if(typeof showToast==='function') showToast('⚠️ Módulo de nube no cargado — recarga la página'); return; }
+  window._msSaveSite(updated, existing ? existing.sitio : null);
   document.getElementById('ml-edit-modal').style.display='none';
-  _mlRender(); _mlPersist();
-  if(typeof showToast==='function') showToast('✅ Sitio guardado');
+  _mlEditKey=null;
+  var online = window._fbDB && navigator.onLine;
+  if(typeof showToast==='function') showToast(online ? '✅ Sitio guardado — se actualiza para todos' : '✅ Sitio guardado en este equipo — se sube a la nube al reconectar');
 };
 
 window._mlDelete = function(i) {
@@ -28089,15 +28198,8 @@ window._mlDelete = function(i) {
   });
   var site=filtered[i];
   if(!site||!confirm('¿Eliminar "'+site.sitio+'" de la lista maestra?')) return;
-  var idx=_mlList.indexOf(site);
-  _mlList.splice(idx,1);
-  if(window.MASTER_SITES_DB){var di=window.MASTER_SITES_DB.indexOf(site);if(di>=0)window.MASTER_SITES_DB.splice(di,1);}
-  window._masterSitesCloud=_mlList;
-  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
-  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
-  if(typeof buildSiteSelector === 'function') buildSiteSelector();
-  _mlRender(); _mlPersist();
-  if(typeof showToast==='function') showToast('🗑 Sitio eliminado');
+  window._msDeleteSite(site.sitio);
+  if(typeof showToast==='function') showToast('🗑 Sitio eliminado de la lista maestra');
 };
 
 /* ══ IMPORTAR CSV ══ */
@@ -28135,23 +28237,15 @@ window._mlImportCSV = function(input) {
       if(obj.sitio) parsed.push(obj);
     }
     if(!parsed.length){if(typeof showToast==='function')showToast('⚠️ No se encontraron sitios — verifica columna "Sitio"');return;}
-    var existNames=_mlList.map(function(s){return s.sitio.trim().toLowerCase();});
     var added=0,updated=0;
     parsed.forEach(function(p){
-      var idx=existNames.indexOf(p.sitio.trim().toLowerCase());
-      if(idx>=0){Object.assign(_mlList[idx],p);updated++;}
-      else{_mlList.push(p);existNames.push(p.sitio.trim().toLowerCase());added++;}
+      var cur=_mlList.find(function(x){ return _mlNorm(x.sitio)===_mlNorm(p.sitio); });
+      if(cur){ window._msSaveSite(Object.assign({},cur,p), cur.sitio); updated++; }
+      else { window._msSaveSite(Object.assign({bessId:1},p), null); added++; }
     });
-    window._masterSitesCloud=_mlList;
-  if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
-  if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();
-    if(window.MASTER_SITES_DB){window.MASTER_SITES_DB.length=0;_mlList.forEach(function(x){window.MASTER_SITES_DB.push(x);});
-      if(typeof window._rebuildOpSites === 'function') window._rebuildOpSites();
-      if(typeof window._rebuildRvSites === 'function') window._rebuildRvSites();}
-    if(typeof buildSiteSelector === 'function') buildSiteSelector();
-    _mlRender(); _mlPersist();
-    if(typeof showToast==='function') showToast('✅ CSV cargado · '+added+' nuevos · '+updated+' actualizados');
-    setTimeout(function(){if(window._mlSyncCloud)window._mlSyncCloud();},800);
+    _mlList = window.MASTER_SITES_DB || [];
+    _mlRender();
+    if(typeof showToast==='function') showToast('✅ CSV cargado · '+added+' nuevos · '+updated+' actualizados — se actualiza para todos');
   };
   reader.readAsText(file);
   if(input) input.value='';
@@ -28162,26 +28256,13 @@ window._mlSyncCloud = async function() {
   var btn=document.querySelector('[onclick*="_mlSyncCloud"]');
   if(btn){btn.style.opacity='.5';btn.textContent='⏳ Sincronizando…';btn.disabled=true;}
   var restore=function(){if(btn){btn.style.opacity='';btn.textContent='☁️ Sincronizar Firebase';btn.disabled=false;}};
-  if(window._firestoreQuotaExhausted){if(typeof showToast==='function')showToast('⚠️ Cuota agotada — se renueva a medianoche');restore();return;}
   if(!window._fbDB){if(typeof showToast==='function')showToast('⚠️ Firebase no conectado aún');restore();return;}
+  if(!confirm('¿Publicar la lista maestra completa tal como se ve aquí?\n\nTodos los usuarios verán exactamente estos '+(window.MASTER_SITES_DB||[]).length+' sitios.')){restore();return;}
   try{
-    var col=window._fbCollection(window._fbDB,'master_sites');
-    var snap=await window._fbGetDocs(col);
-    var existing={};
-    snap.docs.forEach(function(d){if(d.data().sitio)existing[d.data().sitio+'_'+(d.data().bessId||1)]=d.id;});
-    var pushed=0;
-    for(var i=0;i<_mlList.length;i++){
-      var s=_mlList[i];var key=s.sitio+'_'+(s.bessId||1);
-      var data=Object.assign({},s,{_updatedAt:Date.now()});
-      try{
-        if(existing[key]){await window._fbFS.updateDoc(window._fbFS.doc(window._fbDB,'master_sites',existing[key]),data);}
-        else{await window._fbFS.addDoc(col,data);}
-        pushed++;
-      }catch(e2){if(e2&&e2.message&&e2.message.includes('resource-exhausted')){window._firestoreQuotaExhausted=true;break;}}
-    }
+    var left = await window._msPublishAll();
     restore();
-    if(typeof showToast==='function') showToast('✅ Lista maestra sincronizada · '+pushed+' sitios');
-  }catch(e){restore();if(typeof showToast==='function')showToast('⚠️ '+e.message);}
+    if(typeof showToast==='function') showToast(left ? '⚠️ Quedaron '+left+' sitios pendientes — se reintenta solo' : '✅ Lista maestra publicada · '+(window.MASTER_SITES_DB||[]).length+' sitios');
+  }catch(e){restore();if(typeof showToast==='function')showToast('⚠️ '+(e&&e.message||e));}
 };
 
 /* ══ ENRIQUECER HISTÓRICO ══ */
@@ -28209,8 +28290,7 @@ window._mlEnrichHistorico = function() {
 document.addEventListener('DOMContentLoaded', function(){
   /* Siempre cargar desde MASTER_SITES_DB — es la fuente de verdad */
   try { ['v1','v2','v3','v4'].forEach(function(v){ localStorage.removeItem('bess:master_sites:'+v); }); } catch(e) {}
-  _mlList = (window.MASTER_SITES_DB || []).map(function(s){ return Object.assign({}, s); });
-  window._masterSitesCloud = _mlList.slice();
+  _mlList = window.MASTER_SITES_DB || [];
 
   if(window._eneSetTabPatched) return;
   window._eneSetTabPatched=true;
@@ -33785,7 +33865,8 @@ async function _mbPushKind(kind){
       tOut = _mbMergeTombs(MB_SYNC.tombs.leg, ct);
       out = _mbMergeRecs(MB_LEG_LIST, _mbMergeRecs(cloud, old, {}), tOut);
       tx.set(lref, { data: JSON.stringify(out), tombs: JSON.stringify(tOut), updatedAt: Date.now() });
-      tx.set(oref, { data: JSON.stringify(out), updatedAt: Date.now() });   /* compatibilidad con la versión anterior */
+      var _oj = JSON.stringify(out);
+      if(_mbBytes(_oj) < 900000) tx.set(oref, { data: _oj, updatedAt: Date.now() });   /* compatibilidad con la versión anterior (solo si cabe) */
     });
     MB_SYNC.tombs.leg = tOut; MB_LEG_LIST = _mbMergeRecs(MB_LEG_LIST, out, tOut); _mbSnapKnown('leg');
     try{ localStorage.setItem(MB_LS_LEG, JSON.stringify(MB_LEG_LIST)); }catch(e){}
@@ -33796,6 +33877,7 @@ async function _mbPushKind(kind){
   MB_LIST.forEach(function(r){ years[_mbYearOf(r)] = 1; });
   Object.keys(MB_SYNC.tombs.list).forEach(function(id){ var m = /_(\d{4})-\d{2}_q/.exec(id); if(m) years[m[1]] = 1; });
   var ys = Object.keys(years), tref = FS.doc(DB,'medidor_bess','lecturas2_tombs'), all = [], tAll = null;
+  var newParts = {};
   await FS.runTransaction(DB, async function(tx){
     all = [];
     var oref = FS.doc(DB,'medidor_bess','lecturas'), osnap = await tx.get(oref), oldCloud = [];
@@ -33803,23 +33885,60 @@ async function _mbPushKind(kind){
     var ts = await tx.get(tref), ctombs = {};
     if(ts.exists()){ try{ ctombs = JSON.parse(ts.data().data || '{}') || {}; }catch(e){} }
     tAll = _mbMergeTombs(MB_SYNC.tombs.list, ctombs);
+    /* v105 — cada año puede ir en varias partes (lecturas2_2026, lecturas2_2026_p2, …) para no pasar
+       el límite de 1 MB por documento de Firestore (con eso fallaba la subida y salía el aviso cada minuto).
+       Las versiones anteriores ya leen todo lo que empiece con "lecturas2_", así que siguen funcionando. */
     var reads = [];
-    for(var i = 0; i < ys.length; i++){ var ref = FS.doc(DB,'medidor_bess','lecturas2_'+ys[i]); reads.push({ y:ys[i], ref:ref, snap: await tx.get(ref) }); }
+    for(var i = 0; i < ys.length; i++){
+      var nParts = Math.max(1, (MB_SYNC.parts && MB_SYNC.parts[ys[i]]) || 1), refs = [];
+      for(var pi = 1; pi <= nParts; pi++){
+        var pref = FS.doc(DB,'medidor_bess','lecturas2_'+ys[i]+(pi>1?'_p'+pi:''));
+        refs.push({ ref:pref, snap: await tx.get(pref) });
+      }
+      reads.push({ y:ys[i], refs:refs });
+    }
     reads.forEach(function(x){
-      var cloud = []; if(x.snap.exists()){ try{ cloud = JSON.parse(x.snap.data().data || '[]') || []; }catch(e){} }
+      var cloud = [];
+      x.refs.forEach(function(rr){ if(rr.snap.exists()){ try{ cloud = cloud.concat(JSON.parse(rr.snap.data().data || '[]') || []); }catch(e){} } });
       var loc = MB_LIST.filter(function(r){ return _mbYearOf(r) === x.y; });
       var oldY = oldCloud.filter(function(r){ return _mbYearOf(r) === x.y; });
       var merged = _mbMergeRecs(loc, _mbMergeRecs(cloud, oldY, {}), tAll);
       all = all.concat(merged);
-      tx.set(x.ref, { data: JSON.stringify(merged), updatedAt: Date.now() });
+      var chunks = _mbChunk(merged, 700000);
+      for(var ci = 0; ci < Math.max(chunks.length, x.refs.length); ci++){
+        var cref = ci < x.refs.length ? x.refs[ci].ref : FS.doc(DB,'medidor_bess','lecturas2_'+x.y+(ci>0?'_p'+(ci+1):''));
+        tx.set(cref, { data: JSON.stringify(chunks[ci] || []), updatedAt: Date.now() });
+      }
+      newParts[x.y] = chunks.length;
     });
     tx.set(tref, { data: JSON.stringify(tAll), updatedAt: Date.now() });
     /* compatibilidad: quien aún tenga la versión anterior lee el doc único "lecturas" */
     var full = _mbMergeRecs(all, oldCloud, tAll), fj = JSON.stringify(full);
     if(fj.length < 900000) tx.set(oref, { data: fj, updatedAt: Date.now() });
   });
+  MB_SYNC.parts = Object.assign(MB_SYNC.parts || {}, newParts);
   MB_SYNC.tombs.list = tAll; MB_LIST = _mbMergeRecs(MB_LIST, all, tAll); _mbSnapKnown('list');
   try{ localStorage.setItem(MB_LS_LIST, JSON.stringify(MB_LIST)); }catch(e){}
+}
+function _mbBytes(str){ try{ return new TextEncoder().encode(str).length; }catch(e){ return (str||'').length * 2; } }
+function _mbChunk(arr, maxBytes){
+  var out = [], cur = [], size = 2;
+  (arr || []).forEach(function(r){
+    var b = _mbBytes(JSON.stringify(r)) + 1;
+    if(cur.length && size + b > maxBytes){ out.push(cur); cur = []; size = 2; }
+    cur.push(r); size += b;
+  });
+  if(cur.length || !out.length) out.push(cur);
+  return out;
+}
+function _mbErrInfo(e){
+  var c = String((e && e.code) || ''), m = String((e && e.message) || e || '');
+  if(/resource-exhausted/.test(c+m)) return { quiet:false, txt:'la cuota diaria de Firebase se agotó (se renueva a medianoche)' };
+  if(/permission-denied/.test(c+m)) return { quiet:false, txt:'Firebase rechazó el permiso de escritura' };
+  if(/exceeds the maximum|maximum allowed size|too large/i.test(m)) return { quiet:false, txt:'el documento pasó el límite de 1 MB' };
+  if(/aborted|failed-precondition|contention/i.test(c+m)) return { quiet:true, txt:'otro usuario estaba guardando al mismo tiempo' };
+  if(/unavailable|offline|network/i.test(c+m) || !navigator.onLine) return { quiet:true, txt:'sin conexión' };
+  return { quiet:false, txt:(c || m || 'error desconocido').slice(0,120) };
 }
 function _mbSyncQueue(kind, delay){
   MB_SYNC.dirty[kind] = true; _mbSyncMetaSave(); _mbSyncIndicator();
@@ -33837,8 +33956,16 @@ async function _mbSyncRun(kind){
     if(!_mbUserTyping()){ try{ _mbRenderAll(); window._mbRenderLegacyCapture && window._mbRenderLegacyCapture(); }catch(e){} }
   }catch(e){
     MB_SYNC.fails++;
-    console.warn('[Medidor BESS] no se pudo subir ('+kind+'):', e && e.message);
-    if(Date.now() - MB_SYNC.warned > 60000){ MB_SYNC.warned = Date.now(); _mbToast('⚠️ No se pudo guardar en la nube — quedó guardado en este equipo y se reintenta solo'); }
+    var _ei = _mbErrInfo(e);
+    MB_SYNC.lastErr = _ei.txt;
+    console.warn('[Medidor BESS] no se pudo subir ('+kind+'):', e && (e.code||''), e && e.message);
+    /* v105 — antes salía cada minuto. Ahora: los choques momentáneos (otro usuario guardando, red) se
+       reintentan en silencio; solo se avisa si sigue fallando, una vez cada 15 min, y diciendo POR QUÉ. */
+    if((!_ei.quiet || MB_SYNC.fails >= 4) && MB_SYNC.fails >= 2 && Date.now() - MB_SYNC.warned > 900000){
+      MB_SYNC.warned = Date.now();
+      _mbToast('⚠️ Medidores: no se pudo subir a la nube porque '+_ei.txt+'. Tus datos quedaron en este equipo y se reintenta solo.');
+    }
+    if(/resource-exhausted/.test(String((e&&e.code)||'')+String((e&&e.message)||''))) window._firestoreQuotaExhausted = true;
     clearTimeout(MB_SYNC.t[kind]); MB_SYNC.t[kind] = setTimeout(function(){ _mbSyncRun(kind); }, Math.min(60000, 8000 * MB_SYNC.fails));
   }finally{
     MB_SYNC.busy[kind] = false; _mbSyncIndicator();
@@ -33859,7 +33986,11 @@ function _mbPullMerge(cb){
         if(id === 'config') cCfg = JSON.parse(v.data || '{}');
         else if(id === 'lecturas') oldList = JSON.parse(v.data || '[]');
         else if(id === 'lecturas2_tombs') cTombs = JSON.parse(v.data || '{}');
-        else if(id.indexOf('lecturas2_') === 0) cList = cList.concat(JSON.parse(v.data || '[]'));
+        else if(id.indexOf('lecturas2_') === 0){
+          cList = cList.concat(JSON.parse(v.data || '[]'));
+          var _pm = /^lecturas2_(\d{4}|sin_fecha)(?:_p(\d+))?$/.exec(id);
+          if(_pm){ MB_SYNC.parts = MB_SYNC.parts || {}; MB_SYNC.parts[_pm[1]] = Math.max(MB_SYNC.parts[_pm[1]] || 1, _pm[2] ? +_pm[2] : 1); }
+        }
         else if(id === 'legado') oldLeg = JSON.parse(v.data || '[]');
         else if(id === 'legado2'){ cLeg = JSON.parse(v.data || '[]'); cLegT = JSON.parse(v.tombs || '{}'); }
       }catch(e){}
@@ -37121,6 +37252,8 @@ function _oppMasterFor(siteName){
 function _oppRegionFor(siteName){
   var master = _oppMasterFor(siteName);
   var cliente = master ? master.cliente : null;
+  if(cliente === 'Park Royal') return 'Park Royal';
+  if(cliente === 'Industria' && master && master._editedAt) return 'Industria';   /* elegido a mano en Lista Maestra */
   if(cliente === 'Industria'){
     var nameLc = String(siteName||'').toLowerCase();
     for(var k=0;k<OPPRO_PARK_ROYAL_HINTS.length;k++){
