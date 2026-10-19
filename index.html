@@ -13406,7 +13406,7 @@ window.MASTER_SITES_DB = [
   {sku:58, sitio:'THOR B2',                cliente:'Industria', ciudad:'San Luis Potosí', marca:'Hoycore',   plat:'Sky Control', bessId:2, numRacks:6,  powCarga:200,  horasCarga:10.32, kwhTotal:344, powSummer:900,   powWinter:450,   energiaBESS:2064},
   {sku:59, sitio:'Park Royal Luna',        cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
   {sku:60, sitio:'Park Royal Sol',         cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:2,  powCarga:60,   horasCarga:11.47, kwhTotal:344, powSummer:294,   powWinter:140,   energiaBESS:688},
-  {sku:61, sitio:'LG',                     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sel',         bessId:1, numRacks:60, powCarga:1500, horasCarga:15,    kwhTotal:500, powSummer:15000, powWinter:7500,  energiaBESS:22500},
+  {sku:61, sitio:'LG',                     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sel',         bessId:1, numRacks:60, powCarga:1500, horasCarga:15,    kwhTotal:500, powSummer:12000, powWinter:6000,  energiaBESS:22500, powOpts:{verano:[[12000,2],[9000,3]], invierno:[[6000,4]]}},
   {sku:62, sitio:'FM Mérida',              cliente:'Industria', ciudad:'Mérida',          marca:'Hoy Ultra', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:30,   horasCarga:14.33, kwhTotal:215, powSummer:90,    powWinter:47.5,  energiaBESS:430},
   {sku:63, sitio:'ABADIMEX',               cliente:'Industria', ciudad:'Naucalpan',       marca:'Huawei',    plat:'Huawei',      bessId:1, numRacks:9,  powCarga:0,    horasCarga:null,  kwhTotal:215, powSummer:855,   powWinter:427.5,   energiaBESS:1935},
   {sku:64, sitio:'Park Royal Cozumel',     cliente:'Industria', ciudad:'Cozumel',         marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:12.9,  kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
@@ -43372,6 +43372,9 @@ document.addEventListener('keydown', function(e){
 .cp-t td.n{color:#8aa0c4;font-size:9px}
 .cp-t td.e{font-weight:800;color:#1a3fcc}
 .cp-t td.e.mod{color:#b45309}
+.cp-t td.e.multi div{white-space:normal;font-size:8.5px;line-height:9.5px;padding:1px 0}
+.cp-card .v span.multi{font-size:11px;line-height:1.2;display:block}
+.cp-card .v span.multi+em{display:none}
 .cp-t td.r{color:#06101e;font-weight:700}
 .cp-t td.o{color:#2d4470;font-size:10px}
 .cp-t td [contenteditable]{display:block;min-height:15px;line-height:15px;padding:0 2px;overflow:hidden;text-overflow:ellipsis}
@@ -43442,6 +43445,9 @@ document.addEventListener('keydown', function(e){
     return out;
   }
   function expOf(s,season){return season==='verano'?s.powSummer:s.powWinter;}
+  /* Sitios con varias potencias según horas de descarga (ej. LG): powOpts={verano:[[kW,h],…],invierno:[[kW,h]]} */
+  function optTxt(s,season){var o=s.powOpts&&s.powOpts[season];if(!o||!o.length)return '';return o.map(function(x){return fmt(x[0])+(x[1]?' ('+x[1]+' h)':'');}).join(' · ');}
+  function candidates(t){return String(t||'').replace(/\([^)]*\)/g,' ').split(/[·\/|;]/).map(num).filter(function(v){return v!=null&&!isNaN(v);});}
 
   /* ── almacenamiento por día ── */
   function key(){return 'cp2:dia:'+iso(st.date);}
@@ -43466,13 +43472,13 @@ document.addEventListener('keydown', function(e){
     function rowHtml(it){
       if(it.g)return '<tr class="g"><td colspan="6">'+esc(it.g)+'</td></tr>';
       var s=it.s,k=s.sitio.trim().toLowerCase(),r=(o.rows||{})[k]||{};i++;
-      var e0=expOf(s,season),e=(r.exp!=null&&r.exp!=='')?r.exp:fmt(e0);
+      var e0=expOf(s,season),ot=optTxt(s,season),e=(r.exp!=null&&r.exp!=='')?r.exp:(ot||fmt(e0));
       var stt=r.st||'';cnt[stt||'p']++;
       var lbl=stt==='ok'?'✓':stt==='x'?'✗':stt==='na'?'N/A':'';
       return '<tr data-k="'+esc(k)+'"'+(stt==='x'?' class="rx"':'')+'>'+
         '<td class="n">'+i+'</td>'+
         '<td class="l"><div contenteditable="true" data-f="name" spellcheck="false">'+esc(r.name!=null?r.name:s.sitio)+'</div></td>'+
-        '<td class="e'+(r.exp!=null&&r.exp!==''?' mod':'')+'"><div contenteditable="true" data-f="exp" inputmode="decimal" data-ph="—">'+esc(e)+'</div></td>'+
+        '<td class="e'+(r.exp!=null&&r.exp!==''?' mod':'')+(ot&&!(r.exp!=null&&r.exp!=='')?' multi':'')+'"><div contenteditable="true" data-f="exp" inputmode="decimal" data-ph="—">'+esc(e)+'</div></td>'+
         '<td class="r"><div contenteditable="true" data-f="real" inputmode="decimal" data-ph="·">'+esc(r.real||'')+'</div></td>'+
         '<td><span class="cp-st '+stt+'" data-f="st">'+lbl+'</span></td>'+
         '<td class="o l"><div contenteditable="true" data-f="obs" data-ph="">'+esc(r.obs||'')+'</div></td></tr>';
@@ -43498,9 +43504,9 @@ document.addEventListener('keydown', function(e){
     var k=document.querySelectorAll('#cp-sheet-dia .cp-kpi');if(k.length===3){k[0].textContent='✓ '+c.ok+' correctas';k[1].textContent='✗ '+c.x+' no coinciden';k[2].textContent=c.p+' pendientes / N/A';}}
   function setStatus(tr,v){var b=tr.querySelector('.cp-st');b.className='cp-st '+v;b.textContent=v==='ok'?'✓':v==='x'?'✗':v==='na'?'N/A':'';tr.classList.toggle('rx',v==='x');}
   function autoStatus(tr,r){
-    var e=num(tr.querySelector('[data-f="exp"]').textContent),re=num(r.real);
-    if(re==null||e==null)return;
-    r.st=Math.abs(re-e)<=Math.max(0.5,e*0.01)?'ok':'x';setStatus(tr,r.st);
+    var cs=candidates(tr.querySelector('[data-f="exp"]').textContent),re=num(r.real);
+    if(re==null||!cs.length)return;
+    r.st=cs.some(function(e){return Math.abs(re-e)<=Math.max(0.5,e*0.01);})?'ok':'x';setStatus(tr,r.st);
   }
   function onInput(ev){
     var t=ev.target;if(!t.closest)return;
@@ -43529,12 +43535,12 @@ document.addEventListener('keydown', function(e){
     list.forEach(function(s){var r=region(s);(groups[r]=groups[r]||[]).push(s);});
     var now=new Date(),sn=seasonOf(now),r=seasonRange(now.getFullYear());
     function d(x){return x.getDate()+' '+MESL[x.getMonth()].slice(0,3);}
-    function val(v,kk){var pe=posterEdits[kk];var t=pe!=null?pe:fmt(v);return '<span contenteditable="true" data-p="'+kk+'"'+(t===''?' class="na"':'')+' data-ph="—">'+esc(t)+'</span><em>kW</em>';}
+    function val(v,kk,ot){var pe=posterEdits[kk];var t=pe!=null?pe:(ot||fmt(v));return '<span contenteditable="true" data-p="'+kk+'" class="'+(t===''?'na':'')+(ot&&pe==null?' multi':'')+'" data-ph="—">'+esc(t)+'</span><em>kW</em>';}
     var secs=REG_ORDER.concat(Object.keys(groups).filter(function(g){return REG_ORDER.indexOf(g)<0;})).filter(function(g){return groups[g];}).map(function(g){
       return '<div class="cp-ps-sec"><div class="cp-ps-sech"><span class="t">'+esc(g)+'</span><span class="c">'+groups[g].length+' sitios</span><span class="ln"></span></div><div class="cp-ps-grid">'+
         groups[g].map(function(s){var k=s.sitio.trim().toLowerCase();
           return '<div class="cp-card"><div class="nm" contenteditable="true" data-p="'+esc(k)+'|n">'+esc(posterEdits[k+'|n']!=null?posterEdits[k+'|n']:s.sitio)+'</div><div class="ct">'+esc([s.ciudad,s.marca].filter(Boolean).join(' · '))+'</div>'+
-            '<div class="vv"><div class="v s"><small>☀ Verano</small>'+val(s.powSummer,k+'|s')+'</div><div class="v w"><small>❄ Invierno</small>'+val(s.powWinter,k+'|w')+'</div></div></div>';}).join('')+'</div></div>';}).join('');
+            '<div class="vv"><div class="v s"><small>☀ Verano</small>'+val(s.powSummer,k+'|s',optTxt(s,'verano'))+'</div><div class="v w"><small>❄ Invierno</small>'+val(s.powWinter,k+'|w',optTxt(s,'invierno'))+'</div></div></div>';}).join('')+'</div></div>';}).join('');
     el.innerHTML=
       '<div class="cp-sh-head"><img src="'+LOGO+'" alt="Skysense" style="height:46px"><div class="cp-sh-headdiv" style="height:50px"></div>'+
       '<div class="cp-sh-ttl"><div class="k">Centro BESS · Referencia de operación</div><div class="t" style="font-size:28px" contenteditable="true">Potencias por sitio · Verano e Invierno</div></div>'+
