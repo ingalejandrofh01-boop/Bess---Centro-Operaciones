@@ -8603,11 +8603,15 @@ async function expDoZip(mode){
     <!-- ── PÓSTER ── -->
     <div id="cp-view-poster" class="cp-view" style="display:none">
       <div class="cp-tools">
-        <div class="cp-hint" style="flex:1;margin:0">Referencia para pegar en pared. Puedes corregir cualquier valor o texto tocándolo antes de descargar; los valores vienen de la Lista Maestra.</div>
+        <div class="cp-seg cp-reg" id="cp-reg-tabs"></div>
+        <div style="flex:1"></div>
         <button type="button" class="cp-btn" onclick="window._cpPosterReset()">↺ Restaurar valores</button>
-        <button type="button" class="cp-btn" onclick="window._cpPrint('cp-sheet-poster')">🖨 Imprimir</button>
-        <button type="button" class="cp-btn cp-btn-pri" onclick="window._cpPNG('cp-sheet-poster')">⬇ Descargar PNG</button>
+        <button type="button" class="cp-btn" onclick="window._cpPrint('cp-sheet-poster')">🖨 Imprimir esta</button>
+        <button type="button" class="cp-btn" onclick="window._cpPNG('cp-sheet-poster')">⬇ PNG de esta</button>
+        <button type="button" class="cp-btn" onclick="window._cpPosterAll('print')">🖨 Imprimir las 4</button>
+        <button type="button" class="cp-btn cp-btn-pri" onclick="window._cpPosterAll('png')">⬇ Descargar las 4</button>
       </div>
+      <div class="cp-hint">Una hoja carta por región para pegar en pared; las tarjetas se ajustan solas al tamaño más grande que cabe. Puedes corregir cualquier valor o texto tocándolo antes de descargar.</div>
       <div class="cp-sheet-scroll"><div class="cp-sheet cp-poster" id="cp-sheet-poster"></div></div>
     </div>
   </div>
@@ -43415,6 +43419,21 @@ document.addEventListener('keydown', function(e){
 .cp-card .v span{font-size:15px;font-weight:900;color:#06101e}
 .cp-card .v span.na{color:#b4c3df}
 .cp-card .v em{font-style:normal;font-size:9px;color:#6685ac;font-weight:700;margin-left:2px}
+.cp-poster-page{display:flex;flex-direction:column}
+.cp-poster-page .cp-ps-foot{margin-top:auto}
+.cp-ps-big{display:grid;margin-top:14px}
+.cp-ps-big .cp-card{display:flex;flex-direction:column;padding:calc(var(--nf)*.42) calc(var(--nf)*.55);border-left-width:6px;border-radius:12px;min-width:0}
+.cp-ps-big .cp-card .nm{font-size:var(--nf);line-height:1.1}
+.cp-ps-big .cp-card .ct{font-size:var(--cf);margin-top:2px;min-height:0}
+.cp-ps-big .cp-card .vv{flex:1;margin-top:calc(var(--nf)*.35);gap:calc(var(--nf)*.3)}
+.cp-ps-big .cp-card .v{display:flex;flex-direction:column;border-radius:9px;padding:calc(var(--lf)*.5) calc(var(--lf)*.8);min-width:0}
+.cp-ps-big .cp-card .v small{font-size:var(--lf);letter-spacing:1.2px}
+.cp-ps-big .cp-card .vn{flex:1;display:flex;align-items:center;white-space:nowrap;overflow:hidden;min-width:0}
+.cp-ps-big .cp-card .v span.num{font-size:var(--vf);line-height:1;letter-spacing:-.5px}
+.cp-ps-big .cp-card .vi{white-space:nowrap}
+.cp-ps-big .cp-card .v em{font-size:calc(var(--vf)*.36);margin-left:4px}
+.cp-ps-big .cp-card .vi:has(.multi){white-space:normal}
+.cp-ps-big .cp-card .v span.multi{font-size:calc(var(--vf)*.42);white-space:normal;line-height:1.2}
 .cp-ps-foot{display:flex;justify-content:space-between;margin-top:16px;padding-top:10px;border-top:1px solid #d6e0f3;font-size:9.5px;color:#6685ac}
 </style>
 <script>
@@ -43528,26 +43547,58 @@ document.addEventListener('keydown', function(e){
   }
   function onKey(ev){if(ev.key==='Enter'&&ev.target.closest&&ev.target.closest('.cp-sheet [contenteditable]')&&!ev.target.closest('.obs')){ev.preventDefault();ev.target.blur();}}
 
-  /* ══ PÓSTER ══ */
+  /* ══ PÓSTER ══ (una hoja carta por región, tarjetas lo más grandes posible) */
+  var PAGE_W=1240,PAGE_H=Math.round(1240*11/8.5);
+  function posterGroups(){var g={};sites().forEach(function(s){var r=region(s);(g[r]=g[r]||[]).push(s);});return g;}
+  function posterRegions(){var g=posterGroups();return REG_ORDER.concat(Object.keys(g).filter(function(x){return REG_ORDER.indexOf(x)<0;})).filter(function(x){return g[x];});}
   function renderPoster(){
     var el=document.getElementById('cp-sheet-poster');if(!el)return;
-    var list=sites(),groups={};
-    list.forEach(function(s){var r=region(s);(groups[r]=groups[r]||[]).push(s);});
+    var groups=posterGroups(),regs=posterRegions();
+    if(!st.region||(st.region!=='Todas'&&regs.indexOf(st.region)<0))st.region=regs[0]||'Todas';
+    var tabs=document.getElementById('cp-reg-tabs');
+    if(tabs)tabs.innerHTML=regs.concat(['Todas']).map(function(g){return '<button type="button" class="'+(g===st.region?'on':'')+'" onclick="window._cpRegion(\''+g+'\')">'+esc(g)+(groups[g]?' <small>'+groups[g].length+'</small>':'')+'</button>';}).join('');
     var now=new Date(),sn=seasonOf(now),r=seasonRange(now.getFullYear());
     function d(x){return x.getDate()+' '+MESL[x.getMonth()].slice(0,3);}
-    function val(v,kk,ot){var pe=posterEdits[kk];var t=pe!=null?pe:(ot||fmt(v));return '<span contenteditable="true" data-p="'+kk+'" class="'+(t===''?'na':'')+(ot&&pe==null?' multi':'')+'" data-ph="—">'+esc(t)+'</span><em>kW</em>';}
-    var secs=REG_ORDER.concat(Object.keys(groups).filter(function(g){return REG_ORDER.indexOf(g)<0;})).filter(function(g){return groups[g];}).map(function(g){
-      return '<div class="cp-ps-sec"><div class="cp-ps-sech"><span class="t">'+esc(g)+'</span><span class="c">'+groups[g].length+' sitios</span><span class="ln"></span></div><div class="cp-ps-grid">'+
-        groups[g].map(function(s){var k=s.sitio.trim().toLowerCase();
-          return '<div class="cp-card"><div class="nm" contenteditable="true" data-p="'+esc(k)+'|n">'+esc(posterEdits[k+'|n']!=null?posterEdits[k+'|n']:s.sitio)+'</div><div class="ct">'+esc([s.ciudad,s.marca].filter(Boolean).join(' · '))+'</div>'+
-            '<div class="vv"><div class="v s"><small>☀ Verano</small>'+val(s.powSummer,k+'|s',optTxt(s,'verano'))+'</div><div class="v w"><small>❄ Invierno</small>'+val(s.powWinter,k+'|w',optTxt(s,'invierno'))+'</div></div></div>';}).join('')+'</div></div>';}).join('');
+    function val(v,kk,ot){var pe=posterEdits[kk];var t=pe!=null?pe:(ot||fmt(v));return '<span class="vi"><span class="num'+(t===''?' na':'')+(ot&&pe==null?' multi':'')+'" contenteditable="true" data-p="'+kk+'" data-ph="—">'+esc(t)+'</span><em>kW</em></span>';}
+    function card(s){var k=s.sitio.trim().toLowerCase();
+      return '<div class="cp-card"><div class="nm" contenteditable="true" data-p="'+esc(k)+'|n">'+esc(posterEdits[k+'|n']!=null?posterEdits[k+'|n']:s.sitio)+'</div><div class="ct">'+esc([s.ciudad,s.marca].filter(Boolean).join(' · '))+'</div>'+
+        '<div class="vv"><div class="v s"><small>☀ Verano</small><div class="vn">'+val(s.powSummer,k+'|s',optTxt(s,'verano'))+'</div></div><div class="v w"><small>❄ Invierno</small><div class="vn">'+val(s.powWinter,k+'|w',optTxt(s,'invierno'))+'</div></div></div></div>';}
+    var single=st.region!=='Todas',list=single?groups[st.region]:sites();
+    var title=single?'Potencias '+st.region:'Potencias por sitio · Verano e Invierno';
+    var body=single?'<div class="cp-ps-big" id="cp-ps-big">'+list.map(card).join('')+'</div>':
+      regs.map(function(g){return '<div class="cp-ps-sec"><div class="cp-ps-sech"><span class="t">'+esc(g)+'</span><span class="c">'+groups[g].length+' sitios</span><span class="ln"></span></div><div class="cp-ps-grid">'+groups[g].map(card).join('')+'</div></div>';}).join('');
+    el.className='cp-sheet cp-poster'+(single?' cp-poster-page':'');
+    el.style.height=single?PAGE_H+'px':'';
     el.innerHTML=
-      '<div class="cp-sh-head"><img src="'+LOGO+'" alt="Skysense" style="height:46px"><div class="cp-sh-headdiv" style="height:50px"></div>'+
-      '<div class="cp-sh-ttl"><div class="k">Centro BESS · Referencia de operación</div><div class="t" style="font-size:28px" contenteditable="true">Potencias por sitio · Verano e Invierno</div></div>'+
-      '<div class="cp-sh-date"><div class="d" style="font-size:13px;color:#6685ac;font-weight:700">Actualizado</div><div class="d">'+now.getDate()+' '+MESL[now.getMonth()]+' '+now.getFullYear()+'</div></div></div>'+
+      '<div class="cp-sh-head"><img src="'+LOGO+'" alt="Skysense" style="height:52px"><div class="cp-sh-headdiv" style="height:56px"></div>'+
+      '<div class="cp-sh-ttl"><div class="k">Centro BESS · Referencia de operación</div><div class="t" style="font-size:34px" contenteditable="true">'+esc(posterEdits['__t|'+st.region]!=null?posterEdits['__t|'+st.region]:title)+'</div></div>'+
+      '<div class="cp-sh-date"><div class="d" style="font-size:12px;color:#6685ac;font-weight:700">'+(single?list.length+' sitios · ':'')+'Actualizado</div><div class="d">'+now.getDate()+' '+MESL[now.getMonth()]+' '+now.getFullYear()+'</div></div></div>'+
       '<div class="cp-ps-legend"><span class="pill cp-s-ver">☀ Verano · '+d(r[0])+' – '+d(r[1])+'</span><span class="pill cp-s-inv">❄ Invierno · resto del año</span><span>Valores en kW · fuente: Lista Maestra</span>'+
       '<span class="cp-ps-now">Temporada vigente hoy: <span class="pill '+(sn==='verano'?'cp-s-ver':'cp-s-inv')+'">'+(sn==='verano'?'☀ Verano':'❄ Invierno')+'</span></span></div>'+
-      secs+'<div class="cp-ps-foot"><span>Skysense · Centro BESS</span><span>'+list.length+' sitios</span><span>Si un valor no coincide con el sistema, repórtalo y actualiza la Lista Maestra.</span></div>';
+      body+'<div class="cp-ps-foot"><span>Skysense · Centro BESS'+(single?' · '+esc(st.region):'')+'</span><span>Si un valor no coincide con el sistema, repórtalo y actualiza la Lista Maestra.</span></div>';
+    var t=el.querySelector('.cp-sh-ttl .t');if(t)t.setAttribute('data-p','__t|'+st.region);
+    if(single)fitPoster(el,list.length);
+  }
+  /* Elige columnas y tamaño de letra para llenar la hoja con las tarjetas más grandes posibles */
+  function fitPoster(el,n){
+    var g=el.querySelector('#cp-ps-big'),foot=el.querySelector('.cp-ps-foot');if(!g||!n)return;
+    var padB=24,W=g.clientWidth,H=PAGE_H-g.offsetTop-foot.offsetHeight-padB-14,gap=12,best=null;
+    for(var c=1;c<=6;c++){var rows=Math.ceil(n/c);var cw=(W-gap*(c-1))/c,ch=(H-gap*(rows-1))/rows;if(ch<70)continue;
+      var vf=Math.min(ch*0.30,(cw/2-24)/3.4,96);var score=vf+(cw/ch>3.2?-8:0);
+      if(!best||score>best.score)best={c:c,rows:rows,cw:cw,ch:ch,vf:vf,score:score};}
+    if(!best)return;
+    g.style.gridTemplateColumns='repeat('+best.c+',1fr)';g.style.gridAutoRows=Math.floor(best.ch)+'px';g.style.gap=gap+'px';
+    var nf=Math.max(13,Math.min(best.ch*0.15,best.cw/10,46));
+    g.style.setProperty('--vf',Math.max(14,best.vf).toFixed(1)+'px');
+    g.style.setProperty('--nf',nf.toFixed(1)+'px');
+    g.style.setProperty('--cf',Math.max(9,nf*0.42).toFixed(1)+'px');
+    g.style.setProperty('--lf',Math.max(8,Math.min(nf*0.36,16)).toFixed(1)+'px');
+    /* encoger nombres que no caben en una línea */
+    g.querySelectorAll('.nm').forEach(function(x){var f=nf;while(x.scrollWidth>x.clientWidth+1&&f>11){f-=1;x.style.fontSize=f+'px';}});
+    /* que cada número + kW quepa en su recuadro: el tamaño común es el que permite el valor más largo */
+    var vf=Math.max(14,best.vf),vns=[].slice.call(g.querySelectorAll('.vn'));
+    function over(){return vns.some(function(v){var sp=v.querySelector('span.num');return sp&&!sp.classList.contains('multi')&&v.scrollWidth>v.clientWidth+1;});}
+    while(over()&&vf>14){vf-=1;g.style.setProperty('--vf',vf+'px');}
   }
   function onPosterInput(ev){var t=ev.target;if(t.dataset&&t.dataset.p&&t.closest('#cp-sheet-poster')){posterEdits[t.dataset.p]=t.textContent.trim();t.classList.toggle('na',t.textContent.trim()==='');}}
 
@@ -43560,14 +43611,28 @@ document.addEventListener('keydown', function(e){
   }
   window._cpPNG=function(id){
     snap(id).then(function(c){var a=document.createElement('a');
-      a.download=id==='cp-sheet-poster'?'Poster_Potencias_Skysense.png':'Checklist_Potencias_'+iso(st.date)+'_'+curSeason()+'.png';
+      a.download=id==='cp-sheet-poster'?'Poster_Potencias_'+String(st.region).replace(/\s+/g,'_')+'.png':'Checklist_Potencias_'+iso(st.date)+'_'+curSeason()+'.png';
       a.href=c.toDataURL('image/png');document.body.appendChild(a);a.click();a.remove();}).catch(function(){});
   };
-  window._cpPrint=function(id){
-    snap(id).then(function(c){var land=c.width>c.height*1.1;var w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para imprimir.');return;}
-      w.document.write('<!doctype html><html><head><title>Imprimir</title><style>@page{size:letter '+(land?'landscape':'portrait')+';margin:8mm}html,body{margin:0}img{width:100%;height:auto;display:block}</style></head><body><img src="'+c.toDataURL('image/png')+'" onload="setTimeout(function(){window.print()},200)"></body></html>');w.document.close();}).catch(function(){});
+  window._cpPrint=function(id){if(false)openPrint;
+    snap(id).then(function(c){openPrint([c.toDataURL('image/png')],c.width>c.height*1.1);}).catch(function(){});
   };
 
+  function openPrint(urls,land){var w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para imprimir.');return;}
+    w.document.write('<!doctype html><html><head><title>Imprimir</title><style>@page{size:letter '+(land?'landscape':'portrait')+';margin:6mm}html,body{margin:0}img{width:100%;height:auto;display:block;page-break-after:always;break-after:page}img:last-child{page-break-after:auto;break-after:auto}</style></head><body>'+urls.map(function(u){return '<img src="'+u+'">';}).join('')+'<script>var im=document.images,n=0;for(var i=0;i<im.length;i++){if(im[i].complete)n++;else im[i].onload=function(){if(++n===im.length)setTimeout(print,250)};}if(n===im.length)setTimeout(print,250);<\/script></body></html>');w.document.close();}
+  /* Recorre las 4 regiones, genera cada hoja y la descarga o imprime */
+  window._cpPosterAll=function(mode){
+    var regs=posterRegions(),prev=st.region,urls=[],i=0;
+    function next(){
+      if(i>=regs.length){st.region=prev;renderPoster();if(mode==='print')openPrint(urls,false);return;}
+      st.region=regs[i];renderPoster();
+      snap('cp-sheet-poster').then(function(c){var u=c.toDataURL('image/png');
+        if(mode==='print')urls.push(u);else{var a=document.createElement('a');a.download='Poster_Potencias_'+regs[i].replace(/\s+/g,'_')+'.png';a.href=u;document.body.appendChild(a);a.click();a.remove();}
+        i++;setTimeout(next,mode==='print'?50:500);}).catch(function(){st.region=prev;renderPoster();});
+    }
+    next();
+  };
+  window._cpRegion=function(g){st.region=g;renderPoster();};
   /* ══ API ══ */
   window._cpView=function(v){st.view=v;document.getElementById('cp-view-dia').style.display=v==='dia'?'':'none';document.getElementById('cp-view-poster').style.display=v==='poster'?'':'none';
     document.querySelectorAll('#page-checkpot .cp-seg button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});render();};
