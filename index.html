@@ -13433,7 +13433,7 @@ window.MASTER_SITES_DB = [
   {sku:81, sitio:'Atotonilco',             cliente:'Industria', ciudad:'Hidalgo',         marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:300,   powWinter:150,  energiaBESS:null},
   {sku:82, sitio:'Park Royal Acapulco',    cliente:'Industria', ciudad:'Acapulco',        marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
   {sku:83, sitio:'Clarimex',               cliente:'Industria', ciudad:'',                marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:735,   powWinter:350,   energiaBESS:1720},
-  {sku:84, sitio:'Park Royal Mazatlán',    cliente:'Industria', ciudad:'Mazatlán',        marca:'',          plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:null, powSummer:292, powWinter:146, energiaBESS:null},
+  {sku:84, sitio:'Park Royal Mazatlán',    cliente:'Industria', ciudad:'Mazatlán',        marca:'',          plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:null, powSummer:290, powWinter:145, energiaBESS:null},
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -43663,6 +43663,60 @@ document.addEventListener('keydown', function(e){
   /* Si la app queda abierta pasada la medianoche, pasar al nuevo día */
   var lastToday=iso(new Date());
   setInterval(function(){var t=iso(new Date());if(t!==lastToday){if(iso(st.date)===lastToday){st.date=new Date();render();}lastToday=t;}},60*1000);
+})();
+</script>
+
+
+<!-- ══════ MIGRACIÓN LISTA MAESTRA · potencias 19-oct-2026 (sube a Firebase una sola vez) ══════ -->
+<script>
+(function(){
+  /* Valores confirmados por operación el 19-oct-2026. Se escriben en la Lista Maestra de la nube
+     solo si el sitio no fue editado en la app DESPUÉS de esta fecha (así nunca pisa cambios nuevos). */
+  var MIG_TS=Date.UTC(2026,9,20,0,30); /* 19-oct-2026 18:30 hora de CDMX */
+  var PATCH={
+    'Park Royal CBE':{powSummer:1260,powWinter:630},
+    'Tuk B1':{powSummer:1250,powWinter:625},'Tuk B2':{powSummer:1250,powWinter:625},
+    'TUGAL B1':{powSummer:1125,powWinter:562.5},'TUGAL B2':{powSummer:1125,powWinter:562.5},
+    'DESA B1':{powSummer:1105,powWinter:552.5},'DESA B2':{powSummer:1105,powWinter:552.5},
+    'Plastiexports 1 B1':{powSummer:1170,powWinter:585},'Plastiexports 1 B2':{powSummer:1170,powWinter:585},
+    'Plastiexports 3 B1':{powSummer:1350,powWinter:675},'Plastiexports 3 B2':{powSummer:1350,powWinter:675},
+    'Atotonilco':{powSummer:300,powWinter:150},
+    'Fisfiber':{powSummer:475,powWinter:237.5,numRacks:5},
+    'ABADIMEX':{powSummer:855,powWinter:427.5,numRacks:9},
+    'LG':{powSummer:12000,powWinter:6000,powOpts:{verano:[[12000,2],[9000,3]],invierno:[[6000,4]]}},
+    'Park Royal Mazatlán':{powSummer:290,powWinter:145,_new:{sku:84,cliente:'Industria',ciudad:'Mazatlán',marca:'',plat:'Sky Control',bessId:1}}
+  };
+  function nk(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+  function lastEdit(k){
+    var MS=window._msState||{},t=0;
+    ((MS.byKey||{})[k]||[]).forEach(function(id){var d=(MS.docs||{})[id];if(d&&(d._editedAt||0)>t)t=d._editedAt;});
+    try{var p=JSON.parse(localStorage.getItem('bess:ml_pending:v1')||'{}');if(p[k]&&p[k].data&&(p[k].data._editedAt||0)>t)t=p[k].data._editedAt;}catch(e){}
+    return t;
+  }
+  var running=false;
+  function run(){
+    var MS=window._msState;
+    if(running||!MS||!MS.loaded||typeof window._msSaveSite!=='function')return;
+    running=true;
+    try{
+      var db=window.MASTER_SITES_DB||[],n=0;
+      Object.keys(PATCH).forEach(function(name){
+        var k=nk(name),pt=PATCH[name];
+        if(lastEdit(k)>=MIG_TS)return;                       /* editado después: se respeta */
+        var cur=db.find(function(s){return s&&nk(s.sitio)===k;});
+        var rec=Object.assign({},cur||Object.assign({sitio:name,numRacks:null,powCarga:null,horasCarga:null,kwhTotal:null,energiaBESS:null},pt._new||{}));
+        var diff=!cur;
+        Object.keys(pt).forEach(function(f){if(f==='_new')return;if(JSON.stringify(rec[f])!==JSON.stringify(pt[f])){rec[f]=pt[f];diff=true;}});
+        if(!diff)return;
+        delete rec._fbId;
+        window._msSaveSite(rec);n++;
+      });
+      if(n)console.log('[Master] migración potencias 19-oct: '+n+' sitios actualizados en la nube');
+    }catch(e){console.warn('[Master] migración potencias:',e&&e.message);}
+    running=false;
+  }
+  window.addEventListener('master-sites-updated',function(){setTimeout(run,300);});
+  setTimeout(run,4000);
 })();
 </script>
 
