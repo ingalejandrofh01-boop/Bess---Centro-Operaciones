@@ -9082,6 +9082,9 @@ async function expDoZip(mode){
         <label style="padding:9px 16px;background:rgba(255,255,255,.06);border:1px solid var(--b1);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">
           📥 Importar CSV<input type="file" accept=".csv" onchange="window._mlImportCSV(this)" style="display:none">
         </label>
+        <label title="Lee la hoja SITIOS de BD_Uptime_BESS.xlsx y actualiza las potencias de verano/invierno" style="padding:9px 16px;background:rgba(21,128,61,.1);border:1px solid rgba(21,128,61,.35);border-radius:8px;color:#15803d;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">
+          📊 Importar potencias (Excel)<input type="file" accept=".xlsx,.xlsm" onchange="window._mlImportExcel(this)" style="display:none">
+        </label>
         <button onclick="window._mlSyncCloud()" style="padding:9px 16px;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:8px;color:#00d296;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">☁️ Sincronizar Firebase</button>
       </div>
     </div>
@@ -13354,7 +13357,7 @@ window.MASTER_SITES_DB = [
   {sku:2,  sitio:'Alpha',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:5,  powCarga:56,   horasCarga:9.73,  kwhTotal:109, powSummer:231,   powWinter:115.5, energiaBESS:545},
   {sku:3,  sitio:'BHS',                    cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:6,  powCarga:94,   horasCarga:6.96,  kwhTotal:109, powSummer:263,   powWinter:131,   energiaBESS:654},
   {sku:4,  sitio:'Comedor',                cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:22,   horasCarga:9.91,  kwhTotal:109, powSummer:88,    powWinter:44,    energiaBESS:218},
-  {sku:5,  sitio:'FBO',                    cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:3,  powCarga:25,   horasCarga:8.72,  kwhTotal:109, powSummer:132,   powWinter:66,    energiaBESS:218},
+  {sku:5,  sitio:'FBO',                    cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:3,  powCarga:25,   horasCarga:8.72,  kwhTotal:109, powSummer:88,   powWinter:45,    energiaBESS:218},
   {sku:6,  sitio:'PTAR',                   cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:30,   horasCarga:7.27,  kwhTotal:109, powSummer:88,    powWinter:44,    energiaBESS:218},
   {sku:7,  sitio:'Sala Bravo B1',          cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'ON',          bessId:1, numRacks:5,  powCarga:225,  horasCarga:3.31,  kwhTotal:372, powSummer:521,   powWinter:260.5, energiaBESS:744},
   {sku:8,  sitio:'Sala Bravo B2',          cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'ON',          bessId:2, numRacks:5,  powCarga:350,  horasCarga:5.31,  kwhTotal:372, powSummer:521,   powWinter:260.5, energiaBESS:1860},
@@ -13369,71 +13372,71 @@ window.MASTER_SITES_DB = [
   {sku:17, sitio:'T4 B3',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'CATL',      plat:'Sky Control', bessId:3, numRacks:6,  powCarga:143,  horasCarga:15.61, kwhTotal:372, powSummer:890,   powWinter:468,   energiaBESS:2232},
   {sku:18, sitio:'Hidro',                  cliente:'ASUR',      ciudad:'Cancún',          marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:0,    horasCarga:null,  kwhTotal:109, powSummer:125,   powWinter:62.5,  energiaBESS:218},
   {sku:19, sitio:'HUX 01',                 cliente:'ASUR',      ciudad:'Huatulco',        marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:3,  powCarga:57,   horasCarga:5.74,  kwhTotal:109, powSummer:130,   powWinter:65,    energiaBESS:327},
-  {sku:20, sitio:'HUX 02',                 cliente:'ASUR',      ciudad:'Huatulco',        marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:7.27,  kwhTotal:109, powSummer:270,   powWinter:135,   energiaBESS:654},
+  {sku:20, sitio:'HUX 02',                 cliente:'ASUR',      ciudad:'Huatulco',        marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:7.27,  kwhTotal:109, powSummer:206,   powWinter:103,   energiaBESS:654},
   {sku:21, sitio:'Minatitlán',             cliente:'ASUR',      ciudad:'Minatitlán',      marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:7.27,  kwhTotal:109, powSummer:263,   powWinter:131,   energiaBESS:654},
-  {sku:22, sitio:'Veracruz',               cliente:'ASUR',      ciudad:'Veracruz',        marca:'CATL',      plat:'Sky Control', bessId:1, numRacks:6,  powCarga:157,  horasCarga:11.85, kwhTotal:372, powSummer:880,   powWinter:440,   energiaBESS:1860},
+  {sku:22, sitio:'Veracruz',               cliente:'ASUR',      ciudad:'Veracruz',        marca:'CATL',      plat:'Sky Control', bessId:1, numRacks:6,  powCarga:157,  horasCarga:11.85, kwhTotal:372, powSummer:805,   powWinter:397,   energiaBESS:1860},
   {sku:23, sitio:'Mérida B1',              cliente:'ASUR',      ciudad:'Mérida',          marca:'Narada',    plat:'ON',          bessId:1, numRacks:8,  powCarga:200,  horasCarga:10,    kwhTotal:250, powSummer:1000,  powWinter:280,   energiaBESS:2000},
   {sku:24, sitio:'Mérida B2',              cliente:'ASUR',      ciudad:'Mérida',          marca:'Narada',    plat:'ON',          bessId:2, numRacks:8,  powCarga:200,  horasCarga:10,    kwhTotal:250, powSummer:1000,  powWinter:280,   energiaBESS:2000},
   {sku:25, sitio:'Acapulco',               cliente:'OMA',       ciudad:'Acapulco',        marca:'Narada',    plat:'ON',          bessId:1, numRacks:8,  powCarga:400,  horasCarga:5.76,  kwhTotal:288, powSummer:530,   powWinter:380,   energiaBESS:2304},
-  {sku:26, sitio:'CD Juárez',              cliente:'OMA',       ciudad:'CD Juárez',       marca:'Pylontech', plat:'ON',          bessId:1, numRacks:8,  powCarga:300,  horasCarga:6.67,  kwhTotal:250, powSummer:350,   powWinter:210,   energiaBESS:2000},
-  {sku:27, sitio:'Chihuahua 2G',           cliente:'OMA',       ciudad:'Chihuahua',       marca:'Narada',    plat:'ON',          bessId:1, numRacks:10, powCarga:0,    horasCarga:null,  kwhTotal:800, powSummer:400,   powWinter:200,   energiaBESS:8000},
+  {sku:26, sitio:'CD Juárez',              cliente:'OMA',       ciudad:'CD Juárez',       marca:'Pylontech', plat:'ON',          bessId:1, numRacks:8,  powCarga:300,  horasCarga:6.67,  kwhTotal:250, powSummer:200,   powWinter:200,   energiaBESS:2000},
+  {sku:27, sitio:'Chihuahua 2G',           cliente:'OMA',       ciudad:'Chihuahua',       marca:'Narada',    plat:'ON',          bessId:1, numRacks:10, powCarga:0,    horasCarga:null,  kwhTotal:800, powSummer:200,   powWinter:200,   energiaBESS:8000},
   {sku:28, sitio:'Chihuahua',              cliente:'OMA',       ciudad:'Chihuahua',       marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:7,  powCarga:125,  horasCarga:5.23,  kwhTotal:109, powSummer:175,   powWinter:150,   energiaBESS:654},
-  {sku:29, sitio:'Culiacán',               cliente:'OMA',       ciudad:'Culiacán',        marca:'Narada',    plat:'ON',          bessId:1, numRacks:8,  powCarga:450,  horasCarga:2.67,  kwhTotal:150, powSummer:300,   powWinter:100,   energiaBESS:1200},
-  {sku:30, sitio:'Durango',                cliente:'OMA',       ciudad:'Durango',         marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:20, powCarga:300,  horasCarga:7.27,  kwhTotal:109, powSummer:420,   powWinter:420,   energiaBESS:2180},
-  {sku:31, sitio:'Monterrey B1',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:1, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:240,   energiaBESS:2592},
-  {sku:32, sitio:'Monterrey B2',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:2, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:345,   energiaBESS:2592},
+  {sku:29, sitio:'Culiacán',               cliente:'OMA',       ciudad:'Culiacán',        marca:'Narada',    plat:'ON',          bessId:1, numRacks:8,  powCarga:450,  horasCarga:2.67,  kwhTotal:150, powSummer:200,   powWinter:150,   energiaBESS:1200},
+  {sku:30, sitio:'Durango',                cliente:'OMA',       ciudad:'Durango',         marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:20, powCarga:300,  horasCarga:7.27,  kwhTotal:109, powSummer:400,   powWinter:400,   energiaBESS:2180},
+  {sku:31, sitio:'Monterrey B1',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:1, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:300,  powWinter:300,   energiaBESS:2592},
+  {sku:32, sitio:'Monterrey B2',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:2, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:300,  powWinter:300,   energiaBESS:2592},
   {sku:33, sitio:'Monterrey B3',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:3, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:227,   energiaBESS:2592},
   {sku:34, sitio:'Monterrey B4',           cliente:'OMA',       ciudad:'Monterrey',       marca:'Narada',    plat:'ON',          bessId:4, numRacks:9,  powCarga:450,  horasCarga:5.76,  kwhTotal:288, powSummer:2250,  powWinter:300,   energiaBESS:2592},
-  {sku:35, sitio:'Torreón',                cliente:'OMA',       ciudad:'Torreón',         marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:20, powCarga:300,  horasCarga:7.27,  kwhTotal:109, powSummer:420,   powWinter:420,   energiaBESS:2180},
-  {sku:36, sitio:'Zacatecas',              cliente:'OMA',       ciudad:'Zacatecas',       marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:10, powCarga:100,  horasCarga:7.63,  kwhTotal:109, powSummer:150,   powWinter:100,   energiaBESS:763},
+  {sku:35, sitio:'Torreón',                cliente:'OMA',       ciudad:'Torreón',         marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:20, powCarga:300,  horasCarga:7.27,  kwhTotal:109, powSummer:310,   powWinter:310,   energiaBESS:2180},
+  {sku:36, sitio:'Zacatecas',              cliente:'OMA',       ciudad:'Zacatecas',       marca:'Pylontech', plat:'Sky Control', bessId:1, numRacks:10, powCarga:100,  horasCarga:7.63,  kwhTotal:109, powSummer:106,   powWinter:106,   energiaBESS:763},
   {sku:37, sitio:'Zihuatanejo',            cliente:'OMA',       ciudad:'Zihuatanejo',     marca:'CATL',      plat:'Sky Control', bessId:1, numRacks:7,  powCarga:230,  horasCarga:11.32, kwhTotal:372, powSummer:732,   powWinter:732,   energiaBESS:2604},
-  {sku:38, sitio:'Reynosa',                cliente:'OMA',       ciudad:'Reynosa',         marca:'CATL',      plat:'ON',          bessId:1, numRacks:6,  powCarga:385,  horasCarga:5.8,   kwhTotal:372, powSummer:500,   powWinter:400,   energiaBESS:2232},
+  {sku:38, sitio:'Reynosa',                cliente:'OMA',       ciudad:'Reynosa',         marca:'CATL',      plat:'ON',          bessId:1, numRacks:6,  powCarga:385,  horasCarga:5.8,   kwhTotal:372, powSummer:300,   powWinter:200,   energiaBESS:2232},
   {sku:39, sitio:'DISEKO',                 cliente:'Industria', ciudad:'Aguascalientes',  marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:4,  powCarga:240,  horasCarga:5.73,  kwhTotal:344, powSummer:470,   powWinter:270,   energiaBESS:1376},
   {sku:40, sitio:'Alysa',                  cliente:'Industria', ciudad:'Tizayuca',        marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:3,  powCarga:135,  horasCarga:7.64,  kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1032},
   {sku:41, sitio:'Vitrogenera',            cliente:'Industria', ciudad:'CDMX',            marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:4,  powCarga:120,  horasCarga:11.47, kwhTotal:344, powSummer:600,   powWinter:576,   energiaBESS:1376},
-  {sku:42, sitio:'RegioPet 1',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:4,  powCarga:99,   horasCarga:13.9,  kwhTotal:344, powSummer:600,   powWinter:304,   energiaBESS:1376},
-  {sku:43, sitio:'RegioPet 2',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:2, numRacks:2,  powCarga:103,  horasCarga:6.68,  kwhTotal:344, powSummer:290,   powWinter:148,   energiaBESS:688},
-  {sku:44, sitio:'RegioPet 3',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:3, numRacks:3,  powCarga:84,   horasCarga:12.29, kwhTotal:344, powSummer:452,   powWinter:226,   energiaBESS:1032},
+  {sku:42, sitio:'RegioPet 1',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:4,  powCarga:99,   horasCarga:13.9,  kwhTotal:344, powSummer:570,   powWinter:281,   energiaBESS:1376},
+  {sku:43, sitio:'RegioPet 2',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:2, numRacks:2,  powCarga:103,  horasCarga:6.68,  kwhTotal:344, powSummer:284,   powWinter:142,   energiaBESS:688},
+  {sku:44, sitio:'RegioPet 3',             cliente:'Industria', ciudad:'Monterrey',       marca:'Hoypower',  plat:'Sky Control', bessId:3, numRacks:3,  powCarga:84,   horasCarga:12.29, kwhTotal:344, powSummer:439,   powWinter:219,   energiaBESS:1032},
   {sku:45, sitio:'Bocar',                  cliente:'Industria', ciudad:'CDMX',            marca:'HoyUltra',  plat:'Sky Control', bessId:1, numRacks:1,  powCarga:30,   horasCarga:7.17,  kwhTotal:215, powSummer:95,    powWinter:47.5,  energiaBESS:215},
   {sku:46, sitio:'Telas Asturcón',         cliente:'Industria', ciudad:'Puebla',          marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:3,  powCarga:123,  horasCarga:8.39,  kwhTotal:344, powSummer:307,   powWinter:154,   energiaBESS:1032},
-  {sku:47, sitio:'IPASA 1',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:1, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
-  {sku:48, sitio:'IPASA 2',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:2, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
-  {sku:49, sitio:'IPASA 3',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:3, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
-  {sku:50, sitio:'IPASA 4',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:4, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:47.5,  energiaBESS:215},
-  {sku:51, sitio:'TOTIS',                  cliente:'Industria', ciudad:'Tizayuca',        marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:22.93, kwhTotal:344, powSummer:750,   powWinter:450,   energiaBESS:2064},
+  {sku:47, sitio:'IPASA 1',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:1, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:43,  energiaBESS:215},
+  {sku:48, sitio:'IPASA 2',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:2, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:43,  energiaBESS:215},
+  {sku:49, sitio:'IPASA 3',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:3, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:43,  energiaBESS:215},
+  {sku:50, sitio:'IPASA 4',                cliente:'Industria', ciudad:'Aguascalientes',  marca:'HoyUltra',  plat:'Sky Control', bessId:4, numRacks:1,  powCarga:20,   horasCarga:10.75, kwhTotal:215, powSummer:85,    powWinter:43,  energiaBESS:215},
+  {sku:51, sitio:'TOTIS',                  cliente:'Industria', ciudad:'Tizayuca',        marca:'Hoypower',  plat:'Sky Control', bessId:1, numRacks:6,  powCarga:90,   horasCarga:22.93, kwhTotal:344, powSummer:850,   powWinter:425,   energiaBESS:2064},
   {sku:52, sitio:'FM Boca del Río',        cliente:'Industria', ciudad:'Veracruz',        marca:'HoyUltra',  plat:'Sky Control', bessId:1, numRacks:2,  powCarga:50,   horasCarga:8.6,   kwhTotal:215, powSummer:90,    powWinter:47.5,  energiaBESS:430},
-  {sku:53, sitio:'Tejidos y Texturizados', cliente:'Industria', ciudad:'Naucalpan',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:3,  powCarga:52,   horasCarga:19.85, kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1032},
-  {sku:54, sitio:'Resideo',                cliente:'Industria', ciudad:'Chihuahua',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:7,  powCarga:380,  horasCarga:6.34,  kwhTotal:344, powSummer:1050,  powWinter:525,   energiaBESS:2408},
-  {sku:55, sitio:'Brom',                   cliente:'Industria', ciudad:'CDMX',            marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:193,  horasCarga:8.91,  kwhTotal:344, powSummer:750,   powWinter:374,   energiaBESS:1720},
+  {sku:53, sitio:'Tejidos y Texturizados', cliente:'Industria', ciudad:'Naucalpan',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:3,  powCarga:52,   horasCarga:19.85, kwhTotal:344, powSummer:412,   powWinter:206,   energiaBESS:1032},
+  {sku:54, sitio:'Resideo',                cliente:'Industria', ciudad:'Chihuahua',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:7,  powCarga:380,  horasCarga:6.34,  kwhTotal:344, powSummer:750,  powWinter:375,   energiaBESS:2408, powOpts:{verano:[[750,2],[550,3]],invierno:[[375,4]]}},
+  {sku:55, sitio:'Brom',                   cliente:'Industria', ciudad:'CDMX',            marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:193,  horasCarga:8.91,  kwhTotal:344, powSummer:750,   powWinter:550,   energiaBESS:1720},
   {sku:56, sitio:'Vesta',                  cliente:'Industria', ciudad:'Monterrey',       marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:3,  powCarga:225,  horasCarga:4.59,  kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1032},
   {sku:57, sitio:'THOR B1',                cliente:'Industria', ciudad:'San Luis Potosí', marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:6,  powCarga:200,  horasCarga:10.32, kwhTotal:344, powSummer:900,   powWinter:450,   energiaBESS:2064},
   {sku:58, sitio:'THOR B2',                cliente:'Industria', ciudad:'San Luis Potosí', marca:'Hoycore',   plat:'Sky Control', bessId:2, numRacks:6,  powCarga:200,  horasCarga:10.32, kwhTotal:344, powSummer:900,   powWinter:450,   energiaBESS:2064},
-  {sku:59, sitio:'Park Royal Luna',        cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
-  {sku:60, sitio:'Park Royal Sol',         cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:2,  powCarga:60,   horasCarga:11.47, kwhTotal:344, powSummer:294,   powWinter:140,   energiaBESS:688},
-  {sku:61, sitio:'LG',                     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sel',         bessId:1, numRacks:60, powCarga:1500, horasCarga:15,    kwhTotal:500, powSummer:12000, powWinter:6000,  energiaBESS:22500, powOpts:{verano:[[12000,2],[9000,3]], invierno:[[6000,4]]}},
+  {sku:59, sitio:'Park Royal Luna',        cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:746,   powWinter:350,   energiaBESS:1720},
+  {sku:60, sitio:'Park Royal Sol',         cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:2,  powCarga:60,   horasCarga:11.47, kwhTotal:344, powSummer:288,   powWinter:144,   energiaBESS:688},
+  {sku:61, sitio:'LG',                     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sel',         bessId:1, numRacks:60, powCarga:1500, horasCarga:15,    kwhTotal:500, powSummer:12000, powWinter:7100,  energiaBESS:22500, powOpts:{verano:[[12000,2],[9000,3]],invierno:[[7100,4]]}},
   {sku:62, sitio:'FM Mérida',              cliente:'Industria', ciudad:'Mérida',          marca:'Hoy Ultra', plat:'Sky Control', bessId:1, numRacks:2,  powCarga:30,   horasCarga:14.33, kwhTotal:215, powSummer:90,    powWinter:47.5,  energiaBESS:430},
-  {sku:63, sitio:'ABADIMEX',               cliente:'Industria', ciudad:'Naucalpan',       marca:'Huawei',    plat:'Huawei',      bessId:1, numRacks:9,  powCarga:0,    horasCarga:null,  kwhTotal:215, powSummer:855,   powWinter:427.5,   energiaBESS:1935},
-  {sku:64, sitio:'Park Royal Cozumel',     cliente:'Industria', ciudad:'Cozumel',         marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:12.9,  kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
+  {sku:63, sitio:'ABADIMEX',               cliente:'Industria', ciudad:'Naucalpan',       marca:'Huawei',    plat:'Huawei',      bessId:1, numRacks:9,  powCarga:0,    horasCarga:null,  kwhTotal:215, powSummer:855,   powWinter:400,   energiaBESS:1935},
+  {sku:64, sitio:'Park Royal Cozumel',     cliente:'Industria', ciudad:'Cozumel',         marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:12.9,  kwhTotal:344, powSummer:433,   powWinter:221,   energiaBESS:1720},
   {sku:65, sitio:'Vidanta',                cliente:'Industria', ciudad:'BC',              marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:4,  powCarga:120,  horasCarga:null,  kwhTotal:344, powSummer:450,   powWinter:225,   energiaBESS:1376},
-  {sku:66, sitio:'Park Royal CBE',         cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:1260,  powWinter:630,  energiaBESS:null},
+  {sku:66, sitio:'Park Royal CBE',         cliente:'Industria', ciudad:'Cancún',          marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:1290,  powWinter:645,  energiaBESS:null},
   {sku:67, sitio:'Plastiexports 1 B1',     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1170,  powWinter:585,  energiaBESS:null},
   {sku:68, sitio:'Plastiexports 1 B2',     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1170,  powWinter:585,  energiaBESS:null},
   {sku:69, sitio:'Plastiexports 3 B1',     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1350,  powWinter:675,  energiaBESS:null},
   {sku:70, sitio:'Plastiexports 3 B2',     cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1350,  powWinter:675,  energiaBESS:null},
-  {sku:71, sitio:'Fisfiber',               cliente:'Industria', ciudad:'Naucalpan',       marca:'Huawei',    plat:'Sky Control', bessId:1, numRacks:5, powCarga:null, horasCarga:null, kwhTotal:215, powSummer:475,  powWinter:237.5,  energiaBESS:null},
+  {sku:71, sitio:'Fisfiber',               cliente:'Industria', ciudad:'Naucalpan',       marca:'Huawei',    plat:'Sky Control', bessId:1, numRacks:5, powCarga:null, horasCarga:null, kwhTotal:215, powSummer:475,  powWinter:210,  energiaBESS:null},
   {sku:72, sitio:'Tuk B1',                 cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:625,  energiaBESS:null},
   {sku:73, sitio:'Tuk B2',                 cliente:'Industria', ciudad:'Monterrey',       marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1250,  powWinter:625,  energiaBESS:null},
-  {sku:74, sitio:'Park Royal Vallarta',    cliente:'Industria', ciudad:'Jalisco',         marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:600,   powWinter:300,   energiaBESS:null},
+  {sku:74, sitio:'Park Royal Vallarta',    cliente:'Industria', ciudad:'Jalisco',         marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:590,   powWinter:295,   energiaBESS:null},
   {sku:75, sitio:'BIDASOA B1',             cliente:'Industria', ciudad:'Teotihuacán',     marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:null,  powWinter:null,  energiaBESS:null},
   {sku:76, sitio:'BIDASOA B2',             cliente:'Industria', ciudad:'Teotihuacán',     marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:null,  powWinter:null,  energiaBESS:null},
   {sku:77, sitio:'DESA B1',                cliente:'Industria', ciudad:'Xalapa',          marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1105,  powWinter:552.5,  energiaBESS:null},
   {sku:78, sitio:'DESA B2',                cliente:'Industria', ciudad:'Xalapa',          marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1105,  powWinter:552.5,  energiaBESS:null},
-  {sku:79, sitio:'TUGAL B1',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1125,  powWinter:562.5,  energiaBESS:null},
-  {sku:80, sitio:'TUGAL B2',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1125,  powWinter:562.5,  energiaBESS:null},
+  {sku:79, sitio:'TUGAL B1',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1125,  powWinter:550,  energiaBESS:null},
+  {sku:80, sitio:'TUGAL B2',               cliente:'Industria', ciudad:'Toluca',          marca:'BYD',       plat:'Sky Control', bessId:2, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:500, powSummer:1125,  powWinter:550,  energiaBESS:null},
   {sku:81, sitio:'Atotonilco',             cliente:'Industria', ciudad:'Hidalgo',         marca:'BYD',       plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:344, powSummer:300,   powWinter:150,  energiaBESS:null},
-  {sku:82, sitio:'Park Royal Acapulco',    cliente:'Industria', ciudad:'Acapulco',        marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:740,   powWinter:350,   energiaBESS:1720},
-  {sku:83, sitio:'Clarimex',               cliente:'Industria', ciudad:'',                marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:735,   powWinter:350,   energiaBESS:1720},
-  {sku:84, sitio:'Park Royal Mazatlán',    cliente:'Industria', ciudad:'Mazatlán',        marca:'',          plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:null, powSummer:290, powWinter:145, energiaBESS:null},
+  {sku:82, sitio:'Park Royal Acapulco',    cliente:'Industria', ciudad:'Acapulco',        marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:582,   powWinter:291,   energiaBESS:1720},
+  {sku:83, sitio:'Clarimex',               cliente:'Industria', ciudad:'',                marca:'Hoycore',   plat:'Sky Control', bessId:1, numRacks:5,  powCarga:150,  horasCarga:11.47, kwhTotal:344, powSummer:442,   powWinter:220,   energiaBESS:1720},
+  {sku:84, sitio:'Park Royal Mazatlán',    cliente:'Industria', ciudad:'Mazatlán',        marca:'',          plat:'Sky Control', bessId:1, numRacks:null, powCarga:null, horasCarga:null, kwhTotal:null, powSummer:292, powWinter:144, energiaBESS:null},
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -43674,17 +43677,17 @@ document.addEventListener('keydown', function(e){
      solo si el sitio no fue editado en la app DESPUÉS de esta fecha (así nunca pisa cambios nuevos). */
   var MIG_TS=Date.UTC(2026,9,20,0,30); /* 19-oct-2026 18:30 hora de CDMX */
   var PATCH={
-    'Park Royal CBE':{powSummer:1260,powWinter:630},
+    'Park Royal CBE':{powSummer:1290,powWinter:645},
     'Tuk B1':{powSummer:1250,powWinter:625},'Tuk B2':{powSummer:1250,powWinter:625},
-    'TUGAL B1':{powSummer:1125,powWinter:562.5},'TUGAL B2':{powSummer:1125,powWinter:562.5},
+    'TUGAL B1':{powSummer:1125,powWinter:550},'TUGAL B2':{powSummer:1125,powWinter:550},
     'DESA B1':{powSummer:1105,powWinter:552.5},'DESA B2':{powSummer:1105,powWinter:552.5},
     'Plastiexports 1 B1':{powSummer:1170,powWinter:585},'Plastiexports 1 B2':{powSummer:1170,powWinter:585},
     'Plastiexports 3 B1':{powSummer:1350,powWinter:675},'Plastiexports 3 B2':{powSummer:1350,powWinter:675},
     'Atotonilco':{powSummer:300,powWinter:150},
-    'Fisfiber':{powSummer:475,powWinter:237.5,numRacks:5},
-    'ABADIMEX':{powSummer:855,powWinter:427.5,numRacks:9},
-    'LG':{powSummer:12000,powWinter:6000,powOpts:{verano:[[12000,2],[9000,3]],invierno:[[6000,4]]}},
-    'Park Royal Mazatlán':{powSummer:290,powWinter:145,_new:{sku:84,cliente:'Industria',ciudad:'Mazatlán',marca:'',plat:'Sky Control',bessId:1}}
+    'Fisfiber':{powSummer:475,powWinter:210,numRacks:5},
+    'ABADIMEX':{powSummer:855,powWinter:400,numRacks:9},
+    'LG':{powSummer:12000,powWinter:7100,powOpts:{verano:[[12000,2],[9000,3]],invierno:[[7100,4]]}},
+    'Park Royal Mazatlán':{powSummer:292,powWinter:144,_new:{sku:84,cliente:'Industria',ciudad:'Mazatlán',marca:'',plat:'Sky Control',bessId:1}}
   };
   function nk(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
   function lastEdit(k){
@@ -43717,6 +43720,129 @@ document.addEventListener('keydown', function(e){
   }
   window.addEventListener('master-sites-updated',function(){setTimeout(run,300);});
   setTimeout(run,4000);
+})();
+</script>
+
+
+<!-- ══════ POTENCIAS 20-oct-2026 + IMPORTAR POTENCIAS DESDE EXCEL (BD_Uptime_BESS.xlsx › SITIOS) ══════ -->
+<script>
+(function(){
+  function nk(s){return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+  function toast(m,ms){try{if(typeof showToast==='function')showToast(m,ms);}catch(e){}}
+
+  /* ── 1) Migración única: potencias confirmadas por operación el 20-oct-2026.
+        Se suben a la Lista Maestra de la nube solo si el sitio no se editó en la app DESPUÉS. ── */
+  var MIG_TS=Date.UTC(2026,9,21,2,30); /* 20-oct-2026 20:30 hora de CDMX */
+  var PATCH={
+    'Park Royal Luna':{powSummer:746,powWinter:350},
+    'Park Royal Sol':{powSummer:288,powWinter:144},
+    'Park Royal Cozumel':{powSummer:433,powWinter:221},
+    'Park Royal CBE':{powSummer:1290,powWinter:645},
+    'Park Royal Vallarta':{powSummer:590,powWinter:295},
+    'Park Royal Acapulco':{powSummer:582,powWinter:291},
+    'Park Royal Mazatlán':{powSummer:292,powWinter:144},
+    'RegioPet 1':{powSummer:570,powWinter:281},
+    'RegioPet 2':{powSummer:284,powWinter:142},
+    'RegioPet 3':{powSummer:439,powWinter:219},
+    'IPASA 1':{powSummer:85,powWinter:43},'IPASA 2':{powSummer:85,powWinter:43},
+    'IPASA 3':{powSummer:85,powWinter:43},'IPASA 4':{powSummer:85,powWinter:43},
+    'TOTIS':{powSummer:850,powWinter:425},
+    'Tejidos y Texturizados':{powSummer:412,powWinter:206},
+    'Resideo':{powSummer:750,powWinter:375,powOpts:{verano:[[750,2],[550,3]],invierno:[[375,4]]}},
+    'Brom':{powSummer:750,powWinter:550},
+    'LG':{powSummer:12000,powWinter:7100,powOpts:{verano:[[12000,2],[9000,3]],invierno:[[7100,4]]}},
+    'ABADIMEX':{powWinter:400},
+    'Fisfiber':{powWinter:210},
+    'TUGAL B1':{powWinter:550},'TUGAL B2':{powWinter:550},
+    'Clarimex':{powSummer:442,powWinter:220},
+    'FBO':{powSummer:88,powWinter:45},
+    'HUX 02':{powSummer:206,powWinter:103},
+    'Veracruz':{powSummer:805,powWinter:397},
+    'CD Juárez':{powSummer:200,powWinter:200},
+    'Chihuahua 2G':{powSummer:200,powWinter:200},
+    'Culiacán':{powSummer:200,powWinter:150},
+    'Durango':{powSummer:400,powWinter:400},
+    'Monterrey B1':{powSummer:300,powWinter:300},
+    'Monterrey B2':{powSummer:300,powWinter:300},
+    'Torreón':{powSummer:310,powWinter:310},
+    'Zacatecas':{powSummer:106,powWinter:106},
+    'Reynosa':{powSummer:300,powWinter:200}
+  };
+  function lastEdit(k){
+    var MS=window._msState||{},t=0;
+    ((MS.byKey||{})[k]||[]).forEach(function(id){var d=(MS.docs||{})[id];if(d&&(d._editedAt||0)>t)t=d._editedAt;});
+    try{var p=JSON.parse(localStorage.getItem('bess:ml_pending:v1')||'{}');if(p[k]&&p[k].data&&(p[k].data._editedAt||0)>t)t=p[k].data._editedAt;}catch(e){}
+    return t;
+  }
+  var running=false;
+  function run(){
+    var MS=window._msState;
+    if(running||!MS||!MS.loaded||typeof window._msSaveSite!=='function')return;
+    running=true;
+    try{
+      var db=window.MASTER_SITES_DB||[],n=0;
+      Object.keys(PATCH).forEach(function(name){
+        var k=nk(name),pt=PATCH[name];
+        if(lastEdit(k)>=MIG_TS)return;
+        var cur=db.find(function(s){return s&&nk(s.sitio)===k;});
+        if(!cur)return;
+        var rec=Object.assign({},cur),diff=false;
+        Object.keys(pt).forEach(function(f){if(JSON.stringify(rec[f])!==JSON.stringify(pt[f])){rec[f]=pt[f];diff=true;}});
+        if(!diff)return;
+        delete rec._fbId;
+        window._msSaveSite(rec);n++;
+      });
+      if(n)console.log('[Master] potencias 20-oct: '+n+' sitios actualizados en la nube');
+    }catch(e){console.warn('[Master] potencias 20-oct:',e&&e.message);}
+    running=false;
+  }
+  window.addEventListener('master-sites-updated',function(){setTimeout(run,600);});
+  setTimeout(run,4500);
+
+  /* ── 2) Importar potencias desde el Excel (hoja SITIOS) ──
+     Lee SKU, SITIO, POTENCIA VERANO kW y POTENCIA INVIERNO kW; empata por SKU (o por nombre),
+     muestra qué cambia y, al confirmar, lo publica en la Lista Maestra para todos los usuarios. */
+  function findCol(hdr,re){for(var i=0;i<hdr.length;i++){if(re.test(String(hdr[i]||'')))return i;}return -1;}
+  function num(v){if(v==null||v==='')return null;var n=typeof v==='number'?v:+String(v).replace(/[^\d.\-]/g,'');return isFinite(n)?n:null;}
+  window._mlImportExcel=function(input){
+    var f=input&&input.files&&input.files[0];if(!f)return;
+    if(!window.XLSX){alert('No se pudo leer el Excel: la librería no está disponible. Revisa tu conexión e intenta de nuevo.');input.value='';return;}
+    var rd=new FileReader();
+    rd.onload=function(ev){
+      try{
+        var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+        var name=wb.SheetNames.find(function(n){return nk(n)==='sitios';})||wb.SheetNames[0];
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:null});
+        var hi=rows.findIndex(function(r){return r&&r.some(function(c){return nk(c)==='sku';})&&r.some(function(c){return /verano/i.test(String(c||''));});});
+        if(hi<0){alert('No encontré en la hoja "'+name+'" las columnas SKU y POTENCIA VERANO / INVIERNO.');input.value='';return;}
+        var H=rows[hi],cS=findCol(H,/^\s*sku\s*$/i),cN=findCol(H,/^\s*sitio\s*$/i),cV=findCol(H,/verano/i),cI=findCol(H,/invierno/i);
+        var db=window.MASTER_SITES_DB||[],bySku={},byName={};
+        db.forEach(function(s){if(!s||!s.sitio)return;if(s.sku!=null)bySku[+s.sku]=s;byName[nk(s.sitio)]=s;});
+        var changes=[],nomatch=[];
+        rows.slice(hi+1).forEach(function(r){
+          if(!r)return;var sku=num(r[cS]);var nm=cN>=0?r[cN]:null;if(sku==null&&!nm)return;
+          var s=(sku!=null&&bySku[sku])||(nm&&byName[nk(nm)]);
+          if(!s){nomatch.push((sku!=null?sku+' ':'')+(nm||''));return;}
+          var v=num(r[cV]),w=cI>=0?num(r[cI]):null,rec=null,txt=[];
+          function setp(field,val,season){
+            if(val==null)return;var cur=num(s[field]);if(cur!=null&&Math.abs(cur-val)<0.001)return;
+            rec=rec||JSON.parse(JSON.stringify(s));rec[field]=val;
+            if(rec.powOpts&&rec.powOpts[season]&&rec.powOpts[season][0])rec.powOpts[season][0][0]=val;
+            txt.push((season==='verano'?'verano ':'invierno ')+(cur==null?'—':cur)+' → '+val);
+          }
+          setp('powSummer',v,'verano');setp('powWinter',w,'invierno');
+          if(rec){delete rec._fbId;changes.push({rec:rec,line:s.sitio+': '+txt.join(', ')});}
+        });
+        if(!changes.length){toast('✅ Excel leído: las potencias ya coinciden con la Lista Maestra');alert('Las potencias del Excel ya coinciden con la Lista Maestra. No hay nada que actualizar.'+(nomatch.length?'\n\nFilas del Excel sin sitio en la app: '+nomatch.join(', '):''));input.value='';return;}
+        var msg='Se actualizarán '+changes.length+' sitio(s) en la Lista Maestra (para todos los usuarios):\n\n'+changes.slice(0,40).map(function(c){return '• '+c.line;}).join('\n')+(changes.length>40?'\n… y '+(changes.length-40)+' más':'')+(nomatch.length?'\n\nSin sitio en la app (se ignoran): '+nomatch.join(', '):'')+'\n\n¿Aplicar?';
+        if(!confirm(msg)){input.value='';return;}
+        changes.forEach(function(c){window._msSaveSite(c.rec);});
+        toast('✅ Potencias importadas del Excel · '+changes.length+' sitio(s)',5000);
+      }catch(e){alert('No se pudo leer el archivo: '+(e&&e.message||e));}
+      input.value='';
+    };
+    rd.readAsArrayBuffer(f);
+  };
 })();
 </script>
 
