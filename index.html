@@ -21196,6 +21196,7 @@ function ucalRender(){
       open='window._calExtraOpen(\''+r.id+'\')'; del='window._calExtraDel(\''+r.id+'\',event)';
       title=esc(r.title||ti.t); meta=esc(r.op||'')+' · '+hora(r.createdAt);
       if(r.type==='mb') chips=(sm.sitios!=null?chip('📍 '+sm.sitios+(sm.total?'/'+sm.total:''),'#0891b2'):'')+(sm.over?chip('🚨 '+sm.over,'#dc2626'):'')+(sm.near?chip('⚠ '+sm.near,'#d97706'):'')+(sm.legKwh?chip(Number(sm.legKwh).toLocaleString('es-MX')+' kWh','#2563eb'):'');
+      else if(r.type==='op') chips=(sm.sitios!=null?chip('📍 '+sm.sitios+' sitios','#1d4ed8'):'')+(sm.operador?chip('👤 '+esc(sm.operador),'#2563eb'):'')+chip('⬇ exportado','#7c3aed');
       else chips=(sm.avg!=null?chip('FP '+sm.avg+'%', sm.avg<90?'#dc2626':(sm.avg<95?'#d97706':'#059669')):'')+(sm.lecturas!=null?chip(sm.lecturas+' lect.','#7c3aed'):'')+(sm.enMeta!=null?chip(sm.enMeta+'% en meta','#059669'):'');
     } else {
       open='window.mbShowCalDet&&window.mbShowCalDet(\''+r.id+'\')'; del='event.stopPropagation();rvDelMon(\''+r.id+'\',event)';
@@ -32142,7 +32143,7 @@ var _mbEditId = null;
 /* Catálogo maestro (multiplicador + demanda contratada por sitio), consolidado a nivel de
    medidor físico — actualizado y confirmado por el usuario. MB_CONFIG_SEED_VERSION controla
    cuándo se debe reemplazar el catálogo ya guardado (local y en la nube) con esta versión. */
-var MB_CONFIG_SEED_VERSION = '2026-08-11-v18-fix-date-input-reset';
+var MB_CONFIG_SEED_VERSION = '2026-10-30-v19-add-asur-merida';
 var MB_CONFIG_SEED = {
   'Almacén General': { dc:181, mult:80, codBase:'', codIntermedio:'', codPunta:'' },
   'Alpha': { dc:370, mult:160, codBase:'', codIntermedio:'', codPunta:'' },
@@ -32203,7 +32204,8 @@ var MB_CONFIG_SEED = {
   'Fisfiber': { dc:727, mult:1200, codBase:'', codIntermedio:'', codPunta:'' },
   'Tuk': { dc:3895, mult:2800, codBase:'', codIntermedio:'', codPunta:'' },
   'VALLARTA': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
-  'BIDASOA': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' }
+  'BIDASOA': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'' },
+  'Asur Mérida': { dc:null, mult:null, codBase:'', codIntermedio:'', codPunta:'', grupo:'ASUR', tipo:'legado', tipoFijo:true }
 };
 
 /* ══ HELPERS ══ */
@@ -34235,7 +34237,10 @@ window._mbRenderLegacyCapture = function(){
   box.innerHTML = '<div style="border:1px solid rgba(37,99,235,.35);border-radius:12px;background:var(--s1);overflow:hidden">'
     +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:linear-gradient(90deg,rgba(37,99,235,.10),transparent)">'
       +'<div style="font-family:var(--disp);font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:4px;height:16px;background:#2563eb;border-radius:2px;display:inline-block"></span>✈️ ASUR · Legado — consumo del mes por códigos ('+sites.length+' sitios)</div>'
-      +'<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+_mbEsc(_mbMesLabel(mes))+' · Δ = lectura más cercana al fin del mes − más cercana al inicio, × multiplicador · Total = 11 + 12 + 13</div>'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+        +'<div style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">'+_mbEsc(_mbMesLabel(mes))+' · Δ = lectura más cercana al fin del mes − más cercana al inicio, × multiplicador · Total = 11 + 12 + 13</div>'
+        +'<button onclick="window._mbLegSaveAll()" title="Guarda de una sola vez todas las lecturas de consumo que hayas escrito en los sitios de abajo" style="padding:8px 14px;border-radius:7px;border:none;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font:800 10.5px var(--mono);cursor:pointer;white-space:nowrap">💾 Guardar todas</button>'
+      +'</div>'
     +'</div>'
     +'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>'
       +'<th style="'+th+';text-align:left">Sitio</th><th style="'+th+';text-align:left">Nueva lectura (códigos acumulados del medidor) · lecturas del mes</th><th style="'+th+'">Consumo y demanda del mes</th>'
@@ -34246,25 +34251,56 @@ window._mbLegSetMult = function(sitio, val){
   _mbPersistConfig();
   window._mbRenderLegacyCapture(); _mbRenderSummaryGrid();
 };
-window._mbLegSave = function(sitio){
+/* v136 — núcleo de guardado de UNA fila de consumo legado.
+   opts.defer       : no persiste, no re-renderiza ni muestra toast (lo hace quien llama,
+                      p.ej. "Guardar todas", para no perder lo escrito en las otras filas).
+   opts.noDeleteEmpty: una fila vacía NO borra una lectura existente (seguro en guardado masivo).
+   Devuelve: 'saved' | 'updated' | 'deleted' | 'empty' | 'baddate'. */
+function _mbLegSaveCore(sitio, opts){
+  opts = opts || {};
   var id = _mbNorm(sitio).replace(/ /g,'_');
   var fecha = (document.getElementById('mbleg-fecha-'+id)||{}).value || '';
-  if(!_mbValidQuickDate(fecha) || !fecha){ _mbToast('⚠️ Escribe una fecha válida para la lectura'); return; }
+  if(!_mbValidQuickDate(fecha) || !fecha){ if(!opts.defer) _mbToast('⚠️ Escribe una fecha válida para la lectura'); return 'baddate'; }
   var hora = (document.getElementById('mbleg-hora-'+id)||{}).value || '';
   var vals = {}, any = false;
   MB_LEG_CODES.forEach(function(c){ var v=_mbNumOrNull((document.getElementById('mbleg-'+c.k+'-'+id)||{}).value); vals[c.k]=v; if(v!=null) any=true; });
   var key = _mbNorm(_mbCanonicalSite(sitio));
   var ex = MB_LEG_LIST.find(function(r){ return r.fecha===fecha && _mbNorm(_mbCanonicalSite(r.sitio))===key; });
   if(!any){
-    if(ex){ MB_LEG_LIST.splice(MB_LEG_LIST.indexOf(ex),1); _mbLegPersist(); _mbToast('🗑️ Lectura del '+_mbFechaCorta(fecha)+' eliminada (quedó vacía)'); window._mbRenderLegacyCapture(); _mbRenderSummaryGrid(); }
-    else _mbToast('⚠️ Escribe al menos un código');
-    return;
+    if(ex && !opts.noDeleteEmpty){
+      MB_LEG_LIST.splice(MB_LEG_LIST.indexOf(ex),1);
+      if(!opts.defer){ _mbLegPersist(); _mbToast('🗑️ Lectura del '+_mbFechaCorta(fecha)+' eliminada (quedó vacía)'); window._mbRenderLegacyCapture(); _mbRenderSummaryGrid(); }
+      return 'deleted';
+    }
+    if(!opts.defer) _mbToast('⚠️ Escribe al menos un código');
+    return 'empty';
   }
   if(ex){ Object.assign(ex, vals, { hora:hora, savedAt:Date.now() }); }
   else MB_LEG_LIST.push(Object.assign({ id:'leg_'+_mbUid(), sitio:_mbCanonicalSite(sitio), fecha:fecha, hora:hora, savedAt:Date.now() }, vals));
-  _mbLegPersist();
-  _mbToast('✅ Lectura '+(ex?'actualizada':'guardada')+' · '+_mbCanonicalSite(sitio)+' · '+_mbFechaCorta(fecha)+(hora?' '+hora:'')+(hora?'':' (sin hora del video)'));
+  if(!opts.defer){
+    _mbLegPersist();
+    _mbToast('✅ Lectura '+(ex?'actualizada':'guardada')+' · '+_mbCanonicalSite(sitio)+' · '+_mbFechaCorta(fecha)+(hora?' '+hora:'')+(hora?'':' (sin hora del video)'));
+    window._mbRenderLegacyCapture(); _mbRenderSummaryGrid();
+  }
+  return ex ? 'updated' : 'saved';
+}
+window._mbLegSave = function(sitio){ _mbLegSaveCore(sitio, {}); };
+/* v136 — guarda de una sola pasada TODAS las filas de consumo que tengan códigos escritos,
+   sin perder ninguna (antes solo se grababa la fila del botón presionado). */
+window._mbLegSaveAll = function(){
+  var sites = _mbLegacySites();
+  var saved=0, updated=0, bad=0;
+  sites.forEach(function(sitio){
+    var r = _mbLegSaveCore(sitio, { defer:true, noDeleteEmpty:true });
+    if(r==='saved') saved++;
+    else if(r==='updated') updated++;
+    else if(r==='baddate') bad++;
+  });
+  var tot = saved+updated;
+  if(tot) _mbLegPersist();
   window._mbRenderLegacyCapture(); _mbRenderSummaryGrid();
+  if(!tot && !bad){ _mbToast('No hay lecturas nuevas por guardar — escribe al menos un código en algún sitio'); return; }
+  _mbToast('✅ '+tot+' lectura(s) de consumo guardada(s)'+((saved&&updated)?' ('+saved+' nueva(s), '+updated+' actualizada(s))':'')+(bad?' · '+bad+' con fecha inválida, omitido(s)':''));
 };
 window._mbLegEdit = function(rid){
   var r = MB_LEG_LIST.find(function(x){ return x.id===rid; }); if(!r) return;
@@ -43295,9 +43331,27 @@ document.addEventListener('keydown', function(e){
       window._fpRenderReportPreview && window._fpRenderReportPreview();
     }, 80);
   };
+  /* ── REPORTE OPERATIVO ── */
+  /* Al descargar PDF/PNG del Reporte Operativo se deja constancia en el calendario.
+     Si el reporte YA está guardado (se abrió uno histórico: _opProViewId), ya aparece
+     de forma nativa en el calendario (opReps) y no se duplica. Solo se agrega la
+     constancia cuando se exporta un reporte en vivo / aún no guardado. */
+  window._calSaveReporteOperativo = function(silent){
+    if(window._opProViewId){ if(!silent && typeof showToast==='function') showToast('📅 Este reporte ya está en el calendario'); return null; }
+    var W = window._opProViewRep || window.opW || {};
+    var d = W.date || W.createdAt || new Date().toISOString();
+    var ds = new Date(d); var dstr = isNaN(ds.getTime()) ? today() : ds.toISOString().slice(0,10);
+    var nSites = (W.srs && W.srs.length) || 0;
+    return save({ type:'op',
+      title:'Reporte Operativo (exportado) · '+dstr+(W.period?' · '+W.period:''),
+      params:{ date:dstr, period:W.period||'' },
+      summary:{ sitios:nSites, operador:(W.op||localStorage.getItem('bess_uname')||'') } }, silent);
+  };
+  window._calOpenReporteOperativo = function(){ if(typeof goPage==='function') goPage('repop'); };
   window._calExtraOpen = function(id){
     var r = LIST.find(function(x){ return x.id===id; }); if(!r) return;
     if(r.type==='mb'){ if(typeof goPage==='function') goPage('medidor'); setTimeout(function(){ window._calOpenMedidores(r); }, 350); }
+    else if(r.type==='op'){ window._calOpenReporteOperativo(r); }
     else { if(typeof goPage==='function') goPage('fp'); setTimeout(function(){ window._calOpenFP(r); }, 350); }
   };
 
@@ -43311,7 +43365,9 @@ document.addEventListener('keydown', function(e){
     var ok = wrapAsync('_mbDownloadReportPDF', function(){ window._calSaveMedidores(true); })
       & wrapAsync('_mbDownloadReportPNG', function(){ window._calSaveMedidores(true); })
       & wrapAsync('_fpDownloadReportPDF', function(){ window._calSaveFP(true); })
-      & wrapAsync('_fpDownloadReportPNG', function(){ window._calSaveFP(true); });
+      & wrapAsync('_fpDownloadReportPNG', function(){ window._calSaveFP(true); })
+      & wrapAsync('_opProDownloadPDF', function(){ window._calSaveReporteOperativo(true); })
+      & wrapAsync('_opProDownloadPNG', function(){ window._calSaveReporteOperativo(true); });
     if(!ok) setTimeout(hook, 800);
   }
   setTimeout(hook, 3200);
