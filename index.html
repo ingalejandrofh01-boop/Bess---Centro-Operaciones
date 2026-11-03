@@ -34171,6 +34171,7 @@ function _mbDropIfEmpty(rec){
 function _mbLegacySites(){ return _mbSiteNames().filter(_mbIsLegacy); }
 window._mbRenderLegacyCapture = function(){
   var box = document.getElementById('mb-leg-section'); if(!box) return;
+  _mbLegEditing = {};   /* v137: al redibujar, las filas quedan en blanco → se cancela cualquier edición colgada */
   var mes = (document.getElementById('mb-qc-mes')||{}).value || _mbToday().slice(0,7);
   var sites = _mbLegacySites();
   if(!sites.length){ box.innerHTML=''; return; }
@@ -34251,7 +34252,12 @@ window._mbLegSetMult = function(sitio, val){
   _mbPersistConfig();
   window._mbRenderLegacyCapture(); _mbRenderSummaryGrid();
 };
-/* v136 — núcleo de guardado de UNA fila de consumo legado.
+/* v137 — qué lectura legado se está editando por sitio (clave = id del DOM del renglón).
+   Permite que al "Guardar"/"vaciar" se actúe sobre ESA lectura exacta (y no sobre la
+   primera que coincida por fecha), y que cambiar la fecha mueva la lectura en vez de
+   dejar la vieja. */
+var _mbLegEditing = {};
+/* v136/v137 — núcleo de guardado de UNA fila de consumo legado.
    opts.defer       : no persiste, no re-renderiza ni muestra toast (lo hace quien llama,
                       p.ej. "Guardar todas", para no perder lo escrito en las otras filas).
    opts.noDeleteEmpty: una fila vacía NO borra una lectura existente (seguro en guardado masivo).
@@ -34259,24 +34265,41 @@ window._mbLegSetMult = function(sitio, val){
 function _mbLegSaveCore(sitio, opts){
   opts = opts || {};
   var id = _mbNorm(sitio).replace(/ /g,'_');
+  var editId = _mbLegEditing[id] || null;
   var fecha = (document.getElementById('mbleg-fecha-'+id)||{}).value || '';
   if(!_mbValidQuickDate(fecha) || !fecha){ if(!opts.defer) _mbToast('⚠️ Escribe una fecha válida para la lectura'); return 'baddate'; }
   var hora = (document.getElementById('mbleg-hora-'+id)||{}).value || '';
   var vals = {}, any = false;
   MB_LEG_CODES.forEach(function(c){ var v=_mbNumOrNull((document.getElementById('mbleg-'+c.k+'-'+id)||{}).value); vals[c.k]=v; if(v!=null) any=true; });
   var key = _mbNorm(_mbCanonicalSite(sitio));
-  var ex = MB_LEG_LIST.find(function(r){ return r.fecha===fecha && _mbNorm(_mbCanonicalSite(r.sitio))===key; });
+  var sameFecha = function(r){ return r && r.fecha===fecha && _mbNorm(_mbCanonicalSite(r.sitio))===key; };
+  /* registro objetivo: el que se está editando (por id exacto) o, si no, el que coincide por fecha */
+  var ex = editId ? MB_LEG_LIST.find(function(r){ return r.id===editId; }) : null;
+  if(!ex) ex = MB_LEG_LIST.find(sameFecha);
   if(!any){
-    if(ex && !opts.noDeleteEmpty){
-      MB_LEG_LIST.splice(MB_LEG_LIST.indexOf(ex),1);
-      if(!opts.defer){ _mbLegPersist(); _mbToast('🗑️ Lectura del '+_mbFechaCorta(fecha)+' eliminada (quedó vacía)'); window._mbRenderLegacyCapture(); _mbRenderSummaryGrid(); }
-      return 'deleted';
+    /* vaciar la fila = eliminar la lectura editada Y cualquier duplicado del mismo sitio+fecha
+       (antes quedaban residuos que "no se borraban" aunque fuera la misma fecha). */
+    if(!opts.noDeleteEmpty){
+      var removed = false;
+      if(ex){ var ix=MB_LEG_LIST.indexOf(ex); if(ix>=0){ MB_LEG_LIST.splice(ix,1); removed=true; } }
+      for(var i=MB_LEG_LIST.length-1;i>=0;i--){ if(sameFecha(MB_LEG_LIST[i])){ MB_LEG_LIST.splice(i,1); removed=true; } }
+      delete _mbLegEditing[id];
+      if(removed){
+        if(!opts.defer){ _mbLegPersist(); _mbToast('🗑️ Lectura del '+_mbFechaCorta(fecha)+' eliminada'); window._mbRenderLegacyCapture(); _mbRenderSummaryGrid(); }
+        return 'deleted';
+      }
     }
     if(!opts.defer) _mbToast('⚠️ Escribe al menos un código');
     return 'empty';
   }
-  if(ex){ Object.assign(ex, vals, { hora:hora, savedAt:Date.now() }); }
+  if(ex){
+    ex.sitio = _mbCanonicalSite(sitio); ex.fecha = fecha;   /* editar puede mover la lectura a otra fecha */
+    Object.assign(ex, vals, { hora:hora, savedAt:Date.now() });
+    /* limpia cualquier duplicado del mismo sitio+fecha, conservando ex (evita que "quede guardado" lo viejo) */
+    for(var j=MB_LEG_LIST.length-1;j>=0;j--){ var r=MB_LEG_LIST[j]; if(r!==ex && sameFecha(r)) MB_LEG_LIST.splice(j,1); }
+  }
   else MB_LEG_LIST.push(Object.assign({ id:'leg_'+_mbUid(), sitio:_mbCanonicalSite(sitio), fecha:fecha, hora:hora, savedAt:Date.now() }, vals));
+  delete _mbLegEditing[id];
   if(!opts.defer){
     _mbLegPersist();
     _mbToast('✅ Lectura '+(ex?'actualizada':'guardada')+' · '+_mbCanonicalSite(sitio)+' · '+_mbFechaCorta(fecha)+(hora?' '+hora:'')+(hora?'':' (sin hora del video)'));
@@ -34305,6 +34328,7 @@ window._mbLegSaveAll = function(){
 window._mbLegEdit = function(rid){
   var r = MB_LEG_LIST.find(function(x){ return x.id===rid; }); if(!r) return;
   var id = _mbNorm(_mbCanonicalSite(r.sitio)).replace(/ /g,'_');
+  _mbLegEditing[id] = rid;   /* v137: recuerda la lectura exacta que se edita */
   var f = document.getElementById('mbleg-fecha-'+id); if(f) f.value = r.fecha;
   var hEl = document.getElementById('mbleg-hora-'+id); if(hEl) hEl.value = r.hora||'';
   MB_LEG_CODES.forEach(function(c){ var el=document.getElementById('mbleg-'+c.k+'-'+id); if(el) el.value = (r[c.k]==null?'':r[c.k]); });
