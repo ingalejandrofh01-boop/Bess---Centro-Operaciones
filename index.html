@@ -43043,13 +43043,39 @@ document.addEventListener('keydown', function(e){
       var canvas = await html2canvas(el, { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
       if(!first) doc.addPage('a4','portrait');
       var pageW=doc.internal.pageSize.getWidth(), pageH=doc.internal.pageSize.getHeight();
-      var pxPerPt = canvas.width / pageW, pageHeightPx = Math.floor(pageH * pxPerPt), total=Math.max(1, Math.ceil(canvas.height/pageHeightPx));
-      for(var p=0;p<total;p++){
-        var sliceH=Math.min(pageHeightPx, canvas.height-p*pageHeightPx), sc=document.createElement('canvas');
+      var pxPerPt = canvas.width / pageW, pageHeightPx = Math.floor(pageH * pxPerPt);
+      /* ── Troceado "inteligente": en vez de cortar siempre a la altura exacta de la hoja
+            (lo que partía filas y encabezados a la mitad y se veían encimados), se busca
+            hacia arriba una línea de FONDO —un hueco entre filas, o el margen arriba de
+            una banda de grupo— y se corta ahí. Así ninguna fila ni encabezado se parte,
+            sin importar cuántos registros haya. ── */
+      var fctx = canvas.getContext('2d');
+      function _lineBlank(y){
+        if(y<=0 || y>=canvas.height) return true;
+        try{
+          var d = fctx.getImageData(0, y, canvas.width, 1).data, stepPx = Math.max(1, Math.floor(canvas.width/300));
+          var tot=0, dark=0;
+          for(var x=0; x<canvas.width; x+=stepPx){ var i=x*4; tot++; if(d[i]<232||d[i+1]<232||d[i+2]<232) dark++; }
+          /* ≤3% de muestras oscuras = hueco entre filas (los bordes de color tenues de las
+             celdas recorren toda la fila, así que nunca sería 100% blanco; se toleran). */
+          return dark <= Math.max(2, Math.floor(tot*0.03));
+        }catch(e){ return false; }
+      }
+      function _safeCut(from){
+        var ideal = from + pageHeightPx;
+        if(ideal >= canvas.height) return canvas.height;
+        var minCut = from + Math.floor(pageHeightPx*0.55);   /* nunca una página demasiado corta */
+        for(var y=ideal; y>=minCut; y--){ if(_lineBlank(y)) return y; }
+        return ideal;   /* contenido muy denso sin huecos: corte fijo para esta hoja */
+      }
+      var start=0, pageIdx=0, guard=0;
+      while(start < canvas.height && guard++ < 400){
+        var cut = _safeCut(start), sliceH = Math.max(1, cut-start), sc=document.createElement('canvas');
         sc.width=canvas.width; sc.height=sliceH; var ctx=sc.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,sc.width,sc.height);
-        ctx.drawImage(canvas, 0, p*pageHeightPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-        if(p>0) doc.addPage('a4','portrait');
+        ctx.drawImage(canvas, 0, start, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        if(pageIdx>0) doc.addPage('a4','portrait');
         doc.addImage(sc.toDataURL('image/jpeg',0.95), 'JPEG', 0, 0, pageW, sliceH/pxPerPt);
+        pageIdx++; start = cut;
       }
       var base = (typeof window._mbReportFilenameBaseX==='function') ? window._mbReportFilenameBaseX() : ('Reporte_Medidores_'+mk);
       doc.save(base+(pages.length?'_dashboard':'')+'.pdf');
