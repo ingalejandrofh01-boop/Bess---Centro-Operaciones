@@ -5339,7 +5339,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1794901500';
+  var APP_VERSION = '1794902000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -13547,14 +13547,39 @@ function _bitOpSocFor(siteName, dateStr){
   return out.some(function(o){ return o.socIni!=null || o.socFin!=null; }) ? out : null;
 }
 window._bitOpSocFor = _bitOpSocFor;
-/* Llena SOC por unidad, SOC global, DOD y energía — solo campos vacíos (nunca pisa lo capturado) */
-window._bitApplyOpSoc = function(){
+/* Llena SOC por unidad, SOC global, DOD y energía — solo campos vacíos (nunca pisa lo capturado).
+   v139: si el Reporte Operativo del día todavía no está cargado, lo carga y reintenta una vez; y
+   si de plano no hay dato, avisa EXACTAMENTE por qué (no hay reporte ese día / el reporte no trae
+   SOC de ese sitio), para no dejar los campos vacíos sin explicación. */
+var _bitOpSocWarnAt = 0;
+function _bitOpSocWarn(msg){
+  var now = Date.now();
+  if(now - _bitOpSocWarnAt < 6000) { try{ console.log('[Bitácora]', msg); }catch(e){} return; }
+  _bitOpSocWarnAt = now;
+  if(typeof showToast==='function') showToast(msg);
+}
+window._bitApplyOpSoc = function(_isRetry){
   try{
     var site = (document.getElementById('sel-site')||{}).value;
     if(!site || site==='custom') return false;
     var date = (document.getElementById('discharge-date')||{}).value || '';
     var data = _bitOpSocFor(site, date);
-    if(!data) return false;
+    if(!data){
+      var rep = (typeof _bitOpReportFor==='function') ? _bitOpReportFor(date) : null;
+      if(!rep && !_isRetry){
+        /* todavía no están cargados los reportes operativos → cargarlos y reintentar una vez */
+        try{
+          if(typeof opLoad==='function'){
+            Promise.resolve(opLoad()).then(function(){ setTimeout(function(){ window._bitApplyOpSoc(true); }, 150); }).catch(function(){});
+            return false;
+          }
+        }catch(e){}
+      }
+      _bitOpSocWarn(rep
+        ? ('ℹ El Reporte Operativo del '+(date||'día')+' no trae SOC de '+site+' — captúralo')
+        : ('ℹ No hay Reporte Operativo del '+(date||'día')+' cargado para traer SOC/DOD de '+site));
+      return false;
+    }
     if(typeof bessUnits!=='undefined'){
       bessUnits.forEach(function(u, i){
         var d = data[i] || (data.length===1 ? data[0] : null); if(!d) return;
