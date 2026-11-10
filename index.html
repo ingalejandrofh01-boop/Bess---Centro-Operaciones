@@ -5339,7 +5339,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1794900000';
+  var APP_VERSION = '1794901500';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -31886,6 +31886,9 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     }
     var row = _loteRows.filter(function(r){ return r.id === _loteQueue[_loteQueueIdx]; })[0];
     if(!row){ window._loteAdvanceQueue(); return; } // se quitó de la lista mientras tanto — sigue
+    _loteResetPerEvent();   /* v138: limpia SOC/SOH/energía/temp del sitio anterior ANTES de cargar el
+                               siguiente, para que cada sitio tome SU propio SOC del reporte operativo
+                               del día y no se arrastren los valores del sitio anterior. */
     await lotePrefillRow(row, row.tipo, _loteQueueDate);
     if(banner){
       banner.style.display = 'flex';
@@ -31910,6 +31913,35 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     if(!_loteQueueActive) return;
     _loteQueueIdx++;
     _loteOpenQueueRow();
+  };
+
+  /* v138 — limpia SOLO los valores por-evento (los que cambian cada día/sitio) para que no se
+     hereden del sitio anterior durante la revisión uno por uno. Los datos estructurales del sitio
+     (marca p.ej. Pylon, racks, potencia, nombres de unidad) NO se tocan: esos los restaura la
+     plantilla del sitio al seleccionarlo. SOC se vuelve a leer del reporte operativo del día. */
+  function _loteResetPerEvent(){
+    ['soc-initial','soc-final','energy-discharged-kwh','rack-temp-max',
+     'cg-soc-i','cg-soc-f','cg-energia','cg-volt','cg-corriente','cg-temp'].forEach(function(id){
+      var e = document.getElementById(id); if(e) e.value = '';
+    });
+    try{
+      if(typeof bessUnits!=='undefined' && bessUnits && bessUnits.forEach){
+        bessUnits.forEach(function(u){ u.socIni=''; u.socFin=''; u.soh=''; });
+      }
+    }catch(e){}
+  }
+
+  /* v138 — botón "Guardar y siguiente" del banner: dispara el guardado REAL de la fila actual
+     (el mismo que el botón grande del formulario). Al confirmarse ("…guardada"), el observador de
+     avisos avanza solito a la siguiente. Así no se confunde con "Saltar" (que NO guarda). */
+  window._loteSaveQueueRow = function(){
+    if(!_loteQueueActive) return;
+    var row = _loteRows.filter(function(r){ return r.id === _loteQueue[_loteQueueIdx]; })[0];
+    if(!row) return;
+    try{
+      if(row.tipo === 'carga'){ if(typeof window.cargaSave === 'function') window.cargaSave(); }
+      else { if(typeof window.saveToMonthly === 'function') window.saveToMonthly(); }
+    }catch(e){ if(typeof showToast==='function') showToast('⚠ No se pudo guardar: '+(e&&e.message||e)); }
   };
 
   window._loteCancelReview = function(){
@@ -32061,7 +32093,8 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     <div class="lqb-warn" id="lqb-warn" style="display:none">⚠ Sin datos legibles en esta captura — revisa si el sitio estuvo sin comunicación</div>
   </div>
   <div class="lqb-actions">
-    <button type="button" onclick="window._loteSkipQueueRow()">Saltar ⏭</button>
+    <button type="button" class="lqb-save" onclick="window._loteSaveQueueRow()" style="background:linear-gradient(135deg,#0f766e,#16a34a);color:#fff;font-weight:800;border-color:transparent">💾 Guardar y siguiente</button>
+    <button type="button" onclick="window._loteSkipQueueRow()">Saltar (sin guardar) ⏭</button>
     <button type="button" class="lqb-cancel" onclick="window._loteCancelReview()">✕ Cancelar revisión</button>
   </div>
 </div>
