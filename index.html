@@ -31414,6 +31414,28 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
       }
     }
 
+    /* RegioPet 1/2/3: misma IP y código, pero son 3 gráficas distintas (BESS 1/2/3). Como NO se
+       agrupan, el match por host queda ambiguo entre los tres; se desambigua leyendo el número del
+       título "…Potencia Activa (P) BESS N" de la captura y se elige "RegioPet N". Vale para
+       cualquier familia que solo se distinga por el número final. */
+    if(match.kind==='ambiguous' && match.candidates && match.candidates.length>1
+       && match.candidates.every(function(n){ return /\s0*\d+\s*$/.test(n); })
+       && match.candidates.map(function(n){ return n.replace(/\s*0*\d+\s*$/,'').trim().toLowerCase(); })
+            .every(function(b,_i,arr){ return b===arr[0]; })){
+      var _bn = null;
+      try{
+        var _tCrop = await loteCropByPercent(dataUrl, { x0:0.10, x1:0.90, y0:0.12, y1:0.33 });
+        var _tTxt = (await loteOcr(_tCrop, 'eng', { logger:function(){} })).data.text || '';
+        var _m = /BESS\s*0*([1-9])\b/i.exec(_tTxt);
+        if(_m) _bn = +_m[1];
+      }catch(e){}
+      if(_bn==null && bannerText){ var _mb = /BESS\s*0*([1-9])\b/i.exec(bannerText); if(_mb) _bn = +_mb[1]; }
+      if(_bn!=null){
+        var _pick = match.candidates.filter(function(n){ return new RegExp('(^|\\D)0*'+_bn+'\\s*$').test(String(n).trim()); })[0];
+        if(_pick) match = { kind:'match', site:_pick };
+      }
+    }
+
     /* ── Detección automática de TIPO (Descarga/Carga) ──
        Confirmado con el usuario con ejemplos reales: BESS positivo (+) =
        Descarga, BESS negativo (−) = Carga. Si el OCR no pudo leer el BESS
@@ -31423,6 +31445,14 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     var _bal = { carga: parsed.carga!=null ? parsed.carga : null, red: parsed.red!=null ? parsed.red : null, bess: parsed.bess!=null ? parsed.bess : null };
     loteApplyBalance(_bal);
     parsed.carga = _bal.carga; parsed.red = _bal.red; parsed.bess = _bal.bess;
+    /* Sitios con leyenda SOLAR y SIN línea de CARGA (p.ej. Atotonilco, que solo muestra
+       Solar · Red · BESS · SOC): la carga en el punto de medición es la identidad del PCC
+       CARGA = RED + BESS + SOLAR. Solo se calcula cuando la leyenda NO trajo CARGA y sí se
+       leyó SOLAR, así no se inventa nada en los sitios que sí muestran su propia CARGA. */
+    if(parsed.carga==null && solar!=null && parsed.red!=null && parsed.bess!=null){
+      parsed.carga = Math.round((parsed.red + parsed.bess + solar)*100)/100;
+      _bal.derived = _bal.derived || {}; _bal.derived.carga = true;
+    }
     var bessVal = parsed.bess != null ? parsed.bess : null;
     var tipoAuto = bessVal != null;
     /* v104: el tipo lo decide el selector de arriba para TODO el lote (pedido del equipo). El signo
