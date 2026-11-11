@@ -5339,7 +5339,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1794902000';
+  var APP_VERSION = '1794903000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -13520,31 +13520,54 @@ window.getMasterSiteData = getMasterSiteData;
    El reporte operativo del día (opW, o el guardado con la misma fecha) ya trae por sitio el SOC
    Inicial y el SOC Final; DOD = Inicial − Final y la energía descargada = DOD × capacidad (misma
    cuenta que el reporte profesional). Para un sitio de grupo (T4) se toma cada unidad (T4 B1..B3). */
-function _bitOpReportFor(dateStr){
-  var repDate = function(r){ return String((r && (r.date || r.createdAt)) || '').slice(0,10); };
-  if(window.opW && window.opW.srs && (!dateStr || repDate(window.opW)===dateStr)) return window.opW;
-  try{ if(typeof opLoad==='function' && (!window.opReps || !opReps.length)) opLoad(); }catch(e){}
-  var list = (typeof opReps!=='undefined' ? opReps : []).filter(function(r){ return r && r.srs && r.kind!=='monitor' && (!dateStr || repDate(r)===dateStr); });
-  list.sort(function(a,b){ return String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')); });
-  return list[0] || null;
+function _bitRepDate(r){
+  var d = r && (r.date || r.createdAt); if(!d) return '';
+  var s = String(d);
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);   /* ya viene YYYY-MM-DD… */
+  var dt = new Date(d);
+  if(isNaN(dt.getTime())) return s.slice(0,10);
+  /* fecha local (no UTC) para no desfasar el día */
+  return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2);
 }
+function _bitSocCount(r){ var n=0; ((r&&r.srs)||[]).forEach(function(s){ if(s && (s.socIni!=null&&s.socIni!=='' || s.soc!=null&&s.soc!=='')) n++; }); return n; }
+/* v140 — busca el Reporte Operativo de esa fecha entre TODAS las fuentes posibles:
+   el que estás viendo abierto desde el calendario (_opProViewRep), el reporte en curso (opW) y
+   los guardados (opReps). De los que cuadran la fecha, prefiere el que tenga MÁS SOC capturado.
+   Antes solo miraba opW/opReps y podía quedarse con uno vacío o no encontrar el que ves. */
+function _bitOpReportFor(dateStr){
+  try{ if(typeof opLoad==='function' && (typeof opReps==='undefined' || !opReps.length)) opLoad(); }catch(e){}
+  var cands = [];
+  if(window._opProViewRep && window._opProViewRep.srs) cands.push(window._opProViewRep);
+  if(window.opW && window.opW.srs) cands.push(window.opW);
+  (typeof opReps!=='undefined' ? opReps : []).forEach(function(r){ if(r && r.srs && r.kind!=='monitor') cands.push(r); });
+  var match = cands.filter(function(r){ return !dateStr || _bitRepDate(r)===dateStr; });
+  match.sort(function(a,b){ return _bitSocCount(b) - _bitSocCount(a); });   /* el más completo primero */
+  return match[0] || null;
+}
+window._bitOpSocReason = '';
 function _bitOpSocFor(siteName, dateStr){
+  window._bitOpSocReason = '';
   var rep = _bitOpReportFor(dateStr);
-  if(!rep || !siteName) return null;
+  if(!rep || !siteName){ window._bitOpSocReason = 'no-rep'; return null; }
   var sites = window.OP_SITES || [];
   var g = bessSiteGroups()[siteName];
   var names = g ? g.map(function(u){ return u.sitio; }) : [siteName];
   var num = function(v){ if(v===''||v==null) return null; var n = parseFloat(v); return isFinite(n) ? n : null; };
+  var anyIdx = false, anyRow = false;
   var out = names.map(function(n){
     var idx = -1, k = _normSiteKey(n);
     for(var i=0;i<sites.length;i++){ if(_normSiteKey(sites[i])===k){ idx = i; break; } }
+    if(idx>-1) anyIdx = true;
     var sr = idx>-1 ? (rep.srs[idx] || {}) : {};
     var ini = num(sr.socIni), fin = num(sr.soc);
+    if(ini!=null || fin!=null) anyRow = true;
     var m = getMasterSiteData(n), cap = m ? (num(m.energiaBESS)!=null ? num(m.energiaBESS) : num(m.kwhTotal)) : null;
     var dod = (ini!=null && fin!=null) ? Math.round((ini-fin)*10)/10 : null;
     return { name:n, socIni:ini, socFin:fin, dod:dod, energyKwh: (dod!=null && cap!=null) ? Math.round(dod/100*cap*10)/10 : null };
   });
-  return out.some(function(o){ return o.socIni!=null || o.socFin!=null; }) ? out : null;
+  if(out.some(function(o){ return o.socIni!=null || o.socFin!=null; })) return out;
+  window._bitOpSocReason = !anyIdx ? 'site-not-in-oplist' : 'row-empty';
+  return null;
 }
 window._bitOpSocFor = _bitOpSocFor;
 /* Llena SOC por unidad, SOC global, DOD y energía — solo campos vacíos (nunca pisa lo capturado).
@@ -13565,8 +13588,8 @@ window._bitApplyOpSoc = function(_isRetry){
     var date = (document.getElementById('discharge-date')||{}).value || '';
     var data = _bitOpSocFor(site, date);
     if(!data){
-      var rep = (typeof _bitOpReportFor==='function') ? _bitOpReportFor(date) : null;
-      if(!rep && !_isRetry){
+      var reason = window._bitOpSocReason || 'no-rep';
+      if(reason==='no-rep' && !_isRetry){
         /* todavía no están cargados los reportes operativos → cargarlos y reintentar una vez */
         try{
           if(typeof opLoad==='function'){
@@ -13575,9 +13598,11 @@ window._bitApplyOpSoc = function(_isRetry){
           }
         }catch(e){}
       }
-      _bitOpSocWarn(rep
-        ? ('ℹ El Reporte Operativo del '+(date||'día')+' no trae SOC de '+site+' — captúralo')
-        : ('ℹ No hay Reporte Operativo del '+(date||'día')+' cargado para traer SOC/DOD de '+site));
+      _bitOpSocWarn(
+        reason==='row-empty'          ? ('ℹ El Reporte Operativo del '+(date||'día')+' no tiene SOC capturado para '+site)
+      : reason==='site-not-in-oplist' ? ('ℹ '+site+' no está en la lista del Reporte Operativo — revisa que el nombre coincida')
+      :                                 ('ℹ No hay Reporte Operativo del '+(date||'día')+' para traer SOC/DOD de '+site)
+      );
       return false;
     }
     if(typeof bessUnits!=='undefined'){
@@ -13594,6 +13619,8 @@ window._bitApplyOpSoc = function(_isRetry){
     var eSum = data.map(function(d){ return d.energyKwh; }).filter(function(x){ return x!=null; });
     if(en && !en.value && eSum.length) en.value = Math.round(eSum.reduce(function(a,b){return a+b;},0)*10)/10;
     if(typeof renderBessUnitsSidebar==='function') renderBessUnitsSidebar();
+    var _si = avg('socIni'), _sf = avg('socFin');
+    if(_si!=null || _sf!=null) _bitOpSocWarn('📋 SOC/DOD traídos del Reporte Operativo · '+site+(_si!=null?' · '+_si+'→'+(_sf!=null?_sf:'—')+'%':''));
     return true;
   }catch(e){ console.warn('[Bitácora] SOC del reporte profesional:', e && e.message); return false; }
 };
