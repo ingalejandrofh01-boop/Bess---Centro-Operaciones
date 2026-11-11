@@ -5339,7 +5339,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1794905000';
+  var APP_VERSION = '1794906000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -13945,6 +13945,8 @@ function onSiteChange() {
     /* ── Auto-fill from master table ── */
     _autoFillFromMaster(val);
     tryLoadSiteTemplate(val);
+    _bitForceMasterPowers(val);   /* v141: la Lista Maestra manda en las potencias — se re-aplican
+                                     DESPUÉS de la plantilla, porque la plantilla traía valores viejos. */
     if(window._bitApplyOpSoc) window._bitApplyOpSoc();
   } else {
     updateTemplateInfoStrip(null);
@@ -13953,6 +13955,24 @@ function onSiteChange() {
   render();
 }
 
+/* v141 — Fuerza las potencias Invierno/Verano desde la Lista Maestra (MASTER_SITES_DB), pisando
+   lo que haya puesto la plantilla del sitio. Se llama DESPUÉS de cargar la plantilla porque la
+   plantilla guardaba potencias viejas y "la Lista Maestra manda". Solo toca las potencias; el
+   resto de la plantilla (marca, racks, almacenamiento, etc.) se respeta. Si la maestra no tiene
+   potencia para ese sitio, no borra lo que ya estaba. */
+function _bitForceMasterPowers(siteName){
+  try{
+    var master = getMasterSiteData(siteName); if(!master) return;
+    var val = function(v){ return (v!=null && v!=='' && !isNaN(parseFloat(v))) ? parseFloat(v) : null; };
+    var pw = val(master.powWinter), ps = val(master.powSummer);
+    var setV = function(id, v){ var e = document.getElementById(id); if(e && v!=null) e.value = v; };
+    if(pw!=null){ setV('kw-winter', pw); setV('kw-winter-vis', pw); }
+    if(ps!=null){ setV('kw-summer', ps); setV('kw-summer-vis', ps); }
+    if(typeof autoCalcTotalStorage==='function') autoCalcTotalStorage();
+    if(typeof updatePowerUI==='function') updatePowerUI();
+  }catch(e){ console.warn('[Bitácora] potencias desde Lista Maestra:', e && e.message); }
+}
+window._bitForceMasterPowers = _bitForceMasterPowers;
 /* Auto-fill datos técnicos desde MASTER_SITES_DB al seleccionar sitio */
 function _autoFillFromMaster(siteName) {
   var master = getMasterSiteData(siteName);
