@@ -1355,12 +1355,34 @@ window.docsZoom=window.docsZoomDelta;
 // ── Descargar documento (Spark: dataURL base64, legacy: URL remota) ──
 window.docsDownloadCurrent=async()=>{
   if(!_cur){toast('Sin documento abierto');return;}
-  if(!_cur.downloadURL){toast('Datos no disponibles');return;}
-  const a=document.createElement('a');
-  a.href=_cur.downloadURL;
-  a.download=_cur.name;
-  a.target='_blank';
-  a.click();
+  const src=_cur.downloadURL;
+  if(!src){toast('Datos no disponibles');return;}
+  const name=_cur.name||'documento';
+  const _dl=(href,revoke)=>{
+    const a=document.createElement('a'); a.href=href; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    if(revoke) setTimeout(()=>{ try{URL.revokeObjectURL(href);}catch(e){} }, 5000);
+  };
+  try{
+    if(/^data:/i.test(src)){
+      /* data URL → Blob: Chrome BLOQUEA abrir/descargar un data: en pestaña nueva
+         (antes se usaba target=_blank y por eso "no dejaba descargar"); el blob sí baja. */
+      const parts=src.split(','), meta=parts[0], b64=parts.slice(1).join(',');
+      const mime=(meta.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+      const bin=atob(b64); const u8=new Uint8Array(bin.length);
+      for(let k=0;k<bin.length;k++) u8[k]=bin.charCodeAt(k);
+      _dl(URL.createObjectURL(new Blob([u8],{type:mime})), true);
+      return;
+    }
+    /* URL remota (Storage legacy): bajar como blob fuerza la descarga (si CORS lo permite) */
+    toast('Descargando…');
+    const r=await fetch(src);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    _dl(URL.createObjectURL(await r.blob()), true);
+  }catch(e){
+    try{ window.open(src,'_blank'); toast('Se abrió en otra pestaña — guárdalo desde ahí'); }
+    catch(_){ toast('No se pudo descargar: '+(e&&e.message||e)); }
+  }
 };
 window.docsFullscreen=()=>{const s=$('dStage');if(!s)return;document.fullscreenElement?document.exitFullscreen():s.requestFullscreen?.();};
 
@@ -5339,7 +5361,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1794908000';
+  var APP_VERSION = '1794909000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
