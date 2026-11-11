@@ -5339,7 +5339,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1794906000';
+  var APP_VERSION = '1794907000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -13956,22 +13956,46 @@ function onSiteChange() {
 }
 
 /* v141 — Fuerza las potencias Invierno/Verano desde la Lista Maestra (MASTER_SITES_DB), pisando
-   lo que haya puesto la plantilla del sitio. Se llama DESPUÉS de cargar la plantilla porque la
-   plantilla guardaba potencias viejas y "la Lista Maestra manda". Solo toca las potencias; el
-   resto de la plantilla (marca, racks, almacenamiento, etc.) se respeta. Si la maestra no tiene
-   potencia para ese sitio, no borra lo que ya estaba. */
-function _bitForceMasterPowers(siteName){
+   los datos técnicos que haya puesto la plantilla. "La Lista Maestra manda": marca, no. de racks,
+   almacenamiento por rack, energía total (racks × por-rack) y potencias Invierno/Verano se toman
+   SIEMPRE de la Maestra. Se llama DESPUÉS de la plantilla para pisar sus valores viejos. Si la
+   Maestra no tiene un dato, no borra lo que había. */
+/* En la Lista Maestra kwhTotal es la energía POR RACK (109 kWh = rack Pylontech), igual para
+   todas las unidades; la energía total = numRacks × por-rack. Para un sitio de grupo (T2, T4…)
+   el por-rack es el de una unidad (no la suma), por eso se busca aparte. */
+function _bitMasterPerRack(siteName){
+  try{
+    var s = String(siteName||'').trim().toLowerCase();
+    var m = (window.MASTER_SITES_DB||[]).find(function(x){ return String(x.sitio||'').trim().toLowerCase()===s; });
+    if(m) return m.kwhTotal;
+    var g = (typeof bessSiteGroups==='function') ? bessSiteGroups()[siteName] : null;
+    if(g && g.length) return g[0].kwhTotal;
+  }catch(e){}
+  return null;
+}
+function _bitForceMasterData(siteName){
   try{
     var master = getMasterSiteData(siteName); if(!master) return;
     var val = function(v){ return (v!=null && v!=='' && !isNaN(parseFloat(v))) ? parseFloat(v) : null; };
-    var pw = val(master.powWinter), ps = val(master.powSummer);
     var setV = function(id, v){ var e = document.getElementById(id); if(e && v!=null) e.value = v; };
+    /* Marca */
+    var brandEl = document.getElementById('brand'); if(brandEl && master.marca) brandEl.value = master.marca;
+    /* No. de racks (para un grupo ya viene sumado) */
+    setV('num-racks', val(master.numRacks));
+    /* Almacenamiento por rack (kWh) → de ahí la energía total la recalcula autoCalcTotalStorage */
+    setV('storage', val(_bitMasterPerRack(siteName)));
+    /* Potencias Invierno / Verano */
+    var pw = val(master.powWinter), ps = val(master.powSummer);
     if(pw!=null){ setV('kw-winter', pw); setV('kw-winter-vis', pw); }
     if(ps!=null){ setV('kw-summer', ps); setV('kw-summer-vis', ps); }
+    /* Energía total = por-rack × racks, y refrescar la UI de potencia/capacidad */
     if(typeof autoCalcTotalStorage==='function') autoCalcTotalStorage();
     if(typeof updatePowerUI==='function') updatePowerUI();
-  }catch(e){ console.warn('[Bitácora] potencias desde Lista Maestra:', e && e.message); }
+  }catch(e){ console.warn('[Bitácora] datos desde Lista Maestra:', e && e.message); }
 }
+window._bitForceMasterData = _bitForceMasterData;
+/* compat: el nombre viejo sigue funcionando */
+function _bitForceMasterPowers(siteName){ return _bitForceMasterData(siteName); }
 window._bitForceMasterPowers = _bitForceMasterPowers;
 /* Auto-fill datos técnicos desde MASTER_SITES_DB al seleccionar sitio */
 function _autoFillFromMaster(siteName) {
