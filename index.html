@@ -13970,6 +13970,8 @@ function onSiteChange() {
     tryLoadSiteTemplate(val);
     _bitForceMasterPowers(val);   /* v141: la Lista Maestra manda en las potencias — se re-aplican
                                      DESPUÉS de la plantilla, porque la plantilla traía valores viejos. */
+    _bitUnitsFromMaster(val);     /* v142: y también el nº de unidades BESS y la POT. CONFIG. por unidad
+                                     (evita el carry-over de "varios BESS" y potencias de otro sitio). */
     if(window._bitApplyOpSoc) window._bitApplyOpSoc();
   } else {
     updateTemplateInfoStrip(null);
@@ -14020,6 +14022,55 @@ window._bitForceMasterData = _bitForceMasterData;
 /* compat: el nombre viejo sigue funcionando */
 function _bitForceMasterPowers(siteName){ return _bitForceMasterData(siteName); }
 window._bitForceMasterPowers = _bitForceMasterPowers;
+
+/* v142 — La Lista Maestra manda también en el NÚMERO de unidades BESS y la POT. CONFIG. por unidad.
+   Antes bessUnits se quedaba con las unidades del sitio anterior (carry-over): por eso aparecían
+   "varios BESS" donde solo hay 1 y potencias de otro sitio (p.ej. 468 kW de T4 en Tejidos).
+   Aquí se reconstruye bessUnits desde el maestro:
+     · nº de unidades = las del grupo (T2/T4…) o 1 para un sitio normal.
+     · POT. CONFIG. por unidad = potencia de la temporada (invierno/verano) de esa unidad.
+     · almacenamiento = kWh por rack · marca = la del maestro.
+   Se conservan las mediciones ya capturadas (mains, BESS, carga, SOC, SOH, estado) por índice,
+   para no borrar lo que ya se escribió. Si el sitio NO está en la Lista Maestra, no hace nada. */
+function _bitUnitsFromMaster(siteName){
+  try{
+    if(typeof bessUnits==='undefined') return;
+    var master = getMasterSiteData(siteName);
+    if(!master) return;                 /* sitio ausente en la Maestra → no se puede forzar */
+    var dateStr = (document.getElementById('discharge-date')||{}).value || null;
+    var seasonKey = (getMasterPowerForDate(siteName, dateStr)||{}).season
+                    || (typeof window.season!=='undefined' ? window.season : 'winter');
+    var powOf = function(m){ var p = seasonKey==='summer' ? m.powSummer : m.powWinter; return (p!=null && p!=='') ? p : ''; };
+    /* Unidades: un grupo (T2/T4) trae varias; un sitio normal, 1 */
+    var g = (typeof bessSiteGroups==='function') ? bessSiteGroups()[siteName] : null;
+    if((!g || !g.length) && master.grupo && master.unidades){
+      g = master.unidades.map(function(nm){ return (window.MASTER_SITES_DB||[]).find(function(x){ return x.sitio===nm; }); }).filter(Boolean);
+    }
+    var defs;
+    if(g && g.length>1){
+      defs = g.map(function(m,i){ return { name:'BESS '+(i+1), power:powOf(m), storage:m.kwhTotal, brand:m.marca }; });
+    } else {
+      defs = [{ name:'BESS 1', power:powOf(master), storage:_bitMasterPerRack(siteName), brand:master.marca }];
+    }
+    var prev = bessUnits.length ? bessUnits : [];
+    var keep = function(v){ return (v!=null && v!=='') ? v : ''; };
+    bessUnits = defs.map(function(def, i){
+      var old = prev[i] || {};
+      return {
+        id: i+1, name: def.name,
+        power: (def.power!=null && def.power!=='') ? def.power : '',
+        storage: (def.storage!=null && def.storage!=='') ? def.storage : '',
+        brand: def.brand || '',
+        status: old.status || 'ok',
+        mains:  keep(old.mains),  bessKw: keep(old.bessKw), load: keep(old.load),
+        socIni: keep(old.socIni), socFin: keep(old.socFin), soh: keep(old.soh)
+      };
+    });
+    unitCounter = defs.length;
+    if(typeof renderBessUnitsSidebar==='function') renderBessUnitsSidebar();
+  }catch(e){ console.warn('[Bitácora] unidades desde Lista Maestra:', e && e.message); }
+}
+window._bitUnitsFromMaster = _bitUnitsFromMaster;
 /* Auto-fill datos técnicos desde MASTER_SITES_DB al seleccionar sitio */
 function _autoFillFromMaster(siteName) {
   var master = getMasterSiteData(siteName);
