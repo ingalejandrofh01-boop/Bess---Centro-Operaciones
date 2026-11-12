@@ -2320,7 +2320,7 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
   .arch-shell{flex-direction:column!important}
   .arch-tree{width:100%!important;max-height:180px!important;border-right:none!important;border-bottom:1px solid var(--b1)!important;overflow-y:auto!important}
   .ach-header{flex-direction:column!important;gap:8px!important;align-items:flex-start!important}
-  .img-grid{grid-template-columns:repeat(2,1fr)!important}
+  .img-grid{grid-template-columns:repeat(3,1fr)!important}
   .cal-cell{min-height:34px!important;font-size:8px!important}
 
   /* ── Visor ── */
@@ -2718,10 +2718,15 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .cal-dp-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 6px 20px rgba(26,63,204,.18)}
 .cal-dp-card img{width:100%;aspect-ratio:16/10;object-fit:contain;background:#fff;display:block}
 .cal-dp-card-lbl{font-family:var(--mono);font-size:7px;color:var(--t2);padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--s2)}
-.day-group{margin-bottom:22px}
-.dg-header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;margin-bottom:10px}
-.dg-day{font-family:var(--disp);font-size:13px;font-weight:700;letter-spacing:-.3px}
+/* ── Archivo · feed por día (rediseño compacto v143) ──────────────────────────
+   Tarjetas chicas en rejilla densa; la miniatura muestra el ENCABEZADO del
+   reporte (object-fit:cover anclado arriba → se ve sitio/fecha/estado de un
+   vistazo). Borrar aparece al pasar el mouse, ya no ocupa su propia fila. */
+.day-group{margin-bottom:16px}
+.dg-header{position:sticky;top:-1px;z-index:4;display:flex;align-items:center;gap:9px;padding:6px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;margin-bottom:9px}
+.dg-day{font-family:var(--disp);font-size:12px;font-weight:700;letter-spacing:-.3px}
 .dg-date{font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:.5px}
+.dg-count{font-family:var(--mono);font-size:9px;color:var(--t3);background:var(--bg);border:1px solid var(--b1);border-radius:10px;padding:1px 8px}
 .dg-season{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;margin-left:auto}
 .dg-season.winter{background:rgba(0,170,255,.1);border:1px solid rgba(0,170,255,.2);color:var(--winter)}
 .dg-season.summer{background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.2);color:var(--summer)}
@@ -2729,17 +2734,17 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .dg-status.ok{background:rgba(10,240,160,.08);border:1px solid rgba(10,240,160,.2);color:var(--green)}
 .dg-status.warn{background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.2);color:var(--yellow)}
 .dg-status.fault{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.2);color:var(--red)}
-.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
-.img-card{background:var(--s2);border:1px solid var(--b1);border-radius:9px;overflow:hidden;cursor:pointer;transition:all .18s;position:relative;display:flex;flex-direction:column}
-.img-card:hover{border-color:rgba(26,63,204,.35);box-shadow:0 4px 18px rgba(26,63,204,.1);transform:translateY(-2px)}
-.img-card img{width:100%;aspect-ratio:4/3;object-fit:contain;background:#fff;display:block}
-.img-card-footer{padding:6px 9px;display:flex;align-items:center;justify-content:space-between}
-.icf-name{font-family:var(--mono);font-size:8px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:76%}
-.icf-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;opacity:.4;padding:0}
-.icf-del:hover{opacity:1}
-.img-hover{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .16s}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:8px}
+.img-card{position:relative;background:var(--s2);border:1px solid var(--b1);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .16s;aspect-ratio:3/4}
+.img-card:hover{border-color:rgba(26,63,204,.4);box-shadow:0 6px 16px rgba(26,63,204,.13);transform:translateY(-2px)}
+.img-card img{width:100%;height:100%;object-fit:cover;object-position:top center;background:#fff;display:block}
+.icf-name{position:absolute;left:0;right:0;bottom:0;padding:16px 7px 4px;font-family:var(--mono);font-size:7.5px;color:#fff;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:linear-gradient(transparent,rgba(0,0,0,.74));pointer-events:none}
+.icf-del{position:absolute;top:5px;right:5px;width:21px;height:21px;border-radius:6px;background:rgba(220,38,38,.92);border:none;color:#fff;cursor:pointer;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.8);transition:all .15s;z-index:3}
+.img-card:hover .icf-del{opacity:1;transform:scale(1)}
+.icf-del:hover{background:#dc2626}
+.img-hover{position:absolute;top:5px;left:5px;z-index:2;opacity:0;transition:opacity .15s}
 .img-card:hover .img-hover{opacity:1}
-.img-hover-lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:#fff;text-transform:uppercase;background:rgba(26,63,204,.2);border:1px solid rgba(26,63,204,.4);border-radius:3px;padding:4px 10px}
+.img-hover-lbl{font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:#fff;text-transform:uppercase;background:rgba(26,63,204,.6);border:1px solid rgba(255,255,255,.22);border-radius:4px;padding:3px 7px}
 .arch-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:10px;text-align:center}
 .ae-icon{font-size:40px;opacity:.2}
 .ae-title{font-family:var(--disp);font-size:17px;font-weight:700;color:var(--t2)}
@@ -5361,7 +5366,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1794995000';
+  var APP_VERSION = '1795100000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -16000,16 +16005,17 @@ function renderArchContent(){
     const[sc2,sl2]=ssm[ss]||['ok','✅ Operativo'];
     const seas=r0.season||'winter';
     grp.innerHTML=`<div class="dg-header"><div class="dg-day">${dn}</div><div class="dg-date">${dd}</div>
+      <div class="dg-count">${dr.length} ${dr.length===1?'registro':'registros'}</div>
       <div class="dg-season ${seas}">${seas==='winter'?'❄ Invierno':'☀ Verano'}</div>
       <div class="dg-status ${sc2}">${sl2}</div></div>`;
     const grid=document.createElement('div');grid.className='img-grid';
     dr.forEach(r=>{
       const gi=lbImages.findIndex(x=>x.id===r.id);
       const card=document.createElement('div');card.className='img-card';card.onclick=()=>openLb(gi);
-      card.innerHTML=`<div class="img-hover"><div class="img-hover-lbl">AMPLIAR</div></div>
-        <img src="${r.dataUrl}" alt="" loading="lazy">
-        <div class="img-card-footer"><div class="icf-name">${esc(r.name||'')} </div>
-        <button class="icf-del" title="Eliminar bitácora">✕</button></div>`;
+      card.innerHTML=`<img src="${r.dataUrl}" alt="" loading="lazy">
+        <div class="img-hover"><span class="img-hover-lbl">Ampliar</span></div>
+        <button class="icf-del" title="Eliminar bitácora">✕</button>
+        <div class="icf-name">${esc(r.name||'')}</div>`;
       // Wire delete button directly
       const delB = card.querySelector('.icf-del');
       (function(rid){ delB.addEventListener('click', function(e){
