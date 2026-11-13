@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795200000';
+  var APP_VERSION = '1795300000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -13631,7 +13631,7 @@ window._bitApplyOpSoc = function(_isRetry){
           var _fbSync = (typeof opStartFbSync==='function') ? opStartFbSync
                       : (window.opStartFbSync || null);
           var _p = _fbSync ? Promise.resolve(_fbSync()).catch(function(){}) : Promise.resolve();
-          _p.then(function(){ setTimeout(function(){ window._bitApplyOpSoc(true); }, 300); });
+          _p.then(function(){ setTimeout(function(){ window._bitApplyOpSoc(true); if(window._bitApplyOpStatus) window._bitApplyOpStatus(); }, 300); });
           return false;
         }catch(e){}
       }
@@ -13981,6 +13981,7 @@ function onSiteChange() {
     _bitUnitsFromMaster(val);     /* v142: y también el nº de unidades BESS y la POT. CONFIG. por unidad
                                      (evita el carry-over de "varios BESS" y potencias de otro sitio). */
     if(window._bitApplyOpSoc) window._bitApplyOpSoc();
+    if(window._bitApplyOpStatus) window._bitApplyOpStatus();  /* v144: status desde el Reporte Operativo */
   } else {
     updateTemplateInfoStrip(null);
   }
@@ -14060,7 +14061,12 @@ function _bitUnitsFromMaster(siteName){
     } else {
       defs = [{ name:'BESS 1', power:powOf(master), storage:_bitMasterPerRack(siteName), brand:master.marca }];
     }
-    var prev = bessUnits.length ? bessUnits : [];
+    /* v144 — Las mediciones (SOC, mains, BESS, carga, SOH) SOLO se conservan si se re-selecciona
+       el MISMO sitio. Si cambia de sitio, van VACÍAS: así un sitio sin datos (sin gráfica / sin
+       comunicación, p.ej. Alysa) ya no arrastra el SOC del sitio anterior (p.ej. 98/8 de DESA).
+       El SOC real lo trae después _bitApplyOpSoc desde el Reporte Operativo, si existe. */
+    var sameSite = (window._bitUnitsSite === siteName);
+    var prev = (sameSite && bessUnits.length) ? bessUnits : [];
     var keep = function(v){ return (v!=null && v!=='') ? v : ''; };
     bessUnits = defs.map(function(def, i){
       var old = prev[i] || {};
@@ -14069,16 +14075,73 @@ function _bitUnitsFromMaster(siteName){
         power: (def.power!=null && def.power!=='') ? def.power : '',
         storage: (def.storage!=null && def.storage!=='') ? def.storage : '',
         brand: def.brand || '',
-        status: old.status || 'ok',
+        status: sameSite ? (old.status || 'ok') : 'ok',
         mains:  keep(old.mains),  bessKw: keep(old.bessKw), load: keep(old.load),
         socIni: keep(old.socIni), socFin: keep(old.socFin), soh: keep(old.soh)
       };
     });
+    window._bitUnitsSite = siteName;
     unitCounter = defs.length;
     if(typeof renderBessUnitsSidebar==='function') renderBessUnitsSidebar();
   }catch(e){ console.warn('[Bitácora] unidades desde Lista Maestra:', e && e.message); }
 }
 window._bitUnitsFromMaster = _bitUnitsFromMaster;
+
+/* ══ v144 — STATUS (operativo/no) DESDE EL REPORTE OPERATIVO ══════════════════
+   El estado del sistema en la bitácora debe salir del Reporte Operativo del día,
+   no quedar siempre en "Operativo". Además, si el sitio NO está operativo (sin
+   comunicación, fuera de operación, etc.) y el reporte no trae SOC, se LIMPIA el
+   SOC para no mostrar datos que no existen (lo pidió el usuario con Alysa). */
+function _bitOpStatusFor(siteName, dateStr){
+  try{
+    var rep = _bitOpReportFor(dateStr);
+    if(!rep || !siteName) return null;
+    var sites = window.OP_SITES || [];
+    var g = bessSiteGroups()[siteName];
+    var names = g ? g.map(function(u){ return u.sitio; }) : [siteName];
+    var statuses = [];
+    names.forEach(function(n){
+      var k=_normSiteKey(n), idx=-1;
+      for(var i=0;i<sites.length;i++){ if(_normSiteKey(sites[i])===k){ idx=i; break; } }
+      if(idx>-1){ var sr=rep.srs[idx]||{}; if(sr.status) statuses.push(String(sr.status)); }
+    });
+    if(!statuses.length) return null;
+    /* En un grupo manda el PEOR estado (si una unidad está mal, el sitio no está 100% ok) */
+    var order=['PÉRDIDA TOTAL','NO OPERATIVO','DESCONECTADO','MANTENIMIENTO','INCOMPLETO','OK'];
+    var rank=function(s){ var i=order.indexOf(String(s).toUpperCase()); return i<0?99:i; };
+    statuses.sort(function(a,b){ return rank(a)-rank(b); });
+    return statuses[0];
+  }catch(e){ return null; }
+}
+/* Reporte Operativo → clave de status de la bitácora (STATUS_CFG: ok/comm/partial/maint/fuera-op/fault) */
+function _bitMapOpStatus(opStatus){
+  var s=String(opStatus||'').toUpperCase();
+  if(s.indexOf('PÉRDIDA')>-1||s.indexOf('PERDIDA')>-1) return 'fault';
+  if(s.indexOf('DESCONECT')>-1||s.indexOf('COMUN')>-1)  return 'comm';
+  if(s.indexOf('MANTENIM')>-1)                           return 'maint';
+  if(s.indexOf('NO OPERATIV')>-1||s.indexOf('FUERA')>-1) return 'fault';   /* no hay botón "fuera-op"; el más cercano es Falla */
+  if(s.indexOf('INCOMPLET')>-1||s.indexOf('PARCIAL')>-1) return 'partial';
+  if(s==='OK'||s.indexOf('OPERATIV')>-1)                 return 'ok';
+  return null;
+}
+function _bitClearSoc(){
+  if(typeof bessUnits!=='undefined') bessUnits.forEach(function(u){ u.socIni=''; u.socFin=''; });
+  ['soc-initial','soc-final','energy-discharged-kwh'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  if(typeof renderBessUnitsSidebar==='function') renderBessUnitsSidebar();
+}
+window._bitApplyOpStatus = function(){
+  try{
+    var site=(document.getElementById('sel-site')||{}).value;
+    if(!site || site==='custom') return;
+    var date=(document.getElementById('discharge-date')||{}).value||'';
+    var op=_bitOpStatusFor(site,date);
+    if(!op) return;                         /* sin reporte de ese día → no tocar el status */
+    var key=_bitMapOpStatus(op);
+    if(key && typeof setSystemStatus==='function') setSystemStatus(key);
+    /* No operativo y sin SOC en el reporte → no mostrar SOC arrastrado */
+    if(key && key!=='ok' && !_bitOpSocFor(site,date)) _bitClearSoc();
+  }catch(e){ console.warn('[Bitácora] status del reporte operativo:', e && e.message); }
+};
 /* Auto-fill datos técnicos desde MASTER_SITES_DB al seleccionar sitio */
 function _autoFillFromMaster(siteName) {
   var master = getMasterSiteData(siteName);
