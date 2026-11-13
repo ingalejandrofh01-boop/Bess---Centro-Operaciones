@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795300000';
+  var APP_VERSION = '1795400000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -6626,24 +6626,16 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
           <label>Fecha de carga</label>
           <input type="date" id="cg-date" onchange="cargaRenderPreview()">
         </div>
-        <!-- v95: quitamos la Temporada (la potencia de carga es la misma todo
-             el año, a diferencia de descarga) — en su lugar, referencia de
-             DoD tomada de la Bitácora de Descarga del mismo sitio+fecha, si
-             existe. Solo lectura, informativo. -->
-        <div id="cg-dod-box" class="tpl-info-strip loaded" style="display:flex;align-items:center;justify-content:space-between;background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.3);color:#059669">
-          <span>🔗 DoD de Descarga (ref.)</span>
-          <span id="cg-dod-val" style="font-weight:700;font-size:12px">—</span>
-        </div>
+        <!-- v145: fuera la referencia de DoD de descarga — la carga no usa SOC/DoD. -->
       </div>
 
       <!-- CHARGE PARAMETERS -->
       <div class="sidebar-section">
         <div class="sidebar-section-title">Parámetros de carga</div>
-        <div class="input-row">
-          <div class="form-group"><label>SOC inicial %</label>
-            <input type="number" id="cg-soc-i" oninput="cargaRenderPreview()"></div>
-          <div class="form-group"><label>SOC final %</label>
-            <input type="number" id="cg-soc-f" oninput="cargaRenderPreview()"></div>
+        <!-- v145: Carga NO usa SOC. Se muestra la Demanda Contratada del sitio (de Medidores CFE). -->
+        <div id="cg-dc-box" class="tpl-info-strip loaded" style="display:flex;align-items:center;justify-content:space-between;background:rgba(8,145,178,.08);border-color:rgba(8,145,178,.3);color:#0e7490;margin-bottom:10px">
+          <span>⚡ Demanda contratada</span>
+          <span id="cg-dc-val" style="font-weight:700;font-size:12px">—</span>
         </div>
         <div class="form-group"><label>Potencia de Carga (kW)</label>
           <input type="number" id="cg-pot" oninput="cargaRenderPreview()"></div>
@@ -6793,6 +6785,7 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
                     <div class="data-row"><span class="key">Energía total</span><span class="val hi" id="cgdp-total-storage">—</span></div>
                     <div class="data-row"><span class="key">No. de racks</span><span class="val" id="cgdp-racks">—</span></div>
                     <div class="data-row"><span class="key">Unidades BESS</span><span class="val" id="cgdp-units">1 ud.</span></div>
+                    <div class="data-row"><span class="key">Demanda contratada</span><span class="val hi" id="cgdp-dc">—</span></div>
                   </div>
                 </div>
                 <div class="data-panel">
@@ -6821,13 +6814,11 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
                     <th style="text-align:right">Voltaje DC (V)</th>
                     <th style="text-align:right">Corriente (A)</th>
                     <th style="text-align:right">Carga (kW)</th>
-                    <th style="text-align:center;color:var(--sky)">SOC ini</th>
-                    <th style="text-align:center;color:var(--sky)">SOC fin</th>
                     <th style="text-align:center">Estado</th>
                   </tr>
                 </thead>
                 <tbody id="cgdoc-bess-tbody">
-                  <tr><td colspan="9" style="text-align:center;color:#9ab;font-style:italic;padding:16px;font-size:11px">Selecciona un sitio en el panel lateral</td></tr>
+                  <tr><td colspan="7" style="text-align:center;color:#9ab;font-style:italic;padding:16px;font-size:11px">Selecciona un sitio en el panel lateral</td></tr>
                 </tbody>
               </table>
 
@@ -29962,10 +29953,13 @@ window.addEventListener('firebase-ready', function(){
     set('cgdoc-site-display', siteName || '— Sin sitio —');
     set('cgdoc-date-big', date ? new Date(date+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase() : '—');
     set('cgdoc-folio', date ? '#CG-'+date.replace(/-/g,'') : '—');
-    var dod = cargaFindDoD(siteName, date);
-    set('cgdoc-season-badge', dod!=null ? ('🔗 DoD Descarga: '+dod+'%') : '— Sin descarga vinculada —');
-    var dodValEl = document.getElementById('cg-dod-val');
-    if(dodValEl) dodValEl.textContent = dod!=null ? (dod+'%') : '—';
+    /* v145 — Carga no usa SOC/DoD. Se muestra la Demanda Contratada del sitio (Medidores CFE). */
+    var dcKw = (typeof _mbDemandaContratada==='function') ? _mbDemandaContratada(siteName) : null;
+    var dcTxt = (dcKw!=null && dcKw!=='') ? (dcKw+' kW') : '—';
+    set('cgdoc-season-badge', siteName ? ('⚡ Demanda contratada: '+dcTxt) : '— Carga diaria —');
+    set('cgdp-dc', dcTxt);
+    var dcValEl = document.getElementById('cg-dc-val');
+    if(dcValEl) dcValEl.textContent = dcTxt;
     set('cgdt-code', master.sku!=null ? ('#'+String(master.sku).padStart(2,'0')) : '—');
     set('cgdt-brand', master.marca || '—');
     set('cgdt-tech', master.marca || '—');
@@ -30010,11 +30004,10 @@ window.addEventListener('firebase-ready', function(){
     var tbody = document.getElementById('cgdoc-bess-tbody');
     if(tbody){
       if(!siteName){
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#9ab;font-style:italic;padding:16px;font-size:11px">Selecciona un sitio en el panel lateral</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9ab;font-style:italic;padding:16px;font-size:11px">Selecciona un sitio en el panel lateral</td></tr>';
       } else {
         tbody.innerHTML = '<tr><td>1</td><td>'+siteName+'</td><td>'+(potNominal!=null?potNominal:'—')+' kW</td>'+
           '<td style="text-align:right">'+(v('cg-volt')||'—')+'</td><td style="text-align:right">'+(v('cg-corriente')||'—')+'</td><td style="text-align:right">'+(v('cg-pot')||'—')+'</td>'+
-          '<td style="text-align:center">'+(v('cg-soc-i')||'—')+'%</td><td style="text-align:center">'+(v('cg-soc-f')||'—')+'%</td>'+
           '<td style="text-align:center"><span style="color:'+(statusOk?'var(--green)':'#dc2626')+';font-weight:700">● '+(statusOk?'Operativo':'Con novedad')+'</span></td></tr>';
       }
     }
@@ -30042,8 +30035,7 @@ window.addEventListener('firebase-ready', function(){
     if(!site || !date){ if(typeof showToast==='function') showToast('⚠ Selecciona sitio y fecha'); else alert('Selecciona sitio y fecha'); return; }
     var anomalia = document.getElementById('cg-anomalia').value;
     var params = {
-      socInicial: document.getElementById('cg-soc-i').value,
-      socFinal: document.getElementById('cg-soc-f').value,
+      demandaContratada: (typeof _mbDemandaContratada==='function') ? _mbDemandaContratada(site) : null,
       potenciaKW: document.getElementById('cg-pot').value,
       energiaKWh: document.getElementById('cg-energia').value,
       voltajeDC: document.getElementById('cg-volt').value,
@@ -30053,7 +30045,6 @@ window.addEventListener('firebase-ready', function(){
       horaInicio: document.getElementById('cg-hora-inicio').value,
       horaFin: document.getElementById('cg-hora-fin').value,
       modoCarga: document.getElementById('cg-modo').value,
-      dodDescargaRef: cargaFindDoD(site, date),
       anomalia: anomalia,
       comentario: document.getElementById('cg-comentario').value,
       curvas: cargaCurves.map(function(c){return c.src;})
