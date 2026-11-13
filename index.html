@@ -2718,6 +2718,9 @@ nav.icon-nav{background:linear-gradient(180deg,#06112e 0%,#0a1f5e 40%,#0d2570 10
 .cal-dp-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 6px 20px rgba(26,63,204,.18)}
 .cal-dp-card img{width:100%;aspect-ratio:16/10;object-fit:contain;background:#fff;display:block}
 .cal-dp-card-lbl{font-family:var(--mono);font-size:7px;color:var(--t2);padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--s2)}
+.cal-dp-del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:5px;background:rgba(220,38,38,.92);border:none;color:#fff;cursor:pointer;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.8);transition:all .15s;z-index:3}
+.cal-dp-card:hover .cal-dp-del{opacity:1;transform:scale(1)}
+.cal-dp-del:hover{background:#dc2626}
 /* ── Archivo · feed por día (rediseño compacto v143) ──────────────────────────
    Tarjetas chicas en rejilla densa; la miniatura muestra el ENCABEZADO del
    reporte (object-fit:cover anclado arriba → se ve sitio/fecha/estado de un
@@ -5366,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795100000';
+  var APP_VERSION = '1795200000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -15994,39 +15997,11 @@ function renderArchContent(){
   if(!recs.length){const ee=document.createElement('div');ee.className='arch-empty';ee.innerHTML='<div class="ae-icon">📂</div><div class="ae-title">Sin bitácoras</div><div class="ae-sub">No hay registros para este mes</div>';el.appendChild(ee);return}
   // LB images
   lbImages=recs.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(r=>({src:r.dataUrl,name:r.name,date:r.date,site:r.site,id:r.id}));
-  // Group by day
-  const bd={};recs.forEach(r=>{const dk=r.date||archMonth;if(!bd[dk])bd[dk]=[];bd[dk].push(r)});
-  Object.keys(bd).sort().reverse().forEach(day=>{
-    const dr=bd[day];const grp=document.createElement('div');grp.className='day-group';
-    let dn='',dd=day;
-    if(/^\d{4}-\d{2}-\d{2}$/.test(day)){const[dy,dm,dday]=day.split('-');const dt=new Date(parseInt(dy),parseInt(dm)-1,parseInt(dday));dn=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][dt.getDay()];dd=`${parseInt(dday)} de ${MNF[parseInt(dm)-1]} ${dy}`}
-    const r0=dr[0];const ss=r0.systemStatus||r0.status||'ok';
-    const ssm={ok:['ok','✅ Operativo'],warn:['warn','⚠ Advertencia'],fault:['fault','⚠ Falla'],comm:['warn','📡 Comun.'],partial:['warn','⚡ Parcial'],maint:['warn','🔧 Mtto.'],rack:['warn','🗄 Rack']};
-    const[sc2,sl2]=ssm[ss]||['ok','✅ Operativo'];
-    const seas=r0.season||'winter';
-    grp.innerHTML=`<div class="dg-header"><div class="dg-day">${dn}</div><div class="dg-date">${dd}</div>
-      <div class="dg-count">${dr.length} ${dr.length===1?'registro':'registros'}</div>
-      <div class="dg-season ${seas}">${seas==='winter'?'❄ Invierno':'☀ Verano'}</div>
-      <div class="dg-status ${sc2}">${sl2}</div></div>`;
-    const grid=document.createElement('div');grid.className='img-grid';
-    dr.forEach(r=>{
-      const gi=lbImages.findIndex(x=>x.id===r.id);
-      const card=document.createElement('div');card.className='img-card';card.onclick=()=>openLb(gi);
-      card.innerHTML=`<img src="${r.dataUrl}" alt="" loading="lazy">
-        <div class="img-hover"><span class="img-hover-lbl">Ampliar</span></div>
-        <button class="icf-del" title="Eliminar bitácora">✕</button>
-        <div class="icf-name">${esc(r.name||'')}</div>`;
-      // Wire delete button directly
-      const delB = card.querySelector('.icf-del');
-      (function(rid){ delB.addEventListener('click', function(e){
-        e.stopPropagation();
-        if(!confirm('¿Eliminar esta bitácora?')) return;
-        idbDelete(rid).then(()=>_afterDelete('✓ Bitácora eliminada')).catch(e=>showToast('Error: '+(e.message||e)));
-      }); })(r.id);
-      grid.appendChild(card);
-    });
-    grp.appendChild(grid);el.appendChild(grp);
-  });
+  /* v143 — Se QUITÓ el feed largo por día: tener el mes completo en puras fotos
+     hacia abajo quedaba larguísimo. El CALENDARIO de arriba es ahora la única forma
+     de ver y borrar: clic en un día con 1 registro abre el visor (que trae 🗑 Eliminar);
+     un día con varios abre el panel con sus fotos, y cada foto se amplía/borra en el
+     visor. lbImages ya quedó cargado arriba para el calendario y el visor. */
 }
 
 function buildCalHeatmap(year,month,recs){
@@ -16064,7 +16039,13 @@ function buildCalHeatmap(year,month,recs){
       const card=document.createElement('div');card.className='cal-dp-card';
       card.onclick=()=>openLb(gi>=0?gi:0);
       card.innerHTML=`<img src="${r.dataUrl}" alt="" loading="lazy">
+        <button class="cal-dp-del" title="Eliminar bitácora">✕</button>
         <div class="cal-dp-card-lbl" title="${esc(r.name||'')}">${esc(r.name||'Sin nombre')}</div>`;
+      (function(rid){ card.querySelector('.cal-dp-del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if(!confirm('¿Eliminar esta bitácora?')) return;
+        idbDelete(rid).then(()=>_afterDelete('✓ Bitácora eliminada')).catch(err=>showToast('Error: '+(err.message||err)));
+      }); })(r.id);
       g.appendChild(card);
     });
   }
