@@ -93,6 +93,17 @@ textarea.inp{min-height:110px;resize:vertical;line-height:1.5}
 .qfb{font-size:13.5px;padding:11px 15px;border-radius:11px;margin-top:4px;line-height:1.5}
 .qfb.ok{background:rgba(16,185,129,.1);color:#047857}
 .qfb.no{background:rgba(26,63,204,.08);color:var(--blue2)}
+/* ── Fundamentos (explicación BESS) ── */
+.ind-flow{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;margin:14px 0}
+.ind-flow-box{flex:1;min-width:92px;text-align:center;background:var(--bg);border:1.5px solid var(--b);border-radius:12px;padding:12px 8px}
+.ind-flow-box b{display:block;font-size:14px}
+.ind-flow-box span{font-size:10px;color:var(--t3);font-family:var(--mono)}
+.ind-flow-arr{display:flex;align-items:center;color:var(--blue2);font-weight:800;font-size:18px}
+.ind-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:14px 0}
+.ind-term{background:var(--bg);border:1px solid var(--b);border-left:3px solid var(--blue2);border-radius:10px;padding:13px 15px}
+.ind-term b{display:block;font-size:13.5px;margin-bottom:3px}
+.ind-term span{font-size:12.5px;color:var(--t2);line-height:1.5}
+.ind-note{background:rgba(26,63,204,.06);border:1px solid rgba(26,63,204,.18);border-radius:11px;padding:12px 15px;font-size:13.5px;line-height:1.55;color:var(--t2)}
 
 .dots{display:flex;gap:7px;justify-content:center;margin-top:30px}
 .dots i{width:7px;height:7px;border-radius:50%;background:var(--b);transition:all .3s}
@@ -223,21 +234,66 @@ var OPEN_Q = [
   {id:'q_caso', type:'open', emoji:'🔎', scene:'Es tu primer día en el monitoreo. Ves que <b>un rack marca 0 A</b> mientras los demás están descargando normal.',
    label:'No necesitas saber la respuesta técnica — cuéntanos: ¿qué harías o cómo lo resolverías?'}
 ];
-var QUIZ = [
-  {img:'rack', q:'¿Qué estás viendo aquí?', o:['El interior de un rack de baterías','Un transformador','Una caja de herramientas'], c:0,
-   fb:'¡Exacto! Son los módulos de celdas de litio (LFP) dentro de un rack.'},
-  {img:'monitor', q:'Esta pantalla (BMS) sirve para…', o:['Monitorear el estado de las baterías','Pagar la luz','Poner música'], c:0,
-   fb:'Correcto. El BMS vigila voltaje, corriente, SOC y temperatura de cada rack.'},
-  {img:'fire', q:'Ese panel rojo es el sistema de…', o:['Contra incendio (FSS)','Carga de celulares','Sonido'], c:0,
-   fb:'Así es. El FSS detecta y suprime incendios — nunca se desenergiza.'},
-  {img:'sky', q:'La ENERGÍA que guarda una batería se mide en…', o:['kWh','km/h','°C'], c:0, noimg:true,
-   fb:'¡Bien! kWh = energía (el "tamaño del tanque"). El kW es potencia (la "fuerza").'}
+var QUIZ_BESS = [
+  {img:'rack', q:'Un rack HoyCore almacena ~344 kWh y entrega ~150 kW. ¿Qué te dice ese par de datos?',
+   o:['Cuánta energía guarda (kWh) y a qué potencia la entrega (kW)','Su temperatura máxima de operación','Cuántas celdas tiene dañadas'], c:0,
+   fb:'Los 344 kWh son la ENERGÍA (capacidad) y los 150 kW la POTENCIA (qué tan rápido la entrega). Su cociente (~0.44C) implica una descarga completa en ~2.3 horas.'},
+  {q:'Hablando de capacidades: ¿cuál es la diferencia entre un rack HoyCore y un contenedor BYD MC Cube?',
+   o:['HoyCore ≈ 344 kWh por rack; el contenedor BYD ≈ 5,018 kWh (10 racks de ~501 kWh)','Pesan lo mismo','BYD no usa litio'], c:0, noimg:true,
+   fb:'HoyCore: gabinete por rack de 344 kWh (celda LFP prismática de 280 Ah, 1,228.8 V). BYD MC Cube: contenedor de 20 ft con 10 racks, ~5,018 kWh (celda Blade de 377 Ah, 1,331.2 V).'},
+  {img:'monitor', q:'El BMS detecta una celda fuera de límites y el rack se desconecta solo. ¿Por qué ocurre?',
+   o:['El BMS protegió el sistema y abrió los contactores del rack','Se agotó por completo la batería','Se cayó el internet del sitio'], c:0,
+   fb:'El BMS tiene la última palabra: ante una celda fuera de límites (voltaje, temperatura o aislamiento), aísla el rack para proteger el sistema.'},
+  {q:'En modo "peak shaving", el BESS descarga en hora punta principalmente para…',
+   o:['Recortar el pico de demanda que se le cobra al cliente','Calentar las celdas en invierno','Subir el voltaje de la red de CFE'], c:0, noimg:true,
+   fb:'Peak shaving recorta la demanda máxima (y el costo) en las horas caras, típicamente 18:00–22:00. Es el modo normal de la flota.'},
+  {q:'¿Cuál es la diferencia entre PEAK SHAVING y POTENCIA FIJA, y cómo se ven en la curva?',
+   o:['Peak shaving varía la potencia para recortar el pico medido; potencia fija entrega un valor constante (línea plana)','Son lo mismo','Potencia fija solo carga, nunca descarga'], c:0, noimg:true,
+   fb:'En peak shaving la curva del BESS "sigue" a la carga para recortar el pico, así que sube y baja. En potencia fija descarga o carga a un valor constante en kW (p. ej. 100 kW), por eso se ve como una línea recta.'},
+  {q:'El PCS (inversor) de un BESS, ¿qué hace principalmente?',
+   o:['Convierte DC↔AC de forma bidireccional y ejecuta la consigna de potencia activa (P) y reactiva (Q)','Solo mide la temperatura','Guarda la energía en lugar de la batería'], c:0, noimg:true,
+   fb:'El PCS rectifica para cargar la batería e invierte para descargarla. Recibe del controlador la consigna de P (kW) y Q (kVAr) — es el "traductor" entre la batería (DC) y la red (AC).'},
+  {q:'Sobre el inversor: en "grid following" la red fija el voltaje y la frecuencia. En "grid forming" (isla)…',
+   o:['El inversor establece el voltaje y la frecuencia y alimenta la carga sin red','La batería se apaga','CFE toma el control del sitio'], c:0, noimg:true,
+   fb:'Grid following: el inversor sigue a la red (CFE fija V y f). Grid forming (isla): el inversor Kehua ESTABLECE voltaje y frecuencia y alimenta la carga aunque no haya red.'},
+  {q:'¿Cuál es la diferencia entre DEMANDA y CONSUMO?',
+   o:['Demanda es la potencia instantánea (kW) en un momento; consumo es la energía acumulada (kWh) en un periodo','Son sinónimos','La demanda se mide en litros'], c:0, noimg:true,
+   fb:'CFE cobra ambos: la demanda (el pico de kW que alcanzaste) y el consumo (los kWh totales del periodo). El BESS ayuda sobre todo a bajar la DEMANDA máxima.'},
+  {q:'¿Por qué se configura distinta potencia en INVIERNO y VERANO?',
+   o:['Porque la demanda del cliente y las tarifas de CFE cambian por temporada','Porque las baterías pesan diferente','Porque en verano no hay energía'], c:0, noimg:true,
+   fb:'Cada sitio tiene su potencia configurada por temporada (invierno/verano) en SkyControl, acorde a la demanda real y a las tarifas de esa época.'},
+  {q:'Además de la potencia, ¿qué más suele cambiar entre temporadas?',
+   o:['El horario de la hora punta de CFE (y la demanda, mayor en verano por A/C)','El color de las baterías','El voltaje de las celdas'], c:0, noimg:true,
+   fb:'Las tarifas de CFE mueven el HORARIO de hora punta según la temporada; por eso se revisan los timers de descarga. En verano suele subir la demanda por el aire acondicionado.'},
+  {q:'La "demanda contratada" es el límite que el cliente pactó con CFE. Si al CARGAR el BESS la red lo supera…',
+   o:['El cliente puede pagar penalización — por eso hay que vigilarlo','No pasa nada, es normal','Se apaga automáticamente CFE'], c:0, noimg:true,
+   fb:'Parte clave del monitoreo es cuidar que la carga no rebase la demanda contratada del sitio para evitar penalizaciones en el recibo.'},
+  {q:'Alarmas: ¿qué tipos puedes llegar a identificar en un sitio?',
+   o:['De batería (celda/temperatura/aislamiento), de comunicación, de PCS, de FSS/seguridad y de rack desconectado','Solo de temperatura','Ninguna, el sistema no alarma'], c:0, noimg:true,
+   fb:'Las más comunes: de BATERÍA (celda alta/baja, sobretemperatura, aislamiento bajo), de COMUNICACIÓN (BMS↔controlador), de PCS (falla/derrateo), de FSS/seguridad (humo, puerta, paro) y de RACK desconectado.'},
+  {q:'Ves la alarma "7690 BMS comm. error". ¿Qué indica y cuál es el primer paso?',
+   o:['No hay enlace BMS↔controlador: revisar los 24 V del gabinete BMS, el gateway Moxa, el switch y el cable Ethernet del BAU','Que la batería está llena','Que hay que apagar todo el sitio'], c:0, noimg:true,
+   fb:'Es pérdida de comunicación entre el BMS y el controlador. Se revisa la alimentación de 24 V del gabinete BMS, el gateway Moxa, el switch y el cable ETH del BAU.'},
+  {q:'¿Cuál es el orden correcto para atender una alarma / resolver un problema?',
+   o:['Identificar la alarma → revisar la causa (BMS/PCS/comunicación) → aplicar la acción → registrarla en bitácora / Reporte Operativo','Reiniciar todo sin revisar','Ignorarla si el sistema sigue encendido'], c:0, noimg:true,
+   fb:'Siempre: 1) identifica la alarma, 2) ubica la causa (batería, PCS, comunicación, seguridad), 3) aplica la acción correctiva o escala, y 4) regístralo. Todo evento se documenta en el checklist y el Reporte Operativo.'}
+];
+var QUIZ_PV = [
+  {q:'En un sistema fotovoltaico (solar), ¿para qué sirve el inversor?',
+   o:['Convertir la corriente directa (CD) de los paneles en alterna (CA) utilizable','Para almacenar la energía del sol','Para enfriar los paneles'], c:0, noimg:true,
+   fb:'El panel genera corriente directa (CD); el inversor la convierte en alterna (CA) para la carga o la red. Es el mismo principio del PCS en un BESS.'},
+  {q:'¿De qué depende principalmente cuánta energía produce un sistema solar?',
+   o:['De la irradiación solar: día despejado y sol directo','De la temperatura ambiente nada más','De la hora de la noche'], c:0, noimg:true,
+   fb:'Depende de la irradiación. De noche no genera — por eso el solar se combina con baterías (BESS) para aprovechar la energía después.'},
+  {q:'¿Por qué el BESS y el sistema solar se complementan tan bien?',
+   o:['El BESS guarda el excedente solar del día para usarlo sin sol o en hora punta','Porque usan el mismo cable','Porque ambos enfrían el sitio'], c:0, noimg:true,
+   fb:'Guardar el excedente solar y liberarlo en hora punta es una de las grandes sinergias: se aprovecha energía limpia justo cuando más cuesta.'}
 ];
 
 /* ---- estado ---- */
 var S = { step:0, name:'', nivel:{}, open:{}, quiz:{}, graded:{} };
-var STEPS = ['hero','nombre','nivel','open','quiz','done'];
-var openIdx=0, quizIdx=0;
+var STEPS = ['hero','nombre','nivel','open','fund','quizbess','quizpv','done'];
+var openIdx=0, qbIdx=0, qpIdx=0;
 
 function qs(id){return document.getElementById(id);}
 function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -267,7 +323,8 @@ function render(){
     h='<div class="card-anim"><div class="kick2">Sobre ti</div><h2 class="h2">Cuéntanos tu experiencia</h2>'+
       '<p class="lead">No hay respuestas buenas ni malas — esto nos ayuda a enseñarte a tu ritmo.</p>'+
       '<div class="field"><label>¿Tienes base en electricidad o electrónica?</label>'+chips('elec',['Ninguna','Básica','Técnica','Ingeniería'])+'</div>'+
-      '<div class="field"><label>¿Habías visto una batería grande / BESS antes?</label>'+chips('bess',['Nunca','En fotos o videos','En persona','Ya trabajé con ellas'])+'</div>'+
+      '<div class="field"><label>¿Qué tanto sabes de BESS (sistemas de baterías)?</label>'+chips('sabeBess',['Nada aún','Lo básico','Bastante'])+'</div>'+
+      '<div class="field"><label>¿Y de sistemas fotovoltaicos (energía solar)?</label>'+chips('sabePv',['Nada aún','Algo','Bastante'])+'</div>'+
       '<div class="field"><label>¿Qué tan cómodo te sientes leyendo gráficas y datos?</label>'+chips('graf',['Poco','Más o menos','Muy cómodo'])+'</div>'+
       nav();
   }
@@ -288,27 +345,16 @@ function render(){
       '<button class="btn"'+dis+' onclick="openNext()">'+(openIdx<OPEN_Q.length-1?'Siguiente →':'Continuar →')+'</button>'+
       (q.type==='open'?'<span style="font-size:12px;color:var(--t3)">Puedes escribir poquito, lo que salga</span>':'')+'</div></div>';
   }
-  else if(k==='quiz'){
-    var z=QUIZ[quizIdx], graded=S.graded['z'+quizIdx];
-    h='<div class="card-anim"><div class="kick2">Reto rápido · '+(quizIdx+1)+' de '+QUIZ.length+'</div>'+
-      (z.noimg?'':'<img class="q-img" src="'+IMG[z.img]+'" alt="">')+
-      '<h2 class="h2" style="font-size:22px">'+z.q+'</h2>';
-    z.o.forEach(function(opt,oi){
-      var cls='opt', sel=S.quiz['z'+quizIdx]===oi;
-      if(graded){ if(oi===z.c)cls+=' correct'; else if(sel)cls+=' wrong'; }
-      else if(sel)cls+=' sel';
-      h+='<button class="'+cls+'" onclick="quizPick('+oi+')"><span class="dot"></span>'+esc(opt)+'</button>';
-    });
-    if(graded){ var ok=S.quiz['z'+quizIdx]===z.c; h+='<div class="qfb '+(ok?'ok':'no')+'">'+(ok?'✅ ':'💡 ')+z.fb+'</div>'; }
-    h+='<div class="btn-row"><button class="btn ghost" onclick="quizBack()">← Atrás</button>'+
-      '<button class="btn" id="qnext" onclick="quizNext()">'+(graded?(quizIdx<QUIZ.length-1?'Siguiente →':'Terminar →'):'Revisar')+'</button></div></div>';
-  }
+  else if(k==='fund'){ h=renderFund(); }
+  else if(k==='quizbess'){ h=renderQuizSet('bess'); }
+  else if(k==='quizpv'){ h=renderQuizSet('pv'); }
   else if(k==='done'){
-    var sc=quizScore();
+    var lineB=isLearn('bess')?'BESS: modo aprendizaje (lo repasaste 👍)':('BESS: '+setScore('bess')+'/'+QUIZ_BESS.length+' correctas');
+    var lineP=isLearn('pv')?'Solar: modo aprendizaje':('Solar: '+setScore('pv')+'/'+QUIZ_PV.length+' correctas');
     h='<div class="done-wrap card-anim"><div class="done-badge">✓</div>'+
       '<h2 class="h2">¡Listo, '+esc(S.name||'')+'! 🎉</h2>'+
-      '<p class="lead" style="margin:0 auto 10px">Terminaste tu inducción inicial. Tus respuestas ya se enviaron a tu supervisor — él las revisará para acompañarte mejor en tu arranque.</p>'+
-      '<p style="font-size:13px;color:var(--t3)">Acertaste <b>'+sc+' de '+QUIZ.length+'</b> en el reto rápido. Pero lo que más nos importa es cómo piensas 💙</p>'+
+      '<p class="lead" style="margin:0 auto 10px">Terminaste tu inducción. Tus respuestas ya se enviaron a tu supervisor, que las revisará para acompañarte mejor en tu arranque.</p>'+
+      '<p style="font-size:13px;color:var(--t3)">'+lineB+' · '+lineP+'<br>Recuerda: esto <b>no afecta tu desempeño</b> — solo nos ayuda a conocer tu nivel. 💙</p>'+
       '<div class="btn-row" style="justify-content:center"><button class="btn" onclick="restart()">Cerrar</button></div>'+
       '<div id="save-state" style="font-size:12px;color:var(--t3);margin-top:16px"></div></div>';
   }
@@ -333,14 +379,71 @@ window.prev=function(){ if(S.step>0){S.step--;render();window.scrollTo(0,0);} };
 window._thinkPick=function(qi,oi){ var q=OPEN_Q[qi]; S.open[q.id]=q.opts[oi]; render(); };
 window.openNext=function(){ var q=OPEN_Q[openIdx]; if(q.type==='mc' && !S.open[q.id])return; if(openIdx<OPEN_Q.length-1){openIdx++;render();window.scrollTo(0,0);} else {S.step++;render();window.scrollTo(0,0);} };
 window.openBack=function(){ if(openIdx>0){openIdx--;render();window.scrollTo(0,0);} else {prev();} };
-window.quizPick=function(oi){ if(S.graded['z'+quizIdx])return; S.quiz['z'+quizIdx]=oi; render(); };
-window.quizNext=function(){
-  if(!S.graded['z'+quizIdx]){ if(S.quiz['z'+quizIdx]==null)return; S.graded['z'+quizIdx]=true; render(); return; }
-  if(quizIdx<QUIZ.length-1){quizIdx++;render();window.scrollTo(0,0);} else { submit(); S.step++; render(); window.scrollTo(0,0); confetti(); }
+/* ── Explicación de BESS (antes del quiz) ── */
+function renderFund(){
+  return '<div class="card-anim"><div class="kick2">Antes del reto · Fundamentos</div>'+
+    '<h2 class="h2">¿Qué es un BESS? ⚡</h2>'+
+    '<p class="lead">Un <b>BESS</b> (Battery Energy Storage System) es un sistema de baterías de gran escala que <b>almacena energía</b> cuando conviene y la <b>entrega</b> cuando se necesita. En Skysense los monitoreamos en tiempo real para que operen seguros y estables.</p>'+
+    '<h4 style="font-family:var(--disp);margin:18px 0 6px">De lo más pequeño a lo más grande</h4>'+
+    '<div class="ind-flow">'+
+      '<div class="ind-flow-box"><b>Celda</b><span>LFP · 3.2 V</span></div><div class="ind-flow-arr">→</div>'+
+      '<div class="ind-flow-box"><b>Módulo</b><span>varias celdas</span></div><div class="ind-flow-arr">→</div>'+
+      '<div class="ind-flow-box"><b>Rack</b><span>+ BMS</span></div><div class="ind-flow-arr">→</div>'+
+      '<div class="ind-flow-box"><b>Contenedor</b><span>+ PCS + FSS</span></div>'+
+    '</div>'+
+    '<div class="ind-grid">'+
+      '<div class="ind-term"><b>¿Para qué sirve?</b><span>Peak shaving (recortar el pico de demanda en hora punta, 18:00–22:00), respaldo y servicios a la red.</span></div>'+
+      '<div class="ind-term"><b>Piezas clave</b><span>BMS (vigila y protege las celdas), PCS/inversor (DC↔AC), enfriamiento (chiller) y FSS (contra incendio).</span></div>'+
+      '<div class="ind-term"><b>SOC · SOH · DOD</b><span>Carga actual (%), salud de la batería (%) y qué tan profundo se descargó en un evento.</span></div>'+
+    '</div>'+
+    '<div class="ind-note">🌡️ <b>Temporadas:</b> manejamos <b>invierno</b> y <b>verano</b>. La potencia configurada de cada sitio cambia según la temporada, porque la demanda del cliente y las tarifas de CFE son distintas en cada época.</div>'+
+    '<div class="ind-note" style="margin-top:10px">⚡ <b>kW vs kWh:</b> el <b>kW</b> es potencia (qué tan rápido entrega energía); el <b>kWh</b> es energía (cuánta cabe en total). No los confundas — es lo primero que se aclara aquí.</div>'+
+    '<div class="btn-row"><button class="btn ghost" onclick="prev()">← Atrás</button><button class="btn" onclick="next()">Entendido, al reto →</button></div></div>';
+}
+
+/* ── Quiz adaptativo: evalúa si la persona sabe, o se auto-explica si no sabe ── */
+function qset(setKey){ return setKey==='bess'?QUIZ_BESS:QUIZ_PV; }
+function qidx(setKey){ return setKey==='bess'?qbIdx:qpIdx; }
+function isLearn(setKey){ return setKey==='bess' ? (S.nivel.sabeBess||'Nada aún')==='Nada aún' : (S.nivel.sabePv||'Nada aún')==='Nada aún'; }
+function setScore(setKey){ var set=qset(setKey),n=0; set.forEach(function(z,i){ if(S.quiz[setKey+i]===z.c)n++; }); return n; }
+function renderQuizSet(setKey){
+  var set=qset(setKey), idx=qidx(setKey), learn=isLearn(setKey), z=set[idx], gkey=setKey+idx;
+  var graded = learn || S.graded[gkey];
+  var title = setKey==='bess'?'Nivel BESS':'Nivel Solar (fotovoltaico)';
+  var tag = learn?' · modo aprendizaje':'';
+  var h='<div class="card-anim"><div class="kick2">'+title+' · '+(idx+1)+' de '+set.length+tag+'</div>'+
+    (z.img&&!z.noimg?'<img class="q-img" src="'+IMG[z.img]+'" alt="">':'')+
+    (learn&&idx===0?'<div class="ind-note" style="margin:0 0 14px">📘 Como vas empezando con este tema, te mostramos la respuesta correcta con una breve explicación — así lo vas aprendiendo. Solo lee y avanza.</div>':'')+
+    '<h2 class="h2" style="font-size:clamp(19px,2.5vw,25px)">'+z.q+'</h2>';
+  z.o.forEach(function(opt,oi){
+    var cls='opt', sel=S.quiz[gkey]===oi;
+    if(graded){ if(oi===z.c)cls+=' correct'; else if(sel)cls+=' wrong'; }
+    else if(sel)cls+=' sel';
+    var click = learn?'':('onclick="quizPick(\''+setKey+'\','+oi+')"');
+    h+='<button class="'+cls+'" '+click+'><span class="dot"></span>'+esc(opt)+'</button>';
+  });
+  if(graded){ var ok=learn?true:(S.quiz[gkey]===z.c); h+='<div class="qfb '+(ok?'ok':'no')+'">'+(learn?'📘 ':(ok?'✅ ':'💡 '))+z.fb+'</div>'; }
+  var last=idx>=set.length-1;
+  var nextLbl = graded ? (last?(setKey==='bess'?'Continuar →':'Terminar →'):'Siguiente →') : 'Revisar';
+  var dis=(!graded && S.quiz[gkey]==null)?' disabled':'';
+  h+='<div class="btn-row"><button class="btn ghost" onclick="quizBack(\''+setKey+'\')">← Atrás</button>'+
+    '<button class="btn"'+dis+' onclick="quizNext(\''+setKey+'\')">'+nextLbl+'</button></div></div>';
+  return h;
+}
+window.quizPick=function(setKey,oi){ var g=setKey+qidx(setKey); if(S.graded[g])return; S.quiz[g]=oi; render(); };
+window.quizNext=function(setKey){
+  var set=qset(setKey), idx=qidx(setKey), learn=isLearn(setKey), g=setKey+idx;
+  if(!learn && !S.graded[g]){ if(S.quiz[g]==null)return; S.graded[g]=true; render(); return; }
+  if(idx<set.length-1){ if(setKey==='bess')qbIdx++; else qpIdx++; render(); window.scrollTo(0,0); }
+  else if(setKey==='bess'){ S.step++; render(); window.scrollTo(0,0); }
+  else { submit(); S.step++; render(); window.scrollTo(0,0); confetti(); }
 };
-window.quizBack=function(){ if(quizIdx>0){quizIdx--;render();window.scrollTo(0,0);} else {prev();} };
+window.quizBack=function(setKey){
+  var idx=qidx(setKey);
+  if(idx>0){ if(setKey==='bess')qbIdx--; else qpIdx--; render(); window.scrollTo(0,0); }
+  else { prev(); }
+};
 window.restart=function(){ location.reload(); };
-function quizScore(){var n=0;QUIZ.forEach(function(z,i){if(S.quiz['z'+i]===z.c)n++;});return n;}
 
 /* ---- confetti ---- */
 function confetti(){
@@ -359,8 +462,12 @@ function confetti(){
 /* ════════════ GUARDADO (Firebase opcional + respaldo local) ════════════ */
 var db=null, FB_ON=false, EJS_ON=false;
 function payload(){
-  return { nombre:S.name, rol:S.nivel.rol||'', nivel:{elec:S.nivel.elec||'',bess:S.nivel.bess||'',graf:S.nivel.graf||''},
-    respuestas:S.open, quiz:S.quiz, score:quizScore(), total:QUIZ.length, ts:Date.now(), fecha:new Date().toISOString() };
+  return { nombre:S.name, rol:S.nivel.rol||'',
+    nivel:{elec:S.nivel.elec||'', sabeBess:S.nivel.sabeBess||'', sabePv:S.nivel.sabePv||'', graf:S.nivel.graf||''},
+    respuestas:S.open, quiz:S.quiz,
+    bess:{ modo:isLearn('bess')?'aprendizaje':'evaluado', score:setScore('bess'), total:QUIZ_BESS.length },
+    pv:{ modo:isLearn('pv')?'aprendizaje':'evaluado', score:setScore('pv'), total:QUIZ_PV.length },
+    ts:Date.now(), fecha:new Date().toISOString() };
 }
 function submit(){
   var data=payload();
@@ -377,14 +484,17 @@ function sendEmailNotif(data){
   try{
     if(!EJS_ON || typeof emailjs==='undefined') return;
     var caso = (data.respuestas&&data.respuestas.q_caso) || '(sin respuesta)';
+    var nv=data.nivel||{}, bz=data.bess||{}, pv=data.pv||{};
+    var resumenBz = bz.modo==='aprendizaje'?'BESS: modo aprendizaje':('BESS: '+bz.score+'/'+bz.total);
+    var resumenPv = pv.modo==='aprendizaje'?'Solar: modo aprendizaje':('Solar: '+pv.score+'/'+pv.total);
     var mensaje = (data.nombre||'Alguien')+' ('+(data.rol||'—')+') terminó la inducción.\n'+
-      'Nivel eléctrico: '+((data.nivel||{}).elec||'?')+' · BESS: '+((data.nivel||{}).bess||'?')+'\n'+
-      'Reto rápido: '+data.score+'/'+data.total+'\n'+
+      'Base eléctrica: '+(nv.elec||'?')+' · Sabe BESS: '+(nv.sabeBess||'?')+' · Sabe solar: '+(nv.sabePv||'?')+'\n'+
+      resumenBz+' · '+resumenPv+'\n'+
       'Caso (rack 0 A): '+caso+'\n\nAbre el Panel de supervisor para ver todas sus respuestas.';
     emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
       nombre:data.nombre||'Sin nombre', rol:data.rol||'—',
-      nivel:((data.nivel||{}).elec||'?')+' / BESS '+((data.nivel||{}).bess||'?'),
-      score:data.score+'/'+data.total, fecha:new Date(data.ts).toLocaleString('es-MX'),
+      nivel:(nv.elec||'?')+' · BESS '+(nv.sabeBess||'?')+' · Solar '+(nv.sabePv||'?'),
+      score:resumenBz+' · '+resumenPv, fecha:new Date(data.ts).toLocaleString('es-MX'),
       caso:caso, mensaje:mensaje
     });
   }catch(e){}
@@ -422,14 +532,17 @@ function renderSubs(list){
   qs('st-total').textContent=list.length;
   var today=new Date().toDateString(), tN=list.filter(function(x){return new Date(x.ts||0).toDateString()===today;}).length;
   qs('st-today').textContent=tN;
-  var avg=list.length?Math.round(list.reduce(function(a,x){return a+(x.score||0);},0)/list.length*10)/10:0;
-  qs('st-avg').textContent=list.length?(avg+'/'+(list[0].total||4)):'—';
+  var ev=list.filter(function(x){return x.bess&&x.bess.modo==='evaluado';});
+  var avg=ev.length?Math.round(ev.reduce(function(a,x){return a+((x.bess&&x.bess.score)||0);},0)/ev.length*10)/10:0;
+  qs('st-avg').textContent=ev.length?(avg+'/'+((ev[0].bess&&ev[0].bess.total)||5)):'—';
   qs('sub-list').innerHTML=list.map(function(x){
     var qa=OPEN_Q.map(function(q){ var a=(x.respuestas||{})[q.id]; if(!a)return ''; return '<div class="qa"><div class="qq">'+esc(q.label)+'</div><div class="aa">'+esc(a)+'</div></div>'; }).join('');
-    var d=new Date(x.ts||0);
+    var d=new Date(x.ts||0), nv=x.nivel||{}, bz=x.bess||{}, pv=x.pv||{};
+    var bzTxt=bz.modo?(bz.modo==='aprendizaje'?'BESS: aprendizaje':('BESS: '+bz.score+'/'+bz.total)):('Quiz '+(x.score||0)+'/'+(x.total||4));
+    var pvTxt=pv.modo?(pv.modo==='aprendizaje'?'Solar: aprendizaje':('Solar: '+pv.score+'/'+pv.total)):'';
     return '<div class="sub-card"><div class="sub-head"><div class="sub-name">'+esc(x.nombre||'Sin nombre')+' <span class="tag">'+esc(x.rol||'—')+'</span></div>'+
-      '<div class="sub-meta">'+d.toLocaleString('es-MX')+' · Quiz '+(x.score||0)+'/'+(x.total||4)+'</div></div>'+
-      '<div class="sub-meta" style="margin-bottom:6px">Nivel: '+esc((x.nivel||{}).elec||'?')+' · BESS: '+esc((x.nivel||{}).bess||'?')+'</div>'+qa+'</div>';
+      '<div class="sub-meta">'+d.toLocaleString('es-MX')+' · '+bzTxt+(pvTxt?' · '+pvTxt:'')+'</div></div>'+
+      '<div class="sub-meta" style="margin-bottom:6px">Base: '+esc(nv.elec||'?')+' · Sabe BESS: '+esc(nv.sabeBess||nv.bess||'?')+' · Sabe solar: '+esc(nv.sabePv||'?')+'</div>'+qa+'</div>';
   }).join('')||'<p style="color:var(--t3)">Aún no hay respuestas.</p>';
 }
 function loadSubs(){
