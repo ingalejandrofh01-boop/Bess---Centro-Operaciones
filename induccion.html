@@ -279,11 +279,10 @@ function figArch(){ return '<svg class="fig" viewBox="0 0 640 230" role="img" ar
 function figPeak(){ return '<svg class="fig" viewBox="0 0 640 220" role="img" aria-label="Recorte de pico (peak shaving)">'+
   '<line x1="50" y1="30" x2="50" y2="185" stroke="#d8e2f5"/><line x1="50" y1="185" x2="610" y2="185" stroke="#d8e2f5"/>'+
   '<text x="40" y="36" text-anchor="end" font-size="10" fill="#8496b5">kW</text><text x="600" y="200" text-anchor="end" font-size="10" fill="#8496b5">hora →</text>'+
-  '<line x1="50" y1="95" x2="610" y2="95" stroke="#f59e0b" stroke-width="2" stroke-dasharray="7 5"/><text x="606" y="90" text-anchor="end" font-size="10" fill="#b45309">demanda contratada</text>'+
-  '<path d="M50,150 L150,150 L250,150 L300,60 L360,55 L420,62 L470,150 L610,150" fill="none" stroke="#8496b5" stroke-width="2" stroke-dasharray="3 3"/><text x="300" y="45" text-anchor="middle" font-size="10" fill="#8496b5">demanda sin BESS (pico)</text>'+
-  '<path d="M50,150 L150,150 L250,150 L300,95 L360,95 L420,95 L470,150 L610,150" fill="none" stroke="#10b981" stroke-width="3"/><text x="150" y="168" font-size="10" fill="#047857">red con BESS (recortada)</text>'+
+  '<path d="M50,150 L150,150 L250,150 L300,60 L360,55 L420,62 L470,150 L610,150" fill="none" stroke="#8496b5" stroke-width="2" stroke-dasharray="3 3"/><text x="300" y="45" text-anchor="middle" font-size="10" fill="#8496b5">demanda sin BESS (el pico)</text>'+
+  '<path d="M50,150 L150,150 L250,150 L300,95 L360,95 L420,95 L470,150 L610,150" fill="none" stroke="#10b981" stroke-width="3"/><text x="150" y="168" font-size="10" fill="#047857">demanda con BESS (recortada)</text>'+
   '<path d="M300,60 L300,95 L360,95 L360,55 L420,62 L420,95 L300,95 Z" fill="rgba(239,68,68,.12)"/><text x="360" y="120" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="700">BESS cubre el pico</text>'+
-  '</svg><div class="fig-cap">En hora punta el BESS entrega la parte del pico que supera la demanda contratada; la red se mantiene recortada.</div>'; }
+  '</svg><div class="fig-cap">En hora punta el BESS entrega la parte alta del pico (zona roja); así la demanda que se le ve a la red queda baja y pareja.</div>'; }
 
 function figCurve(){ return '<svg class="fig" viewBox="0 0 640 220" role="img" aria-label="Convención de curvas de carga y descarga">'+
   '<line x1="60" y1="20" x2="60" y2="200" stroke="#d8e2f5"/><line x1="60" y1="110" x2="610" y2="110" stroke="#0a1430" stroke-width="1.4"/>'+
@@ -347,12 +346,12 @@ var MOD = [
       '<div class="ind-term"><b>DOD — Depth of Discharge</b><span>Qué tan profundo se descargó en un evento.</span></div>'+
     '</div>'; },
    test:[
-    {q:'Explica con tus palabras: ¿cuál es la diferencia entre kW y kWh?', o:['kW es potencia (qué tan rápido) y kWh es energía (cuánta cabe)','Son lo mismo, solo cambia el nombre','kW mide temperatura y kWh mide voltaje'], c:0, fb:'Exacto: kW = potencia (rapidez de entrega), kWh = energía (cantidad total). Es la base de todo.'},
-    {q:'¿Por qué el BESS descarga principalmente en hora punta?', o:['Porque es cuando CFE cobra la energía más cara: recortar ahí genera el ahorro','Porque en hora punta las baterías se calientan menos','Porque CFE lo obliga a descargar'], c:0, fb:'Peak shaving recorta el pico (y el costo) en las horas caras. Ese es el objetivo del negocio.'},
-    {q:'Un sitio tiene 5 racks Hoy Core de 344 kWh cada uno. ¿Cuál es su capacidad de diseño aproximada?', o:['~1,720 kWh','~344 kWh','~68 kWh'], c:0, fb:'5 × 344 = 1,720 kWh. Capacidad total = kWh por rack × número de racks.'},
-    {q:'El SOC de un banco está en 15%. ¿Qué significa?', o:['Le queda 15% de su energía disponible','Su salud es del 15%','Está al 15% de su temperatura máxima'], c:0, fb:'SOC = State of Charge = energía disponible ahora, en %. No confundir con SOH (salud).'},
-    {q:'¿Qué mide el SOH (State of Health)?', o:['La capacidad que conserva la batería respecto a su capacidad original','La carga disponible en este instante','La potencia máxima de descarga'], c:0, fb:'SOH es la salud: cuánta capacidad le queda a la batería frente a cuando era nueva.'},
-    {q:'Orden correcto de menor a mayor en la jerarquía del banco:', o:['Celda → Módulo → Rack → Contenedor','Rack → Celda → Módulo → Contenedor','Módulo → Celda → Contenedor → Rack'], c:0, fb:'Celda (3.2 V) → Módulo → Rack (+BMS) → Contenedor (+PCS+FSS).'}
+    {q:'Un banco se describe como "1,720 kWh / 450 kW". ¿Qué está diciendo cada número?', o:['1,720 kWh es la energía que almacena y 450 kW la potencia a la que la entrega','1,720 kW es la potencia y 450 kWh la energía acumulada','1,720 kWh es la energía de carga y 450 kWh la de descarga'], c:0, fb:'Los kWh son energía (cuánta cabe) y los kW son potencia (qué tan rápido se mueve). No se invierten ni se mezclan.'},
+    {q:'¿Por qué el BESS descarga justo en hora punta y no en cualquier momento?', o:['Porque es la franja donde CFE cobra la demanda más cara; recortar ahí es donde se produce el ahorro','Porque fuera de hora punta el PCS no puede invertir de DC a AC','Porque en hora punta el SOC sube solo y conviene aprovecharlo'], c:0, fb:'Peak shaving ataca la franja más cara. El PCS puede invertir siempre, y el SOC no sube solo: sube al cargar.'},
+    {q:'Un sitio tiene 5 racks Hoy Core de 344 kWh cada uno. ¿Capacidad de diseño aproximada?', o:['~1,720 kWh','~2,064 kWh','~1,032 kWh'], c:0, fb:'5 × 344 = 1,720 kWh. (2,064 sería 6 racks y 1,032 serían 3: cuidado con el número de racks.)'},
+    {q:'El SOC de un banco marca 15%. ¿Qué significa exactamente?', o:['Le queda el 15% de la energía utilizable del banco en este momento','La batería conserva el 15% de su capacidad original','El banco está entregando el 15% de su potencia máxima'], c:0, fb:'SOC = energía disponible ahora. Conservar un % de la capacidad original es SOH, y el % de potencia es otra cosa.'},
+    {q:'¿Qué describe el SOH (State of Health) de una batería?', o:['La capacidad que conserva hoy respecto a cuando era nueva','La energía disponible en este instante','El número de racks que están conectados al banco'], c:0, fb:'SOH es salud/desgaste. La energía disponible ahora es el SOC; los racks conectados es otro dato.'},
+    {q:'¿Cuál es el orden correcto, de lo más pequeño a lo más grande?', o:['Celda → Módulo → Rack → Contenedor','Celda → Rack → Módulo → Contenedor','Módulo → Celda → Rack → Contenedor'], c:0, fb:'Las celdas forman módulos, los módulos forman racks (con su BMS) y los racks viven en el contenedor (con PCS y FSS).'}
    ] },
 
  { id:'disp', num:2, icon:'🧩', color:'linear-gradient(135deg,#3730a3,#6366f1)',
@@ -372,17 +371,16 @@ var MOD = [
     '<div class="ind-grid">'+
       '<div class="ind-term"><b>FSS — Supresión de incendio</b><span>Detecta humo/gas/temperatura y, si hace falta, libera el agente extintor. Indicadores: alarma, disparo (release) y falla.</span></div>'+
       '<div class="ind-term"><b>HVAC — Climatización</b><span>Mantiene fresco el gabinete de control y la electrónica. Trabaja junto al enfriamiento líquido de las celdas.</span></div>'+
-      '<div class="ind-term"><b>PSU — Fuente auxiliar</b><span>Energiza la electrónica de control, el HMI y las comunicaciones aunque el PCS o la batería se caigan.</span></div>'+
+      '<div class="ind-term"><b>UPS — Fuente de respaldo</b><span>Energiza la electrónica de control, el HMI y las comunicaciones aunque el PCS o la batería se caigan (respaldo ininterrumpido).</span></div>'+
     '</div>'; },
    test:[
-    {img:'monitor', q:'El BMS detecta una celda fuera de límites y el rack se desconecta solo. ¿Por qué?', o:['El BMS protegió el sistema y abrió los contactores del rack','Se agotó por completo la batería','Se cayó el internet del sitio'], c:0, fb:'El BMS aísla el rack ante una celda fuera de límites (V, temperatura o aislamiento). Protección primero.'},
-    {q:'¿Qué hace principalmente el PCS (inversor)?', o:['Convierte DC↔AC de forma bidireccional y ejecuta la consigna de P y Q','Solo mide la temperatura de las celdas','Guarda la energía en lugar de la batería'], c:0, fb:'Rectifica para cargar e invierte para descargar; recibe la consigna de potencia activa y reactiva.'},
-    {q:'¿Cuál es la función del MBMS?', o:['Consolidar la información de todos los racks (es el BMS maestro)','Convertir DC en AC','Apagar el aire acondicionado del cuarto'], c:0, fb:'MBMS = BMS maestro: agrega y consolida lo que reporta cada rack.'},
-    {q:'El sistema opera "On-Grid". ¿Qué significa?', o:['Está interconectado y sincronizado con la red de CFE','Está aislado, funcionando sin red','Está apagado'], c:0, fb:'On-Grid = conectado y sincronizado con la red de distribución.'},
-    {q:'¿Por qué una pérdida de comunicación se trata como alarma?', o:['Porque el controlador pierde visibilidad y capacidad de control sobre el equipo','Porque se descarga la batería al instante','Porque CFE corta la energía'], c:0, fb:'Sin comunicación no hay lecturas ni control remoto; es una condición de seguridad.'},
-    {q:'El FSS corresponde a…', o:['El sistema de supresión de incendio del cuarto de baterías','El inversor de potencia','La fuente de energía auxiliar'], c:0, fb:'FSS = Fire Suppression System: detecta humo/fuego y libera agente extintor.'},
-    {q:'En Hoy Core, ¿cómo se leen las celdas dentro de un rack?', o:['Con varias BMU (8 por rack) por bus CAN','Con un solo sensor por contenedor','No se miden a nivel de celda'], c:0, fb:'Cada rack agrupa 8 BMU (Battery Monitoring Units) por bus CAN para leer a nivel de celda.'},
-    {q:'¿Para qué sirve la PSU?', o:['Energiza la electrónica de control, el HMI y las comunicaciones de forma auxiliar','Enfría las celdas','Mide la energía de la red'], c:0, fb:'La PSU garantiza que la supervisión siga aunque el PCS o la batería fallen.'}
+    {img:'monitor', q:'Un rack se desconecta solo mientras el resto sigue operando normal. ¿Cuál es la causa más probable?', o:['Su BMS detectó una celda fuera de límites y abrió los contactores para proteger el banco','El PCS dejó de invertir y arrastró a ese rack','El SOC llegó al mínimo y el rack entró en reposo'], c:0, fb:'El BMS tiene la última palabra: aísla su propio rack ante una celda fuera de rango, sin afectar a los demás.'},
+    {q:'¿Cuál describe mejor la función del PCS?', o:['Convierte DC↔AC de forma bidireccional y aplica la consigna de potencia activa y reactiva','Mide la energía del punto de red y la reporta al controlador','Almacena energía en condensadores cuando la batería está llena'], c:0, fb:'El PCS es el convertidor DC↔AC. Medir la red es tarea del medidor; el PCS no almacena energía.'},
+    {q:'¿Qué hace el MBMS?', o:['Consolida la información de todos los racks: es el BMS maestro del banco','Es un BMS de respaldo que entra solo si un rack falla','Regula la climatización del banco a nivel de celda'], c:0, fb:'MBMS = BMS maestro: agrega lo que reporta cada rack. No es respaldo ni controla el clima.'},
+    {q:'El sistema reporta "On-Grid". ¿Qué quiere decir?', o:['Opera interconectado y sincronizado con la red de CFE','Opera aislado, formando su propia red (isla)','Opera solo cargando, nunca descargando hacia la red'], c:0, fb:'On-Grid = conectado y sincronizado con la red. Formar su propia red sería operación en isla.'},
+    {q:'¿Cuál de estos equipos es el FSS?', o:['El sistema de supresión de incendio del cuarto de baterías','El sistema de enfriamiento líquido de las celdas','La fuente que respalda la electrónica de control'], c:0, fb:'FSS = Fire Suppression System. El enfriamiento líquido es el chiller y el respaldo de electrónica es la UPS.'},
+    {q:'En Hoy Core, ¿cómo se leen las variables a nivel de celda en un rack?', o:['Con varias BMU (8 por rack) enlazadas por bus CAN','Con un solo sensor maestro por contenedor vía RS-485','Con el medidor MIC-2, que lee celda por celda'], c:0, fb:'Cada rack Hoy Core usa 8 BMU por bus CAN. El MIC-2 mide la red, no las celdas.'},
+    {q:'¿Cuál es la función de la UPS (fuente de respaldo)?', o:['Energiza la electrónica de control, el HMI y las comunicaciones aunque el PCS o la batería se caigan','Convierte la DC del banco en AC para el sitio','Mantiene la temperatura del gabinete de control'], c:0, fb:'La UPS da energía de respaldo a la supervisión. Convertir DC↔AC es el PCS; climatizar es el HVAC.'}
    ] },
 
  { id:'cap', num:3, icon:'📦', color:'linear-gradient(135deg,#0ea5a4,#2dd4bf)',
@@ -405,13 +403,12 @@ var MOD = [
     figSoc()+
     '<p class="lp">El sistema trabaja dentro de una ventana segura de SOC: no descarga por debajo del <b>SOC Mín</b> (evita descarga profunda) ni carga por encima del <b>SOC Máx</b> (evita sobrecarga). Hay además umbrales finos (SOC Thr) que suavizan la corriente cerca de los límites.</p>'; },
    test:[
-    {img:'rack', q:'Un rack Hoy Core almacena ~344 kWh y entrega ~150 kW. ¿Qué te dicen esos dos datos?', o:['Cuánta energía guarda (kWh) y a qué potencia la entrega (kW)','Su temperatura máxima','Cuántas celdas tiene dañadas'], c:0, fb:'344 kWh = energía (capacidad); 150 kW = potencia (rapidez de entrega).'},
-    {q:'¿Cuántos kWh almacena un rack BYD?', o:['500 kWh por rack','109 kWh por rack','344 kWh por rack'], c:0, fb:'BYD = 500 kWh por rack. Es de las de mayor energía por rack en la flota.'},
-    {q:'¿Y un rack Hoy Core / Hoy Power?', o:['344 kWh por rack','215 kWh por rack','500 kWh por rack'], c:0, fb:'Hoy Core / Hoy Power = 344 kWh por rack.'},
-    {q:'Un sitio tiene 6 racks CATL (372 kWh c/u). Energía total aproximada:', o:['~2,232 kWh','~372 kWh','~744 kWh'], c:0, fb:'6 × 372 = 2,232 kWh. Total = kWh por rack × número de racks.'},
-    {q:'¿Por qué conviene saber la marca de un sitio?', o:['Porque la energía por rack depende de la marca (Pylontech 109, BYD 500…)','Porque cambia el color del HMI','Porque la marca define la hora punta'], c:0, fb:'La marca determina los kWh por rack, y con eso la energía del sitio.'},
-    {q:'Sobre la potencia de carga/descarga de un sitio:', o:['Varía por sitio y por temporada (invierno/verano) según la demanda','Es siempre la misma para toda la flota','Solo existe en verano'], c:0, fb:'Cada sitio tiene su potencia por temporada, acorde a la demanda y a las tarifas.'},
-    {q:'¿Para qué sirve el SOC Mínimo?', o:['Para que el sistema no descargue por debajo de él y no dañe las celdas','Para cargar más rápido','Para subir el voltaje de la red'], c:0, fb:'El SOC Mín evita la descarga profunda; el SOC Máx evita la sobrecarga.'}
+    {q:'La marca Narada se comporta distinto al resto de la flota en cuanto a capacidad. ¿Por qué?', o:['Su energía por rack varía según el modelo (150, 250, 288 u 800 kWh)','Todos sus racks son siempre de 500 kWh','No usa racks, sino un solo bloque de baterías'], c:0, fb:'Narada aparece con varios modelos en la flota: su kWh por rack no es único, depende del modelo instalado.'},
+    {img:'rack', q:'¿Cuántos kWh almacena un rack BYD?', o:['500 kWh por rack','372 kWh por rack','344 kWh por rack'], c:0, fb:'BYD = 500 kWh por rack. (372 es CATL y 344 es Hoy Core: son marcas distintas.)'},
+    {q:'¿Y un rack Hoy Core / Hoy Power?', o:['344 kWh por rack','372 kWh por rack','215 kWh por rack'], c:0, fb:'Hoy Core / Hoy Power = 344 kWh. 372 es CATL y 215 es Hoy Ultra / Huawei.'},
+    {q:'Dos sitios tienen 4 racks cada uno: uno es BYD y el otro Pylontech. ¿Cuál guarda más energía?', o:['El de BYD, porque su rack es de 500 kWh contra 109 kWh del Pylontech','El de Pylontech, porque sus celdas son más grandes','Guardan lo mismo: tienen el mismo número de racks'], c:0, fb:'A igual número de racks manda el kWh por rack de la marca: 4×500 (BYD) supera por mucho a 4×109 (Pylontech).'},
+    {q:'¿Por qué es útil identificar la marca de un sitio antes de estimar su energía?', o:['Porque los kWh por rack dependen de la marca, y con eso conoces la energía del sitio','Porque la marca define el horario de la hora punta','Porque cada marca usa una estrategia de despacho distinta'], c:0, fb:'La marca fija los kWh por rack. El horario y la estrategia no dependen de la marca.'},
+    {q:'¿Cuál es el propósito del SOC Mínimo?', o:['Evitar que el sistema descargue por debajo de él y así prevenir la descarga profunda','Limitar la corriente máxima de carga del banco','Fijar la potencia de descarga durante la hora punta'], c:0, fb:'El SOC Mín frena la descarga profunda (y el SOC Máx evita la sobrecarga). No fija corriente ni potencia.'}
    ] },
 
  { id:'estrat', num:4, icon:'🎛️', color:'linear-gradient(135deg,#b45309,#f59e0b)',
@@ -426,19 +423,22 @@ var MOD = [
       '<div class="ind-term"><b>Manual</b><span>El operador toma control directo (Start/Stop, consignas). Se usa en pruebas, puesta en marcha o mantenimiento.</span></div>'+
     '</div>'+
     '<div class="sect-h">🔁 Estados: Standby, Carga y Descarga</div>'+
-    '<div class="pill-row"><span class="pill">STANDBY · listo, sin intercambio</span><span class="pill">CARGA · toma energía (AC→DC)</span><span class="pill">DESCARGA · entrega energía (DC→AC)</span></div>'+
+    '<div class="pill-row"><span class="pill">STANDBY · listo, sin intercambio</span><span class="pill">CARGA / CHARGE · toma energía (AC→DC)</span><span class="pill">DESCARGA / DISCHARGE · entrega energía (DC→AC)</span><span class="pill">SHUTDOWN / STOP · detenido</span><span class="pill">FAULT · falla, deja de operar</span></div>'+
     '<div class="sect-h">🌡️ Temporadas: invierno y verano</div>'+
     '<p class="lp">Manejamos dos temporadas. <b>La potencia configurada de cada sitio cambia por temporada</b>, porque la demanda del cliente y las tarifas de CFE son distintas. Además, <b>el horario de la hora punta también cambia</b> con la temporada (por eso se revisan los timers de descarga). En verano la demanda suele subir por el aire acondicionado.</p>'+
-    '<div class="sect-h">📏 Demanda contratada</div>'+
-    '<div class="ind-note dang">⚠️ La <b>demanda contratada</b> es el límite que el cliente pactó con CFE. Si al <b>cargar</b> el BESS la red rebasa ese límite, el cliente puede pagar <b>penalización</b>. Vigilar que la carga no rebase la demanda contratada es parte clave del monitoreo.</p></div>'; },
+    '<div class="sect-h">📏 Demanda contratada — el límite que nunca se rebasa</div>'+
+    '<p class="lp"><b>¿Qué es?</b> Es la <b>potencia máxima (en kW) que el cliente contrató con CFE</b> para su sitio: el "tope" de potencia que tiene derecho a tomar de la red.</p>'+
+    '<p class="lp"><b>¿En qué se rige?</b> CFE mide la <b>demanda máxima</b> que registró el sitio en intervalos cortos (típicamente de 15 minutos) a lo largo del periodo, y la compara contra lo contratado. No importa el promedio: importa el <b>punto más alto</b> que alcanzó.</p>'+
+    '<p class="lp"><b>¿Para qué nos sirve?</b> Es la <b>referencia del monitoreo</b>: el objetivo del peak shaving es justamente mantener la demanda que ve la red <b>por debajo</b> de ese límite. Por eso en la curva vigilamos que la RED no se acerque a la demanda contratada.</p>'+
+    '<div class="ind-note dang">⚠️ <b>¿Por qué nunca excederla?</b> Si el sitio rebasa su demanda contratada —por ejemplo al <b>cargar</b> el BESS en mal momento—, CFE lo cobra caro: aplica <b>cargos por demanda</b> y hasta penalización por exceder lo contratado, y ese pico se factura aunque haya durado unos minutos. Cuidar que la <b>carga no sume un pico</b> por encima del límite es parte central del trabajo de monitoreo.</p></div>'; },
    test:[
-    {q:'¿Cuál es la diferencia entre peak shaving y potencia fija, y cómo se ven en la curva?', o:['Peak shaving varía la potencia para recortar el pico (sube y baja); potencia fija entrega un valor constante (línea plana)','Son lo mismo','Potencia fija solo carga, nunca descarga'], c:0, fb:'En peak shaving el BESS sigue a la carga; en potencia fija descarga/carga a un kW constante (línea recta).'},
-    {q:'¿Cuándo se usa el modo Manual?', o:['En pruebas, puesta en marcha o mantenimiento (control directo del operador)','Para la operación comercial normal del día a día','Nunca, está prohibido'], c:0, fb:'Auto = operación normal; Manual = control directo para pruebas/mantenimiento.'},
-    {q:'El PCS está en estado "Carga". ¿Qué hace?', o:['Toma energía de la red (AC→DC) para subir el SOC','Entrega energía al sitio','Está apagado'], c:0, fb:'Carga = rectifica AC→DC y sube el SOC; Descarga = invierte DC→AC.'},
-    {q:'¿Por qué se configura distinta potencia en invierno y verano?', o:['Porque la demanda del cliente y las tarifas de CFE cambian por temporada','Porque las baterías pesan diferente','Porque en verano no hay energía'], c:0, fb:'Cada sitio tiene su potencia por temporada, acorde a la demanda real y a las tarifas.'},
-    {q:'Además de la potencia, ¿qué más suele cambiar entre temporadas?', o:['El horario de la hora punta (y la demanda, mayor en verano por A/C)','El color de las baterías','El voltaje de las celdas'], c:0, fb:'Las tarifas mueven el horario de hora punta; por eso se revisan los timers de descarga.'},
-    {q:'Si al CARGAR el BESS la red supera la demanda contratada…', o:['El cliente puede pagar penalización — por eso hay que vigilarlo','No pasa nada, es normal','Se apaga CFE automáticamente'], c:0, fb:'Cuidar que la carga no rebase la demanda contratada evita penalizaciones en el recibo.'},
-    {q:'En estado STANDBY el sistema…', o:['Está energizado y listo, pero sin intercambio significativo de potencia','Está descargando a máxima potencia','Está desconectado de la red'], c:0, fb:'Standby = sincronizado y listo para responder, sin mover potencia activa relevante.'}
+    {q:'¿Cómo se distinguen peak shaving y potencia fija al mirar la curva del BESS?', o:['En peak shaving la potencia sube y baja siguiendo la demanda; en potencia fija es un valor constante (línea plana)','En peak shaving solo descarga y en potencia fija solo carga','Peak shaving opera en verano y potencia fija en invierno'], c:0, fb:'La diferencia es la forma: peak shaving sigue al pico; potencia fija entrega un kW constante. Ambas cargan y descargan y no dependen de la temporada.'},
+    {q:'¿En cuál situación se usa el modo Manual?', o:['En pruebas, puesta en marcha o mantenimiento, con control directo del operador','En la operación comercial diaria, para respetar los horarios automáticos','Cuando se pierde la comunicación con el controlador central'], c:0, fb:'Auto es para el día a día; Manual es para intervenciones controladas. Perder comunicación no cambia el modo por sí solo.'},
+    {q:'El PCS reporta estado "Carga". ¿Qué está haciendo?', o:['Toma energía de la red (AC→DC) para subir el SOC','Entrega energía al sitio invirtiendo DC→AC','Permanece sincronizado sin mover potencia activa'], c:0, fb:'Carga = rectifica AC→DC y sube el SOC. Entregar es Descarga, y quedarse sin mover potencia es Standby.'},
+    {q:'¿Por qué un sitio tiene configurada distinta potencia en invierno y en verano?', o:['Porque la demanda del cliente y las tarifas de CFE cambian con la temporada','Porque en frío las celdas entregan más energía','Porque en verano se reduce el número de racks disponibles'], c:0, fb:'Es por demanda y tarifas, no por física de las celdas ni por quitar racks.'},
+    {q:'Además de la potencia, ¿qué más suele ajustarse entre temporadas?', o:['El horario de la hora punta de CFE (y la demanda sube en verano por el A/C)','La marca de las baterías instaladas','El voltaje nominal de las celdas'], c:0, fb:'Las tarifas mueven el horario de hora punta, por eso se revisan los timers. La marca y el voltaje no cambian por temporada.'},
+    {q:'Al CARGAR el BESS, la demanda que ve la red rebasa la demanda contratada. ¿Qué implica?', o:['El cliente puede incurrir en un cargo por demanda o penalización — por eso se vigila','El BESS se detiene y pasa automáticamente a descarga','CFE reduce la tarifa como compensación por el pico'], c:0, fb:'Rebasar la demanda contratada se factura caro. El BESS no se autodetiene por eso, y CFE no compensa: penaliza.'},
+    {q:'En estado STANDBY, el sistema…', o:['Está energizado y sincronizado, listo, pero sin intercambio significativo de potencia activa','Está desconectado de la red para ahorrar energía','Está cargando lento para mantener el SOC al 100%'], c:0, fb:'Standby = listo y sincronizado, sin mover potencia. No está desconectado ni cargando.'}
    ] },
 
  { id:'mon', num:5, icon:'🖥️', color:'linear-gradient(135deg,#6d28d9,#a78bfa)',
@@ -451,18 +451,18 @@ var MOD = [
       '<div class="ind-term"><b>3 · BESS Monitor (sala de control)</b><span>Vigila la CONECTIVIDAD de todos los sitios: confirma si están enviando datos. No sustituye al HMI ni a SkyLink.</span></div>'+
     '</div>'+
     '<div class="sect-h">📺 Las pantallas del HMI</div>'+
-    '<div class="pill-row"><span class="pill">General</span><span class="pill">BMS (baterías)</span><span class="pill">PCS</span><span class="pill">Red</span><span class="pill">Configuración</span><span class="pill">Tendencias</span><span class="pill">FSS + HVAC</span><span class="pill">Alarmas</span><span class="pill">PSU</span></div>'+
+    '<div class="pill-row"><span class="pill">General</span><span class="pill">BMS (baterías)</span><span class="pill">PCS</span><span class="pill">Red</span><span class="pill">Configuración</span><span class="pill">Tendencias</span><span class="pill">FSS + HVAC</span><span class="pill">Alarmas</span><span class="pill">UPS</span></div>'+
     '<p class="lp">La <b>Pantalla General</b> es la vista de inicio: muestra tres flujos de potencia — <b>BESS</b>, <b>RED</b> y <b>CONSUMO</b> — con un diagrama unifilar. Regla de lectura: lo que aporta el BESS (en descarga) + lo que aporta la Red = Consumo total del sitio.</p>'+
-    '<div class="sect-h">🚦 BESS Monitor: estados de comunicación</div>'+
-    '<div class="pill-row"><span class="pill" style="background:rgba(16,185,129,.12);color:#047857;border-color:rgba(16,185,129,.3)">🟢 En línea</span><span class="pill" style="background:rgba(245,158,11,.14);color:#b45309;border-color:rgba(245,158,11,.3)">🟠 Intermitente</span><span class="pill" style="background:rgba(239,68,68,.1);color:#dc2626;border-color:rgba(239,68,68,.3)">🔴 Desconectado</span><span class="pill" style="background:rgba(124,58,237,.1);color:#6d28d9;border-color:rgba(124,58,237,.3)">🟣 Mantenimiento</span></div>'+
+    '<div class="sect-h">📡 BESS Monitor: estados de comunicación</div>'+
+    '<div class="pill-row"><span class="pill">En línea · reporta con normalidad</span><span class="pill">Intermitente · enlace inestable</span><span class="pill">Desconectado · no envía datos</span><span class="pill">En mantenimiento · fuera por trabajos programados</span></div>'+
     '<div class="ind-note">⏱️ <b>Protocolo de comunicación:</b> si un sitio se ve intermitente o desconectado <b>menos de 30 min</b>, se mantiene en observación (suele ser una interrupción momentánea de la red de datos). Si se prolonga <b>más de 30 min</b>, se acude físicamente al sitio a revisar el enlace (módem de respaldo, switch, firewall, cableado).</p></div>'; },
    test:[
-    {q:'¿Cuál plataforma vigila principalmente la CONECTIVIDAD de todos los sitios?', o:['BESS Monitor (sala de control)','SkyLink','El HMI local'], c:0, fb:'BESS Monitor confirma si cada sitio está enviando datos; no sustituye al HMI ni a SkyLink.'},
-    {q:'El cliente quiere ver el ahorro mensual y el reporte ejecutivo desde su oficina. ¿Dónde?', o:['SkyLink (plataforma en la nube)','El HMI local del tablero','El BMS del rack 3'], c:0, fb:'SkyLink es la vista en la nube: reportes, ahorro, estadísticas, accesible desde cualquier navegador.'},
-    {q:'En BESS Monitor un sitio aparece 🟠 ámbar. ¿Qué indica?', o:['Comunicación intermitente o inestable','Todo normal','Sitio en mantenimiento programado'], c:0, fb:'🟢 en línea · 🟠 intermitente · 🔴 desconectado · 🟣 mantenimiento.'},
-    {q:'Un sitio lleva 10 minutos desconectado. Según el protocolo, ¿qué haces?', o:['Lo mantienes en observación (suele ser momentáneo bajo 30 min)','Acudes de inmediato al sitio','Apagas el BESS remotamente'], c:0, fb:'Menos de 30 min: observación. Más de 30 min: se acude físicamente a revisar el enlace.'},
-    {q:'En la Pantalla General, ¿qué relación debe cumplirse?', o:['BESS (en descarga) + Red = Consumo total del sitio','Consumo = 0 siempre','BESS = Red siempre'], c:0, fb:'Lo que aporta el BESS más lo que aporta la Red cubre el consumo del sitio.'},
-    {q:'¿Para qué sirve el HMI local del sitio?', o:['Dar el detalle operativo en sitio al personal técnico','Enviar correos a dirección','Reemplazar al BESS Monitor'], c:0, fb:'El HMI es el detalle operativo en sitio; SkyLink es la vista remota/ejecutiva.'}
+    {q:'¿Qué plataforma está dedicada a vigilar la CONECTIVIDAD de todos los sitios?', o:['BESS Monitor (sala de control)','SkyLink, la plataforma en la nube','La pantalla de Comunicación del HMI local'], c:0, fb:'BESS Monitor confirma si cada sitio envía datos. SkyLink da la vista ejecutiva y el HMI es local de un solo sitio.'},
+    {q:'El cliente quiere revisar su ahorro mensual y el reporte ejecutivo desde su oficina. ¿Dónde lo obtiene?', o:['En SkyLink (plataforma en la nube)','En el HMI local del tablero del sitio','En la sala de control, con BESS Monitor'], c:0, fb:'SkyLink es la nube: reportes, ahorro y estadísticas desde cualquier navegador. El HMI es presencial y BESS Monitor es de conectividad.'},
+    {q:'En BESS Monitor un sitio aparece como "Intermitente". ¿Qué significa?', o:['Su comunicación se interrumpe de forma repetida o es inestable','Está totalmente desconectado y no envía datos','Fue puesto en mantenimiento programado'], c:0, fb:'Intermitente = enlace inestable. Si no enviara nada estaría Desconectado, y si fuera por trabajos sería Mantenimiento.'},
+    {q:'Un sitio lleva 10 minutos desconectado. Según el protocolo, ¿qué procede?', o:['Mantenerlo en observación: por debajo de 30 min suele ser una caída momentánea de la red de datos','Acudir de inmediato al sitio a revisar el enlace','Marcarlo en mantenimiento para silenciar la alerta'], c:0, fb:'Bajo 30 min: observación. Se acude al sitio si la falla pasa de 30 min; no se oculta la alerta.'},
+    {q:'En la Pantalla General, ¿qué relación se cumple durante una descarga?', o:['Lo que aporta el BESS más lo que aporta la Red es igual al Consumo del sitio','El BESS siempre debe ser igual al Consumo del sitio','La Red debe quedar en cero siempre que el BESS descargue'], c:0, fb:'BESS + Red = Consumo. El BESS cubre una parte y la Red el resto; la Red no tiene por qué ser cero.'},
+    {q:'¿Cuál es el papel del HMI local del sitio?', o:['Dar el detalle operativo en sitio al personal técnico','Enviar el reporte mensual de ahorro a dirección','Vigilar la conectividad de toda la flota'], c:0, fb:'El HMI es el detalle en sitio. El reporte de ahorro es de SkyLink y la conectividad de la flota es de BESS Monitor.'}
    ] },
 
  { id:'curvas', num:6, icon:'📈', color:'linear-gradient(135deg,#be123c,#fb7185)',
@@ -481,41 +481,44 @@ var MOD = [
     '<div class="sect-h">✅ ¿Cómo se ve un peak shaving correcto?</div>'+
     '<p class="lp">Durante un evento de descarga que funciona bien: la <b>curva del BESS sube</b> (entrega), la <b>curva de la RED baja</b> hacia el límite de demanda contratada, y el <b>SOC desciende</b> de forma proporcional a la energía entregada. Si el BESS sube pero la red no baja, o el SOC no se mueve, algo no está bien y hay que revisar.</p>'; },
    test:[
-    {q:'En la curva, la DESCARGA del BESS se grafica…', o:['Positiva, hacia arriba (+): está entregando energía','Negativa, hacia abajo','Siempre en cero'], c:0, fb:'Descarga = positiva/arriba (entrega). Carga = negativa/abajo (toma).'},
-    {q:'¿Y la CARGA del BESS?', o:['Negativa, hacia abajo (−): está tomando energía','Positiva, hacia arriba','No aparece en la curva'], c:0, fb:'Carga = negativa/abajo; el BESS está absorbiendo energía.'},
-    {q:'Durante una descarga, ¿qué le pasa al SOC?', o:['Baja, proporcional a la energía entregada','Sube','Se queda igual'], c:0, fb:'Al entregar energía, el SOC desciende proporcionalmente.'},
-    {q:'¿Cómo luce un peak shaving correcto?', o:['El BESS sube mientras la RED baja hacia la demanda contratada y el SOC desciende','El BESS y la RED suben juntos','Nada se mueve'], c:0, fb:'BESS ▲, RED ▼ hacia el límite, SOC ▼. Esa es la firma de un recorte bien hecho.'},
-    {q:'En Tendencias, la curva roja representa…', o:['El BESS (lo que entrega o absorbe la batería)','La demanda del sitio','El SOC'], c:0, fb:'Carga=cian, RED=verde, BESS=rojo, SOC=amarillo.'},
-    {q:'El BESS marca descarga (+) pero la curva de la RED no baja. ¿Qué piensas?', o:['Algo no cuadra: hay que revisar (medición, PCS o la propia lectura)','Es normal, así debe ser','Significa que el SOC está al 100%'], c:0, fb:'Si descarga pero la red no baja, la lógica de recorte no está teniendo efecto: a investigar.'}
+    {q:'¿Cómo se grafica la DESCARGA del BESS?', o:['Positiva, hacia arriba (+): el BESS está entregando energía','Negativa, hacia abajo (−): el BESS está entregando energía','Positiva, hacia arriba (+): el BESS está tomando energía'], c:0, fb:'Descarga = positiva (arriba) y significa entregar. Ni el signo ni el significado deben invertirse.'},
+    {q:'¿Y cómo se grafica la CARGA del BESS?', o:['Negativa, hacia abajo (−): el BESS está tomando energía','Positiva, hacia arriba (+): el BESS está tomando energía','Negativa, hacia abajo (−): el BESS está entregando energía'], c:0, fb:'Carga = negativa (abajo) y significa tomar energía. Cuidado con mezclar signo y significado.'},
+    {q:'Durante una descarga sostenida, ¿qué le pasa al SOC?', o:['Baja, de forma proporcional a la energía entregada','Sube, porque el PCS recupera energía de la red','Se mantiene constante mientras dure la descarga'], c:0, fb:'Entregar energía vacía la batería: el SOC baja. No sube ni se queda igual durante la descarga.'},
+    {q:'¿Cómo luce un peak shaving que está funcionando bien?', o:['El BESS sube, la RED baja hacia el límite de demanda y el SOC desciende','El BESS y la RED suben juntos mientras el SOC sube','El BESS baja y la RED sube mientras el SOC se mantiene'], c:0, fb:'La firma correcta: BESS ▲, RED ▼ y SOC ▼. Si el SOC no baja o la RED no cae, el recorte no está ocurriendo.'},
+    {q:'En la pantalla de Tendencias, ¿cuál curva corresponde a lo que entrega o absorbe la batería?', o:['La curva del BESS','La curva de la demanda del sitio (Carga)','La curva del SOC'], c:0, fb:'La curva del BESS es la de la batería. La de Carga es el consumo del sitio y la de SOC es el estado de carga.'},
+    {q:'El BESS marca descarga (+) pero la curva de la RED no baja. ¿Qué concluyes?', o:['Algo no cuadra: hay que revisar la medición, el PCS o la propia lectura','Es normal cuando el SOC está por encima del 90%','Significa que la estrategia está en potencia fija y es correcto'], c:0, fb:'Si el BESS entrega, la RED debería bajar. Que no baje no es normal ni lo justifica el SOC ni la estrategia: a investigar.'}
    ] },
 
  { id:'alarm', num:7, icon:'🚨', color:'linear-gradient(135deg,#dc2626,#f87171)',
-   title:'Alarmas y seguridad', sub:'Tipos, ciclo y cómo quitarlas',
+   title:'Alarmas y seguridad', sub:'Qué alarmas tenemos, cuáles son críticas y cómo quitarlas',
    lesson:function(){ return ''+
-    '<p class="lp">Una <b>alarma</b> es el aviso del sistema de que una variable supervisada salió de su rango normal. Saber <b>identificarlas</b> y <b>atenderlas en orden</b> es central en el monitoreo.</p>'+
-    '<div class="sect-h">🏷️ Tipos de alarma que puedes identificar</div>'+
+    '<p class="lp">Una <b>alarma</b> avisa que una variable salió de su rango normal. En el monitoreo el trabajo es <b>ver qué alarmas tenemos y clasificarlas</b>: ¿son <b>críticas</b> o son solo <b>avisos</b>? De esa lectura depende qué se hace con cada una.</p>'+
+    '<div class="sect-h">⛔ Alarmas críticas vs. avisos</div>'+
+    '<p class="lp"><b>Críticas:</b> las que nos dejan <b>sin poder accionar o controlar el sistema</b>, o que indican que un equipo dejó de operar. Las más importantes:</p>'+
     '<div class="ind-grid">'+
-      '<div class="ind-term"><b>De batería</b><span>Celda alta/baja, sobretemperatura, aislamiento bajo.</span></div>'+
-      '<div class="ind-term"><b>De comunicación</b><span>Se pierde el enlace BMS ↔ controlador / sitio sin reportar.</span></div>'+
-      '<div class="ind-term"><b>De PCS</b><span>Falla del inversor o derrateo (reduce potencia como protección).</span></div>'+
-      '<div class="ind-term"><b>De FSS / seguridad</b><span>Humo, disparo del sistema, puerta, paro de emergencia.</span></div>'+
-      '<div class="ind-term"><b>De rack</b><span>Rack desconectado: su contactor se abrió y no aporta energía.</span></div>'+
+      '<div class="ind-term" style="border-left-color:#dc2626"><b>Pérdida de comunicación con el PCS o el BMS</b><span>Crítica: sin comunicación no podemos accionar ni controlar el sistema.</span></div>'+
+      '<div class="ind-term" style="border-left-color:#dc2626"><b>PCS apagado</b><span>Alarmante: el convertidor no está operando; el sitio deja de entregar o recibir energía.</span></div>'+
+      '<div class="ind-term" style="border-left-color:#dc2626"><b>PCS en falla (Fault)</b><span>Alarmante: el PCS se detuvo por una falla y deja de convertir energía.</span></div>'+
     '</div>'+
-    '<div class="sect-h">🔄 El ciclo de una alarma</div>'+
+    '<p class="lp"><b>Avisos (no críticos):</b> condiciones informativas o menores que no ponen en riesgo la operación. Se <b>mencionan y se registran</b> para seguimiento, sin acción urgente.</p>'+
+    '<div class="sect-h">🧭 Cómo quitar una alarma — el procedimiento</div>'+
     figAlarm()+
-    '<p class="lp">El orden <b>siempre</b> es: <b>1)</b> el sistema <b>detecta</b> y <b>2) anuncia</b> (ícono ámbar + registro en la tabla con su severidad); <b>3)</b> el operador <b>acusa recibo (Ack)</b> — confirma que la vio; <b>4)</b> se atiende la <b>causa raíz</b> (se corrige la condición física que la originó); <b>5)</b> recién entonces se hace <b>Reset</b> para rearmar el sistema.</p>'+
-    '<div class="ind-note warn">💡 <b>Ack ≠ Reset.</b> El <b>Ack</b> solo dice "ya la vi". El <b>Reset</b> rearma el sistema y <b>solo debe hacerse cuando la causa ya está resuelta</b> — nunca para "quitar" una alarma cuya causa sigue presente.</p></div>'+
-    '<div class="sect-h">🆘 Escalamiento</div>'+
-    '<p class="lp">Si la alarma corresponde a una <b>condición física del equipo</b> (temperatura, enfriamiento, aislamiento) y no se resuelve de forma remota, se <b>escala al proveedor de mantenimiento</b>. Un indicador de <b>FSS en rojo</b> requiere <b>atención inmediata</b>. Todo evento se documenta en el checklist y el Reporte Operativo.</p>'; },
+    '<p class="lp">En la pantalla de <b>Alarmas</b>: <b>1)</b> revisa qué alarmas hay y su severidad; <b>2) selecciona</b> la(s) alarma(s); <b>3)</b> dale <b>Ack</b> (acuse de recibo); <b>4)</b> dale <b>Reset</b>. Después, <b>5)</b> ve a <b>Configuración</b> y dale <b>Reset</b> también, para rearmar el sistema por completo.</p>'+
+    '<div class="ind-note warn">🔑 <b>El Reset solo rearma; la causa debe estar resuelta antes.</b> Si la alarma vuelve a saltar después del Reset (en Alarmas y en Configuración), la condición de fondo sigue presente.</p></div>'+
+    '<div class="sect-h">🆘 Qué hacer según la severidad</div>'+
+    '<div class="ind-grid">'+
+      '<div class="ind-term"><b>Si es un aviso</b><span>No es crítico: se menciona y se registra en el checklist / Reporte Operativo. Seguimiento normal.</span></div>'+
+      '<div class="ind-term"><b>Si es crítica</b><span>Se escala con el jefe y, si no se resuelve en remoto, se pide apoyo en sitio o se acude a atenderla físicamente.</span></div>'+
+    '</div>'; },
    test:[
-    {q:'¿Qué tipos de alarma puedes llegar a identificar en un sitio?', o:['De batería, de comunicación, de PCS, de FSS/seguridad y de rack desconectado','Solo de temperatura','Ninguna, el sistema no alarma'], c:0, fb:'Batería (celda/temp/aislamiento), comunicación, PCS, FSS/seguridad y rack desconectado.'},
-    {q:'¿Cuál es el orden correcto para atender una alarma?', o:['Detectar → anunciar → Ack → atender causa raíz → Reset','Reset primero y luego revisar','Ignorarla si el sistema sigue encendido'], c:0, fb:'Primero identificar y acusar, luego corregir la causa física, y hasta el final Reset.'},
-    {q:'¿Cuál es la diferencia entre Ack y Reset?', o:['Ack = "ya la vi"; Reset = rearmar el sistema, solo cuando la causa ya se resolvió','Son lo mismo','Reset se hace antes que Ack'], c:0, fb:'Ack confirma la notificación; Reset rearma y solo va tras resolver la causa.'},
-    {q:'Un indicador del FSS aparece en rojo. ¿Qué haces?', o:['Atención inmediata — es seguridad contra incendio','Lo dejas para después','Haces Reset sin revisar'], c:0, fb:'FSS en rojo es prioridad de seguridad: atención inmediata.'},
-    {q:'Una alarma es por temperatura de celda y no se resuelve remotamente. ¿Qué procede?', o:['Escalar al proveedor de mantenimiento y documentar el evento','Hacer Reset repetidamente hasta que se quite','Apagar el HMI'], c:0, fb:'Condición física no resuelta remotamente → escalar a mantenimiento + documentar.'},
-    {q:'¿Qué significa un "rack desconectado"?', o:['Su contactor principal se abrió y el rack no aporta ni recibe energía','El rack está cargando a tope','El rack cambió de marca'], c:0, fb:'Rack desconectado = contactor abierto; hay que darle seguimiento.'},
-    {q:'¿Está bien hacer Reset mientras la causa de la alarma sigue presente?', o:['No: el Reset solo se hace una vez resuelta la causa','Sí, siempre','Sí, si el sistema sigue encendido'], c:0, fb:'Resetear sin resolver la causa solo oculta el problema; primero se corrige.'},
-    {q:'Tras atender una alarma, ¿qué no debe faltar?', o:['Registrarla en el checklist / Reporte Operativo','Nada, con resolverla basta','Cambiar la contraseña del HMI'], c:0, fb:'Todo evento se documenta: así queda constancia y seguimiento.'}
+    {q:'Llegas a la pantalla de Alarmas y hay varias activas. ¿Qué es lo primero que haces?', o:['Revisar qué alarmas hay y clasificar su severidad: si son críticas o solo avisos','Darle Reset a todas de inmediato para limpiarlas','Reiniciar el HMI para que desaparezcan'], c:0, fb:'Primero se lee y se clasifica (crítica vs aviso); eso define la acción. No se resetea a ciegas.'},
+    {q:'¿Cuál es el procedimiento correcto para quitar una alarma?', o:['Seleccionarla → Ack → Reset, y luego ir a Configuración y dar Reset también','Darle Reset directo en Configuración, sin acusarla','Darle Ack y dejarla así, sin Reset'], c:0, fb:'El flujo completo: seleccionar → Ack → Reset en Alarmas, y después Reset en Configuración para rearmar todo.'},
+    {q:'¿Cuál de estas es una alarma CRÍTICA?', o:['Pérdida de comunicación con el PCS o el BMS','Un aviso informativo de rutina','Una lectura que está dentro de su rango normal'], c:0, fb:'Perder comunicación con el PCS o el BMS es crítico: sin comunicación no podemos accionar ni controlar el sistema.'},
+    {q:'¿Por qué la pérdida de comunicación con el BMS o el PCS se considera crítica?', o:['Porque sin comunicación no podemos accionar ni controlar el sistema','Porque la batería se descarga sola de inmediato','Porque CFE corta el suministro al sitio'], c:0, fb:'Lo crítico es quedarnos sin capacidad de accionar/controlar el equipo, no una descarga ni un corte de CFE.'},
+    {q:'El PCS de un sitio se apagó o reporta falla (Fault). ¿Cómo lo tratas?', o:['Como condición alarmante: el convertidor dejó de operar y hay que atenderlo o escalarlo','Como un aviso menor que solo se registra','Se ignora si el resto del sitio sigue en línea'], c:0, fb:'Un PCS apagado o en Fault deja de convertir energía: es alarmante y se atiende, no se ignora.'},
+    {q:'Identificas una alarma que es solo un aviso (no crítico). ¿Qué procede?', o:['Mencionarla y registrarla para seguimiento, sin acción urgente','Escalarla de inmediato con el jefe y pedir apoyo en sitio','Acudir físicamente al sitio esa misma hora'], c:0, fb:'Los avisos se registran y se les da seguimiento. El escalamiento y la atención en sitio son para las críticas.'},
+    {q:'Una alarma crítica no se resuelve de forma remota. ¿Qué sigue?', o:['Escalarla con el jefe y, si hace falta, pedir apoyo en sitio o acudir a atenderla físicamente','Resetearla varias veces hasta que deje de aparecer','Silenciar las alarmas del sitio por el resto del turno'], c:0, fb:'Crítica sin solución remota → escalar con el jefe y apoyo/atención en sitio. Resetear o silenciar no corrige la causa.'},
+    {q:'Diste Reset en Alarmas y en Configuración, pero la alarma vuelve a saltar. ¿Qué significa?', o:['La causa sigue presente: el Reset solo rearma, no resuelve el problema','El sistema está dañado y hay que apagarlo','Es normal; se resetea de nuevo y se ignora'], c:0, fb:'Si reaparece, la condición de fondo no se ha resuelto. El Reset rearma; la causa hay que atenderla.'}
    ] },
 
  { id:'solar', num:8, icon:'☀️', color:'linear-gradient(135deg,#059669,#34d399)',
@@ -533,13 +536,20 @@ var MOD = [
     '<div class="sect-h">🤝 ¿Por qué BESS + solar se complementan?</div>'+
     '<div class="ind-note">☀️🔋 El solar produce de día, pero la hora punta cara suele ser al caer la tarde/noche. El <b>BESS guarda el excedente solar del día</b> y lo <b>libera en hora punta</b> o cuando ya no hay sol. Así se aprovecha energía limpia justo cuando más cuesta — una de las grandes sinergias.</p></div>'; },
    test:[
-    {q:'En un sistema fotovoltaico, ¿para qué sirve el inversor?', o:['Convertir la corriente directa (CD) de los paneles en alterna (CA) utilizable','Para almacenar la energía del sol','Para enfriar los paneles'], c:0, fb:'El panel genera CD; el inversor la convierte en CA. Es el mismo principio del PCS.'},
-    {q:'¿De qué depende principalmente cuánta energía produce un sistema solar?', o:['De la irradiación solar (día despejado, sol directo)','Solo de la temperatura ambiente','De la hora de la noche'], c:0, fb:'Depende de la irradiación. De noche no genera; por eso se combina con baterías.'},
-    {q:'¿Por qué el BESS y el solar se complementan tan bien?', o:['El BESS guarda el excedente solar del día para usarlo en hora punta o sin sol','Porque usan el mismo cable','Porque ambos enfrían el sitio'], c:0, fb:'Guardar el excedente solar y liberarlo en hora punta aprovecha energía limpia cuando más cuesta.'},
-    {q:'¿Qué produce un panel solar de noche?', o:['Prácticamente nada (no hay irradiación)','Lo mismo que de día','Más que de día'], c:0, fb:'Sin sol no hay generación; ahí entra el BESS con la energía guardada.'},
-    {q:'La corriente que entrega directamente el panel es…', o:['Corriente directa (CD/DC)','Corriente alterna (CA/AC)','Ninguna, entrega voltaje cero'], c:0, fb:'El panel entrega CD; el inversor la pasa a CA.'}
+    {q:'En un sistema fotovoltaico, ¿cuál es la función del inversor?', o:['Convertir la corriente directa (CD) de los paneles en alterna (CA) utilizable','Almacenar la energía del sol para usarla de noche','Elevar el voltaje de los paneles antes de entrar a la batería'], c:0, fb:'El inversor hace CD→CA (mismo principio que el PCS). Almacenar es tarea de la batería, no del inversor.'},
+    {q:'¿De qué depende principalmente cuánta energía produce un sistema solar?', o:['De la irradiación solar (sol directo y cielo despejado)','Del estado de carga de las baterías del sitio','De la temperatura ambiente, únicamente'], c:0, fb:'Depende de la irradiación. El SOC de las baterías no cambia la generación del panel.'},
+    {q:'¿Por qué el BESS y el solar se complementan tan bien?', o:['El BESS guarda el excedente solar del día para usarlo en hora punta o cuando ya no hay sol','Porque el solar carga la batería más rápido que la red','Porque ambos reducen la temperatura de operación del sitio'], c:0, fb:'La sinergia es temporal: se guarda energía del día y se libera cuando más cuesta. No es cuestión de velocidad ni de temperatura.'},
+    {q:'¿Qué genera un panel solar durante la noche?', o:['Prácticamente nada: sin irradiación no hay generación','Lo mismo que de día, si el inversor sigue encendido','Algo, a partir del calor acumulado en los paneles'], c:0, fb:'Sin sol no genera; por eso el BESS cubre la noche con la energía guardada. El calor no genera electricidad en un panel.'},
+    {q:'La corriente que entrega directamente un panel solar es…', o:['Corriente directa (CD/DC)','Corriente alterna (CA/AC), lista para la red','CD de día y CA de noche, según la irradiación'], c:0, fb:'El panel entrega siempre CD; el inversor la convierte en CA. No cambia de tipo según la hora.'}
    ] }
 ];
+
+/* Baraja las opciones de cada pregunta para que la correcta NO quede siempre arriba */
+(function shuffleAll(){ MOD.forEach(function(m){ m.test.forEach(function(z){
+  var correct=z.o[z.c];
+  for(var i=z.o.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=z.o[i]; z.o[i]=z.o[j]; z.o[j]=t; }
+  z.c=z.o.indexOf(correct);
+}); }); })();
 
 /* ════════════════ ESTADO Y MOTOR ════════════════ */
 var OPEN_Q = [
@@ -649,7 +659,9 @@ function renderMap(){
   var unlocked=modsDoneCount(); // índice del siguiente permitido
   var h='<div class="map-head card-anim"><div class="kick2">Tu ruta de formación</div>'+
     '<h2 class="h2">Academia Monitoreo BESS 🗺️</h2>'+
-    '<p class="lead" style="margin:0 auto">'+esc(S.name||'')+', este es tu recorrido. Cada parada tiene una lección y un test. Avanza en orden — se van desbloqueando conforme completas cada una.</p></div>'+
+    '<p class="lead" style="margin:0 auto 14px">'+esc(S.name||'')+', este es tu recorrido. Cada parada tiene una lección y un test. Avanza en orden — se van desbloqueando conforme completas cada una.</p>'+
+    '<div class="ind-note" style="max-width:640px;margin:0 auto 10px;text-align:left">📝 <b>Toma notas de lo más importante</b> de cada parada. Te van a servir cuando empieces a monitorear en vivo.</div>'+
+    '<div class="ind-note" style="max-width:640px;margin:0 auto;text-align:left">🔐 <b>Tu VPN:</b> en cuanto se habilite, vas a poder entrar a los sitios, a los PCS, a los módulos y contenedores, a los routers y demás, para empezar a <b>monitorear en vivo</b>. Este curso corre en paralelo para conocer tu nivel y que entiendas mejor lo que hacemos aquí.</div></div>'+
     '<div class="road">';
   MOD.forEach(function(m,i){
     var done=!!S.modDone[m.id];
@@ -704,7 +716,10 @@ function renderTest(){
     var click=graded?'':('onclick="tPick('+oi+')"');
     h+='<button class="'+cls+'" '+click+'><span class="dot"></span>'+esc(opt)+'</button>';
   });
-  if(graded){ var ok=S.quiz[gkey].pick===z.c; h+='<div class="qfb '+(ok?'ok':'no')+'">'+(ok?'✅ ':'💡 ')+z.fb+'</div>'; }
+  if(graded){ var ok=S.quiz[gkey].pick===z.c;
+    var msg = ok ? ('✅ <b>Correcto.</b> '+z.fb)
+      : ('❌ <b>Esa no es.</b> La que elegiste no es la respuesta; la correcta es la marcada en <b>verde</b>: «'+esc(z.o[z.c])+'». '+z.fb);
+    h+='<div class="qfb '+(ok?'ok':'no')+'">'+msg+'</div>'; }
   var last=TI>=set.length-1;
   var nextLbl=graded?(last?'Terminar parada →':'Siguiente →'):'Revisar';
   var dis=(!graded && (!S.quiz[gkey]||S.quiz[gkey].pick==null))?' disabled':'';
@@ -733,7 +748,7 @@ function renderPractica(){
   return '<div class="card-anim"><div class="kick2">Fase práctica · en construcción</div>'+
     '<h2 class="h2">🧰 Referencia práctica de operación</h2>'+
     '<p class="lead">Esta sección es el puente de la teoría a la práctica. Aquí vivirá la referencia real de cada sitio. <b>Se irá llenando con la información del equipo</b> — por ahora es la estructura.</p>'+
-    '<div class="soon-item"><b>🔐 Acceso remoto · VPN</b>Qué es la VPN, para qué sirve y los pasos para conectarse de forma segura antes de entrar a cualquier sitio.</div>'+
+    '<div class="soon-item"><b>🔐 Acceso remoto · VPN</b>Qué es la VPN y los pasos para habilitarla. Una vez habilitada, podrás acceder a los sitios, a los PCS, a los módulos y contenedores y a los routers para monitorear en vivo.</div>'+
     '<div class="soon-item"><b>🌐 Directorio de sitios · IPs</b>Lista de sitios con su IP y cómo entrar al HMI de cada uno (la IP para controlar el sistema).</div>'+
     '<div class="soon-item"><b>🔄 Acceso a los PCS (locales y modulares)</b>Cómo entrar a cada PCS, qué se ve dentro y qué acciones se pueden tomar.</div>'+
     '<div class="soon-item"><b>⚙️ Parámetros específicos</b>Cada parámetro relevante del sistema, qué significa y cuándo se ajusta (siempre con autorización).</div>'+
