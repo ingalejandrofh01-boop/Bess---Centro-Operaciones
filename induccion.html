@@ -588,6 +588,8 @@ function appAvatar(){ try{
   var ini=(parts.length>=2?parts[0][0]+parts[parts.length-1][0]:n.slice(0,2)).toUpperCase();
   return {txt:av||ini, color:color, name:n};
 }catch(e){ return null; } }
+/* Un nombre genérico (admin/operador…) NO es un nombre real: no debe quedarse como identidad. */
+function isGenericName(n){ return !String(n||'').trim() || ['admin','operador','supervisor','usuario','user','administrador'].indexOf(String(n).trim().toLowerCase())>=0; }
 
 function setProg(){
   var total=MOD.length+2; var done=modsDoneCount();
@@ -611,12 +613,12 @@ function render(){
   }
   if(VIEW==='nombre'){
     var av=appAvatar();
-    var hdr = S.name ? ('¡Hola, '+esc(S.name.split(' ')[0])+'! 👋') : '¿Cómo te llamas? 👋';
+    var hdr = S.name ? ('¡Hola, '+esc(S.name)+'! 👋') : '¿Cómo te llamas? 👋';
     var lead = S.name ? 'Tomamos tu nombre de tu perfil en Centro BESS. Si no eres tú, corrígelo.' : 'Para registrar de quién son estas respuestas.';
     h='<div class="card-anim"><div class="kick2">Primero lo primero</div><h2 class="h2">'+hdr+'</h2>'+
       '<p class="lead">'+lead+'</p>'+
       (av?'<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;background:var(--bg);border:1px solid var(--b);border-radius:14px;padding:12px 14px"><div style="width:46px;height:46px;border-radius:50%;background:'+av.color+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;flex:0 0 auto">'+esc(av.txt)+'</div><div><div style="font-weight:800;font-size:15px">'+esc(av.name)+'</div><div style="font-size:12px;color:var(--t3)">Identidad de tu perfil en Centro BESS</div></div></div>':'')+
-      '<div class="field"><label>Tu nombre</label><input class="inp" id="f-name" value="'+esc(S.name)+'" placeholder="Tu nombre completo" oninput="S.name=this.value;upNav()"></div>'+
+      '<div class="field"><label>Tu nombre</label><input class="inp" id="f-name" value="'+esc(S.name)+'" placeholder="Tu nombre completo" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" name="aca_nombre_'+Math.floor(Math.random()*1e6)+'" data-lpignore="true" data-1p-ignore data-form-type="other" readonly onfocus="this.removeAttribute(\'readonly\')" oninput="S.name=this.value;upNav()"></div>'+
       '<div class="field"><label>¿Qué rol vas a desempeñar?</label>'+chips('rol',['Monitoreo','Campo','Supervisión','Otro'])+'</div>'+
       '<div class="btn-row"><button class="btn" id="nbtn" onclick="goNivel()">Siguiente →</button></div></div>';
   }
@@ -926,7 +928,7 @@ function loadSubs(){
 loadProgress();
 /* Si la persona ya creó su identidad en Centro BESS (mismo origen), tomar su nombre
    de ahí en vez de pedir que lo "cree" de nuevo. No se usan los genéricos. */
-try{ var _av=appAvatar(); if(_av && !S.name){ S.name=_av.name; } }catch(e){}
+try{ var _av=appAvatar(); if(_av && isGenericName(S.name)){ S.name=_av.name; } else if(!_av && isGenericName(S.name)){ S.name=''; } }catch(e){}
 /* El Panel de supervisor NO tiene botón visible para quien hace el curso.
    Se entra solo por enlace discreto: induccion.html#supervisor (y pide código). */
 function _checkSupHash(){ try{ var hh=(location.hash||'').toLowerCase(); if(hh.indexOf('supervisor')>=0||hh.indexOf('panel')>=0){ openSup(); } }catch(e){} }
