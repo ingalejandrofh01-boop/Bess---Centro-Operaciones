@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1796200000';
+  var APP_VERSION = '1796800000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -6323,9 +6323,9 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2z"/></svg></div>
     <div class="nl">Cerebro BESS</div><div class="nav-tt">Cerebro de Operación · Manual Maestro</div>
   </div>
-  <div class="nav-item" data-page="induccion" onclick="goPage('induccion')">
+  <div class="nav-item" onclick="window.open('induccion.html','_blank','noopener')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
-    <div class="nl">Inducción</div><div class="nav-tt">Academia Skysense · Capacitación</div>
+    <div class="nl">Inducción</div><div class="nav-tt">Academia Skysense · Capacitación (se abre aparte) ↗</div>
   </div>
   <div class="nav-spacer" style="position:relative;overflow:hidden">
   <!-- Decorative Skysense mark in nav spacer -->
@@ -6425,259 +6425,6 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
     </button>
   </div>
 </div>
-
-<!-- ══════ PAGE: INDUCCIÓN · Academia Skysense (v147 MVP) ══════ -->
-<style>
-#page-induccion .ind-wrap{display:flex;gap:18px;max-width:1120px;margin:0 auto;padding:6px 2px 44px}
-#page-induccion .ind-rail{flex:0 0 226px;position:sticky;top:12px;align-self:flex-start;display:flex;flex-direction:column;gap:3px}
-#page-induccion .ind-rail-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);margin:0 0 8px 6px}
-#page-induccion .ind-step{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;cursor:pointer;border:1px solid transparent;transition:all .15s}
-#page-induccion .ind-step:hover{background:var(--s2)}
-#page-induccion .ind-step.active{background:var(--s2);border-color:var(--b1)}
-#page-induccion .ind-step.done .ind-step-num{background:var(--green);color:#fff;border-color:var(--green)}
-#page-induccion .ind-step.active .ind-step-num{background:var(--sky);color:#fff;border-color:var(--sky)}
-#page-induccion .ind-step-num{flex:0 0 22px;height:22px;border-radius:50%;border:1.5px solid var(--b1);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--t2)}
-#page-induccion .ind-step-lbl{font-size:12px;font-weight:600;line-height:1.2}
-#page-induccion .ind-main{flex:1;min-width:0}
-#page-induccion .ind-progress{height:6px;border-radius:4px;background:var(--s2);overflow:hidden;margin-bottom:16px}
-#page-induccion .ind-progress-bar{height:100%;background:linear-gradient(90deg,var(--sky),#4f7cff);width:0;transition:width .3s}
-#page-induccion .ind-panel{background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:30px 32px;min-height:360px}
-#page-induccion .ind-nav{display:flex;align-items:center;justify-content:space-between;margin-top:16px}
-#page-induccion .ind-nav-mid{font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:1px}
-#page-induccion .ind-btn{background:var(--sky);color:#fff;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}
-#page-induccion .ind-btn:hover{filter:brightness(1.08)}
-#page-induccion .ind-btn:disabled{opacity:.4;cursor:not-allowed}
-#page-induccion .ind-btn.ghost{background:transparent;color:var(--t2);border:1px solid var(--b1)}
-#page-induccion .ind-kicker{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--sky);font-weight:700;margin-bottom:8px}
-#page-induccion .ind-h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin:0 0 10px}
-#page-induccion .ind-lead{font-size:14px;line-height:1.6;color:var(--t2);margin:0 0 16px;max-width:62ch}
-#page-induccion .ind-card{background:var(--bg);border:1px solid var(--b1);border-radius:12px;padding:16px 18px;margin:12px 0}
-#page-induccion .ind-card h4{margin:0 0 6px;font-size:14px;font-family:var(--disp);font-weight:700}
-#page-induccion .ind-card p{margin:0;font-size:13px;line-height:1.55;color:var(--t2)}
-#page-induccion .ind-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0}
-#page-induccion .ind-term{background:var(--bg);border:1px solid var(--b1);border-left:3px solid var(--sky);border-radius:8px;padding:12px 14px}
-#page-induccion .ind-term b{display:block;font-size:13px;margin-bottom:3px}
-#page-induccion .ind-term span{font-size:12px;color:var(--t2);line-height:1.5}
-#page-induccion .ind-flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:16px 0}
-#page-induccion .ind-flow-box{flex:1;min-width:90px;text-align:center;background:var(--bg);border:1.5px solid var(--b1);border-radius:10px;padding:12px 8px}
-#page-induccion .ind-flow-box b{display:block;font-size:13px}
-#page-induccion .ind-flow-box span{font-size:10px;color:var(--t3);font-family:var(--mono)}
-#page-induccion .ind-flow-arr{color:var(--sky);font-weight:800;font-size:18px}
-#page-induccion .ind-quiz-q{margin-bottom:22px}
-#page-induccion .ind-quiz-q h4{font-size:14px;margin:0 0 10px;font-family:var(--disp);font-weight:700}
-#page-induccion .ind-opt{display:block;width:100%;text-align:left;background:var(--bg);border:1.5px solid var(--b1);border-radius:9px;padding:11px 14px;margin-bottom:7px;font-size:13px;cursor:pointer;transition:all .12s;color:inherit;font-family:inherit}
-#page-induccion .ind-opt:hover{border-color:var(--sky)}
-#page-induccion .ind-opt.sel{border-color:var(--sky);background:rgba(26,63,204,.07)}
-#page-induccion .ind-opt.correct{border-color:var(--green);background:rgba(16,185,129,.12)}
-#page-induccion .ind-opt.wrong{border-color:var(--red);background:rgba(220,38,38,.09)}
-#page-induccion .ind-pq{margin-bottom:18px}
-#page-induccion .ind-pq label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}
-#page-induccion .ind-chip-row{display:flex;flex-wrap:wrap;gap:8px}
-#page-induccion .ind-chip{background:var(--bg);border:1.5px solid var(--b1);border-radius:20px;padding:7px 14px;font-size:12px;cursor:pointer;transition:all .12s}
-#page-induccion .ind-chip:hover{border-color:var(--sky)}
-#page-induccion .ind-chip.sel{background:var(--sky);color:#fff;border-color:var(--sky)}
-#page-induccion .ind-input{width:100%;padding:10px 12px;border:1.5px solid var(--b1);border-radius:9px;background:var(--bg);font-size:13px;color:inherit;box-sizing:border-box;font-family:inherit}
-#page-induccion .ind-cert{background:linear-gradient(135deg,#0b1f4d,#1a3fcc);color:#fff;border-radius:14px;padding:26px 28px;text-align:center;margin-top:12px}
-#page-induccion .ind-cert .cl{font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;opacity:.8}
-#page-induccion .ind-cert .cn{font-family:var(--disp);font-size:24px;font-weight:800;margin:8px 0}
-#page-induccion .ind-note{background:rgba(26,63,204,.06);border:1px solid rgba(26,63,204,.2);border-radius:10px;padding:12px 15px;font-size:13px;line-height:1.5;color:var(--t2)}
-@media(max-width:760px){#page-induccion .ind-wrap{flex-direction:column}#page-induccion .ind-rail{position:static;flex-direction:row;overflow-x:auto;flex:none}#page-induccion .ind-step-lbl{display:none}#page-induccion .ind-panel{padding:22px 18px}}
-</style>
-<div class="page" id="page-induccion">
-  <div class="ind-wrap">
-    <aside class="ind-rail">
-      <div class="ind-rail-title">Ruta de inducción</div>
-      <div id="ind-rail-steps"></div>
-    </aside>
-    <main class="ind-main">
-      <div class="ind-progress"><div class="ind-progress-bar" id="ind-prog"></div></div>
-      <div class="ind-panel" id="ind-panel"></div>
-      <div class="ind-nav">
-        <button class="ind-btn ghost" id="ind-prev" onclick="window._indPrev()">← Anterior</button>
-        <div class="ind-nav-mid" id="ind-step-label"></div>
-        <button class="ind-btn" id="ind-next" onclick="window._indNext()">Siguiente →</button>
-      </div>
-    </main>
-  </div>
-</div>
-<script>
-(function(){
-  var LS='skysense:induccion:v1';
-  var STEPS=[
-    {key:'welcome',label:'Bienvenida'},
-    {key:'profile',label:'Sobre ti'},
-    {key:'m1',label:'Módulo 1 · Qué es un BESS'},
-    {key:'m2',label:'Módulo 2 · Cómo funciona'},
-    {key:'quiz',label:'Evaluación'},
-    {key:'done',label:'Resultado'}
-  ];
-  var QUIZ=[
-    {q:'¿Qué indica el SOC (State of Charge)?',o:['La energía disponible en la batería en este momento','La salud o degradación de la batería','La temperatura de los racks','El voltaje de la red de CFE'],c:0},
-    {q:'¿En qué unidad se mide la ENERGÍA almacenada de un BESS?',o:['kW (kilowatts)','kWh (kilowatt-hora)','Amperes (A)','Volts (V)'],c:1},
-    {q:'Ordena de la pieza más pequeña a la más grande:',o:['Contenedor → Rack → Módulo → Celda','Celda → Módulo → Rack → Contenedor','Módulo → Celda → Rack → Contenedor','Rack → Módulo → Celda → Contenedor'],c:1},
-    {q:'En "peak shaving", el BESS descarga principalmente para…',o:['Calentar los racks','Reducir el pico de demanda que se le toma a CFE','Cargar otros BESS','Subir el voltaje de la celda'],c:1},
-    {q:'La "demanda contratada" de un sitio es…',o:['El límite de potencia que el cliente acordó con CFE y no se debe exceder','La energía total de la batería','La temperatura máxima permitida','El número de racks del sistema'],c:0}
-  ];
-  var st={step:0,name:'',profile:{},quizAns:{},quizGraded:false};
-  try{var s=JSON.parse(localStorage.getItem(LS)||'{}');if(s&&typeof s==='object')st=Object.assign(st,s);}catch(e){}
-  function save(){try{localStorage.setItem(LS,JSON.stringify(st));}catch(e){}}
-  function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-  function nivel(){
-    var e=st.profile.elec||'', b=st.profile.bess||'';
-    if(e==='Ingeniería'||e==='Técnica') return b==='Sí, bastante'?'avanzado':'intermedio';
-    if(e==='Básica') return 'intermedio';
-    return 'inicial';
-  }
-  function nivelMsg(){
-    var n=nivel();
-    if(n==='avanzado') return 'Tienes base técnica sólida, así que iremos rápido en los fundamentos y haremos <b>énfasis en los protocolos de Skysense</b>: alarmas, incidencias, tickets y escalamiento.';
-    if(n==='intermedio') return 'Tienes algo de base, así que reforzaremos los fundamentos clave y nos enfocaremos en <b>cómo operamos en Skysense</b> y los protocolos.';
-    return 'Partiremos desde cero, paso a paso. No te preocupes si algo no te suena: <b>la inducción está pensada para enseñarte todo lo necesario</b>.';
-  }
-
-  // ── Renderers de cada paso ─────────────────────────────────
-  function rWelcome(){
-    return '<div class="ind-kicker">Academia Skysense</div>'+
-      '<h1 class="ind-h1">Bienvenido a Skysense ⚡</h1>'+
-      '<p class="ind-lead">Somos el equipo de <b>monitoreo y operación (O&amp;M) de sistemas de almacenamiento de energía en baterías (BESS)</b>. Vigilamos que las baterías de nuestros clientes carguen y descarguen correctamente, detectamos fallas a tiempo y mantenemos todo operando de forma segura y confiable.</p>'+
-      '<div class="ind-card"><h4>¿Qué vas a aprender en esta inducción?</h4><p>Qué es un BESS y cómo funciona, cómo leemos los sistemas, y lo más importante: <b>los protocolos</b> — cómo atender alarmas, detectar incidencias, levantar tickets y cuándo escalar. No se trata de "llegar y mover cosas", sino de operar con criterio y seguridad.</p></div>'+
-      '<div class="ind-note">⏱ Toma unos 15-20 minutos. Tu avance se guarda solo, puedes salir y volver cuando quieras.</div>';
-  }
-  function chipRow(field,opts){
-    return '<div class="ind-chip-row">'+opts.map(function(o){
-      var sel=st.profile[field]===o?' sel':'';
-      return '<div class="ind-chip'+sel+'" onclick="window._indPick(\''+field+'\',\''+esc(o).replace(/\'/g,"\\'")+'\')">'+esc(o)+'</div>';
-    }).join('')+'</div>';
-  }
-  function rProfile(){
-    return '<div class="ind-kicker">Paso 1 · Sobre ti</div>'+
-      '<h1 class="ind-h1">Cuéntanos de dónde partes</h1>'+
-      '<p class="ind-lead">Con esto ajustamos qué tanto énfasis hacer en cada tema. No hay respuestas buenas ni malas.</p>'+
-      '<div class="ind-pq"><label>¿Cómo te llamas?</label><input class="ind-input" id="ind-name" value="'+esc(st.name)+'" placeholder="Tu nombre" oninput="window._indName(this.value)"></div>'+
-      '<div class="ind-pq"><label>¿Tienes formación o experiencia en electricidad/electrónica?</label>'+chipRow('elec',['Ninguna','Básica','Técnica','Ingeniería'])+'</div>'+
-      '<div class="ind-pq"><label>¿Has trabajado antes con baterías o BESS?</label>'+chipRow('bess',['No','Un poco','Sí, bastante'])+'</div>'+
-      '<div class="ind-pq"><label>¿Sabes leer una gráfica de voltaje, corriente o SOC?</label>'+chipRow('graf',['No','Más o menos','Sí'])+'</div>'+
-      '<div class="ind-pq"><label>¿Qué rol vas a desempeñar?</label>'+chipRow('rol',['Monitoreo','Campo','Supervisión'])+'</div>';
-  }
-  function rM1(){
-    return '<div class="ind-kicker">Módulo 1</div>'+
-      '<h1 class="ind-h1">¿Qué es un BESS?</h1>'+
-      '<p class="ind-lead">BESS significa <b>Battery Energy Storage System</b> (Sistema de Almacenamiento de Energía en Baterías). En pocas palabras: una batería gigante que <b>guarda energía</b> cuando sobra o es barata, y la <b>entrega</b> cuando se necesita.</p>'+
-      '<h4 style="font-family:var(--disp);margin:18px 0 4px">De lo más pequeño a lo más grande</h4>'+
-      '<div class="ind-flow">'+
-        '<div class="ind-flow-box"><b>Celda</b><span>la unidad mínima (LFP)</span></div><div class="ind-flow-arr">→</div>'+
-        '<div class="ind-flow-box"><b>Módulo</b><span>varias celdas</span></div><div class="ind-flow-arr">→</div>'+
-        '<div class="ind-flow-box"><b>Rack</b><span>varios módulos</span></div><div class="ind-flow-arr">→</div>'+
-        '<div class="ind-flow-box"><b>Contenedor</b><span>varios racks</span></div>'+
-      '</div>'+
-      '<p class="ind-lead" style="margin-top:4px">Nuestras baterías usan química <b>LFP</b> (litio-ferrofosfato): segura y de larga vida. Un sitio puede tener varios racks, y la suma de todos da la <b>energía total</b>.</p>'+
-      '<h4 style="font-family:var(--disp);margin:18px 0 4px">Tres términos que vas a oír todo el día</h4>'+
-      '<div class="ind-grid">'+
-        '<div class="ind-term"><b>SOC — Estado de Carga</b><span>Cuánta energía le queda a la batería <i>ahora</i>, en %. 100% = llena, 0% = vacía.</span></div>'+
-        '<div class="ind-term"><b>SOH — Estado de Salud</b><span>Qué tan "nueva" sigue la batería. Baja lentamente con los años de uso.</span></div>'+
-        '<div class="ind-term"><b>DOD — Profundidad de Descarga</b><span>Cuánto se descargó en un evento. Si va de 100% a 10%, el DOD fue 90%.</span></div>'+
-      '</div>'+
-      '<div class="ind-note">⚡ <b>kW vs kWh:</b> el <b>kW</b> es <i>potencia</i> (qué tan rápido entrega energía, como la "fuerza"). El <b>kWh</b> es <i>energía</i> (cuánta cabe en total, como el "tamaño del tanque"). No los confundas: es el error más común al empezar.</div>';
-  }
-  function rM2(){
-    return '<div class="ind-kicker">Módulo 2</div>'+
-      '<h1 class="ind-h1">¿Cómo funciona un día de operación?</h1>'+
-      '<p class="ind-lead">El BESS tiene dos momentos: <b>carga</b> (de madrugada, cuando la energía es barata) y <b>descarga</b> (en la tarde-noche, en el horario de mayor costo). A eso le llamamos <b>peak shaving</b>: usar la batería para no pagar los picos caros de CFE.</p>'+
-      '<svg viewBox="0 0 320 120" style="width:100%;max-width:440px;height:auto;margin:8px 0;background:var(--bg);border:1px solid var(--b1);border-radius:10px" preserveAspectRatio="xMidYMid meet">'+
-        '<polyline points="10,30 90,30 110,90 230,90 250,30 310,30" fill="none" stroke="#1a3fcc" stroke-width="2.5"/>'+
-        '<text x="40" y="22" font-size="9" fill="#1a3fcc" font-family="monospace">CARGA</text>'+
-        '<text x="150" y="104" font-size="9" fill="#dc2626" font-family="monospace">DESCARGA 18:00–22:00</text>'+
-        '<text x="258" y="22" font-size="9" fill="#1a3fcc" font-family="monospace">CARGA</text>'+
-      '</svg>'+
-      '<h4 style="font-family:var(--disp);margin:14px 0 4px">Piezas clave</h4>'+
-      '<div class="ind-grid">'+
-        '<div class="ind-term"><b>PCS / Inversor</b><span>Convierte la energía entre la batería (CD) y la red (CA). Es el "traductor" entre el BESS y CFE.</span></div>'+
-        '<div class="ind-term"><b>Red CFE</b><span>La red eléctrica. El sitio toma energía de CFE para cargar y para su consumo normal.</span></div>'+
-        '<div class="ind-term"><b>Demanda contratada</b><span>El límite de potencia (kW) que el cliente acordó con CFE. <b>No se debe exceder.</b></span></div>'+
-      '</div>'+
-      '<div class="ind-note">🎯 <b>Por qué importa tu monitoreo:</b> si durante la carga el sitio jala más potencia de la red que su demanda contratada, el cliente paga penalizaciones. Parte de nuestro trabajo es vigilar que eso <b>no pase</b> y reportarlo si ocurre.</div>';
-  }
-  function rQuiz(){
-    var h='<div class="ind-kicker">Evaluación</div><h1 class="ind-h1">Comprueba lo que aprendiste</h1>'+
-      '<p class="ind-lead">5 preguntas de los Módulos 1 y 2. Necesitas <b>4 de 5</b> para aprobar. Puedes repetirla las veces que quieras.</p>';
-    QUIZ.forEach(function(q,qi){
-      h+='<div class="ind-quiz-q"><h4>'+(qi+1)+'. '+esc(q.q)+'</h4>';
-      q.o.forEach(function(opt,oi){
-        var cls='ind-opt', sel=st.quizAns[qi]===oi;
-        if(st.quizGraded){ if(oi===q.c) cls+=' correct'; else if(sel) cls+=' wrong'; }
-        else if(sel) cls+=' sel';
-        h+='<button class="'+cls+'" onclick="window._indAns('+qi+','+oi+')">'+esc(opt)+'</button>';
-      });
-      h+='</div>';
-    });
-    if(st.quizGraded){
-      var sc=indScore();
-      h+='<div class="ind-note" style="border-color:'+(sc>=4?'rgba(16,185,129,.4)':'rgba(220,38,38,.4)')+'">'+(sc>=4?'✅':'⚠️')+' Obtuviste <b>'+sc+' de 5</b>. '+(sc>=4?'¡Aprobado! Continúa al resultado.':'Repasa los módulos y vuelve a intentarlo (puedes cambiar respuestas y recalificar).')+'</div>';
-    }
-    return h;
-  }
-  function indScore(){var n=0;QUIZ.forEach(function(q,qi){if(st.quizAns[qi]===q.c)n++;});return n;}
-  function rDone(){
-    var sc=indScore(), ok=sc>=4;
-    var h='<div class="ind-kicker">Resultado</div><h1 class="ind-h1">'+(ok?'¡Felicidades, '+esc(st.name||'')+'! 🎉':'Casi lo logras')+'</h1>';
-    if(ok){
-      h+='<p class="ind-lead">Completaste el MVP de la inducción con <b>'+sc+'/5</b>. Ya tienes las bases de qué es un BESS y cómo opera. El siguiente paso serán los módulos de <b>sistemas y protocolos</b> (alarmas, incidencias, tickets, escalamiento y seguridad).</p>'+
-        '<div class="ind-cert"><div class="cl">Constancia de inducción · Skysense</div><div class="cn">'+esc(st.name||'Nuevo integrante')+'</div><div style="font-size:12px;opacity:.85">Módulos 1 y 2 · Fundamentos BESS · '+new Date().toLocaleDateString('es-MX')+'</div></div>'+
-        '<div class="ind-note" style="margin-top:14px">📜 La constancia descargable en PDF y el guardado de avance por persona se habilitarán en la siguiente fase.</div>';
-    } else {
-      h+='<p class="ind-lead">Obtuviste <b>'+sc+'/5</b>. Te faltó poco — regresa a la evaluación o repasa los módulos. Puedes reintentar las veces que quieras.</p>';
-    }
-    h+='<div class="ind-note" style="margin-top:14px;background:var(--bg)"><b>Tu ruta sugerida</b> (según lo que nos contaste): '+nivelMsg()+'</div>';
-    return h;
-  }
-
-  function render(){
-    var panel=document.getElementById('ind-panel'); if(!panel) return;
-    var k=STEPS[st.step].key, html='';
-    if(k==='welcome')html=rWelcome();
-    else if(k==='profile')html=rProfile();
-    else if(k==='m1')html=rM1();
-    else if(k==='m2')html=rM2();
-    else if(k==='quiz')html=rQuiz();
-    else if(k==='done')html=rDone();
-    panel.innerHTML=html;
-    // rail
-    var rail=document.getElementById('ind-rail-steps');
-    rail.innerHTML=STEPS.map(function(s,i){
-      var cls='ind-step'+(i===st.step?' active':'')+(i<st.step?' done':'');
-      var num=i<st.step?'✓':(i+1);
-      return '<div class="'+cls+'" onclick="window._indGo('+i+')"><div class="ind-step-num">'+num+'</div><div class="ind-step-lbl">'+s.label+'</div></div>';
-    }).join('');
-    // progress
-    var prog=document.getElementById('ind-prog'); if(prog) prog.style.width=((st.step)/(STEPS.length-1)*100)+'%';
-    var lbl=document.getElementById('ind-step-label'); if(lbl) lbl.textContent='Paso '+(st.step+1)+' de '+STEPS.length;
-    var prev=document.getElementById('ind-prev'); if(prev) prev.disabled=st.step===0;
-    var next=document.getElementById('ind-next');
-    if(next){
-      if(k==='quiz'){
-        var allAns=QUIZ.every(function(q,qi){return st.quizAns[qi]!=null;});
-        if(!st.quizGraded){ next.textContent='Calificar ✓'; next.disabled=!allAns; }
-        else { next.textContent='Ver resultado →'; next.disabled=false; }
-      } else if(k==='done'){ next.textContent='Terminar'; next.disabled=false; }
-      else { next.textContent='Siguiente →'; next.disabled=false; }
-    }
-  }
-
-  window._indInit=function(){ render(); };
-  window._indGo=function(i){ if(i<0||i>=STEPS.length)return; st.step=i; save(); render(); };
-  window._indPrev=function(){ if(st.step>0){st.step--;save();render();} };
-  window._indNext=function(){
-    var k=STEPS[st.step].key;
-    if(k==='quiz' && !st.quizGraded){ st.quizGraded=true; save(); render(); return; }
-    if(st.step<STEPS.length-1){ st.step++; save(); render(); }
-    else { if(typeof showToast==='function') showToast('✅ Inducción (MVP) completada'); }
-  };
-  window._indName=function(v){ st.name=v; save(); };
-  window._indPick=function(f,v){ st.profile[f]=v; save(); render(); };
-  window._indAns=function(qi,oi){ if(st.quizGraded)return; st.quizAns[qi]=oi; save(); render(); };
-})();
-</script>
 
 <!-- ══════ PAGE: DASHBOARD ══════ -->
 <div class="page active" id="page-dash">
@@ -15831,7 +15578,7 @@ async function _afterDelete(msg){
 }
 
 // PAGE SWITCHING
-const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario de Reportes',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidores CFE',fp:'Factor de Potencia',maestra:'Lista Maestra',cerebro:'Cerebro BESS',induccion:'Inducción Skysense'};
+const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario de Reportes',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidores CFE',fp:'Factor de Potencia',maestra:'Lista Maestra',cerebro:'Cerebro BESS'};
 function updateTopbarTitle(id){
   var t=document.getElementById('tb-title');if(!t)return;
   var title=PAGE_TITLES[id]||id;
@@ -15855,7 +15602,6 @@ function goPage(id){
   if(id==='cerebro'){setTimeout(function(){if(window.cerebroInit)window.cerebroInit();},80);}
   if(id==='medidor'){setTimeout(function(){if(window._mbInit)window._mbInit();},80);}
   if(id==='fp'){setTimeout(function(){if(window._fpInit)window._fpInit();},80);}
-  if(id==='induccion'){if(window._indInit)window._indInit();}
 }
 
 // DASHBOARD
