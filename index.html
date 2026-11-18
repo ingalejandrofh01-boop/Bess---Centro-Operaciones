@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1796800000';
+  var APP_VERSION = '1796990000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -38426,6 +38426,63 @@ function _opProFilenameBase(){
   return 'BESS_ReporteDescarga_'+ds;
 }
 
+/* Autoguardado al CALENDARIO al exportar (PNG/PDF). El usuario pidió que cada
+   vez que descargue el reporte quede guardado solo en el calendario, con la
+   fecha correcta (la de hoy). A diferencia de opSave(), este NO cierra el
+   modal, NO resetea opW ni navega — el usuario sigue en su reporte. Reutiliza
+   la misma lógica de "un reporte por día+periodo" (reemplaza el de esa fecha,
+   no duplica) y el mismo push a histórico local + Firebase. No corre cuando se
+   está VIENDO un reporte histórico (solo el reporte en curso se auto-guarda). */
+window._opAutoSaveToCalendar = function(){
+  try{
+    if(window._opProReadOnlyView || window._opProEditingSavedId || window._opProViewRep) return;
+    var W = window.opW;
+    if(!W || !W.srs || !W.srs.length) return;
+    try{ if(typeof opSync==='function') opSync(); }catch(e){}
+    var who    = W.op || localStorage.getItem('bess_uname') || 'Operador';
+    var period = W.period || '';
+    var repDate = W.date || new Date().toISOString();
+    var kpis   = (typeof opCalcKpis==='function') ? opCalcKpis(W.srs) : null;
+    var rep = {
+      id: Date.now().toString(),
+      op: who,
+      period: period,
+      date: repDate,
+      srs: JSON.parse(JSON.stringify(W.srs)),
+      kpis: kpis,
+      createdAt: new Date().toISOString()
+    };
+    var repDateStr = (rep.date||'').slice(0,10);
+    var dupOp = opReps.find(function(r){
+      var rds=(r.date||'').slice(0,10);
+      return rds===repDateStr && r.period===rep.period;
+    });
+    if(dupOp){
+      rep.id = dupOp.id; rep.fbId = dupOp.fbId;
+      var dupIdx = opReps.findIndex(function(r){return r.id===dupOp.id;});
+      if(dupIdx>=0){ opReps[dupIdx]=rep; } else { opReps.unshift(rep); }
+    } else {
+      opReps.unshift(rep);
+    }
+    opPersist();
+    try{ localStorage.setItem('op:lastmeta:v1', JSON.stringify({op:who, period:period})); }catch(e){}
+    if(window._histPushReporteOp){ try{ _histPushReporteOp(rep); }catch(e){} }
+    if(window._fb && window._fb.saveReporteOp && !window._firestoreQuotaExhausted){
+      window._fb.saveReporteOp(rep).then(function(fbId){
+        rep.fbId = fbId;
+        var idx = opReps.findIndex(function(r){ return r.id === rep.id; });
+        if(idx>=0){ opReps[idx].fbId = fbId; opPersist(); }
+      }).catch(function(e){
+        if(e && e.message && e.message.indexOf('resource-exhausted')>=0){ window._firestoreQuotaExhausted = true; }
+      });
+    }
+    /* Refrescar el calendario si está montado, sin navegar hacia él */
+    try{ if(typeof ucalRender==='function') ucalRender(); }catch(e){}
+    var _fd=''; try{ _fd=new Date(repDate).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){ _fd=repDateStr; }
+    if(typeof showToast==='function') showToast('🗓️ Guardado en el calendario · '+_fd);
+  }catch(err){ console.warn('[OP-PRO] auto-guardar al calendario:', err && err.message); }
+};
+
 window._opProDownloadPNG = async function(){
   var el = document.getElementById('op-pro-print');
   if(!el || !window.html2canvas){ alert('⚠️ No se pudo generar el PNG.'); return; }
@@ -38437,6 +38494,7 @@ window._opProDownloadPNG = async function(){
     var a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=_opProFilenameBase()+'.png';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     if(typeof showToast==='function') showToast('✅ PNG descargado');
+    try{ window._opAutoSaveToCalendar(); }catch(e){}
   }catch(err){ console.error('[OP-PRO] Error generando PNG:', err); alert('❌ No se pudo generar el PNG.'); }
   if(btn){ btn.textContent=origText; btn.disabled=false; }
 };
@@ -38474,6 +38532,7 @@ window._opProDownloadPDF = async function(){
     doc.addImage(imgData, 'JPEG', drawX, drawY, drawW, drawH);
     doc.save(_opProFilenameBase()+'.pdf');
     if(typeof showToast==='function') showToast('✅ PDF descargado');
+    try{ window._opAutoSaveToCalendar(); }catch(e){}
   }catch(err){ console.error('[OP-PRO] Error generando PDF:', err); alert('❌ No se pudo generar el PDF.'); }
   if(btn){ btn.textContent=origText; btn.disabled=false; }
 };
@@ -39812,6 +39871,16 @@ function _opProStartDirectGo(){
   try{ var _dOp=localStorage.getItem('op:draft:v1'); if(_dOp) _draftOp=JSON.parse(_dOp); }catch(e){}
   if(_draftOp && _draftOp.srs){
     window.opW=_draftOp; opW.step='summary'; opW.idx=(window.OP_SITES||[]).length-1;
+    /* La FECHA del reporte EN CURSO siempre es la de HOY. El borrador se
+       reutiliza como plantilla día con día (se continúa con los datos y solo
+       se corrigen algunos), pero conservaba la fecha de cuando se inició —
+       así el reporte de hoy salía fechado, p.ej., "08 oct" aunque fuera 17
+       nov. Al retomarlo se re-sella con la fecha de hoy, y así el calendario
+       (y los export PNG/PDF) guardan en el día correcto. Un reporte ya
+       GUARDADO del historial NO pasa por aquí (ese flujo es _opProViewRep /
+       _opProEditingSavedId), así que no se le toca su fecha. */
+    opW.date = new Date().toISOString();
+    try{ localStorage.setItem('op:draft:v1', JSON.stringify(opW)); }catch(e){}
     (function(){
       var currentSites = window.OP_SITES || [];
       var oldSrs = opW.srs || [];
