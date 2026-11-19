@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797200000';
+  var APP_VERSION = '1797300000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10527,9 +10527,23 @@ async function expDoZip(mode){
       if(fin){ tiempos+=' &nbsp;·&nbsp; Fin '+_hhmm(x.finishedTs)+' &nbsp;·&nbsp; ⏱ '+(x.durationMin||'?')+' min'; }
       else { tiempos+=' &nbsp;·&nbsp; última actividad '+_hhmm(x.lastUpdateTs); }
       var nv=x.nivel||{};
+      var ACA_MODS=[{num:1,id:'bess',t:'¿Qué es un BESS?',tot:6},{num:2,id:'disp',t:'Dispositivos',tot:7},{num:3,id:'cap',t:'Capacidades',tot:6},{num:4,id:'estrat',t:'Estrategias',tot:7},{num:5,id:'mon',t:'Monitoreo',tot:6},{num:6,id:'curvas',t:'Lectura de curvas',tot:6},{num:7,id:'alarm',t:'Alarmas',tot:8},{num:8,id:'solar',t:'Solar',tot:5}];
+      var detail=(x.modDetail&&x.modDetail.length)?x.modDetail:ACA_MODS.map(function(m){ return {num:m.num,id:m.id,t:m.t,tot:m.tot,s:(x.modScores&&x.modScores[m.id]!=null?x.modScores[m.id]:null)}; });
+      var anyDone=detail.some(function(d){ return d.s!=null; });
       var modChips='';
-      if(x.modScores){ var order=['bess','disp','cap','estrat','mon','curvas','alarm','solar'], nums={bess:1,disp:2,cap:3,estrat:4,mon:5,curvas:6,alarm:7,solar:8};
-        modChips=order.filter(function(id){return x.modScores[id]!=null;}).map(function(id){ return '<span style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:7px;background:var(--bg);border:1px solid var(--b);color:var(--t2);margin:2px;display:inline-block">'+nums[id]+' <b style="color:#1a3fcc">'+x.modScores[id]+'</b></span>'; }).join('');
+      if(anyDone){
+        modChips='<div style="margin:12px 0 2px"><div style="font-size:11px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Cómo le fue en cada sección</div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">'+
+          detail.map(function(d){
+            var done=d.s!=null, pct=(done&&d.tot)?Math.round(d.s/d.tot*100):0;
+            var col=!done?'#8496b5':(pct>=70?'#047857':(pct>=50?'#b45309':'#dc2626'));
+            var bg=!done?'var(--bg)':(pct>=70?'rgba(16,185,129,.08)':(pct>=50?'rgba(245,158,11,.09)':'rgba(239,68,68,.08)'));
+            return '<div style="background:'+bg+';border:1px solid var(--b);border-radius:10px;padding:8px 11px">'+
+              '<div style="font-size:10px;color:var(--t3);font-family:var(--mono);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">P'+d.num+' · '+_esc(d.t)+'</div>'+
+              '<div style="display:flex;align-items:baseline;gap:3px"><span style="font-size:18px;font-weight:800;color:'+col+'">'+(done?d.s:'—')+'</span><span style="font-size:11px;color:var(--t3)">/'+d.tot+'</span></div>'+
+              (done?'<div style="height:5px;background:rgba(0,0,0,.07);border-radius:4px;overflow:hidden;margin-top:5px"><div style="height:100%;width:'+pct+'%;background:'+col+'"></div></div>':'')+
+            '</div>';
+          }).join('')+'</div></div>';
       }
       var answers=Object.keys(ACA_OPEN_LABELS).map(function(k){ var a=(x.respuestas||{})[k]; if(!a) return ''; return '<div style="margin:6px 0;padding-left:10px;border-left:3px solid var(--b)"><div style="font-size:11px;color:var(--t3);font-weight:700">'+_esc(ACA_OPEN_LABELS[k])+'</div><div style="font-size:13px;line-height:1.45">'+_esc(a)+'</div></div>'; }).join('');
       return '<div style="background:var(--card);border:1px solid var(--b);border-radius:14px;padding:15px 17px;margin-bottom:12px;box-shadow:0 2px 10px rgba(11,47,181,.05)">'+
@@ -10538,7 +10552,7 @@ async function expDoZip(mode){
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="flex:1;height:8px;background:var(--bg);border:1px solid var(--b);border-radius:20px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#0b2fb5,#3f6cff)"></div></div><div style="font-family:var(--mono);font-size:11px;color:var(--t2);white-space:nowrap">'+(x.modulosHechos||0)+'/'+(x.modulosTotal||8)+' paradas'+(x.scoreMax?(' · '+x.scoreTotal+'/'+x.scoreMax):'')+'</div></div>'+
         '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">📍 '+_esc(x.etapa||'—')+'</div>'+
         '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Base: '+_esc(nv.elec||'?')+' · Sabe BESS: '+_esc(nv.sabeBess||'?')+' · Sabe solar: '+_esc(nv.sabePv||'?')+'</div>'+
-        (modChips?'<div style="margin:6px 0">'+modChips+'</div>':'')+answers+
+        modChips+answers+
       '</div>';
     }).join('');
   }

@@ -934,6 +934,8 @@ function _acaSync(opts){
   try{
     var now=Date.now(), startTs=_acaStartTs();
     var curMod=MOD[MI]||null, ts=totalScore();
+    var ACA_SHORT={bess:'¿Qué es un BESS?',disp:'Dispositivos',cap:'Capacidades',estrat:'Estrategias',mon:'Monitoreo',curvas:'Lectura de curvas',alarm:'Alarmas',solar:'Solar'};
+    var modDetail=MOD.map(function(m){ return {num:m.num, id:m.id, t:(ACA_SHORT[m.id]||m.title), s:(S.modScore&&S.modScore[m.id]!=null?S.modScore[m.id]:null), tot:m.test.length}; });
     var etapa = VIEW==='final' ? 'Terminó'
       : VIEW==='test' ? ('Test — Parada '+(curMod?curMod.num:'')+': '+(curMod?curMod.title:''))
       : VIEW==='lesson' ? ('Lección — Parada '+(curMod?curMod.num:'')+': '+(curMod?curMod.title:''))
@@ -946,7 +948,7 @@ function _acaSync(opts){
       etapa: etapa, vista: VIEW,
       paradaActualNum: curMod?curMod.num:null,
       modulosHechos: modsDoneCount(), modulosTotal: MOD.length,
-      modScores: S.modScore||{}, scoreTotal: ts.s, scoreMax: ts.t,
+      modScores: S.modScore||{}, modDetail: modDetail, scoreTotal: ts.s, scoreMax: ts.t,
       respuestas: S.open||{},
       startedAt: new Date(startTs).toISOString(), startedTs: startTs,
       lastUpdate: new Date(now).toISOString(), lastUpdateTs: now
