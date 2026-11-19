@@ -577,6 +577,9 @@ function qs(id){return document.getElementById(id);}
 function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function modsDoneCount(){ return MOD.filter(function(m){return S.modDone[m.id];}).length; }
 function allDone(){ return modsDoneCount()===MOD.length; }
+/* ¿Ya llenó los datos del inicio (nombre + rol + experiencia)? Si sí, no se le vuelve
+   a pedir: entra directo a su ruta. Vale también para quien ya lo llenó antes. */
+function profileDone(){ return !!S.introDone || (!!S.name && !!(S.nivel && S.nivel.rol && S.nivel.sabeBess && S.nivel.sabePv)); }
 /* Identidad que la persona ya creó en Centro BESS (mismo origen): su nombre y avatar.
    No usamos los genéricos (admin/operador/supervisor) — esos no son un nombre real. */
 function appAvatar(){ try{
@@ -674,7 +677,7 @@ window.goNivel=function(){ if(!S.name.trim())return; go('nivel'); };
 window.goOpen=function(){ openIdx=0; go('open'); };
 window.goMap=function(){ go('map'); };
 window.thinkPick=function(qi,oi){ var q=OPEN_Q[qi]; S.open[q.id]=q.opts[oi]; render(); };
-window.openNext=function(){ var q=OPEN_Q[openIdx]; if(!q.open && !S.open[q.id])return; if(openIdx<OPEN_Q.length-1){openIdx++;render();window.scrollTo(0,0);} else { go('map'); } };
+window.openNext=function(){ var q=OPEN_Q[openIdx]; if(!q.open && !S.open[q.id])return; if(openIdx<OPEN_Q.length-1){openIdx++;render();window.scrollTo(0,0);} else { S.introDone=true; saveProgress(); go('map'); } };
 window.openBack=function(){ if(openIdx>0){openIdx--;render();window.scrollTo(0,0);} else { go('nivel'); } };
 
 /* ---- MAPA / ITINERARIO ---- */
@@ -708,6 +711,7 @@ function renderMap(){
   h+='</div>';
   // práctica (placeholder)
   h+='<div style="max-width:640px;margin:22px auto 0"><div class="soon"><b>🧰 Fase práctica — próximamente</b><div style="font-size:13px;color:var(--t2);margin-top:4px">Después de la teoría viene la referencia práctica de cada sitio. <button class="map-link" style="padding:0" onclick="go(\'practica\')">Ver lo que incluirá →</button></div></div></div>';
+  h+='<div style="max-width:640px;margin:14px auto 0;text-align:center"><button class="map-link" onclick="retake()">🔄 Volver a hacer la prueba (reinicia las paradas)</button></div>';
   return h;
 }
 window.enterMod=function(i){ MI=i; TI=0; go('lesson'); };
@@ -847,8 +851,8 @@ function miniConfetti(){ var cols=['#10b981','#3f6cff','#f59e0b'];
 }
 
 /* ---- progreso local (para no perder avance al recargar) ---- */
-function saveProgress(){ try{ localStorage.setItem('sky_academia_prog', JSON.stringify({name:S.name,nivel:S.nivel,open:S.open,modDone:S.modDone,modScore:S.modScore,quiz:S.quiz,submitted:!!S.submitted})); }catch(e){} }
-function loadProgress(){ try{ var d=JSON.parse(localStorage.getItem('sky_academia_prog')||'null'); if(d){ S.name=d.name||''; S.nivel=d.nivel||{}; S.open=d.open||{}; S.modDone=d.modDone||{}; S.modScore=d.modScore||{}; S.quiz=d.quiz||{}; S.submitted=!!d.submitted; } }catch(e){} }
+function saveProgress(){ try{ localStorage.setItem('sky_academia_prog', JSON.stringify({name:S.name,nivel:S.nivel,open:S.open,modDone:S.modDone,modScore:S.modScore,quiz:S.quiz,submitted:!!S.submitted,introDone:!!S.introDone})); }catch(e){} }
+function loadProgress(){ try{ var d=JSON.parse(localStorage.getItem('sky_academia_prog')||'null'); if(d){ S.name=d.name||''; S.nivel=d.nivel||{}; S.open=d.open||{}; S.modDone=d.modDone||{}; S.modScore=d.modScore||{}; S.quiz=d.quiz||{}; S.submitted=!!d.submitted; S.introDone=!!d.introDone; } }catch(e){} }
 
 /* ════════════ GUARDADO (Firebase + respaldo local) ════════════ */
 var db=null, FB_ON=false, EJS_ON=false;
@@ -970,9 +974,12 @@ try{ var _av=appAvatar(); if(_av && isGenericName(S.name)){ S.name=_av.name; } e
    Se entra solo por enlace discreto: induccion.html#supervisor (y pide código). */
 function _checkSupHash(){ try{ var hh=(location.hash||'').toLowerCase(); if(hh.indexOf('supervisor')>=0||hh.indexOf('panel')>=0){ openSup(); } }catch(e){} }
 window.addEventListener('hashchange', _checkSupHash);
-/* Si ya completó la academia (y ya se envió el aviso), entra directo a su ruta final:
-   no tiene que volver a llenar todo. Desde ahí puede ver su info o rehacer la prueba. */
-if(allDone() && S.submitted){ VIEW='final'; }
+/* Entrada inteligente:
+   - Si ya completó las 8 paradas → va directo a su ruta final (certificado + respuestas).
+   - Si ya llenó el inicio (nombre/rol/experiencia) pero le faltan paradas → va directo al mapa.
+   - Solo la primera vez ve la bienvenida y los datos del inicio. */
+if(allDone()){ VIEW='final'; }
+else if(profileDone()){ VIEW='map'; }
 initFirebase(function(){ render(); _checkSupHash(); });
 initEmail();
 </script>
