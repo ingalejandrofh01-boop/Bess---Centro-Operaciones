@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797100000';
+  var APP_VERSION = '1797200000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10441,24 +10441,29 @@ async function expDoZip(mode){
 <!-- ══════════════ ACADEMIA — MONITOREO (solo admin) ══════════════ -->
 <div class="page" id="page-academia">
 <div class="page-scroll">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
-    <div>
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Skysense · Capacitación</div>
-      <h1 style="font-size:26px;font-weight:800;margin:0;letter-spacing:-.5px">🎓 Academia — Monitoreo</h1>
-      <div style="font-size:13px;color:var(--t2);margin-top:4px">Avance en vivo, tiempos y resultados de quienes hacen la Academia Monitoreo BESS.</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span id="aca-live-tag" style="font-family:var(--mono);font-size:10px;color:var(--green);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> en vivo</span>
-      <button onclick="window._acaExport&&_acaExport('png')" style="background:var(--card);border:1px solid var(--b);border-radius:9px;padding:8px 14px;font-family:var(--mono);font-size:11px;font-weight:700;color:#1a3fcc;cursor:pointer">🖼️ PNG</button>
-      <button onclick="window._acaExport&&_acaExport('pdf')" style="background:linear-gradient(135deg,#0a1f4a,#1a3fcc);border:none;border-radius:9px;padding:8px 14px;font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;cursor:pointer">📄 PDF</button>
+  <div style="position:relative;overflow:hidden;border-radius:20px;background:linear-gradient(135deg,#0a1f4a 0%,#13306e 55%,#1a3fcc 100%);color:#fff;padding:26px 30px;margin-bottom:18px;box-shadow:0 16px 44px rgba(11,47,181,.3)">
+    <div style="position:absolute;top:-50px;right:-40px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(63,108,255,.5),transparent 65%)"></div>
+    <div style="position:absolute;bottom:-70px;left:-30px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(63,108,255,.22),transparent 70%)"></div>
+    <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;opacity:.82;margin-bottom:8px">Skysense · Capacitación</div>
+        <div style="font-size:28px;font-weight:800;letter-spacing:-.6px;display:flex;align-items:center;gap:10px">🎓 Academia — Monitoreo</div>
+        <div style="font-size:13.5px;opacity:.9;margin-top:6px;max-width:62ch;line-height:1.5">Avance en vivo, tiempos y resultados de quienes hacen la Academia Monitoreo BESS.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+          <button onclick="window.open('induccion.html','_blank','noopener')" style="background:#fff;color:#0b2fb5;border:none;border-radius:11px;padding:11px 18px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.18)">📝 Abrir Academia / Hacer el test</button>
+          <button onclick="window._acaExport&&_acaExport('png')" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:11px;padding:11px 16px;font-weight:700;font-size:13px;cursor:pointer">🖼️ PNG</button>
+          <button onclick="window._acaExport&&_acaExport('pdf')" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:11px;padding:11px 16px;font-weight:700;font-size:13px;cursor:pointer">📄 PDF</button>
+        </div>
+      </div>
+      <div id="aca-live-tag" style="font-family:var(--mono);font-size:10px;letter-spacing:1px;display:flex;align-items:center;gap:7px;background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.4);padding:6px 12px;border-radius:30px"><span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;box-shadow:0 0 0 4px rgba(52,211,153,.25)"></span> EN VIVO</div>
     </div>
   </div>
-  <div id="aca-capture" style="background:var(--bg);padding:2px">
-  <div id="aca-stats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
-    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-live">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">En curso</div></div>
-    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-done">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Terminados</div></div>
-    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-today">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Hoy</div></div>
-    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-avg">—</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Prom. global</div></div>
+  <div id="aca-capture" style="background:var(--bg);padding:3px 3px 1px">
+  <div id="aca-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:14px;margin-bottom:18px">
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:16px;padding:16px 18px;position:relative;overflow:hidden"><div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.22">🟢</div><div style="font-size:30px;font-weight:800;color:#1a3fcc;line-height:1" id="aca-k-live">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:7px">En curso</div></div>
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:16px;padding:16px 18px;position:relative;overflow:hidden"><div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.22">✅</div><div style="font-size:30px;font-weight:800;color:#047857;line-height:1" id="aca-k-done">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:7px">Terminados</div></div>
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:16px;padding:16px 18px;position:relative;overflow:hidden"><div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.22">📅</div><div style="font-size:30px;font-weight:800;color:#1a3fcc;line-height:1" id="aca-k-today">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:7px">Hoy</div></div>
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:16px;padding:16px 18px;position:relative;overflow:hidden"><div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.22">📊</div><div style="font-size:30px;font-weight:800;color:#7c3aed;line-height:1" id="aca-k-avg">—</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:7px">Prom. global</div></div>
   </div>
   <div id="aca-list"><div style="color:var(--t3);font-size:13px;padding:20px 0">Esperando conexión…</div></div>
   </div>
@@ -10513,7 +10518,7 @@ async function expDoZip(mode){
     var set=function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
     set('aca-k-live',live); set('aca-k-done',done); set('aca-k-today',todayN); set('aca-k-avg',avg==null?'—':avg+'%');
     var wrap=document.getElementById('aca-list'); if(!wrap) return;
-    if(!list.length){ wrap.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px 0">Todavía nadie ha iniciado la academia.</div>'; return; }
+    if(!list.length){ wrap.innerHTML='<div style="text-align:center;padding:46px 20px;color:var(--t3)"><div style="font-size:48px;opacity:.45;margin-bottom:10px">🎓</div><div style="font-size:15px;font-weight:700;color:var(--t2)">Todavía nadie ha iniciado la Academia</div><div style="font-size:13px;margin-top:5px;max-width:42ch;margin-left:auto;margin-right:auto;line-height:1.5">En cuanto alguien empiece, aparecerá aquí en tiempo real con su avance, sus tiempos y su resultado.</div></div>'; return; }
     wrap.innerHTML=list.map(function(x){
       var fin=x.status==='terminado';
       var pct=x.modulosTotal?Math.round((x.modulosHechos||0)/x.modulosTotal*100):0;

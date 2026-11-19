@@ -145,15 +145,29 @@ textarea.inp{min-height:110px;resize:vertical;line-height:1.5}
 .b-lock{background:var(--bg);color:var(--t3)}
 
 /* certificado */
-.cert{border:2px solid var(--blue2);border-radius:20px;padding:clamp(24px,4vw,44px);text-align:center;background:linear-gradient(150deg,#ffffff,#eef3ff);position:relative;overflow:hidden}
-.cert::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(63,108,255,.18),transparent 70%)}
-.cert-seal{width:84px;height:84px;margin:0 auto 14px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-lite));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 12px 30px rgba(26,63,204,.4);animation:pop .6s both}
-.cert-name{font-size:clamp(24px,4vw,34px);font-weight:800;color:var(--blue);margin:6px 0;letter-spacing:-.5px}
-.cert-line{font-size:13.5px;color:var(--t2);line-height:1.6}
-.cert-scores{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:18px 0}
-.cert-sc{background:#fff;border:1px solid var(--b);border-radius:12px;padding:10px 14px;min-width:90px}
-.cert-sc b{display:block;font-size:19px;color:var(--blue2)}
-.cert-sc span{font-size:10px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px}
+.cert{position:relative;border-radius:16px;padding:clamp(30px,4.6vw,54px) clamp(22px,4vw,48px);text-align:center;overflow:hidden;
+  background:linear-gradient(135deg,#fffdf6 0%,#eef3ff 100%);
+  border:2px solid #caa94e;
+  box-shadow:0 22px 60px rgba(11,47,181,.18), inset 0 0 0 6px rgba(202,169,78,.10), inset 0 0 0 7px rgba(255,255,255,.55)}
+.cert::before{content:'';position:absolute;inset:11px;border:1.5px solid rgba(202,169,78,.5);border-radius:10px;pointer-events:none}
+.cert::after{content:'';position:absolute;top:-70px;left:50%;transform:translateX(-50%);width:340px;height:170px;background:radial-gradient(circle,rgba(63,108,255,.14),transparent 70%);pointer-events:none}
+.cert-in{position:relative}
+.cert-kicker{font-family:var(--mono);letter-spacing:5px;font-size:10.5px;text-transform:uppercase;color:#b0862f;margin-bottom:6px}
+.cert-title{font-size:clamp(24px,4.6vw,42px);font-weight:800;letter-spacing:5px;color:#0b2fb5;margin:0;text-transform:uppercase}
+.cert-rule{width:72px;height:3px;border-radius:3px;background:linear-gradient(90deg,#caa94e,#f0d58a);margin:11px auto 16px}
+.cert-seal{width:92px;height:92px;margin:0 auto 12px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3f6cff,#0b2fb5 72%);display:flex;align-items:center;justify-content:center;font-size:42px;color:#fff;box-shadow:0 12px 30px rgba(11,47,181,.4), 0 0 0 5px #fff, 0 0 0 7px rgba(202,169,78,.6);animation:pop .6s both}
+.cert-pre{font-size:13px;color:var(--t2);margin:8px 0 0;letter-spacing:.5px}
+.cert-name{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;font-size:clamp(28px,5.2vw,46px);color:#0b2fb5;margin:6px 0 2px;padding:0 18px 8px;display:inline-block;border-bottom:2px solid rgba(202,169,78,.45)}
+.cert-line{font-size:13.5px;color:var(--t2);line-height:1.65;margin-top:12px}
+.cert-scores{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin:18px 0 4px}
+.cert-sc{background:rgba(255,255,255,.72);border:1px solid rgba(202,169,78,.3);border-radius:12px;padding:9px 13px;min-width:84px}
+.cert-sc b{display:block;font-size:18px;color:var(--blue2)}
+.cert-sc span{font-size:9px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.4px}
+.cert-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-top:24px;flex-wrap:wrap}
+.cert-sig{flex:1;min-width:130px}
+.cert-sig .ln{border-top:1.5px solid rgba(11,30,70,.35);margin:0 8px 6px;padding-top:6px}
+.cert-sig small{display:block;font-size:10px;color:var(--t3);font-family:var(--mono);letter-spacing:.5px}
+.cert-sig b{font-size:12.5px;color:var(--ink)}
 
 .dots{display:flex;gap:7px;justify-content:center;margin-top:30px;flex-wrap:wrap}
 .dots i{width:7px;height:7px;border-radius:50%;background:var(--b);transition:all .3s}
@@ -819,13 +833,23 @@ function renderFinal(){
     '</div>';
   var ans=OPEN_Q.map(function(q){ var a=(S.open||{})[q.id]; if(!a) return ''; return '<div class="qa" style="text-align:left;margin:10px 0"><div class="qq">'+esc(q.label)+'</div><div class="aa">'+esc(a)+'</div></div>'; }).join('');
   return '<div class="done-wrap card-anim">'+
-    '<div class="cert">'+
-      '<div class="cert-seal">🎓</div>'+
-      '<div class="kick2" style="text-align:center">Academia Monitoreo BESS · Skysense</div>'+
-      '<div class="cert-name">'+esc(S.name||'Nuevo integrante')+'</div>'+
-      '<div class="cert-line">completó la <b>formación teórica</b> de monitoreo de sistemas BESS.<br>Puntaje global: <b>'+ts.s+'/'+ts.t+'</b> ('+pct+'%) · '+new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})+'</div>'+
-      '<div class="cert-scores">'+scores+'</div>'+
+    '<div class="cert" id="diploma">'+
+      '<div class="cert-in">'+
+        '<div class="cert-kicker">Skysense · Academia Monitoreo BESS</div>'+
+        '<div class="cert-title">Diploma</div>'+
+        '<div class="cert-rule"></div>'+
+        '<div class="cert-seal">🎓</div>'+
+        '<div class="cert-pre">Se otorga el presente a</div>'+
+        '<div class="cert-name">'+esc(S.name||'Nuevo integrante')+'</div>'+
+        '<div class="cert-line">por completar la <b>formación teórica</b> de monitoreo de sistemas de almacenamiento de energía (BESS),<br>con un puntaje global de <b>'+ts.s+'/'+ts.t+'</b> ('+pct+'%).</div>'+
+        '<div class="cert-scores">'+scores+'</div>'+
+        '<div class="cert-foot">'+
+          '<div class="cert-sig"><div class="ln"></div><b>'+new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})+'</b><small>Fecha</small></div>'+
+          '<div class="cert-sig"><div class="ln"></div><b>Skysense</b><small>Capacitación · Monitoreo BESS</small></div>'+
+        '</div>'+
+      '</div>'+
     '</div>'+
+    '<div class="btn-row" style="justify-content:center;margin-top:16px"><button class="btn ghost" onclick="_diplomaDL(\'png\')">🖼️ Descargar diploma (PNG)</button><button class="btn" onclick="_diplomaDL(\'pdf\')">📄 Descargar diploma (PDF)</button></div>'+
     (primeraVez
       ? '<p class="lead" style="margin:18px auto 6px;text-align:center">¡Felicidades, '+esc(S.name||'')+'! 🎉 Terminaste la parte teórica. Tus respuestas y calificaciones ya se enviaron a tu supervisor.</p>'
       : '<p class="lead" style="margin:18px auto 6px;text-align:center">Esta es tu ruta completada, '+esc(S.name||'')+'. Ya quedó guardada — no necesitas volver a llenarla.</p>')+
@@ -835,6 +859,30 @@ function renderFinal(){
     '<div id="save-state" style="font-size:12px;color:var(--t3);margin-top:16px;text-align:center"></div></div>';
 }
 function shortTitle(t){ return t.length>22?t.slice(0,20)+'…':t; }
+/* Descargar el diploma como PNG o PDF (carga las librerías solo cuando se usa). */
+function _loadLib(src, test, cb){ if(test()){ cb(); return; } var s=document.createElement('script'); s.src=src; s.onload=function(){ cb(); }; s.onerror=function(){ cb('err'); }; document.head.appendChild(s); }
+window._diplomaDL=function(kind){
+  var el=document.getElementById('diploma'); if(!el) return;
+  _loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', function(){return !!window.html2canvas;}, function(){
+    if(!window.html2canvas){ alert('No se pudo cargar el generador de imagen (revisa tu conexión).'); return; }
+    var render=function(){
+      window.html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
+        var fname='Diploma_'+String(S.name||'Academia').replace(/[^\w]+/g,'_')+'_'+new Date().toISOString().slice(0,10);
+        if(kind==='png'){ var a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=fname+'.png'; document.body.appendChild(a); a.click(); a.remove(); }
+        else { var J=window.jspdf&&window.jspdf.jsPDF; if(!J){ alert('No se pudo cargar el PDF.'); return; }
+          var orient=canvas.width>=canvas.height?'landscape':'portrait';
+          var doc=new J({unit:'pt',format:'a4',orientation:orient});
+          var pw=doc.internal.pageSize.getWidth(), ph=doc.internal.pageSize.getHeight(), m=24;
+          var r=canvas.width/canvas.height, w=pw-m*2, h=w/r; if(h>ph-m*2){ h=ph-m*2; w=h*r; }
+          doc.addImage(canvas.toDataURL('image/jpeg',0.96),'JPEG',(pw-w)/2,(ph-h)/2,w,h);
+          doc.save(fname+'.pdf');
+        }
+      }).catch(function(err){ alert('No se pudo generar el diploma: '+(err&&err.message||err)); });
+    };
+    if(kind==='pdf'){ _loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', function(){return !!(window.jspdf&&window.jspdf.jsPDF);}, render); }
+    else render();
+  });
+};
 /* Rehacer la prueba: resetea las paradas y el envío (mantiene su identidad y perfil).
    Al terminar de nuevo, se vuelve a mandar el aviso por correo al supervisor. */
 window.retake=function(){
