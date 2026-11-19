@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797300000';
+  var APP_VERSION = '1797400000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10522,37 +10522,56 @@ async function expDoZip(mode){
     wrap.innerHTML=list.map(function(x){
       var fin=x.status==='terminado';
       var pct=x.modulosTotal?Math.round((x.modulosHechos||0)/x.modulosTotal*100):0;
-      var badge=fin?'<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(16,185,129,.14);color:#047857">✅ Terminó</span>':'<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(26,63,204,.1);color:#1a3fcc">🟢 En curso</span>';
-      var tiempos='Inicio '+_hhmm(x.startedTs)+' · '+_fecha(x.startedTs);
-      if(fin){ tiempos+=' &nbsp;·&nbsp; Fin '+_hhmm(x.finishedTs)+' &nbsp;·&nbsp; ⏱ '+(x.durationMin||'?')+' min'; }
-      else { tiempos+=' &nbsp;·&nbsp; última actividad '+_hhmm(x.lastUpdateTs); }
+      var statusColor=fin?'#10b981':'#1a3fcc';
+      var badge=fin?'<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(16,185,129,.14);color:#047857">✅ TERMINÓ</span>':'<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(26,63,204,.1);color:#1a3fcc">🟢 EN CURSO</span>';
       var nv=x.nivel||{};
+      var initials=(function(){ var n=String(x.nombre||'?').trim().split(/\s+/); return ((n[0]||'?')[0]+(n.length>1?n[n.length-1][0]:'')).toUpperCase(); })();
+      var palette=['#1a3fcc','#0ea5a4','#7c3aed','#be123c','#b45309','#047857','#2563eb','#db2777'];
+      var avColor=palette[Math.abs(String(x.nombre||'x').split('').reduce(function(a,c){return a+c.charCodeAt(0);},0))%palette.length];
+      function _tc(ic,label,val){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--b);border-radius:20px;padding:4px 11px;font-size:11px;color:var(--t2);font-family:var(--mono)">'+ic+' '+label+' <b style="color:var(--ink);font-weight:700">'+_esc(val)+'</b></span>'; }
+      var timeChips='<div style="display:flex;gap:7px;flex-wrap:wrap;margin:12px 0">'+
+        _tc('🕒','Inicio',_hhmm(x.startedTs)+' · '+_fecha(x.startedTs))+
+        (fin ? (_tc('🏁','Fin',_hhmm(x.finishedTs))+_tc('⏱','Duración',(x.durationMin||'?')+' min')) : _tc('🔄','Últ. actividad',_hhmm(x.lastUpdateTs)))+
+      '</div>';
       var ACA_MODS=[{num:1,id:'bess',t:'¿Qué es un BESS?',tot:6},{num:2,id:'disp',t:'Dispositivos',tot:7},{num:3,id:'cap',t:'Capacidades',tot:6},{num:4,id:'estrat',t:'Estrategias',tot:7},{num:5,id:'mon',t:'Monitoreo',tot:6},{num:6,id:'curvas',t:'Lectura de curvas',tot:6},{num:7,id:'alarm',t:'Alarmas',tot:8},{num:8,id:'solar',t:'Solar',tot:5}];
       var detail=(x.modDetail&&x.modDetail.length)?x.modDetail:ACA_MODS.map(function(m){ return {num:m.num,id:m.id,t:m.t,tot:m.tot,s:(x.modScores&&x.modScores[m.id]!=null?x.modScores[m.id]:null)}; });
       var anyDone=detail.some(function(d){ return d.s!=null; });
       var modChips='';
       if(anyDone){
-        modChips='<div style="margin:12px 0 2px"><div style="font-size:11px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Cómo le fue en cada sección</div>'+
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">'+
+        modChips='<div style="margin:14px 0 2px;background:var(--bg);border:1px solid var(--b);border-radius:12px;padding:13px 15px">'+
+          '<div style="font-size:10px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;font-weight:700">📊 Cómo le fue en cada sección</div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(116px,1fr));gap:8px">'+
           detail.map(function(d){
-            var done=d.s!=null, pct=(done&&d.tot)?Math.round(d.s/d.tot*100):0;
-            var col=!done?'#8496b5':(pct>=70?'#047857':(pct>=50?'#b45309':'#dc2626'));
-            var bg=!done?'var(--bg)':(pct>=70?'rgba(16,185,129,.08)':(pct>=50?'rgba(245,158,11,.09)':'rgba(239,68,68,.08)'));
-            return '<div style="background:'+bg+';border:1px solid var(--b);border-radius:10px;padding:8px 11px">'+
-              '<div style="font-size:10px;color:var(--t3);font-family:var(--mono);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">P'+d.num+' · '+_esc(d.t)+'</div>'+
-              '<div style="display:flex;align-items:baseline;gap:3px"><span style="font-size:18px;font-weight:800;color:'+col+'">'+(done?d.s:'—')+'</span><span style="font-size:11px;color:var(--t3)">/'+d.tot+'</span></div>'+
-              (done?'<div style="height:5px;background:rgba(0,0,0,.07);border-radius:4px;overflow:hidden;margin-top:5px"><div style="height:100%;width:'+pct+'%;background:'+col+'"></div></div>':'')+
+            var done=d.s!=null, dp=(done&&d.tot)?Math.round(d.s/d.tot*100):0;
+            var col=!done?'#8496b5':(dp>=70?'#047857':(dp>=50?'#b45309':'#dc2626'));
+            var bg=!done?'var(--card)':(dp>=70?'rgba(16,185,129,.1)':(dp>=50?'rgba(245,158,11,.11)':'rgba(239,68,68,.09)'));
+            return '<div style="background:'+bg+';border:1px solid '+(done?col+'33':'var(--b)')+';border-radius:10px;padding:9px 11px">'+
+              '<div style="font-size:10px;color:var(--t3);font-family:var(--mono);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">P'+d.num+' · '+_esc(d.t)+'</div>'+
+              '<div style="display:flex;align-items:baseline;gap:3px"><span style="font-size:19px;font-weight:800;color:'+col+'">'+(done?d.s:'—')+'</span><span style="font-size:11px;color:var(--t3)">/'+d.tot+'</span></div>'+
+              (done?'<div style="height:5px;background:rgba(0,0,0,.08);border-radius:4px;overflow:hidden;margin-top:6px"><div style="height:100%;width:'+dp+'%;background:'+col+'"></div></div>':'<div style="height:5px;margin-top:6px"></div>')+
             '</div>';
           }).join('')+'</div></div>';
       }
-      var answers=Object.keys(ACA_OPEN_LABELS).map(function(k){ var a=(x.respuestas||{})[k]; if(!a) return ''; return '<div style="margin:6px 0;padding-left:10px;border-left:3px solid var(--b)"><div style="font-size:11px;color:var(--t3);font-weight:700">'+_esc(ACA_OPEN_LABELS[k])+'</div><div style="font-size:13px;line-height:1.45">'+_esc(a)+'</div></div>'; }).join('');
-      return '<div style="background:var(--card);border:1px solid var(--b);border-radius:14px;padding:15px 17px;margin-bottom:12px;box-shadow:0 2px 10px rgba(11,47,181,.05)">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px"><div style="font-weight:800;font-size:16px">'+_esc(x.nombre||'Sin nombre')+' <span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(26,63,204,.08);color:#1a3fcc;font-weight:700">'+_esc(x.rol||'—')+'</span></div>'+badge+'</div>'+
-        '<div style="font-family:var(--mono);font-size:11px;color:var(--t3);margin-bottom:8px">'+tiempos+'</div>'+
-        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="flex:1;height:8px;background:var(--bg);border:1px solid var(--b);border-radius:20px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#0b2fb5,#3f6cff)"></div></div><div style="font-family:var(--mono);font-size:11px;color:var(--t2);white-space:nowrap">'+(x.modulosHechos||0)+'/'+(x.modulosTotal||8)+' paradas'+(x.scoreMax?(' · '+x.scoreTotal+'/'+x.scoreMax):'')+'</div></div>'+
-        '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">📍 '+_esc(x.etapa||'—')+'</div>'+
-        '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Base: '+_esc(nv.elec||'?')+' · Sabe BESS: '+_esc(nv.sabeBess||'?')+' · Sabe solar: '+_esc(nv.sabePv||'?')+'</div>'+
-        modChips+answers+
+      var ansItems=Object.keys(ACA_OPEN_LABELS).map(function(k){ var a=(x.respuestas||{})[k]; if(!a) return ''; return '<div style="background:var(--bg);border-radius:10px;padding:10px 12px"><div style="font-size:10px;color:var(--t3);font-weight:700;font-family:var(--mono);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+_esc(ACA_OPEN_LABELS[k])+'</div><div style="font-size:13px;line-height:1.45;color:var(--ink)">'+_esc(a)+'</div></div>'; }).filter(Boolean);
+      var answers = ansItems.length ? ('<div style="margin-top:14px"><div style="font-size:10px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:9px;font-weight:700">💬 Respuestas y actitud</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:8px">'+ansItems.join('')+'</div></div>') : '';
+      var pctScore=x.scoreMax?Math.round(x.scoreTotal/x.scoreMax*100):null;
+      return '<div style="position:relative;background:var(--card);border:1px solid var(--b);border-radius:16px;margin-bottom:14px;box-shadow:0 4px 18px rgba(11,47,181,.07);overflow:hidden">'+
+        '<div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:'+statusColor+'"></div>'+
+        '<div style="padding:17px 19px 17px 22px">'+
+          '<div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap">'+
+            '<div style="width:48px;height:48px;border-radius:50%;background:'+avColor+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:0 0 auto;box-shadow:0 5px 14px '+avColor+'55">'+initials+'</div>'+
+            '<div style="flex:1;min-width:150px"><div style="font-weight:800;font-size:17px;line-height:1.15">'+_esc(x.nombre||'Sin nombre')+' <span style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(26,63,204,.08);color:#1a3fcc;font-weight:700;vertical-align:middle">'+_esc(x.rol||'—')+'</span></div>'+
+              '<div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:3px">Base '+_esc(nv.elec||'?')+' · BESS '+_esc(nv.sabeBess||'?')+' · Solar '+_esc(nv.sabePv||'?')+'</div></div>'+
+            badge+
+          '</div>'+
+          timeChips+
+          '<div style="display:flex;align-items:center;gap:12px;margin-bottom:9px">'+
+            '<div style="flex:1;height:11px;background:var(--bg);border:1px solid var(--b);border-radius:20px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,'+statusColor+',#3f6cff);border-radius:20px"></div></div>'+
+            '<div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap">'+(x.modulosHechos||0)+'/'+(x.modulosTotal||8)+' paradas'+(pctScore!=null?(' · <span style="color:'+statusColor+'">'+x.scoreTotal+'/'+x.scoreMax+' ('+pctScore+'%)</span>'):'')+'</div>'+
+          '</div>'+
+          '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(26,63,204,.07);border:1px solid rgba(26,63,204,.16);border-radius:8px;padding:6px 12px;font-size:12px;color:#1a3fcc;font-weight:600">📍 '+_esc(x.etapa||'—')+'</div>'+
+          modChips+answers+
+        '</div>'+
       '</div>';
     }).join('');
   }
