@@ -596,6 +596,8 @@ function appAvatar(){ try{
 }catch(e){ return null; } }
 /* Un nombre genérico (admin/operador…) NO es un nombre real: no debe quedarse como identidad. */
 function isGenericName(n){ return !String(n||'').trim() || ['admin','operador','supervisor','usuario','user','administrador'].indexOf(String(n).trim().toLowerCase())>=0; }
+/* Admin = tu cuenta (misma lógica que la app). Solo tú ves la opción de supervisor. */
+function _isAdmin(){ try{ if(localStorage.getItem('bess_admin')==='1') return true; var n=(localStorage.getItem('bess_uname')||'').trim().toLowerCase(); return ['admin','alejandro','alejandro fernandez','ing. ale','ale','ing. alejandro','ing alejandro'].indexOf(n)>=0; }catch(e){ return false; } }
 
 function setProg(){
   var total=MOD.length+2; var done=modsDoneCount();
@@ -617,7 +619,16 @@ function render(){
       '</div></div>';
     st.innerHTML=h; st.className='stage stage-hero'; setProg(); return;
   }
-  if(VIEW==='nombre'){
+  if(VIEW==='adminhome'){
+    h='<div class="card-anim"><div class="kick2">Modo administrador</div><h2 class="h2">¿Qué quieres hacer? 🔑</h2>'+
+      '<p class="lead">Solo tú ves esta pantalla. Elige ver los resultados en vivo, o hacer el test tú mismo para probarlo y validarlo.</p>'+
+      '<div class="ind-grid" style="gap:14px">'+
+        '<div class="ind-term" style="cursor:pointer;border-left-color:#10b981" onclick="openSup()"><b>👁 Ver resultados en vivo</b><span>Panel de supervisor: quién va, en qué test, tiempos y resultados. Descarga CSV.</span></div>'+
+        '<div class="ind-term" style="cursor:pointer" onclick="adminTakeTest()"><b>📝 Hacer el test (validar)</b><span>Haz la academia como un participante para revisar preguntas y contenido.</span></div>'+
+      '</div>'+
+      '<div style="font-size:12px;color:var(--t3);margin-top:14px">También puedes ver los resultados dentro de la app, en el apartado <b>Academia · Monitoreo</b>.</div></div>';
+  }
+  else if(VIEW==='nombre'){
     var av=appAvatar();
     var hdr = S.name ? ('¡Hola, '+esc(S.name)+'! 👋') : '¿Cómo te llamas? 👋';
     var lead = S.name ? 'Tomamos tu nombre de tu perfil en Centro BESS. Si no eres tú, corrígelo.' : 'Para registrar de quién son estas respuestas.';
@@ -675,12 +686,13 @@ function chips(field,opts){
 window.pick=function(f,v){S.nivel[f]=v;render();};
 window.upNav=function(){var b=qs('nbtn');if(b)b.disabled=!S.name.trim();};
 window.go=function(v){VIEW=v;render();window.scrollTo(0,0);};
-window.goNombre=function(){go('nombre');};
+window.goNombre=function(){ _acaStartTs(); go('nombre'); };
+window.adminTakeTest=function(){ VIEW = allDone()?'final':(profileDone()?'map':'hero'); render(); window.scrollTo(0,0); };
 window.goNivel=function(){ if(!S.name.trim())return; go('nivel'); };
 window.goOpen=function(){ openIdx=0; go('open'); };
-window.goMap=function(){ go('map'); };
+window.goMap=function(){ go('map'); _acaSync(); };
 window.thinkPick=function(qi,oi){ var q=OPEN_Q[qi]; S.open[q.id]=q.opts[oi]; render(); };
-window.openNext=function(){ var q=OPEN_Q[openIdx]; if(!q.open && !S.open[q.id])return; if(openIdx<OPEN_Q.length-1){openIdx++;render();window.scrollTo(0,0);} else { S.introDone=true; saveProgress(); go('map'); } };
+window.openNext=function(){ var q=OPEN_Q[openIdx]; if(!q.open && !S.open[q.id])return; if(openIdx<OPEN_Q.length-1){openIdx++;render();window.scrollTo(0,0);} else { S.introDone=true; saveProgress(); go('map'); _acaSync(); } };
 window.openBack=function(){ if(openIdx>0){openIdx--;render();window.scrollTo(0,0);} else { go('nivel'); } };
 
 /* ---- MAPA / ITINERARIO ---- */
@@ -717,7 +729,7 @@ function renderMap(){
   h+='<div style="max-width:640px;margin:14px auto 0;text-align:center"><button class="map-link" onclick="retake()">🔄 Volver a hacer la prueba (reinicia las paradas)</button></div>';
   return h;
 }
-window.enterMod=function(i){ MI=i; TI=0; go('lesson'); };
+window.enterMod=function(i){ MI=i; TI=0; go('lesson'); _acaSync(); };
 
 /* ---- LECCIÓN ---- */
 function renderLesson(){
@@ -729,7 +741,7 @@ function renderLesson(){
     '<div class="btn-row"><button class="btn ghost" onclick="go(\'map\')">← A la ruta</button>'+
     '<button class="btn" onclick="startTest()">Hacer el test ('+m.test.length+' preguntas) →</button></div></div>';
 }
-window.startTest=function(){ TI=0; go('test'); };
+window.startTest=function(){ TI=0; go('test'); _acaSync(); };
 
 /* ---- TEST ---- */
 function tkey(){ return MOD[MI].id+'_'+TI; }
@@ -770,6 +782,7 @@ window.tNext=function(){
     S.modScore[m.id]=score; S.modDone[m.id]=true;
     saveProgress();
     go('map');
+    _acaSync();
     try{ miniConfetti(); }catch(e){}
   }
 };
@@ -828,8 +841,10 @@ window.retake=function(){
   if(!confirm('¿Volver a hacer la prueba desde la primera parada? Tus respuestas de los tests se reinician y, al terminar, se vuelve a enviar el aviso a tu supervisor.')) return;
   S.modDone={}; S.modScore={}; S.quiz={}; S.submitted=false; S._sent=false;
   MI=0; TI=0; openIdx=0;
+  try{ localStorage.removeItem('aca_startTs'); }catch(e){} /* nuevo intento = nuevo tiempo de inicio */
   saveProgress();
   VIEW='map'; render(); window.scrollTo(0,0);
+  _acaSync();
 };
 
 /* ---- confetti ---- */
@@ -859,6 +874,40 @@ function loadProgress(){ try{ var d=JSON.parse(localStorage.getItem('sky_academi
 
 /* ════════════ GUARDADO (Firebase + respaldo local) ════════════ */
 var db=null, FB_ON=false, EJS_ON=false;
+
+/* ════════ AVANCE EN VIVO → app (admin ve quién va, en qué test, tiempos) ════════
+   Se escribe en la colección academia_induccion (mismo Firebase que la app).
+   Un documento por persona (id estable), que se va actualizando conforme avanza. */
+var ACA_ID=(function(){ try{ var id=localStorage.getItem('bess_uid')||localStorage.getItem('aca_uid'); if(!id){ id='aca_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); localStorage.setItem('aca_uid',id); } return id; }catch(e){ return 'aca_'+Date.now().toString(36); } })();
+function _acaStartTs(){ try{ var t=localStorage.getItem('aca_startTs'); if(!t){ t=String(Date.now()); localStorage.setItem('aca_startTs',t); } return parseInt(t,10); }catch(e){ return Date.now(); } }
+function _acaSync(opts){
+  opts=opts||{};
+  if(!FB_ON || !db) return;
+  try{
+    var now=Date.now(), startTs=_acaStartTs();
+    var curMod=MOD[MI]||null, ts=totalScore();
+    var etapa = VIEW==='final' ? 'Terminó'
+      : VIEW==='test' ? ('Test — Parada '+(curMod?curMod.num:'')+': '+(curMod?curMod.title:''))
+      : VIEW==='lesson' ? ('Lección — Parada '+(curMod?curMod.num:'')+': '+(curMod?curMod.title:''))
+      : VIEW==='map' ? 'En la ruta'
+      : 'En el inicio';
+    var doc={
+      id:ACA_ID, nombre:S.name||'Sin nombre', rol:(S.nivel&&S.nivel.rol)||'',
+      nivel:{elec:(S.nivel&&S.nivel.elec)||'', sabeBess:(S.nivel&&S.nivel.sabeBess)||'', sabePv:(S.nivel&&S.nivel.sabePv)||''},
+      status: opts.finished?'terminado':'en_curso',
+      etapa: etapa, vista: VIEW,
+      paradaActualNum: curMod?curMod.num:null,
+      modulosHechos: modsDoneCount(), modulosTotal: MOD.length,
+      modScores: S.modScore||{}, scoreTotal: ts.s, scoreMax: ts.t,
+      respuestas: S.open||{},
+      startedAt: new Date(startTs).toISOString(), startedTs: startTs,
+      lastUpdate: new Date(now).toISOString(), lastUpdateTs: now
+    };
+    if(opts.finished){ doc.finishedAt=new Date(now).toISOString(); doc.finishedTs=now; doc.durationMin=Math.max(1, Math.round((now-startTs)/60000)); }
+    db.collection('academia_induccion').doc(ACA_ID).set(doc, {merge:true}).catch(function(e){ console.warn('[aca-sync]', e&&e.message); });
+  }catch(e){ console.warn('[aca-sync]', e); }
+}
+window._acaSync=_acaSync;
 function payload(){
   var mods=MOD.map(function(m){ return {id:m.id, num:m.num, title:m.title, score:(S.modScore[m.id]||0), total:m.test.length}; });
   var ts=totalScore();
@@ -876,6 +925,7 @@ function submit(){
       .catch(function(e){ setSaveState('Guardado local (sin conexión a la nube)'); });
   } else { setSaveState(FIREBASE_CONFIG.apiKey?'Guardado':'✓ Guardado (modo local)'); }
   sendEmailNotif(data);
+  _acaSync({finished:true});
 }
 function sendEmailNotif(data){
   var nv=data.nivel||{};
@@ -930,7 +980,7 @@ function initEmail(){
 }
 
 /* ════════════ PANEL SUPERVISOR ════════════ */
-window.openSup=function(){ qs('app').classList.add('hidden'); qs('sup').classList.remove('hidden'); window.scrollTo(0,0); };
+window.openSup=function(){ qs('app').classList.add('hidden'); qs('sup').classList.remove('hidden'); window.scrollTo(0,0); if(_isAdmin()){ var g=qs('sup-gate'), p=qs('sup-panel'); if(g)g.classList.add('hidden'); if(p)p.classList.remove('hidden'); loadSubs(); } };
 window.closeSup=function(){ qs('sup').classList.add('hidden'); qs('app').classList.remove('hidden'); qs('sup-panel').classList.add('hidden'); qs('sup-gate').classList.remove('hidden'); };
 window.tryGate=function(){
   if(qs('sup-code').value===SUP_CODE){ qs('sup-gate').classList.add('hidden'); qs('sup-panel').classList.remove('hidden'); loadSubs(); }
@@ -1005,9 +1055,10 @@ window.addEventListener('hashchange', _checkSupHash);
    - Si ya completó las 8 paradas → va directo a su ruta final (certificado + respuestas).
    - Si ya llenó el inicio (nombre/rol/experiencia) pero le faltan paradas → va directo al mapa.
    - Solo la primera vez ve la bienvenida y los datos del inicio. */
-if(allDone()){ VIEW='final'; }
+if(_isAdmin()){ VIEW='adminhome'; }   /* el admin elige: ver supervisor o hacer el test */
+else if(allDone()){ VIEW='final'; }
 else if(profileDone()){ VIEW='map'; }
-initFirebase(function(){ render(); _checkSupHash(); });
+initFirebase(function(){ render(); _checkSupHash(); try{ if(VIEW!=='hero') _acaSync(); }catch(e){} });
 initEmail();
 </script>
 </body>

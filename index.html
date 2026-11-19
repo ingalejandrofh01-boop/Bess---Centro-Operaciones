@@ -10447,8 +10447,13 @@ async function expDoZip(mode){
       <h1 style="font-size:26px;font-weight:800;margin:0;letter-spacing:-.5px">🎓 Academia — Monitoreo</h1>
       <div style="font-size:13px;color:var(--t2);margin-top:4px">Avance en vivo, tiempos y resultados de quienes hacen la Academia Monitoreo BESS.</div>
     </div>
-    <div style="font-family:var(--mono);font-size:10px;color:var(--green);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> en vivo</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="aca-live-tag" style="font-family:var(--mono);font-size:10px;color:var(--green);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> en vivo</span>
+      <button onclick="window._acaExport&&_acaExport('png')" style="background:var(--card);border:1px solid var(--b);border-radius:9px;padding:8px 14px;font-family:var(--mono);font-size:11px;font-weight:700;color:#1a3fcc;cursor:pointer">🖼️ PNG</button>
+      <button onclick="window._acaExport&&_acaExport('pdf')" style="background:linear-gradient(135deg,#0a1f4a,#1a3fcc);border:none;border-radius:9px;padding:8px 14px;font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;cursor:pointer">📄 PDF</button>
+    </div>
   </div>
+  <div id="aca-capture" style="background:var(--bg);padding:2px">
   <div id="aca-stats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
     <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-live">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">En curso</div></div>
     <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-done">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Terminados</div></div>
@@ -10456,11 +10461,32 @@ async function expDoZip(mode){
     <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-avg">—</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Prom. global</div></div>
   </div>
   <div id="aca-list"><div style="color:var(--t3);font-size:13px;padding:20px 0">Esperando conexión…</div></div>
+  </div>
 </div>
 </div>
 <script>
 (function(){
   'use strict';
+  /* Exportar el tablero a PNG o PDF (usa html2canvas/jsPDF ya cargados en la app). */
+  window._acaExport=function(kind){
+    var el=document.getElementById('aca-capture');
+    if(!el){ return; }
+    if(!window.html2canvas){ alert('No se pudo generar la imagen (html2canvas no disponible).'); return; }
+    var bg=getComputedStyle(document.body).backgroundColor||'#f3f6fc';
+    window.html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,logging:false}).then(function(canvas){
+      var fname='Academia_Monitoreo_'+new Date().toISOString().slice(0,10);
+      if(kind==='png'){ var a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=fname+'.png'; document.body.appendChild(a); a.click(); a.remove(); }
+      else { var J=window.jspdf&&window.jspdf.jsPDF; if(!J){ alert('PDF no disponible.'); return; }
+        var orient=canvas.height>canvas.width?'portrait':'landscape';
+        var doc=new J({unit:'pt',format:'a4',orientation:orient});
+        var pw=doc.internal.pageSize.getWidth(), ph=doc.internal.pageSize.getHeight(), margin=18;
+        var r=canvas.width/canvas.height, w=pw-margin*2, h=w/r;
+        if(h>ph-margin*2){ h=ph-margin*2; w=h*r; }
+        doc.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',(pw-w)/2,margin,w,h);
+        doc.save(fname+'.pdf');
+      }
+    }).catch(function(e){ alert('No se pudo exportar: '+(e&&e.message||e)); });
+  };
   function _acaAdmin(){ try{
     if(localStorage.getItem('bess_admin')==='1') return true;
     var n=(localStorage.getItem('bess_uname')||'').trim().toLowerCase();
