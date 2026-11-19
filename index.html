@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1796991000';
+  var APP_VERSION = '1797100000';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -6326,6 +6326,10 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
   <div class="nav-item" onclick="window.open('induccion.html','_blank','noopener')">
     <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
     <div class="nl">Academia BESS</div><div class="nav-tt">Academia Monitoreo BESS · Capacitación (se abre aparte) ↗</div>
+  </div>
+  <div class="nav-item" id="nav-academia" data-page="academia" onclick="goPage('academia')" style="display:none">
+    <div class="ni"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <div class="nl">Academia · Monitoreo</div><div class="nav-tt">Academia — avance y resultados en vivo (admin)</div>
   </div>
   <div class="nav-spacer" style="position:relative;overflow:hidden">
   <!-- Decorative Skysense mark in nav spacer -->
@@ -10433,6 +10437,116 @@ async function expDoZip(mode){
 
 
 <!-- ═══ PAGE: DESEMPEÑO ENERGÉTICO ═══ -->
+
+<!-- ══════════════ ACADEMIA — MONITOREO (solo admin) ══════════════ -->
+<div class="page" id="page-academia">
+<div class="page-scroll">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Skysense · Capacitación</div>
+      <h1 style="font-size:26px;font-weight:800;margin:0;letter-spacing:-.5px">🎓 Academia — Monitoreo</h1>
+      <div style="font-size:13px;color:var(--t2);margin-top:4px">Avance en vivo, tiempos y resultados de quienes hacen la Academia Monitoreo BESS.</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--green);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> en vivo</div>
+  </div>
+  <div id="aca-stats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-live">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">En curso</div></div>
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-done">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Terminados</div></div>
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-today">0</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Hoy</div></div>
+    <div style="background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px 18px"><div style="font-size:24px;font-weight:800;color:#1a3fcc" id="aca-k-avg">—</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px">Prom. global</div></div>
+  </div>
+  <div id="aca-list"><div style="color:var(--t3);font-size:13px;padding:20px 0">Esperando conexión…</div></div>
+</div>
+</div>
+<script>
+(function(){
+  'use strict';
+  function _acaAdmin(){ try{
+    if(localStorage.getItem('bess_admin')==='1') return true;
+    var n=(localStorage.getItem('bess_uname')||'').trim().toLowerCase();
+    return ['admin','alejandro','alejandro fernandez','ing. ale','ale','ing. alejandro','ing alejandro'].indexOf(n)>=0;
+  }catch(e){ return false; } }
+  window._acaAdmin=_acaAdmin;
+  function _acaShowNav(){ var el=document.getElementById('nav-academia'); if(el) el.style.display=_acaAdmin()?'':'none'; }
+  window._acaShowNav=_acaShowNav;
+  function _acaCheckHash(){ try{ if((location.hash||'').toLowerCase().indexOf('academia')>=0){ localStorage.setItem('bess_admin','1'); _acaShowNav(); if(typeof goPage==='function') goPage('academia'); } }catch(e){} }
+
+  function _esc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function _hhmm(ts){ try{ return new Date(ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return '—'; } }
+  function _fecha(ts){ try{ return new Date(ts).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}); }catch(e){ return ''; } }
+  var ACA_OPEN_LABELS={ q_alarma:'Ante una alarma que no entiende', q_seguridad:'Qué es para él trabajar con seguridad', q_aprende:'Cuando algo no sale a la primera', q_proact:'Si ve algo raro en su turno', q_caso:'Caso: un rack marca 0 A' };
+
+  function _acaRender(list){
+    list.sort(function(a,b){ var ao=a.status==='terminado'?1:0, bo=b.status==='terminado'?1:0; if(ao!==bo) return ao-bo; return (b.lastUpdateTs||0)-(a.lastUpdateTs||0); });
+    var live=list.filter(function(x){return x.status!=='terminado';}).length;
+    var done=list.filter(function(x){return x.status==='terminado';}).length;
+    var today=new Date().toDateString();
+    var todayN=list.filter(function(x){return x.finishedTs && new Date(x.finishedTs).toDateString()===today;}).length;
+    var withScore=list.filter(function(x){return x.status==='terminado' && x.scoreMax;});
+    var avg=withScore.length?Math.round(withScore.reduce(function(a,x){return a+(x.scoreTotal/x.scoreMax*100);},0)/withScore.length):null;
+    var set=function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
+    set('aca-k-live',live); set('aca-k-done',done); set('aca-k-today',todayN); set('aca-k-avg',avg==null?'—':avg+'%');
+    var wrap=document.getElementById('aca-list'); if(!wrap) return;
+    if(!list.length){ wrap.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px 0">Todavía nadie ha iniciado la academia.</div>'; return; }
+    wrap.innerHTML=list.map(function(x){
+      var fin=x.status==='terminado';
+      var pct=x.modulosTotal?Math.round((x.modulosHechos||0)/x.modulosTotal*100):0;
+      var badge=fin?'<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(16,185,129,.14);color:#047857">✅ Terminó</span>':'<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(26,63,204,.1);color:#1a3fcc">🟢 En curso</span>';
+      var tiempos='Inicio '+_hhmm(x.startedTs)+' · '+_fecha(x.startedTs);
+      if(fin){ tiempos+=' &nbsp;·&nbsp; Fin '+_hhmm(x.finishedTs)+' &nbsp;·&nbsp; ⏱ '+(x.durationMin||'?')+' min'; }
+      else { tiempos+=' &nbsp;·&nbsp; última actividad '+_hhmm(x.lastUpdateTs); }
+      var nv=x.nivel||{};
+      var modChips='';
+      if(x.modScores){ var order=['bess','disp','cap','estrat','mon','curvas','alarm','solar'], nums={bess:1,disp:2,cap:3,estrat:4,mon:5,curvas:6,alarm:7,solar:8};
+        modChips=order.filter(function(id){return x.modScores[id]!=null;}).map(function(id){ return '<span style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:7px;background:var(--bg);border:1px solid var(--b);color:var(--t2);margin:2px;display:inline-block">'+nums[id]+' <b style="color:#1a3fcc">'+x.modScores[id]+'</b></span>'; }).join('');
+      }
+      var answers=Object.keys(ACA_OPEN_LABELS).map(function(k){ var a=(x.respuestas||{})[k]; if(!a) return ''; return '<div style="margin:6px 0;padding-left:10px;border-left:3px solid var(--b)"><div style="font-size:11px;color:var(--t3);font-weight:700">'+_esc(ACA_OPEN_LABELS[k])+'</div><div style="font-size:13px;line-height:1.45">'+_esc(a)+'</div></div>'; }).join('');
+      return '<div style="background:var(--card);border:1px solid var(--b);border-radius:14px;padding:15px 17px;margin-bottom:12px;box-shadow:0 2px 10px rgba(11,47,181,.05)">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px"><div style="font-weight:800;font-size:16px">'+_esc(x.nombre||'Sin nombre')+' <span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(26,63,204,.08);color:#1a3fcc;font-weight:700">'+_esc(x.rol||'—')+'</span></div>'+badge+'</div>'+
+        '<div style="font-family:var(--mono);font-size:11px;color:var(--t3);margin-bottom:8px">'+tiempos+'</div>'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="flex:1;height:8px;background:var(--bg);border:1px solid var(--b);border-radius:20px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#0b2fb5,#3f6cff)"></div></div><div style="font-family:var(--mono);font-size:11px;color:var(--t2);white-space:nowrap">'+(x.modulosHechos||0)+'/'+(x.modulosTotal||8)+' paradas'+(x.scoreMax?(' · '+x.scoreTotal+'/'+x.scoreMax):'')+'</div></div>'+
+        '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">📍 '+_esc(x.etapa||'—')+'</div>'+
+        '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Base: '+_esc(nv.elec||'?')+' · Sabe BESS: '+_esc(nv.sabeBess||'?')+' · Sabe solar: '+_esc(nv.sabePv||'?')+'</div>'+
+        (modChips?'<div style="margin:6px 0">'+modChips+'</div>':'')+answers+
+      '</div>';
+    }).join('');
+  }
+
+  var _acaSeen={}, _acaFirst=true;
+  function _acaNotify(list){
+    list.forEach(function(x){
+      if(!x.id) return;
+      var prev=_acaSeen[x.id];
+      if(!_acaFirst){
+        if(!prev && x.status!=='terminado'){ if(typeof addNotif==='function') addNotif('info','🎓 Academia iniciada', (x.nombre||'Alguien')+' empezó la Academia Monitoreo BESS', function(){ if(typeof goPage==='function') goPage('academia'); }); }
+        else if(prev && prev!=='terminado' && x.status==='terminado'){ if(typeof addNotif==='function') addNotif('complete','🏆 Academia terminada', (x.nombre||'Alguien')+' terminó · '+(x.scoreTotal||0)+'/'+(x.scoreMax||0)+' en '+(x.durationMin||'?')+' min', function(){ if(typeof goPage==='function') goPage('academia'); }); }
+      }
+      _acaSeen[x.id]=x.status||'en_curso';
+    });
+    _acaFirst=false;
+  }
+
+  var _acaSub=null, _acaData=[];
+  function academiaInit(){
+    _acaShowNav();
+    if(_acaSub){ _acaRender(_acaData); return; }
+    try{
+      var FS=window._fbFS, DB=window._fbDB;
+      if(!FS||!DB||!window._fbOnSnapshot){ setTimeout(academiaInit,1200); return; }
+      _acaSub=window._fbOnSnapshot(FS.collection(DB,'academia_induccion'), function(snap){
+        var list=[]; snap.forEach(function(d){ var v=d.data()||{}; if(!v.id) v.id=d.id; list.push(v); });
+        _acaData=list; _acaNotify(list); _acaRender(list);
+      }, function(err){ var w=document.getElementById('aca-list'); if(w) w.innerHTML='<div style="color:var(--red);font-size:13px;padding:20px 0">No se pudo leer la academia: '+_esc(err&&err.message||err)+'</div>'; });
+    }catch(e){ console.warn('[academia]', e); }
+  }
+  window.academiaInit=academiaInit;
+
+  function _acaBoot(){ _acaShowNav(); _acaCheckHash(); if(_acaAdmin()){ academiaInit(); } }
+  window.addEventListener('firebase-ready', _acaBoot);
+  window.addEventListener('hashchange', _acaCheckHash);
+  document.addEventListener('DOMContentLoaded', function(){ _acaShowNav(); setTimeout(_acaBoot,1500); });
+})();
+</script>
 
 <!-- ══════ PAGE: CEREBRO BESS (Manual Maestro Inteligente) ══════ -->
 <div class="page" id="page-cerebro">
@@ -15578,7 +15692,7 @@ async function _afterDelete(msg){
 }
 
 // PAGE SWITCHING
-const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario de Reportes',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidores CFE',fp:'Factor de Potencia',maestra:'Lista Maestra',cerebro:'Cerebro BESS'};
+const PAGE_TITLES={soc:'Tendencia SOC',energia:'Desempeño Energético',dash:'Inicio',monitor:'Monitor BESS',bitacora:'Bitácora de Descarga',arch:'Archivo & Visor',pres:'Presentación',repop:'Reporte Operativo',repval:'Validación de Sistemas',calval:'Calendario de Reportes',calop:'Calendario Operativo',docs:'Centro de Documentos',historico:'Histórico de Descargas',medidor:'Medidores CFE',fp:'Factor de Potencia',maestra:'Lista Maestra',cerebro:'Cerebro BESS',academia:'Academia — Monitoreo'};
 function updateTopbarTitle(id){
   var t=document.getElementById('tb-title');if(!t)return;
   var title=PAGE_TITLES[id]||id;
@@ -15602,6 +15716,7 @@ function goPage(id){
   if(id==='cerebro'){setTimeout(function(){if(window.cerebroInit)window.cerebroInit();},80);}
   if(id==='medidor'){setTimeout(function(){if(window._mbInit)window._mbInit();},80);}
   if(id==='fp'){setTimeout(function(){if(window._fpInit)window._fpInit();},80);}
+  if(id==='academia'){setTimeout(function(){if(window.academiaInit)window.academiaInit();},60);}
 }
 
 // DASHBOARD

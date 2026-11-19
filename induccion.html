@@ -226,7 +226,7 @@ textarea.inp{min-height:110px;resize:vertical;line-height:1.5}
   <div id="sup-panel" class="hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
       <h2 class="h2" style="margin:0">Respuestas <span class="live" id="live-tag">en vivo</span></h2>
-      <button class="btn ghost" onclick="closeSup()">← Salir</button>
+      <div style="display:flex;gap:10px"><button class="btn ghost" onclick="exportCSV()">⬇ Descargar (CSV)</button><button class="btn ghost" onclick="closeSup()">← Salir</button></div>
     </div>
     <div class="sup-stat">
       <div class="s"><b id="st-total">0</b><span>Personas</span></div>
@@ -244,13 +244,16 @@ textarea.inp{min-height:110px;resize:vertical;line-height:1.5}
    1) CÓDIGO del panel de supervisor (cámbialo por el tuyo): */
 var SUP_CODE = "skysense2026";
 /* 2) FIREBASE (para ver respuestas EN TIEMPO REAL). Proyecto dedicado, NO el de la app. */
+/* Se usa el MISMO Firebase que ya funciona en la app (bitacora-descarga), en una
+   colección aparte (respuestas_induccion). Sus reglas ya están abiertas, así que
+   guarda garantizado. Las inducciones son pocas, no afecta la cuota de la app. */
 var FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCPNZFwD3qlDcNV2B6ZzvX9gDddDIlaCVk",
-  authDomain: "introduccion-skysense.firebaseapp.com",
-  projectId: "introduccion-skysense",
-  storageBucket: "introduccion-skysense.firebasestorage.app",
-  messagingSenderId: "494240307955",
-  appId: "1:494240307955:web:7f214ddfc38811cc883586"
+  apiKey: "AIzaSyA7pwEgAPXzY8H193YuJCTu7H5cs8N7yFo",
+  authDomain: "bitacora-descarga.firebaseapp.com",
+  projectId: "bitacora-descarga",
+  storageBucket: "bitacora-descarga.firebasestorage.app",
+  messagingSenderId: "999605736584",
+  appId: "1:999605736584:web:b1a8d5deb2530b83d13b3d"
 };
 /* 3) CORREO (EmailJS) — aviso cuando alguien termina. Variables de plantilla:
    {{nombre}}, {{rol}}, {{nivel}}, {{score}}, {{fecha}}, {{caso}}, {{mensaje}} */
@@ -935,6 +938,7 @@ window.tryGate=function(){
 };
 function renderSubs(list){
   list.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+  window._supList=list;
   qs('st-total').textContent=list.length;
   var today=new Date().toDateString(), tN=list.filter(function(x){return new Date(x.ts||0).toDateString()===today;}).length;
   qs('st-today').textContent=tN;
@@ -952,6 +956,29 @@ function renderSubs(list){
       (mods?'<div class="mod-chips">'+mods+'</div>':'')+qa+'</div>';
   }).join('')||'<p style="color:var(--t3)">Aún no hay respuestas.</p>';
 }
+/* Descargar todas las respuestas como CSV (se abre en Excel). */
+window.exportCSV=function(){
+  var list=(window._supList||[]).slice();
+  if(!list.length){ alert('Aún no hay respuestas para descargar.'); return; }
+  var cols=['Fecha','Nombre','Rol','Base eléctrica','Sabe BESS','Sabe solar','Puntaje global'];
+  MOD.forEach(function(m){ cols.push('P'+m.num+' '+m.title); });
+  cols.push('Caso (rack 0 A)');
+  function cell(v){ v=String(v==null?'':v).replace(/"/g,'""'); return '"'+v+'"'; }
+  var rows=[cols.map(cell).join(',')];
+  list.forEach(function(x){
+    var nv=x.nivel||{}, mm={}; (x.modulos||[]).forEach(function(m){ mm[m.num]=m.score+'/'+m.total; });
+    var r=[ new Date(x.ts||0).toLocaleString('es-MX'), x.nombre||'', x.rol||'', nv.elec||'', nv.sabeBess||'', nv.sabePv||'',
+      (x.scoreMax?(x.scoreTotal+'/'+x.scoreMax):'') ];
+    MOD.forEach(function(m){ r.push(mm[m.num]||''); });
+    r.push((x.respuestas&&x.respuestas.q_caso)||'');
+    rows.push(r.map(cell).join(','));
+  });
+  var csv='﻿'+rows.join('\r\n'); /* BOM para acentos en Excel */
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='academia_bess_resultados_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+};
 function loadSubs(){
   if(FB_ON&&db){
     qs('live-tag').classList.remove('hidden');
