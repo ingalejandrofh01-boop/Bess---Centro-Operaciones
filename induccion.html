@@ -254,7 +254,7 @@ var FIREBASE_CONFIG = {
 };
 /* 3) CORREO (EmailJS) — aviso cuando alguien termina. Variables de plantilla:
    {{nombre}}, {{rol}}, {{nivel}}, {{score}}, {{fecha}}, {{caso}}, {{mensaje}} */
-var EMAILJS_CONFIG = { publicKey:"", serviceId:"", templateId:"" };
+var EMAILJS_CONFIG = { publicKey:"BoHzQMpg9vxRO3ENZ", serviceId:"service_0123loo", templateId:"template_add6x5a" };
 /* Correo que RECIBE el aviso cuando alguien termina. En tu plantilla de EmailJS,
    pon el campo "To / Para" como {{to_email}} para que llegue aquí. */
 var NOTIFY_EMAIL = "alejandro.fernandez@skysense.com.mx";
@@ -786,7 +786,18 @@ function totalScore(){ var s=0,t=0; MOD.forEach(function(m){ s+=(S.modScore[m.id
 function renderFinal(){
   var ts=totalScore(), pct=ts.t?Math.round(ts.s/ts.t*100):0;
   var scores=MOD.map(function(m){ return '<div class="cert-sc"><b>'+(S.modScore[m.id]||0)+'/'+m.test.length+'</b><span>'+m.num+'. '+shortTitle(m.title)+'</span></div>'; }).join('');
-  if(!S._sent){ S._sent=true; submit(); try{confetti();}catch(e){} }
+  /* El aviso al supervisor se manda UNA sola vez: la primera vez que se completa.
+     Si ya estaba enviado (entra a ver su ruta terminada), no se reenvía ni cae confeti. */
+  var primeraVez = !S.submitted;
+  if(primeraVez){ S.submitted=true; saveProgress(); submit(); try{confetti();}catch(e){} }
+  var nv=S.nivel||{};
+  var info='<div class="ind-grid" style="text-align:left">'+
+      '<div class="ind-term"><b>Rol</b><span>'+esc(nv.rol||'—')+'</span></div>'+
+      '<div class="ind-term"><b>Base eléctrica</b><span>'+esc(nv.elec||'—')+'</span></div>'+
+      '<div class="ind-term"><b>Sabe de BESS</b><span>'+esc(nv.sabeBess||'—')+'</span></div>'+
+      '<div class="ind-term"><b>Sabe de solar</b><span>'+esc(nv.sabePv||'—')+'</span></div>'+
+    '</div>';
+  var ans=OPEN_Q.map(function(q){ var a=(S.open||{})[q.id]; if(!a) return ''; return '<div class="qa" style="text-align:left;margin:10px 0"><div class="qq">'+esc(q.label)+'</div><div class="aa">'+esc(a)+'</div></div>'; }).join('');
   return '<div class="done-wrap card-anim">'+
     '<div class="cert">'+
       '<div class="cert-seal">🎓</div>'+
@@ -795,12 +806,24 @@ function renderFinal(){
       '<div class="cert-line">completó la <b>formación teórica</b> de monitoreo de sistemas BESS.<br>Puntaje global: <b>'+ts.s+'/'+ts.t+'</b> ('+pct+'%) · '+new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})+'</div>'+
       '<div class="cert-scores">'+scores+'</div>'+
     '</div>'+
-    '<p class="lead" style="margin:18px auto 6px;text-align:center">¡Felicidades, '+esc(S.name||'')+'! 🎉 Terminaste la parte teórica. Tus respuestas y calificaciones ya se enviaron a tu supervisor.</p>'+
+    (primeraVez
+      ? '<p class="lead" style="margin:18px auto 6px;text-align:center">¡Felicidades, '+esc(S.name||'')+'! 🎉 Terminaste la parte teórica. Tus respuestas y calificaciones ya se enviaron a tu supervisor.</p>'
+      : '<p class="lead" style="margin:18px auto 6px;text-align:center">Esta es tu ruta completada, '+esc(S.name||'')+'. Ya quedó guardada — no necesitas volver a llenarla.</p>')+
     '<p style="font-size:13px;color:var(--t3);text-align:center">👉 El siguiente paso es la <b>fase práctica</b> (VPN, IPs, acceso a PCS, parámetros): la verás en sitio con tu equipo cuando esté lista.</p>'+
-    '<div class="btn-row" style="justify-content:center"><button class="btn ghost" onclick="go(\'map\')">Ver mi ruta</button><button class="btn" onclick="go(\'practica\')">Conocer la fase práctica →</button></div>'+
+    '<div style="max-width:620px;margin:22px auto 0;text-align:left"><div class="sect-h">📋 Tus respuestas e información</div>'+info+(ans?'<div style="margin-top:10px">'+ans+'</div>':'')+'</div>'+
+    '<div class="btn-row" style="justify-content:center;margin-top:22px"><button class="btn ghost" onclick="go(\'map\')">Ver mi ruta</button><button class="btn ghost" onclick="go(\'practica\')">Fase práctica →</button><button class="btn" onclick="retake()">🔄 Volver a hacer la prueba</button></div>'+
     '<div id="save-state" style="font-size:12px;color:var(--t3);margin-top:16px;text-align:center"></div></div>';
 }
 function shortTitle(t){ return t.length>22?t.slice(0,20)+'…':t; }
+/* Rehacer la prueba: resetea las paradas y el envío (mantiene su identidad y perfil).
+   Al terminar de nuevo, se vuelve a mandar el aviso por correo al supervisor. */
+window.retake=function(){
+  if(!confirm('¿Volver a hacer la prueba desde la primera parada? Tus respuestas de los tests se reinician y, al terminar, se vuelve a enviar el aviso a tu supervisor.')) return;
+  S.modDone={}; S.modScore={}; S.quiz={}; S.submitted=false; S._sent=false;
+  MI=0; TI=0; openIdx=0;
+  saveProgress();
+  VIEW='map'; render(); window.scrollTo(0,0);
+};
 
 /* ---- confetti ---- */
 function confetti(){
@@ -824,8 +847,8 @@ function miniConfetti(){ var cols=['#10b981','#3f6cff','#f59e0b'];
 }
 
 /* ---- progreso local (para no perder avance al recargar) ---- */
-function saveProgress(){ try{ localStorage.setItem('sky_academia_prog', JSON.stringify({name:S.name,nivel:S.nivel,open:S.open,modDone:S.modDone,modScore:S.modScore,quiz:S.quiz})); }catch(e){} }
-function loadProgress(){ try{ var d=JSON.parse(localStorage.getItem('sky_academia_prog')||'null'); if(d){ S.name=d.name||''; S.nivel=d.nivel||{}; S.open=d.open||{}; S.modDone=d.modDone||{}; S.modScore=d.modScore||{}; S.quiz=d.quiz||{}; } }catch(e){} }
+function saveProgress(){ try{ localStorage.setItem('sky_academia_prog', JSON.stringify({name:S.name,nivel:S.nivel,open:S.open,modDone:S.modDone,modScore:S.modScore,quiz:S.quiz,submitted:!!S.submitted})); }catch(e){} }
+function loadProgress(){ try{ var d=JSON.parse(localStorage.getItem('sky_academia_prog')||'null'); if(d){ S.name=d.name||''; S.nivel=d.nivel||{}; S.open=d.open||{}; S.modDone=d.modDone||{}; S.modScore=d.modScore||{}; S.quiz=d.quiz||{}; S.submitted=!!d.submitted; } }catch(e){} }
 
 /* ════════════ GUARDADO (Firebase + respaldo local) ════════════ */
 var db=null, FB_ON=false, EJS_ON=false;
@@ -848,23 +871,37 @@ function submit(){
   sendEmailNotif(data);
 }
 function sendEmailNotif(data){
+  var nv=data.nivel||{};
+  var caso=(data.respuestas&&data.respuestas.q_caso)||'(sin respuesta)';
+  var resumen=data.modulos.map(function(m){return m.num+'·'+m.score+'/'+m.total;}).join('  ');
+  var mensaje=(data.nombre||'Alguien')+' ('+(data.rol||'—')+') completó la Academia Monitoreo BESS.\n'+
+    'Base eléctrica: '+(nv.elec||'?')+' · Sabe BESS: '+(nv.sabeBess||'?')+' · Sabe solar: '+(nv.sabePv||'?')+'\n'+
+    'Puntaje global: '+data.scoreTotal+'/'+data.scoreMax+'\nPor parada: '+resumen+'\n'+
+    'Caso (rack 0 A): '+caso+'\n\nAbre el Panel de supervisor para ver el detalle.';
+  var nombreP=data.nombre||'Sin nombre';
+  var nivelP=(nv.elec||'?')+' · BESS '+(nv.sabeBess||'?')+' · Solar '+(nv.sabePv||'?');
+  var scoreP=data.scoreTotal+'/'+data.scoreMax;
+  var fechaP=new Date(data.ts).toLocaleString('es-MX');
+  if(!EMAILJS_CONFIG.publicKey || !EMAILJS_CONFIG.serviceId || !EMAILJS_CONFIG.templateId){
+    console.warn('[EmailJS] faltan llaves (publicKey/serviceId/templateId).'); return; }
+  if(typeof emailjs==='undefined'){
+    console.warn('[EmailJS] la librería no cargó (revisa conexión).');
+    setSaveState('⚠ El correo no se envió: la librería de EmailJS no cargó.'); return; }
+  var params={
+    /* destinatario (varias convenciones de EmailJS) */
+    to_email: NOTIFY_EMAIL, email: NOTIFY_EMAIL, recipient: NOTIFY_EMAIL, reply_to: NOTIFY_EMAIL,
+    to_name: 'Supervisor', from_name: 'Academia Monitoreo BESS',
+    subject: 'Nueva Academia BESS — '+nombreP, title: 'Academia Monitoreo BESS',
+    /* nombres comunes de plantilla (name/message) + los propios */
+    name: nombreP, nombre: nombreP, rol: data.rol||'—',
+    nivel: nivelP, score: scoreP, fecha: fechaP, caso: caso,
+    message: mensaje, mensaje: mensaje
+  };
   try{
-    if(!EJS_ON || typeof emailjs==='undefined') return;
-    var caso=(data.respuestas&&data.respuestas.q_caso)||'(sin respuesta)';
-    var nv=data.nivel||{};
-    var resumen=data.modulos.map(function(m){return m.num+'·'+m.score+'/'+m.total;}).join('  ');
-    var mensaje=(data.nombre||'Alguien')+' ('+(data.rol||'—')+') completó la Academia Monitoreo BESS.\n'+
-      'Base eléctrica: '+(nv.elec||'?')+' · Sabe BESS: '+(nv.sabeBess||'?')+' · Sabe solar: '+(nv.sabePv||'?')+'\n'+
-      'Puntaje global: '+data.scoreTotal+'/'+data.scoreMax+'\nPor parada: '+resumen+'\n'+
-      'Caso (rack 0 A): '+caso+'\n\nAbre el Panel de supervisor para ver el detalle.';
-    emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
-      to_email: NOTIFY_EMAIL,
-      nombre:data.nombre||'Sin nombre', rol:data.rol||'—',
-      nivel:(nv.elec||'?')+' · BESS '+(nv.sabeBess||'?')+' · Solar '+(nv.sabePv||'?'),
-      score:data.scoreTotal+'/'+data.scoreMax, fecha:new Date(data.ts).toLocaleString('es-MX'),
-      caso:caso, mensaje:mensaje
-    });
-  }catch(e){}
+    emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, params)
+      .then(function(r){ console.log('[EmailJS] enviado OK:', r&&r.status, r&&r.text); setSaveState('✓ Aviso enviado por correo a tu supervisor'); })
+      .catch(function(err){ console.error('[EmailJS] ERROR =>', err); var t=(err&&(err.text||err.message))||(typeof err==='string'?err:JSON.stringify(err)); setSaveState('⚠ El correo no se envió — '+t); });
+  }catch(e){ console.error('[EmailJS] excepción:', e); setSaveState('⚠ El correo no se envió — '+(e&&e.message||e)); }
 }
 function setSaveState(t){ var e=qs('save-state'); if(e)e.textContent=t; }
 
@@ -933,6 +970,9 @@ try{ var _av=appAvatar(); if(_av && isGenericName(S.name)){ S.name=_av.name; } e
    Se entra solo por enlace discreto: induccion.html#supervisor (y pide código). */
 function _checkSupHash(){ try{ var hh=(location.hash||'').toLowerCase(); if(hh.indexOf('supervisor')>=0||hh.indexOf('panel')>=0){ openSup(); } }catch(e){} }
 window.addEventListener('hashchange', _checkSupHash);
+/* Si ya completó la academia (y ya se envió el aviso), entra directo a su ruta final:
+   no tiene que volver a llenar todo. Desde ahí puede ver su info o rehacer la prueba. */
+if(allDone() && S.submitted){ VIEW='final'; }
 initFirebase(function(){ render(); _checkSupHash(); });
 initEmail();
 </script>
