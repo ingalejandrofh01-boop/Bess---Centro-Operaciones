@@ -847,6 +847,15 @@ window._dirCopyPath=function(){ var full=DIR_XLSX_FOLDER+'\\'+DIR_XLSX_NAME; try
 window._dirOpenXlsx=function(){ var furl='file:///'+encodeURI((DIR_XLSX_FOLDER+'\\'+DIR_XLSX_NAME).replace(/\\/g,'/')); var w=window.open(furl,'_blank'); setTimeout(function(){ if(!w||w.closed||typeof w.closed==='undefined'){ _dirCopyPath(); } },400); };
 window.dirSearch=function(v){ _dirQuery=v; _dirUpdateList(); };
 window.dirZone=function(z){ _dirZone=z; render(); };
+/* Frena el autollenado de Chrome: cuando el navegador rellena el buscador,
+   el pseudo-estado :-webkit-autofill dispara una animación y aquí lo limpiamos. */
+function _dirBindAutofillGuard(){
+  var i=document.getElementById('dir-q'); if(!i) return;
+  if(!document.getElementById('_afstyle')){ var st=document.createElement('style'); st.id='_afstyle';
+    st.textContent='@keyframes _afcatch{from{}to{}} input:-webkit-autofill{animation-name:_afcatch;animation-duration:1ms}'; document.head.appendChild(st); }
+  if(!i._afBound){ i._afBound=true; i.addEventListener('animationstart', function(e){ if(e.animationName==='_afcatch'){ i.value=''; _dirQuery=''; try{_dirUpdateList();}catch(_){} } }); }
+  if(i.value && _dirQuery===''){ i.value=''; }
+}
 function renderPractica(){
   var D=window.ACCESS_DIR||{sites:[],creds:[]};
   if(typeof _isAdmin==='function' && _isAdmin()) _dirUnlocked=true;
@@ -860,6 +869,7 @@ function renderPractica(){
       '<div class="ind-note warn" style="margin-top:16px">🔒 Estas IPs son de la red VPN interna (100.96.x.x) y no funcionan sin la VPN. <b>Las contraseñas no se guardan aquí</b>: pídelas a tu supervisor.</p></div></div>';
   }
   var zones=_dirZones(), sites=_dirFilter();
+  setTimeout(_dirBindAutofillGuard,0); setTimeout(_dirBindAutofillGuard,250); setTimeout(_dirBindAutofillGuard,700);
   var chips='<div class="chips" style="margin-bottom:12px"><div class="chip'+(_dirZone==='all'?' sel':'')+'" onclick="dirZone(\'all\')">Todas</div>'+
     zones.map(function(z){ return '<div class="chip'+(_dirZone===z?' sel':'')+'" onclick="dirZone(\''+String(z).replace(/'/g,'')+'\')">'+esc(z)+'</div>'; }).join('')+'</div>';
   var cred='<div class="ind-note" style="margin-top:14px"><b>👤 Usuario por tipo de equipo</b> (la contraseña te la da tu supervisor):<br>'+
