@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797500000';
+  var APP_VERSION = '1797500200';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -6143,36 +6143,7 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
 </div>
 
 
-<!-- ═══ SPEED DIAL — Apps externas ═══ -->
-<div id="sd-wrap">
-  <div id="sd-items">
-    <!-- WhatsApp -->
-    <a class="sd-item" id="sd-wa" href="https://wa.me/" target="_blank" rel="noopener" title="WhatsApp">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.978-1.41A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.946 7.946 0 01-4.265-1.237l-.305-.182-3.165.896.897-3.086-.2-.318A7.946 7.946 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>
-      WhatsApp
-    </a>
-    <!-- OneDrive -->
-    <a class="sd-item" id="sd-od" href="https://onedrive.live.com" target="_blank" rel="noopener" title="OneDrive">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M10.5 13.5H19.5C20.88 13.5 22 14.62 22 16C22 17.38 20.88 18.5 19.5 18.5H5.5C3.57 18.5 2 16.93 2 15C2 13.34 3.17 11.95 4.74 11.59C4.26 10.92 4 10.1 4 9.25C4 7.18 5.68 5.5 7.75 5.5C8.37 5.5 8.96 5.65 9.48 5.91C10.23 4.19 11.96 3 14 3C16.76 3 19 5.24 19 8C19 8.17 18.99 8.34 18.98 8.5H19.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      OneDrive
-    </a>
-    <!-- Teams -->
-    <a class="sd-item" id="sd-teams" href="https://teams.microsoft.com" target="_blank" rel="noopener" title="Teams">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19.5 8.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm0 1c-1.5 0-2.8.7-3.6 1.8.4.7.6 1.5.6 2.4V15h5.5c.8 0 1.5-.7 1.5-1.5v-1c0-1.7-1.3-3-3-3zM9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0 1c-2.7 0-5 2-5 4.5V18c0 .6.4 1 1 1h8c.6 0 1-.4 1-1v-1.5C14 13 11.7 12 9 12z"/></svg>
-      Teams
-    </a>
-  </div>
-  <!-- Toggle button -->
-  <button id="sd-toggle" onclick="document.getElementById('sd-wrap').classList.toggle('open')" title="Apps externas">
-    <span class="sd-tog-icon">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-    </span>
-    Apps
-  </button>
-</div>
+<!-- ═══ SPEED DIAL — Apps externas (removido a petición) ═══ -->
 
 
 
@@ -10498,12 +10469,21 @@ async function expDoZip(mode){
       return (String(s.sitio)+' '+s.zona+' '+s.ip).toLowerCase().indexOf(q)>=0;
     });
   }
+  function tmeta(t){ t=String(t||'').toLowerCase();
+    if(t.indexOf('pcs')>=0) return {ic:'\u26a1',lab:'PCS',col:'#0b2fb5',bg:'rgba(11,47,181,.10)'};
+    if(t.indexOf('contenedor')>=0) return {ic:'\ud83d\udce6',lab:'Contenedor',col:'#b45309',bg:'rgba(180,83,9,.10)'};
+    if(t.indexOf('m\u00f3dulo')>=0||t.indexOf('modulo')>=0) return {ic:'\ud83d\udd0b',lab:'M\u00f3dulo',col:'#047857',bg:'rgba(4,120,87,.10)'};
+    if(t.indexOf('bms')>=0) return {ic:'\ud83e\udde9',lab:'BMS',col:'#7c3aed',bg:'rgba(124,58,237,.10)'};
+    return {ic:'\ud83d\udd0c',lab:'Equipo',col:'#64748b',bg:'rgba(100,116,139,.10)'};
+  }
   function card(s){
     var equipos=(s.equipos||[]).map(function(e){
-      return '<tr><td style="padding:5px 8px;border-top:1px solid var(--b)">'+E(e.tipo)+(e.n?(' '+e.n):'')+'</td>'+
-        '<td style="padding:5px 8px;border-top:1px solid var(--b);font-family:var(--mono)">'+E(e.puerto)+'</td>'+
-        '<td style="padding:5px 8px;border-top:1px solid var(--b);font-family:var(--mono);color:var(--t2)">'+E(e.usuario||'\u2014')+'</td>'+
-        '<td style="padding:5px 8px;border-top:1px solid var(--b)"><a href="'+E(e.url)+'" target="_blank" rel="noopener" style="color:#1a3fcc;font-size:12px;text-decoration:none">abrir \u2197</a></td></tr>';
+      var m=tmeta(e.tipo);
+      var badge='<span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:20px;background:'+m.bg+';color:'+m.col+';margin-right:8px;white-space:nowrap">'+m.ic+' '+m.lab+'</span>';
+      return '<tr><td style="padding:6px 8px;border-top:1px solid var(--b);border-left:3px solid '+m.col+'">'+badge+'<span style="vertical-align:middle">'+E(e.tipo)+(e.n?(' '+e.n):'')+'</span></td>'+
+        '<td style="padding:6px 8px;border-top:1px solid var(--b);font-family:var(--mono)">'+E(e.puerto)+'</td>'+
+        '<td style="padding:6px 8px;border-top:1px solid var(--b);font-family:var(--mono);color:var(--t2)">'+E(e.usuario||'\u2014')+'</td>'+
+        '<td style="padding:6px 8px;border-top:1px solid var(--b)"><a href="'+E(e.url)+'" target="_blank" rel="noopener" style="color:#1a3fcc;font-size:12px;text-decoration:none">abrir \u2197</a></td></tr>';
     }).join('');
     return '<div style="background:var(--card);border:1px solid var(--b);border-radius:13px;padding:13px 15px;margin-bottom:10px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
