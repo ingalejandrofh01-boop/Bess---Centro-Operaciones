@@ -5371,7 +5371,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797501000';
+  var APP_VERSION = '1797501100';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10490,21 +10490,78 @@ async function expDoZip(mode){
         '<div class="inv-leg"><span class="inv-legbadge" style="background:rgba(180,83,9,.1);color:#b45309">📦 Contenedor</span></div>'+
         '<div class="inv-leg"><span class="inv-legbadge" style="background:rgba(124,58,237,.1);color:#7c3aed">🧩 BMS</span></div>'+
       '</div>'+
-      (A? '<div class="inv-railcard"><div class="inv-railttl">Administrar</div><button class="inv-addbtn" onclick="_invAdd()">➕ Agregar sitio</button><div class="inv-railhint">Agrega o edita sitios, IPs, HMI y PCS. Se guarda para todo el equipo.</div></div>':'')+
+      (A? '<div class="inv-railcard"><div class="inv-railttl">Administrar</div><button class="inv-addbtn" onclick="_invAdd()">➕ Agregar sitio</button><button class="inv-copybtn" style="margin-top:8px" onclick="_invMasterManage()">\ud83d\udd10 Contrase\u00f1a maestra</button><div class="inv-railhint">Agrega o edita sitios, IPs, HMI y PCS. Las contrase\u00f1as se guardan cifradas.</div></div>':'')+
       '<div class="inv-railcard"><div class="inv-railttl">Excel completo</div><button class="inv-copybtn" onclick="_invCopyPath()">📋 Copiar ruta</button><div class="inv-railhint">Con contraseñas, en tu OneDrive.</div></div>'+
     '</aside>';
   }
   window._invAdd=function(){ _invOpenForm(null); };
   window._invEdit=function(id){ var s=null; allSites().forEach(function(x){ if(x._id===id) s=x; }); _invOpenForm(s); };
   window._invDelete=function(id){ var s=null; allSites().forEach(function(x){ if(x._id===id) s=x; }); if(!s) return; if(!confirm('¿Quitar "'+s.sitio+'" del inventario? (se puede volver a agregar)')) return; var fb=window._fbFS, db=window._fbDB; if(!fb||!db){ alert('Sin conexión a la base de datos.'); return; } var seedHas=((window.ACCESS_DIR&&window.ACCESS_DIR.sites)||[]).some(function(x){ return slug(x.sitio)===id; }); try{ if(seedHas){ fb.setDoc(fb.doc(db,'inventario_ip',id),{_deleted:true,sitio:s.sitio,updatedAt:Date.now()}); } else { fb.deleteDoc(fb.doc(db,'inventario_ip',id)); } }catch(e){ alert('No se pudo guardar: '+(e&&e.message)); } };
-  function _invRowHtml(e){ e=e||{}; return '<div class="invf-eqrow">'+
+  function _invRowHtml(e){ e=e||{}; var hasPw=!!(e.passEnc||e.pass); return '<div class="invf-eqrow" data-passenc="'+E(e.passEnc||'')+'">'+
     '<input class="invf-in" data-k="tipo" placeholder="Tipo (PCS Kehua, Módulo…)" value="'+E(e.tipo||'')+'" list="invf-tipos">'+
     '<input class="invf-in" data-k="n" style="max-width:52px" placeholder="#" value="'+E(e.n!=null?e.n:'')+'">'+
     '<input class="invf-in" data-k="puerto" style="max-width:80px" placeholder="Puerto" value="'+E(e.puerto!=null?e.puerto:'')+'">'+
     '<input class="invf-in" data-k="usuario" style="max-width:86px" placeholder="Usuario" value="'+E(e.usuario||'')+'">'+
-    '<input class="invf-in" data-k="pass" style="max-width:104px" placeholder="Contrase\u00f1a" value="'+E(e.pass||'')+'">'+
+    '<input class="invf-in" type="password" data-k="pass" style="max-width:104px" placeholder="'+(hasPw?'Contrase\u00f1a (guardada)':'Contrase\u00f1a')+'" value="" autocomplete="new-password">'+
     '<button type="button" class="invf-del" onclick="this.parentNode.remove()">✕</button>'+
   '</div>'; }
+  /* ====== Cifrado de credenciales (AES-GCM + contrasena maestra) ======
+     La contrasena maestra NO se guarda: se deriva una llave con PBKDF2 que vive
+     solo en memoria durante la sesion. En Firebase queda la credencial YA cifrada
+     y un verificador para validar la contrasena. */
+  var _invKey=null, _invSalt=null;
+  function _b64(buf){ var b=new Uint8Array(buf), s=''; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
+  function _ub64(str){ var s=atob(str), b=new Uint8Array(s.length); for(var i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b.buffer; }
+  function _invCryptoOk(){ return !!(window.crypto && window.crypto.subtle); }
+  async function _invDeriveKey(pass, salt){ var base=await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']); return crypto.subtle.deriveKey({name:'PBKDF2', salt:salt, iterations:150000, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']); }
+  async function _invEncrypt(key, text){ var iv=crypto.getRandomValues(new Uint8Array(12)); var ct=await crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, key, new TextEncoder().encode(text)); return _b64(iv.buffer)+':'+_b64(ct); }
+  async function _invDecrypt(key, blob){ var parts=String(blob).split(':'); var iv=new Uint8Array(_ub64(parts[0])); var ct=_ub64(parts[1]); var pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, ct); return new TextDecoder().decode(pt); }
+  async function _invGetMeta(){ var fb=window._fbFS, db=window._fbDB; if(!fb||!db||!fb.getDoc) return null; try{ var snap=await fb.getDoc(fb.doc(db,'inventario_meta','crypto')); var ex=snap&&(typeof snap.exists==='function'?snap.exists():snap.exists); return ex?snap.data():null; }catch(e){ return null; } }
+  async function _invEnsureKey(){
+    if(_invKey) return _invKey;
+    if(!_invCryptoOk()){ alert('El cifrado necesita abrir la app por https (la pagina publicada), no abriendo el archivo local.'); return null; }
+    var meta=await _invGetMeta();
+    if(meta && meta.salt && meta.check){
+      var pass=await _invMasterPrompt('unlock'); if(pass==null) return null;
+      var salt=new Uint8Array(_ub64(meta.salt));
+      var key; try{ key=await _invDeriveKey(pass, salt); var chk=await _invDecrypt(key, meta.check); if(chk!=='SKYBESS_OK') throw 0; }catch(e){ alert('Contrasena maestra incorrecta.'); return null; }
+      _invKey=key; _invSalt=salt; return key;
+    } else {
+      var p2=await _invMasterPrompt('set'); if(p2==null) return null;
+      var salt2=crypto.getRandomValues(new Uint8Array(16));
+      var key2=await _invDeriveKey(p2, salt2);
+      var check=await _invEncrypt(key2, 'SKYBESS_OK');
+      var fb=window._fbFS, db=window._fbDB;
+      try{ await fb.setDoc(fb.doc(db,'inventario_meta','crypto'), {salt:_b64(salt2.buffer), check:check, createdAt:Date.now()}); }catch(e){ alert('No se pudo guardar la contrasena maestra: '+(e&&e.message)); return null; }
+      _invKey=key2; _invSalt=salt2; return key2;
+    }
+  }
+  function _invMasterPrompt(mode){
+    return new Promise(function(resolve){
+      var old=document.getElementById('inv-mp'); if(old) old.remove();
+      var setMode=mode==='set';
+      var html='<div id="inv-mp" class="inv-modal" style="align-items:center"><div class="inv-modalbox" style="max-width:380px">'+
+        '<div class="inv-modalhd"><b>\ud83d\udd10 '+(setMode?'Definir contrase\u00f1a maestra':'Contrase\u00f1a maestra')+'</b></div>'+
+        '<div class="inv-modalbody">'+
+          '<div style="font-size:12px;color:var(--t2);line-height:1.5">'+(setMode?'Crea una contrase\u00f1a maestra para cifrar las credenciales. <b>No se guarda en la p\u00e1gina</b>: si la olvidas, las contrase\u00f1as cifradas no se podr\u00e1n recuperar.':'Escribe la contrase\u00f1a maestra para ver o guardar credenciales.')+'</div>'+
+          '<input id="inv-mp1" type="password" class="invf-in" placeholder="Contrase\u00f1a maestra" autocomplete="new-password">'+
+          (setMode?'<input id="inv-mp2" type="password" class="invf-in" placeholder="Repite la contrase\u00f1a" autocomplete="new-password">':'')+
+          '<div id="inv-mp-err" style="color:#dc2626;font-size:11.5px;min-height:14px"></div>'+
+        '</div>'+
+        '<div class="inv-modalft"><span style="flex:1"></span><button class="invf-cancel" id="inv-mp-c">Cancelar</button><button class="invf-save" id="inv-mp-k">'+(setMode?'Crear':'Entrar')+'</button></div>'+
+      '</div></div>';
+      var wrap=document.createElement('div'); wrap.innerHTML=html; var node=wrap.firstChild; document.body.appendChild(node);
+      var i1=node.querySelector('#inv-mp1'), i2=node.querySelector('#inv-mp2'), err=node.querySelector('#inv-mp-err');
+      function close(v){ node.remove(); resolve(v); }
+      node.querySelector('#inv-mp-c').onclick=function(){ close(null); };
+      function ok(){ var v1=i1.value; if(!v1){ err.textContent='Escribe la contrasena.'; return; } if(setMode){ if(v1.length<4){ err.textContent='Minimo 4 caracteres.'; return; } if(v1!==i2.value){ err.textContent='No coinciden.'; return; } } close(v1); }
+      node.querySelector('#inv-mp-k').onclick=ok;
+      (setMode?i2:i1).addEventListener('keydown',function(e){ if(e.key==='Enter') ok(); });
+      if(!setMode) i1.addEventListener('keydown',function(e){ if(e.key==='Enter') ok(); });
+      setTimeout(function(){ try{ i1.focus(); }catch(e){} },30);
+    });
+  }
+  window._invMasterManage=async function(){ if(_invKey){ if(confirm('Las credenciales ya estan desbloqueadas en esta sesion. Bloquear ahora?')){ _invKey=null; _invSalt=null; alert('\ud83d\udd12 Bloqueado. Se pedira la contrasena maestra la proxima vez.'); } return; } var k=await _invEnsureKey(); if(k) alert('\u2705 Desbloqueado para esta sesion.'); };
   window._invAddRow=function(){ var c=document.getElementById('invf-eqs'); if(!c) return; var d=document.createElement('div'); d.innerHTML=_invRowHtml({}); c.appendChild(d.firstChild); };
   function _invOpenForm(s){
     var old=document.getElementById('inv-modal'); if(old) old.remove(); s=s||{}; var isNew=!s._id;
@@ -10532,21 +10589,35 @@ async function expDoZip(mode){
     '</div></div>';
     var wrap=document.createElement('div'); wrap.innerHTML=html; document.body.appendChild(wrap.firstChild);
   }
-  window._invSaveForm=function(prevId){
+  window._invSaveForm=async function(prevId){
     var g=function(id){ var el=document.getElementById(id); return el?String(el.value).trim():''; };
     var sitio=g('invf-sitio'); if(!sitio){ alert('Pon el nombre del sitio.'); return; }
     var ip=g('invf-ip'); var puerto=parseInt(g('invf-puerto'),10)||7000;
     var url=g('invf-url'); if(!url && ip){ url='http://'+ip+':'+puerto+'/'; }
     var acEl=document.getElementById('invf-acceso'); var acceso=!!(acEl&&acEl.checked);
-    var equipos=[];
+    var equipos=[], pendingPw=[];
     Array.prototype.forEach.call(document.querySelectorAll('#invf-eqs .invf-eqrow'), function(row){
       var o={}; Array.prototype.forEach.call(row.querySelectorAll('.invf-in'), function(inp){ var k=inp.getAttribute('data-k'); var v=String(inp.value).trim(); if(v!=='') o[k]=v; });
-      if(o.tipo){ if(o.n!=null&&o.n!==''){ o.n=parseInt(o.n,10); } if(o.puerto!=null&&o.puerto!==''){ o.puerto=parseInt(o.puerto,10); } if(ip&&o.puerto){ o.url=(/contenedor/i.test(o.tipo||'')?'https':'http')+'://'+ip+':'+o.puerto+'/'; } equipos.push(o); }
+      if(o.tipo){
+        if(o.n!=null&&o.n!==''){ o.n=parseInt(o.n,10); }
+        if(o.puerto!=null&&o.puerto!==''){ o.puerto=parseInt(o.puerto,10); }
+        if(ip&&o.puerto){ o.url=(/contenedor/i.test(o.tipo||'')?'https':'http')+'://'+ip+':'+o.puerto+'/'; }
+        var newPw=o.pass; delete o.pass;
+        var existEnc=row.getAttribute('data-passenc')||'';
+        if(newPw){ pendingPw.push({o:o, v:newPw}); }
+        else if(existEnc){ o.passEnc=existEnc; }
+        equipos.push(o);
+      }
     });
     if(equipos.length) acceso=true;
+    if(pendingPw.length){
+      var key=await _invEnsureKey();
+      if(!key){ alert('Necesitas la contrasena maestra para guardar las credenciales. No se guardo nada.'); return; }
+      for(var i=0;i<pendingPw.length;i++){ try{ pendingPw[i].o.passEnc=await _invEncrypt(key, pendingPw[i].v); }catch(e){ alert('No se pudo cifrar: '+(e&&e.message)); return; } }
+    }
     var obj={ zona:(g('invf-zona')||'Otro'), sitio:sitio, ip:ip, hmiTipo:(g('invf-tipo')||'JMobile (web)'), hmiPuerto:puerto, hmiUrl:url, acceso:acceso, notas:g('invf-notas'), equipos:equipos, updatedAt:Date.now() };
     var id=prevId||slug(sitio);
-    var fb=window._fbFS, db=window._fbDB; if(!fb||!db){ alert('Sin conexión a la base de datos (Firebase).'); return; }
+    var fb=window._fbFS, db=window._fbDB; if(!fb||!db){ alert('Sin conexion a la base de datos (Firebase).'); return; }
     try{ var p=fb.setDoc(fb.doc(db,'inventario_ip',id), obj); if(p&&p.then){ p.then(function(){ var m=document.getElementById('inv-modal'); if(m) m.remove(); }, function(err){ alert('No se pudo guardar: '+(err&&err.message)); }); } else { var m=document.getElementById('inv-modal'); if(m) m.remove(); } }catch(e){ alert('No se pudo guardar: '+(e&&e.message)); }
   };
   function zones(){ var z=[]; allSites().forEach(function(s){ if(z.indexOf(s.zona)<0) z.push(s.zona); }); return z; }
@@ -10572,7 +10643,7 @@ async function expDoZip(mode){
       return '<tr class="inv-row"><td class="inv-eq" style="border-left:3px solid '+m.col+'">'+badge+'<span style="vertical-align:middle">'+E(e.tipo)+(e.n?(' '+e.n):'')+'</span></td>'+
         '<td class="inv-c mono">'+E(e.puerto)+'</td>'+
         '<td class="inv-c mono" style="color:var(--t2)">'+E(e.usuario||'—')+'</td>'+
-        '<td class="inv-c">'+(e.pass?('<span class="inv-pw" id="pw'+idx+'_'+ei+'" data-pw="'+E(e.pass)+'" data-shown="0">\u2022\u2022\u2022\u2022\u2022\u2022</span> <button type="button" class="inv-pweye" onclick="_invTogglePw(\'pw'+idx+'_'+ei+'\')" title="Mostrar / ocultar contraseña">\ud83d\udc41\ufe0f</button>'):'<span style="color:var(--t3)">\u2014</span>')+'</td>'+
+        '<td class="inv-c">'+((e.passEnc||e.pass)?('<span class="inv-pw" id="pw'+idx+'_'+ei+'" data-pw="'+E(e.passEnc||e.pass)+'" data-enc="'+(e.passEnc?'1':'0')+'" data-shown="0">\u2022\u2022\u2022\u2022\u2022\u2022</span> <button type="button" class="inv-pweye" onclick="_invTogglePw(\'pw'+idx+'_'+ei+'\')" title="Mostrar / ocultar contraseña">\ud83d\udc41\ufe0f</button>'):'<span style="color:var(--t3)">\u2014</span>')+'</td>'+
         '<td class="inv-c" style="text-align:right"><a href="'+E(_invHref(s,e))+'" target="_blank" rel="noopener" style="color:#1a3fcc;font-size:12px;text-decoration:none;font-weight:600">abrir ↗</a></td></tr>';
     }).join('');
     var hmi='<a class="inv-hmibtn" href="'+E(s.hmiUrl)+'" target="_blank" rel="noopener">🖥️ HMI · '+E(s.ip)+':'+E(s.hmiPuerto)+' ↗</a>';
@@ -10622,7 +10693,7 @@ async function expDoZip(mode){
       if(_invActiveId!=null){ var _aa=document.getElementById('idxs-'+_invActiveId); if(_aa) _aa.classList.add('active'); } }
   }
   window._invJump=function(i){ _invActiveId=i; var el=document.getElementById('invc-'+i); if(el){ el.scrollIntoView({behavior:'smooth',block:'start'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(function(){ try{el.classList.remove('flash');}catch(e){} },1300); } try{ var pv=document.querySelector('#inv-index .idx-site.active'); if(pv) pv.classList.remove('active'); var a=document.getElementById('idxs-'+i); if(a){ a.classList.add('active'); } }catch(e){} };
-  window._invTogglePw=function(id){ var el=document.getElementById(id); if(!el) return; if(el.getAttribute('data-shown')==='1'){ el.textContent='\u2022\u2022\u2022\u2022\u2022\u2022'; el.setAttribute('data-shown','0'); } else { el.textContent=el.getAttribute('data-pw')||''; el.setAttribute('data-shown','1'); } };
+  window._invTogglePw=async function(id){ var el=document.getElementById(id); if(!el) return; if(el.getAttribute('data-shown')==='1'){ el.textContent='\u2022\u2022\u2022\u2022\u2022\u2022'; el.setAttribute('data-shown','0'); return; } var blob=el.getAttribute('data-pw')||''; if(el.getAttribute('data-enc')!=='1'){ el.textContent=blob; el.setAttribute('data-shown','1'); return; } var key=await _invEnsureKey(); if(!key) return; try{ var clear=await _invDecrypt(key, blob); el.textContent=clear; el.setAttribute('data-shown','1'); }catch(e){ alert('No se pudo descifrar (contrasena maestra incorrecta?).'); } };
   window._invSearch=function(v){ _q=v; updateList(); };
   window._invZone=function(z){ _zone=z; render(); };
 
