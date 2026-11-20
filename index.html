@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797500600';
+  var APP_VERSION = '1797500700';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -13326,7 +13326,7 @@ async function saveToMonthly() {
   try {
     const doc    = document.getElementById('bitacora-document');
     const canvas = await html2canvas(doc, {
-      scale:3, useCORS:true, allowTaint:true,
+      scale:2, useCORS:true, allowTaint:true,
       backgroundColor:'#ffffff', logging:false,
       windowWidth:850, windowHeight:doc.scrollHeight
     });
@@ -15505,7 +15505,7 @@ async function captureAndDownload() {
     const date  = document.getElementById('discharge-date').value||'sin-fecha';
     const folio = document.getElementById('folio').value||'';
     const canvas = await html2canvas(doc, {
-      scale:3, useCORS:true, allowTaint:true,
+      scale:2, useCORS:true, allowTaint:true,
       backgroundColor:'#ffffff', logging:false,
       windowWidth:850, windowHeight:doc.scrollHeight
     });
@@ -32087,29 +32087,74 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     };
   }
 
+  /* v150 — Carga sin trabar la compu: 1) se leen TODAS las imagenes al instante
+     (solo miniatura, sin OCR) y se dibuja la tabla UNA sola vez; 2) el OCR corre en
+     SEGUNDO PLANO, una por una, cediendo el hilo entre cada imagen, para que puedas ir
+     revisando mientras lee y la compu no se congele. Al terminar se liberan los workers
+     de OCR para soltar la RAM (clave en computadoras de pocos recursos). */
   window._loteHandleFiles = async function(fileList){
     var files = Array.prototype.slice.call(fileList || []);
     if(!files.length) return;
     var prog = document.getElementById('lote-progress');
-    if(prog){ prog.style.display='block'; }
+    if(prog){ prog.style.display='block'; prog.textContent='Cargando '+files.length+' imagen(es)…'; }
+    var fresh = [];
     for(var i=0;i<files.length;i++){
-      if(prog) prog.textContent = 'Procesando imagen ' + (i+1) + ' de ' + files.length + ' — ' + files[i].name;
       try{
         var dataUrl = await loteReadFileAsDataUrl(files[i]);
-        var row = await loteBuildRow(files[i].name, dataUrl);
-        _loteRows.push(row);
+        _loteIdSeq++;
+        var shell = { id:_loteIdSeq, filename:files[i].name, fullDataUrl:dataUrl, _rawDataUrl:dataUrl,
+          carga:null, red:null, bess:null, bessParts:[], tipo:'', tipoAuto:false,
+          matchKind:'none', candidates:[], siteValue:'', comment:'', published:false, ocrPending:true };
+        _loteRows.push(shell); fresh.push(shell);
+        if(prog) prog.textContent = 'Cargando '+(i+1)+' de '+files.length+'…';
+        if((i & 3)===3) await _loteYield(0);
       }catch(e){
         _loteIdSeq++;
-        _loteRows.push({ id:_loteIdSeq, filename:files[i].name, fullDataUrl:null, carga:null, red:null, bess:null,
-          tipo:'', tipoAuto:false,
-          matchKind:'none', candidates:[], siteValue:'', comment:'', published:false,
-          publishError:'No se pudo procesar: ' + (e && e.message || e) });
+        _loteRows.push({ id:_loteIdSeq, filename:files[i].name, fullDataUrl:null, carga:null, red:null, bess:null, bessParts:[],
+          tipo:'', tipoAuto:false, matchKind:'none', candidates:[], siteValue:'', comment:'', published:false,
+          publishError:'No se pudo leer: ' + (e && e.message || e) });
       }
-      loteRenderTable();
     }
-    if(prog) prog.style.display = 'none';
-    document.getElementById('lote-file-input').value = '';
+    if(typeof loteRenderTable==='function') loteRenderTable();
+    var fi=document.getElementById('lote-file-input'); if(fi) fi.value='';
+    _loteEnqueueOcr(fresh);
   };
+  var _loteOcrQueue = [], _loteOcrBusy = false;
+  function _loteYield(ms){ return new Promise(function(res){ var raf=window.requestAnimationFrame||function(fn){return setTimeout(fn,16);}; raf(function(){ setTimeout(res, ms||0); }); }); }
+  function _loteTerminateWorkers(){
+    try{ Object.keys(_loteWorkers||{}).forEach(function(k){ var p=_loteWorkers[k]; if(p&&p.then){ p.then(function(w){ try{ w&&w.terminate&&w.terminate(); }catch(_){ } }, function(){}); } delete _loteWorkers[k]; }); }catch(e){}
+  }
+  function _loteEnqueueOcr(rows){
+    _loteOcrQueue = _loteOcrQueue.concat(rows||[]);
+    if(_loteOcrBusy) return;
+    _loteOcrBusy = true;
+    var prog = document.getElementById('lote-progress');
+    (async function(){
+      var total = _loteOcrQueue.length, done = 0;
+      while(_loteOcrQueue.length){
+        var row = _loteOcrQueue.shift(); done++;
+        if(prog){ prog.style.display='block'; prog.textContent='Leyendo captura '+done+' de '+total+' — ya puedes revisar las demás…'; }
+        await _loteYield(0);
+        try{
+          if(row && row.ocrPending && !row.published && row.fullDataUrl){
+            var userTipo = (row.tipo && row.tipo!=='') ? row.tipo : null;
+            var userSite = (row.siteValue && row.siteValue!=='') ? row.siteValue : null;
+            var enriched = await loteBuildRow(row.filename, row._rawDataUrl||row.fullDataUrl);
+            var keepId = row.id;
+            Object.assign(row, enriched);
+            row.id = keepId; row.ocrPending = false;
+            if(userTipo) row.tipo = userTipo;
+            if(userSite) row.siteValue = userSite;
+          } else if(row){ row.ocrPending = false; }
+        }catch(e){ if(row){ row.ocrPending=false; row.publishError='OCR: '+(e&&e.message||e); } }
+        if(typeof loteRenderTable==='function') loteRenderTable();
+        await _loteYield(45);
+      }
+      _loteOcrBusy = false;
+      if(prog){ prog.textContent=''; prog.style.display='none'; }
+      _loteTerminateWorkers();
+    })();
+  }
 
   window._loteHandleDragOver = function(ev){ ev.preventDefault(); document.getElementById('lote-dropzone').classList.add('dragover'); };
   window._loteHandleDragLeave = function(ev){ document.getElementById('lote-dropzone').classList.remove('dragover'); };
@@ -32572,6 +32617,14 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     _loteQueueIdx++;
     _loteOpenQueueRow();
   };
+  /* v150 — "Atras": vuelve a la captura anterior para re-verificarla. Solo navega
+     (no desguarda lo ya guardado); si la vuelves a guardar, se guarda de nuevo. */
+  window._loteQueuePrev = function(){
+    if(!_loteQueueActive) return;
+    if(_loteQueueIdx<=0){ if(typeof showToast==='function') showToast('Ya estas en la primera captura'); return; }
+    _loteQueueIdx--;
+    _loteOpenQueueRow();
+  };
 
   /* v138 — limpia SOLO los valores por-evento (los que cambian cada día/sitio) para que no se
      hereden del sitio anterior durante la revisión uno por uno. Los datos estructurales del sitio
@@ -32769,6 +32822,7 @@ button.lote-crop-toggle{display:block;width:104px!important;min-width:0!importan
     <div class="lqb-warn" id="lqb-warn" style="display:none">⚠ Sin datos legibles en esta captura — revisa si el sitio estuvo sin comunicación</div>
   </div>
   <div class="lqb-actions">
+    <button type="button" class="lqb-prev" onclick="window._loteQueuePrev()" title="Volver a la anterior" style="background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.25)">← Atrás</button>
     <button type="button" class="lqb-save" onclick="window._loteSaveQueueRow()" style="background:linear-gradient(135deg,#0f766e,#16a34a);color:#fff;font-weight:800;border-color:transparent">💾 Guardar y siguiente</button>
     <button type="button" onclick="window._loteSkipQueueRow()">Saltar (sin guardar) ⏭</button>
     <button type="button" class="lqb-cancel" onclick="window._loteCancelReview()">✕ Cancelar revisión</button>
