@@ -5369,7 +5369,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797500200';
+  var APP_VERSION = '1797500300';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10480,19 +10480,19 @@ async function expDoZip(mode){
     var equipos=(s.equipos||[]).map(function(e){
       var m=tmeta(e.tipo);
       var badge='<span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:20px;background:'+m.bg+';color:'+m.col+';margin-right:8px;white-space:nowrap">'+m.ic+' '+m.lab+'</span>';
-      return '<tr><td style="padding:6px 8px;border-top:1px solid var(--b);border-left:3px solid '+m.col+'">'+badge+'<span style="vertical-align:middle">'+E(e.tipo)+(e.n?(' '+e.n):'')+'</span></td>'+
-        '<td style="padding:6px 8px;border-top:1px solid var(--b);font-family:var(--mono)">'+E(e.puerto)+'</td>'+
-        '<td style="padding:6px 8px;border-top:1px solid var(--b);font-family:var(--mono);color:var(--t2)">'+E(e.usuario||'\u2014')+'</td>'+
-        '<td style="padding:6px 8px;border-top:1px solid var(--b)"><a href="'+E(e.url)+'" target="_blank" rel="noopener" style="color:#1a3fcc;font-size:12px;text-decoration:none">abrir \u2197</a></td></tr>';
+      return '<tr class="inv-row"><td class="inv-eq" style="border-left:3px solid '+m.col+'">'+badge+'<span style="vertical-align:middle">'+E(e.tipo)+(e.n?(' '+e.n):'')+'</span></td>'+
+        '<td class="inv-c mono">'+E(e.puerto)+'</td>'+
+        '<td class="inv-c mono" style="color:var(--t2)">'+E(e.usuario||'\u2014')+'</td>'+
+        '<td class="inv-c" style="text-align:right"><a href="'+E(e.url)+'" target="_blank" rel="noopener" style="color:#1a3fcc;font-size:12px;text-decoration:none;font-weight:600">abrir \u2197</a></td></tr>';
     }).join('');
-    return '<div style="background:var(--card);border:1px solid var(--b);border-radius:13px;padding:13px 15px;margin-bottom:10px">'+
+    return '<div style="background:var(--card);border:1px solid var(--b);border-radius:13px;padding:12px 14px;margin-bottom:9px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
         '<div style="font-weight:800;font-size:15px">'+E(s.sitio)+' <span style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(26,63,204,.08);color:#1a3fcc;font-weight:700">'+E(s.zona)+'</span></div>'+
         '<a href="'+E(s.hmiUrl)+'" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:12px;font-weight:700;color:#fff;background:linear-gradient(135deg,#0b2fb5,#3f6cff);padding:7px 12px;border-radius:9px;text-decoration:none">🖥\ufe0f HMI \u00b7 '+E(s.ip)+':'+E(s.hmiPuerto)+' \u2197</a>'+
       '</div>'+
       '<div style="font-size:11.5px;color:var(--t3);margin-top:6px">Pantalla: '+E(s.hmiTipo)+(s.notas?(' \u00b7 '+E(s.notas)):'')+'</div>'+
       (s.acceso && equipos
-        ? '<table style="width:100%;border-collapse:collapse;margin-top:9px;font-size:12.5px"><tr style="font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px"><td style="padding:3px 8px">Equipo</td><td style="padding:3px 8px">Puerto</td><td style="padding:3px 8px">Usuario</td><td style="padding:3px 8px"></td></tr>'+equipos+'</table>'
+        ? '<table class="inv-tbl"><tr class="inv-head"><td>Equipo</td><td style="width:108px">Puerto</td><td style="width:108px">Usuario</td><td style="width:76px"></td></tr>'+equipos+'</table>'
         : '<div style="font-size:12px;color:var(--t3);margin-top:7px;font-style:italic">Sin acceso directo a PCS/BMS (solo HMI).</div>')+
     '</div>';
   }
@@ -10517,7 +10517,7 @@ async function expDoZip(mode){
   }
 
   function render(){
-    var root=document.getElementById('inv-root'); if(!root) return;
+    var root=document.getElementById('inv-root'); if(!root) return; if(!document.getElementById('_invtblcss')){var st=document.createElement('style');st.id='_invtblcss';st.textContent='.inv-tbl{width:100%;max-width:880px;border-collapse:collapse;margin-top:8px;font-size:12.5px}.inv-tbl td{padding:5px 10px}.inv-tbl tr.inv-head td{font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;padding:3px 10px}.inv-tbl tr.inv-row td{border-top:1px solid var(--b)}.inv-tbl tr.inv-row:nth-child(2n) td{background:rgba(127,127,127,.045)}.inv-tbl tr.inv-row:hover td{background:rgba(26,63,204,.12)}.inv-tbl .mono{font-family:var(--mono)}';document.head.appendChild(st);} 
     var d=D(), sites=d.sites||[];
     var total=sites.length, conAcc=sites.filter(function(s){return s.acceso;}).length, nz=zones().length;
     var kpi=function(ic,val,lab,col){ return '<div style="background:var(--card);border:1px solid var(--b);border-radius:16px;padding:16px 18px;position:relative;overflow:hidden"><div style="position:absolute;top:12px;right:14px;font-size:20px;opacity:.22">'+ic+'</div><div style="font-size:30px;font-weight:800;color:'+col+';line-height:1">'+val+'</div><div style="font-size:10px;font-family:var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:7px">'+lab+'</div></div>'; };
