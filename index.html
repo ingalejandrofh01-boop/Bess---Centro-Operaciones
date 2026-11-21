@@ -5371,7 +5371,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1797501600';
+  var APP_VERSION = '1797501700';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10699,8 +10699,9 @@ async function expDoZip(mode){
 
   window._invOpenGroup=function(kind,value){
     var urls=[];
-    if(kind==='all'){ allSites().forEach(function(s){ if(s.hmiUrl) urls.push(s.hmiUrl); }); }
-    else if(kind==='zone'){ allSites().forEach(function(s){ if(s.zona===value && s.hmiUrl) urls.push(s.hmiUrl); }); }
+    var _web=function(s){ return s.hmiUrl && !/vnc/i.test(s.hmiTipo||'') && s.hmiPuerto!==5900 && s.hmiPuerto!==6000; };
+    if(kind==='all'){ allSites().forEach(function(s){ if(_web(s)) urls.push(s.hmiUrl); }); }
+    else if(kind==='zone'){ allSites().forEach(function(s){ if(s.zona===value && _web(s)) urls.push(s.hmiUrl); }); }
     else if(kind==='type'){ allSites().forEach(function(s){ (s.equipos||[]).forEach(function(e){ var lab=tmeta(e.tipo).lab; if((value==='PCS'&&lab==='PCS')||(value==='Módulos'&&lab==='Módulo')||(value==='Contenedores'&&lab==='Contenedor')){ urls.push(_invHref(s,e)); } }); }); }
     if(!urls.length){ alert('No hay pantallas en ese grupo.'); return; }
     if(urls.length>15 && !confirm('Vas a abrir '+urls.length+' pestañas de este grupo. ¿Continuar?')) return;
