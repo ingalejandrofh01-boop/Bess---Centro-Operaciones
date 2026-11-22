@@ -596,20 +596,18 @@ window._fb = {
     const snap = await getDocs(q);
     const docs = [];
     for(const d of snap.docs){
-      const data = { ...d.data(), _id: d.id };
-      if(data.downloadURL === '__chunked__' && data.chunks > 0){
-        // Reensamblar chunks
-        let full = '';
-        for(let i = 0; i < data.chunks; i++){
-          const cSnap = await getDocs(collection(fbDB, 'docs_bess_v2', d.id, 'chunks'));
-          const cDoc = cSnap.docs.find(x => x.id === String(i));
-          if(cDoc) full += cDoc.data().data || '';
-        }
-        data.downloadURL = full;
-      }
-      docs.push(data);
+      // Solo METADATA (rápido). Los binarios troceados (chunks) se reensamblan
+      // bajo demanda con docsLoadFull() al abrir o descargar — así la app no se
+      // traba cargando todos los PDFs grandes de golpe al entrar.
+      docs.push({ ...d.data(), _id: d.id });
     }
     return docs;
+  },
+  async docsLoadFull(id){
+    // Reensambla los chunks de UN documento, en una sola lectura, ordenados.
+    const cSnap = await getDocs(collection(fbDB, 'docs_bess_v2', id, 'chunks'));
+    const parts = cSnap.docs.map(c=>({ i: parseInt(c.id,10), data: (c.data().data||'') })).sort((a,b)=>a.i-b.i);
+    return parts.map(p=>p.data).join('');
   },
   async docsDelete(id){
     // Borrar chunks si existen
@@ -847,7 +845,7 @@ const _dMkDocRow=d=>{
     <div style="font-size:11.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc(d.name||'')}">${_esc(d.name||'Sin nombre')}</div>
     <div style="font-size:9.5px;color:var(--text3);margin-top:1px">${fmtSz(d.size)} · ${fmtDt(d.savedAt)}</div>
   </div>
-  <button class="ddl" title="Descargar" onclick="event.stopPropagation();docsDownloadById('${d._id}')" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:15px;padding:2px 5px;border-radius:6px;flex-shrink:0">⬇</button>
+  <button class="ddl" title="Descargar archivo" onclick="event.stopPropagation();docsDownloadById('${d._id}')" style="background:rgba(26,63,204,.1);border:none;cursor:pointer;color:var(--accent);font-size:14px;padding:5px 9px;border-radius:7px;flex-shrink:0;font-weight:800;line-height:1" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='rgba(26,63,204,.1)';this.style.color='var(--accent)'">⬇</button>
   <button class="ddel" onclick="event.stopPropagation();docsDelete('${d._id}')">✕</button>
 </div>`;
 };
@@ -1266,6 +1264,11 @@ window.docsOpen=async id=>{
     if(!d.downloadURL){
       throw new Error('Datos no disponibles. Re-sube el archivo.');
     }
+    // Archivo grande troceado: reensamblar sus chunks ahora (y cachear en el objeto)
+    if(d.downloadURL==='__chunked__'){
+      if(window._fb && window._fb.docsLoadFull){ d.downloadURL = await window._fb.docsLoadFull(d._id); }
+      if(!d.downloadURL || d.downloadURL==='__chunked__') throw new Error('No se pudieron cargar los datos del archivo.');
+    }
     // Soporte base64 dataURL (Spark) o URL remota (legacy)
     let buf;
     if(d.downloadURL.startsWith('data:')){
@@ -1387,7 +1390,9 @@ window.docsDownloadCurrent=async()=>{
 };
 // ── Descarga directa desde la lista (sin abrir el visor) ──
 async function _docsBlobFrom(d){
-  const src=d&&d.downloadURL; if(!src) throw new Error('Sin datos (re-sube el archivo).');
+  let src=d&&d.downloadURL; if(!src) throw new Error('Sin datos (re-sube el archivo).');
+  if(src==='__chunked__'){ if(window._fb&&window._fb.docsLoadFull){ src=await window._fb.docsLoadFull(d._id); d.downloadURL=src; } }
+  if(!src||src==='__chunked__') throw new Error('No se pudieron cargar los datos.');
   if(/^data:/i.test(src)){
     const parts=src.split(','), meta=parts[0], b64=parts.slice(1).join(',');
     const mime=(meta.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
@@ -1425,16 +1430,18 @@ window._dShowApps=async function(){
   window._dAppsCache=cfg;
   const admin=(()=>{try{return localStorage.getItem('bess_admin')==='1';}catch(e){return false;}})();
   const url=cfg.bess_monitor_url||'BESS-Monitor-app-20261121.zip'; const ver=cfg.bess_monitor_ver||'2026-11-21';
-  const dlBtn = url
-    ? `<a href="${_esc(url)}" download rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0b2fb5,#3f6cff);color:#fff;padding:12px 24px;border-radius:12px;text-decoration:none;font-weight:800;font-size:14px">⬇ Descargar BESS Monitor</a>`
+  const extUrl=cfg.extension_url||'bess-grupos-chrome.zip'; const extVer=cfg.extension_ver||'2.1';
+  const dlBtn=(u,label)=> u
+    ? `<a href="${_esc(u)}" download rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0b2fb5,#3f6cff);color:#fff;padding:12px 24px;border-radius:12px;text-decoration:none;font-weight:800;font-size:14px">⬇ ${label}</a>`
     : `<div style="color:var(--text3);font-size:13px;padding:10px 0">⏳ El administrador aún no ha puesto el link de descarga.</div>`;
+  const editBtn=(which)=> admin?`<button onclick="_dAppsSetUrl('${which}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-weight:700;font-size:12.5px;cursor:pointer;color:var(--text2)">✏️ Editar link</button>`:'';
   panel.innerHTML = `
   <div style="position:relative;overflow:hidden;border-radius:20px;background:linear-gradient(135deg,#0a1f4a,#13306e 55%,#1a3fcc);color:#fff;padding:24px 28px;margin-bottom:18px">
     <div style="font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;opacity:.82;margin-bottom:8px">Skysense · Software</div>
     <div style="font-size:24px;font-weight:800">📥 Aplicaciones BESS</div>
     <div style="font-size:13px;opacity:.9;margin-top:6px;line-height:1.5">Descarga las herramientas internas del equipo de monitoreo.</div>
   </div>
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
       <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#0b2fb5,#3f6cff);display:flex;align-items:center;justify-content:center;font-size:26px">🖥️</div>
       <div style="flex:1;min-width:160px">
@@ -1442,21 +1449,34 @@ window._dShowApps=async function(){
         <div style="font-size:12.5px;color:var(--text2);margin-top:3px">App de monitoreo de conectividad y supervisión de los sitios BESS (Node.js). Incluye código y guías; sin credenciales — se configuran aparte.</div>
       </div>
     </div>
-    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      ${dlBtn}
-      ${admin?`<button onclick="_dAppsSetUrl()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-weight:700;font-size:12.5px;cursor:pointer;color:var(--text2)">✏️ Editar link</button>`:''}
-    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">${dlBtn(url,'Descargar BESS Monitor')}${editBtn('bess_monitor')}</div>
     <div style="margin-top:14px;font-size:11.5px;color:var(--text3);line-height:1.5">📦 Instalación: descomprime, ejecuta <b>npm install</b>, copia tu carpeta <b>config/</b> y arranca con <b>iniciar.bat</b>. Requiere VPN. (Detalles en LEEME-INSTALACION.txt dentro del ZIP.)</div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#1a7f37,#30a46c);display:flex;align-items:center;justify-content:center;font-size:26px">🧩</div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:17px;font-weight:800;color:var(--text)">Extensión Grupos BESS (Chrome)${extVer?` <span style="font-size:11px;color:var(--text3);font-weight:600">v${_esc(extVer)}</span>`:''}</div>
+        <div style="font-size:12.5px;color:var(--text2);margin-top:3px">Abre los HMIs de los sitios en grupos de pestañas de colores en Chrome (por zona y por tipo de equipo). Se sincroniza sola con la Lista Maestra desde Firebase.</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">${dlBtn(extUrl,'Descargar extensión')}${editBtn('extension')}</div>
+    <div style="margin-top:14px;font-size:11.5px;color:var(--text3);line-height:1.5">🧩 Instalación: descomprime, entra a <b>chrome://extensions</b>, activa <b>Modo de desarrollador</b> y pulsa <b>Cargar descomprimida</b> apuntando a la carpeta. (Pasos en INSTALAR.txt dentro del ZIP.)</div>
   </div>`;
 };
-window._dAppsSetUrl=async function(){
-  const cur=(window._dAppsCache&&window._dAppsCache.bess_monitor_url)||'';
-  const url=prompt('Pega el link de descarga de BESS Monitor (OneDrive/SharePoint):', cur);
+window._dAppsSetUrl=async function(which){
+  which = which||'bess_monitor';
+  const nameMap={ bess_monitor:'BESS Monitor', extension:'Extensión Grupos BESS' };
+  const urlKey = which==='extension'?'extension_url':'bess_monitor_url';
+  const verKey = which==='extension'?'extension_ver':'bess_monitor_ver';
+  const cur=(window._dAppsCache&&window._dAppsCache[urlKey])||'';
+  const url=prompt('Pega el link de descarga de '+(nameMap[which]||which)+' (OneDrive, GitHub o la ruta del ZIP en el repo):', cur);
   if(url===null) return;
-  const ver=prompt('Versión (opcional, ej. 2026-11-21):', (window._dAppsCache&&window._dAppsCache.bess_monitor_ver)||'')||'';
+  const ver=prompt('Versión (opcional):', (window._dAppsCache&&window._dAppsCache[verKey])||'')||'';
   try{
     const fb=window._fbFS, db=window._fbDB; if(!fb||!db){ toast('Sin conexión a Firebase'); return; }
-    await fb.setDoc(fb.doc(db,'inventario_meta','apps'), { bess_monitor_url:String(url).trim(), bess_monitor_ver:String(ver).trim(), updatedAt:Date.now() }, {merge:true});
+    const payload={ updatedAt:Date.now() }; payload[urlKey]=String(url).trim(); payload[verKey]=String(ver).trim();
+    await fb.setDoc(fb.doc(db,'inventario_meta','apps'), payload, {merge:true});
     toast('✅ Link guardado'); _dShowApps();
   }catch(e){ toast('No se pudo guardar: '+(e&&e.message||e)); }
 };
@@ -5447,7 +5467,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795324881';
+  var APP_VERSION = '1795379534';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -5959,6 +5979,29 @@ body.dark #page-medidor .mbnav button,[data-theme="dark"] #page-medidor .mbnav b
 </style>
 </head>
 <body>
+<!-- ── Pantalla de carga (splash) — se muestra al instante y se oculta cuando la app está lista ── -->
+<div id="appSplash" style="position:fixed;inset:0;z-index:2000000;background:linear-gradient(135deg,#0a1430 0%,#13306e 55%,#1a3fcc 120%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;transition:opacity .45s ease;font-family:system-ui,-apple-system,'Segoe UI',sans-serif">
+  <div style="display:flex;align-items:center;gap:13px;color:#fff">
+    <div style="width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 8px 30px rgba(0,0,0,.35)">⚡</div>
+    <div style="text-align:left"><div style="font-size:21px;font-weight:800;letter-spacing:-.3px;line-height:1.1">Centro BESS</div><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#9fb0d6;margin-top:3px">skysense · operación</div></div>
+  </div>
+  <div style="width:220px;height:4px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden"><div id="appSplashBar" style="height:100%;width:30%;border-radius:4px;background:linear-gradient(90deg,#3f6cff,#8ab4ff);animation:splashSlide 1.1s ease-in-out infinite"></div></div>
+  <div id="appSplashMsg" style="color:#9fb0d6;font-size:12.5px;font-weight:600;letter-spacing:.3px">Cargando la app y preparando todo…</div>
+  <style>@keyframes splashSlide{0%{margin-left:-35%}100%{margin-left:105%}}</style>
+</div>
+<script>
+(function(){
+  var hidden=false;
+  function hide(){ if(hidden) return; hidden=true; var s=document.getElementById('appSplash'); if(s){ s.style.opacity='0'; s.style.pointerEvents='none'; setTimeout(function(){ try{s.remove();}catch(e){} },500); } }
+  window._hideSplash=hide;
+  var msg=null; var steps=['Conectando con Firebase…','Cargando inventario y sitios…','Casi listo…']; var si=0;
+  var it=setInterval(function(){ var m=document.getElementById('appSplashMsg'); if(m&&si<steps.length){ m.textContent=steps[si++]; } else { clearInterval(it); } },700);
+  function go(){ clearInterval(it); setTimeout(hide, 300); }
+  if(document.readyState==='complete') go(); else window.addEventListener('load', go);
+  // Red de seguridad: nunca dejar el splash pegado
+  setTimeout(hide, 7000);
+})();
+</script>
 <!-- ── Pantalla de Mantenimiento ── -->
 <div id="maint-overlay">
   <div class="maint-icon">🔧</div>
