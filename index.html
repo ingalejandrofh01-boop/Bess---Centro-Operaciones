@@ -847,6 +847,7 @@ const _dMkDocRow=d=>{
     <div style="font-size:11.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc(d.name||'')}">${_esc(d.name||'Sin nombre')}</div>
     <div style="font-size:9.5px;color:var(--text3);margin-top:1px">${fmtSz(d.size)} · ${fmtDt(d.savedAt)}</div>
   </div>
+  <button class="ddl" title="Descargar" onclick="event.stopPropagation();docsDownloadById('${d._id}')" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:15px;padding:2px 5px;border-radius:6px;flex-shrink:0">⬇</button>
   <button class="ddel" onclick="event.stopPropagation();docsDelete('${d._id}')">✕</button>
 </div>`;
 };
@@ -1383,6 +1384,81 @@ window.docsDownloadCurrent=async()=>{
     try{ window.open(src,'_blank'); toast('Se abrió en otra pestaña — guárdalo desde ahí'); }
     catch(_){ toast('No se pudo descargar: '+(e&&e.message||e)); }
   }
+};
+// ── Descarga directa desde la lista (sin abrir el visor) ──
+async function _docsBlobFrom(d){
+  const src=d&&d.downloadURL; if(!src) throw new Error('Sin datos (re-sube el archivo).');
+  if(/^data:/i.test(src)){
+    const parts=src.split(','), meta=parts[0], b64=parts.slice(1).join(',');
+    const mime=(meta.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+    const bin=atob(b64); const u8=new Uint8Array(bin.length);
+    for(let k=0;k<bin.length;k++) u8[k]=bin.charCodeAt(k);
+    return new Blob([u8],{type:mime});
+  }
+  const r=await fetch(src); if(!r.ok) throw new Error('HTTP '+r.status); return await r.blob();
+}
+window.docsDownloadById=async(id)=>{
+  try{
+    const d=(_all||[]).find(x=>x._id===id); if(!d){toast('No encontrado');return;}
+    toast('Descargando '+(d.name||'')+'…');
+    const blob=await _docsBlobFrom(d);
+    const href=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=href; a.download=d.name||'documento';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>{try{URL.revokeObjectURL(href);}catch(e){}},5000);
+  }catch(e){ console.error('docsDownloadById:',e); toast('No se pudo descargar: '+(e&&e.message||e)); }
+};
+// ── Aplicaciones BESS (descargas de apps internas; link en Firebase, editable por admin) ──
+window._dAppsCache=null;
+window._dShowApps=async function(){
+  const stage=$('dStage'); if(!stage) return;
+  const es=$('dEmpty'); if(es) es.style.display='none';
+  const tf=$('dTopFile'); if(tf) tf.style.display='none';
+  const dl0=$('dDlBtn'); if(dl0) dl0.style.display='none';
+  Array.from(stage.children).forEach(c=>{ if(!['dEmpty','dMag','dCanvas','dDrawBar'].includes(c.id)) c.remove(); });
+  const panel=document.createElement('div'); panel.id='dAppsPanel';
+  panel.style.cssText='width:100%;max-width:680px;margin:0 auto';
+  panel.innerHTML='<div style="color:var(--text3);font-size:13px;padding:40px;text-align:center">Cargando aplicaciones…</div>';
+  stage.insertBefore(panel, stage.firstChild);
+  let cfg={};
+  try{ const fb=window._fbFS, db=window._fbDB; if(fb&&db&&fb.getDoc&&fb.doc){ const snap=await fb.getDoc(fb.doc(db,'inventario_meta','apps')); const ex=snap&&(typeof snap.exists==='function'?snap.exists():snap.exists); if(ex) cfg=snap.data()||{}; } }catch(e){}
+  window._dAppsCache=cfg;
+  const admin=(()=>{try{return localStorage.getItem('bess_admin')==='1';}catch(e){return false;}})();
+  const url=cfg.bess_monitor_url||'BESS-Monitor-app-20261121.zip'; const ver=cfg.bess_monitor_ver||'2026-11-21';
+  const dlBtn = url
+    ? `<a href="${_esc(url)}" download rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0b2fb5,#3f6cff);color:#fff;padding:12px 24px;border-radius:12px;text-decoration:none;font-weight:800;font-size:14px">⬇ Descargar BESS Monitor</a>`
+    : `<div style="color:var(--text3);font-size:13px;padding:10px 0">⏳ El administrador aún no ha puesto el link de descarga.</div>`;
+  panel.innerHTML = `
+  <div style="position:relative;overflow:hidden;border-radius:20px;background:linear-gradient(135deg,#0a1f4a,#13306e 55%,#1a3fcc);color:#fff;padding:24px 28px;margin-bottom:18px">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;opacity:.82;margin-bottom:8px">Skysense · Software</div>
+    <div style="font-size:24px;font-weight:800">📥 Aplicaciones BESS</div>
+    <div style="font-size:13px;opacity:.9;margin-top:6px;line-height:1.5">Descarga las herramientas internas del equipo de monitoreo.</div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#0b2fb5,#3f6cff);display:flex;align-items:center;justify-content:center;font-size:26px">🖥️</div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:17px;font-weight:800;color:var(--text)">BESS Monitor${ver?` <span style="font-size:11px;color:var(--text3);font-weight:600">v${_esc(ver)}</span>`:''}</div>
+        <div style="font-size:12.5px;color:var(--text2);margin-top:3px">App de monitoreo de conectividad y supervisión de los sitios BESS (Node.js). Incluye código y guías; sin credenciales — se configuran aparte.</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      ${dlBtn}
+      ${admin?`<button onclick="_dAppsSetUrl()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-weight:700;font-size:12.5px;cursor:pointer;color:var(--text2)">✏️ Editar link</button>`:''}
+    </div>
+    <div style="margin-top:14px;font-size:11.5px;color:var(--text3);line-height:1.5">📦 Instalación: descomprime, ejecuta <b>npm install</b>, copia tu carpeta <b>config/</b> y arranca con <b>iniciar.bat</b>. Requiere VPN. (Detalles en LEEME-INSTALACION.txt dentro del ZIP.)</div>
+  </div>`;
+};
+window._dAppsSetUrl=async function(){
+  const cur=(window._dAppsCache&&window._dAppsCache.bess_monitor_url)||'';
+  const url=prompt('Pega el link de descarga de BESS Monitor (OneDrive/SharePoint):', cur);
+  if(url===null) return;
+  const ver=prompt('Versión (opcional, ej. 2026-11-21):', (window._dAppsCache&&window._dAppsCache.bess_monitor_ver)||'')||'';
+  try{
+    const fb=window._fbFS, db=window._fbDB; if(!fb||!db){ toast('Sin conexión a Firebase'); return; }
+    await fb.setDoc(fb.doc(db,'inventario_meta','apps'), { bess_monitor_url:String(url).trim(), bess_monitor_ver:String(ver).trim(), updatedAt:Date.now() }, {merge:true});
+    toast('✅ Link guardado'); _dShowApps();
+  }catch(e){ toast('No se pudo guardar: '+(e&&e.message||e)); }
 };
 window.docsFullscreen=()=>{const s=$('dStage');if(!s)return;document.fullscreenElement?document.exitFullscreen():s.requestFullscreen?.();};
 
@@ -5371,7 +5447,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795232847';
+  var APP_VERSION = '1795324881';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -9899,6 +9975,7 @@ async function expDoZip(mode){
           </div>
         </div>
       </div>
+      <button onclick="_dShowApps()" title="Descargar apps internas del equipo" style="margin-top:8px;width:100%;display:flex;align-items:center;gap:9px;justify-content:center;background:linear-gradient(135deg,#0b2fb5,#3f6cff);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-weight:800;font-size:12.5px;cursor:pointer">📥 Aplicaciones BESS</button>
     </div>
 
     <div class="d-search">
