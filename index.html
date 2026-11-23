@@ -1490,9 +1490,9 @@ window._dShowApps=async function(){
 };
 window._dAppsSetUrl=async function(which){
   which = which||'bess_monitor';
-  const nameMap={ bess_monitor:'BESS Monitor', extension:'Extensión Grupos BESS', vnc:'VNC Viewer' };
-  const urlKey = which==='extension'?'extension_url':(which==='vnc'?'vnc_url':'bess_monitor_url');
-  const verKey = which==='extension'?'extension_ver':(which==='vnc'?'vnc_ver':'bess_monitor_ver');
+  const nameMap={ bess_monitor:'BESS Monitor', extension:'Extensión Grupos BESS', vnc:'VNC Viewer', glosario:'Glosario BESS' };
+  const urlKey = which==='extension'?'extension_url':(which==='vnc'?'vnc_url':(which==='glosario'?'glosario_url':'bess_monitor_url'));
+  const verKey = which==='extension'?'extension_ver':(which==='vnc'?'vnc_ver':(which==='glosario'?'glosario_ver':'bess_monitor_ver'));
   const cur=(window._dAppsCache&&window._dAppsCache[urlKey])||'';
   const url=prompt('Pega el link de descarga de '+(nameMap[which]||which)+' (OneDrive, GitHub o la ruta del ZIP en el repo):', cur);
   if(url===null) return;
@@ -5491,7 +5491,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795392558';
+  var APP_VERSION = '1795418679';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10616,7 +10616,7 @@ async function expDoZip(mode){
   function _credType(tipo){ var t=String(tipo||''); var creds=(D().creds||[]); for(var i=0;i<creds.length;i++){ if(creds[i].tipo && t.toLowerCase().indexOf(String(creds[i].tipo).toLowerCase())>=0) return creds[i].tipo; } var lab=(typeof tmeta==='function'?tmeta(t).lab:''); return lab||t||'equipo'; }
   function _credKey(tipo){ return slug(_credType(tipo)); }
   /* Lista de tipos de credencial para el panel de administración (de creds + los equipos usados) */
-  function _credTypesList(){ var out=[{key:'hmi', tipo:'HMI (pantalla)', usuario:''}], seen={hmi:1}; (D().creds||[]).forEach(function(c){ if(c.tipo){ var k=slug(c.tipo); if(!seen[k]){ seen[k]=1; out.push({key:k, tipo:c.tipo, usuario:c.usuario||''}); } } }); allSites().forEach(function(s){ (s.equipos||[]).forEach(function(e){ var ct=_credType(e.tipo), k=slug(ct); if(!seen[k]){ seen[k]=1; out.push({key:k, tipo:ct, usuario:e.usuario||''}); } }); }); return out; }
+  function _credTypesList(){ var out=[{key:'hmi', tipo:'HMI (pantalla)', usuario:''}, {key:'router', tipo:'Router (comunicación)', usuario:''}], seen={hmi:1, router:1}; (D().creds||[]).forEach(function(c){ if(c.tipo){ var k=slug(c.tipo); if(!seen[k]){ seen[k]=1; out.push({key:k, tipo:c.tipo, usuario:c.usuario||''}); } } }); allSites().forEach(function(s){ (s.equipos||[]).forEach(function(e){ var ct=_credType(e.tipo), k=slug(ct); if(!seen[k]){ seen[k]=1; out.push({key:k, tipo:ct, usuario:e.usuario||''}); } }); }); return out; }
   function slug(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||('s'+Date.now()); }
   function allSites(){
     var seed=(window.ACCESS_DIR&&window.ACCESS_DIR.sites)||[];
@@ -10760,9 +10760,9 @@ async function expDoZip(mode){
           '<label>Tipo de pantalla<input id="invf-tipo" class="invf-in" value="'+E(s.hmiTipo||'JMobile (web)')+'"></label>'+
           '<label>URL HMI (opcional)<input id="invf-url" class="invf-in" placeholder="se arma sola con IP:puerto" value="'+E(s.hmiUrl||'')+'"></label>'+
           '<label>Usuario HMI<input id="invf-hmiuser" class="invf-in" placeholder="usuario de la pantalla" value="'+E(s.hmiUser||'')+'"></label>'+
-          '<label>Contraseña HMI<input id="invf-hmipass" class="invf-in" type="password" placeholder="'+((s.hmiPassEnc||s.hmiPass)?'Contraseña (guardada — escribe para cambiar)':'Contraseña del HMI')+'" value="" autocomplete="new-password"></label>'+
+          '<label>Contraseña HMI<input id="invf-hmipass" class="invf-in" type="password" placeholder="'+((s.hmiPassEnc||s.hmiPass)?'Contraseña (guardada — escribe para cambiar)':'Contraseña del HMI')+'" value="" autocomplete="new-password"></label>'+'<label>Usuario router<input id="invf-routeruser" class="invf-in" placeholder="usuario del router" value="'+E(s.routerUser||'')+'"></label>'+'<label>Contraseña router<input id="invf-routerpass" class="invf-in" type="password" placeholder="'+((s.routerPassEnc||s.routerPass)?'Contraseña (guardada — escribe para cambiar)':'Contraseña del router')+'" value="" autocomplete="new-password"></label>'+
         '</div>'+
-        '<input type="hidden" id="invf-hmipassenc" value="'+E(s.hmiPassEnc||'')+'">'+
+        '<input type="hidden" id="invf-hmipassenc" value="'+E(s.hmiPassEnc||'')+'">'+'<input type="hidden" id="invf-routerpassenc" value="'+E(s.routerPassEnc||'')+'">'+
         '<label class="invf-full">Notas<input id="invf-notas" class="invf-in" value="'+E(s.notas||'')+'"></label>'+
         '<label class="invf-check"><input type="checkbox" id="invf-acceso" '+(s.acceso?'checked':'')+'> Tiene acceso directo a PCS/BMS (módulos, contenedores…)</label>'+
         '<div class="invf-eqhd">Equipos (PCS, módulos, contenedores)<button type="button" class="invf-add" onclick="_invAddRow()">+ Equipo</button></div>'+
@@ -10794,13 +10794,15 @@ async function expDoZip(mode){
     });
     if(equipos.length) acceso=true;
     var hmiUser=g('invf-hmiuser'); var hmiPassNew=g('invf-hmipass'); var hmiPassEnc=g('invf-hmipassenc');
-    if(pendingPw.length || hmiPassNew){
+    var routerUser=g('invf-routeruser'); var routerPassNew=g('invf-routerpass'); var routerPassEnc=g('invf-routerpassenc');
+    if(pendingPw.length || hmiPassNew || routerPassNew){
       var key=await _invEnsureKey();
       if(!key){ alert('Necesitas la contrasena maestra para guardar las credenciales. No se guardo nada.'); return; }
       for(var i=0;i<pendingPw.length;i++){ try{ pendingPw[i].o.passEnc=await _invEncrypt(key, pendingPw[i].v); }catch(e){ alert('No se pudo cifrar: '+(e&&e.message)); return; } }
       if(hmiPassNew){ try{ hmiPassEnc=await _invEncrypt(key, hmiPassNew); }catch(e){ alert('No se pudo cifrar la clave del HMI: '+(e&&e.message)); return; } }
+      if(routerPassNew){ try{ routerPassEnc=await _invEncrypt(key, routerPassNew); }catch(e){ alert('No se pudo cifrar la clave del router: '+(e&&e.message)); return; } }
     }
-    var obj={ zona:(g('invf-zona')||'Otro'), sitio:sitio, ip:ip, hmiTipo:(g('invf-tipo')||'JMobile (web)'), hmiPuerto:puerto, hmiUrl:url, acceso:acceso, notas:g('invf-notas'), hmiUser:hmiUser, hmiPassEnc:hmiPassEnc, equipos:equipos, updatedAt:Date.now() };
+    var obj={ zona:(g('invf-zona')||'Otro'), sitio:sitio, ip:ip, hmiTipo:(g('invf-tipo')||'JMobile (web)'), hmiPuerto:puerto, hmiUrl:url, acceso:acceso, notas:g('invf-notas'), hmiUser:hmiUser, hmiPassEnc:hmiPassEnc, routerUser:routerUser, routerPassEnc:routerPassEnc, equipos:equipos, updatedAt:Date.now() };
     var id=prevId||slug(sitio);
     var fb=window._fbFS, db=window._fbDB; if(!fb||!db){ alert('Sin conexion a la base de datos (Firebase).'); return; }
     try{ var p=fb.setDoc(fb.doc(db,'inventario_ip',id), obj); if(p&&p.then){ p.then(function(){ var m=document.getElementById('inv-modal'); if(m) m.remove(); }, function(err){ alert('No se pudo guardar: '+(err&&err.message)); }); } else { var m=document.getElementById('inv-modal'); if(m) m.remove(); } }catch(e){ alert('No se pudo guardar: '+(e&&e.message)); }
@@ -10851,10 +10853,22 @@ async function expDoZip(mode){
       _hmiCred='<div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:2px 0 9px;padding:7px 11px;background:var(--s1);border:1px solid var(--b1);border-radius:9px;font-size:12px">'+
         '<span style="font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#1a3fcc;background:rgba(26,63,204,.1);padding:2px 8px;border-radius:20px">Acceso HMI</span>'+_uPart+_pPart+'</div>';
     }
+    var _rUser=s.routerUser||''; var _rBlob=s.routerPassEnc||s.routerPass||''; var _rEnc=s.routerPassEnc?'1':'0'; var _rShared='0';
+    if(!_rBlob){ var _rs=_invSharedPw['router']; if(_rs){ _rBlob=_rs; _rEnc='1'; _rShared='1'; } }
+    var _routerCred='';
+    if(s.ip && !_solM){
+      var _ruPart=_rUser?('<span style="color:var(--t2)">👤 <span class="mono" style="color:var(--text);font-weight:600">'+E(_rUser)+'</span></span>'):(_Adm?'<span style="color:var(--t3)">👤 sin usuario</span>':'');
+      var _rpPart=_rBlob
+        ?('<span style="color:var(--t2)">🔑 <span class="inv-pw mono" id="rpw'+idx+'" data-pw="'+E(_rBlob)+'" data-enc="'+_rEnc+'" data-shown="0">••••••</span> <button type="button" class="inv-pweye" onclick="_invTogglePw(\'rpw'+idx+'\')" title="Mostrar / ocultar contraseña del router">👁️</button>'+(_rShared==='1'?' <span style="font-size:8.5px;color:var(--t3);font-family:var(--mono)">común</span>':'')+'</span>')
+        :(_Adm?('<button type="button" onclick="_invEdit(\''+s._id+'\')" style="background:none;border:1px dashed var(--b1);color:#7c3aed;border-radius:7px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">🔑 Capturar contraseña</button>'):'<span style="color:var(--t3)">🔑 sin capturar</span>');
+      _routerCred='<div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:-4px 0 9px;padding:7px 11px;background:var(--s1);border:1px solid var(--b1);border-radius:9px;font-size:12px">'+
+        '<span style="font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#7c3aed;background:rgba(124,58,237,.1);padding:2px 8px;border-radius:20px">Acceso Router</span>'+
+        '<span style="color:var(--t2)">🌐 <span class="mono" style="color:var(--text);font-weight:600">'+E(s.ip)+'</span> <span style="font-size:9px;color:var(--t3)">(IP del HMI sin :puerto)</span></span>'+_ruPart+_rpPart+'</div>';
+    }
     return '<div class="inv-card" id="invc-'+idx+'">'+
       '<div class="inv-cardhead"><div class="inv-sitename">'+E(s.sitio)+' <span class="inv-zbadge">'+E(s.zona)+'</span>'+_sbadge+'</div>'+hmi+(isAdmin()?adminCtl(s._id):'')+'</div>'+
       '<div class="inv-screen">'+(_isVNC?'🖥️ Solo se visualiza por VNC (cliente VNC, no navegador)':(_solM?('☀️ Se visualiza en '+E(_solM)):('Pantalla: '+E(s.hmiTipo))))+(s.notas?(' · '+E(s.notas)):'')+'</div>'+
-      _hmiCred+
+      _hmiCred+_routerCred+
       (s.acceso && equipos
         ? '<table class="inv-tbl"><tr class="inv-head"><td>Equipo</td><td style="width:84px">Puerto</td><td style="width:92px">Usuario</td><td style="width:96px">Clave</td><td style="width:60px"></td></tr>'+equipos+'</table>'
         : '<div class="inv-noacc">'+(_solM?('Monitoreo vía '+E(_solM)+' (sin HMI local).'):'Sin acceso directo a PCS/BMS (solo HMI).')+'</div>')+
