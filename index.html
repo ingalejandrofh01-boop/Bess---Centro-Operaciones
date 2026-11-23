@@ -5467,7 +5467,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795384475';
+  var APP_VERSION = '1795390156';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -10817,11 +10817,16 @@ async function expDoZip(mode){
     else { hmi=''; }
     var _hUser=s.hmiUser||''; var _hBlob=s.hmiPassEnc||s.hmiPass||''; var _hEnc=s.hmiPassEnc?'1':'0'; var _hShared='0';
     if(!_hBlob){ var _hs=_invSharedPw['hmi']; if(_hs){ _hBlob=_hs; _hEnc='1'; _hShared='1'; } }
-    var _hmiCred=(_hUser||_hBlob)?('<div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:2px 0 9px;padding:7px 11px;background:var(--s1);border:1px solid var(--b1);border-radius:9px;font-size:12px">'+
-      '<span style="font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#1a3fcc;background:rgba(26,63,204,.1);padding:2px 8px;border-radius:20px">Acceso HMI</span>'+
-      (_hUser?('<span style="color:var(--t2)">👤 <span class="mono" style="color:var(--text);font-weight:600">'+E(_hUser)+'</span></span>'):'')+
-      (_hBlob?('<span style="color:var(--t2)">🔑 <span class="inv-pw mono" id="hpw'+idx+'" data-pw="'+E(_hBlob)+'" data-enc="'+_hEnc+'" data-shown="0">••••••</span> <button type="button" class="inv-pweye" onclick="_invTogglePw(\'hpw'+idx+'\')" title="'+(_hShared==='1'?'Clave HMI común — mostrar / ocultar':'Mostrar / ocultar contraseña del HMI')+'">👁️</button>'+(_hShared==='1'?' <span style="font-size:8.5px;color:var(--t3);font-family:var(--mono)">común</span>':'')+'</span>'):'')+
-    '</div>'):'';
+    var _hasHmi=!!s.hmiUrl && !_isVNC && !_solM; var _Adm=isAdmin();
+    var _hmiCred='';
+    if(_hasHmi || _hUser || _hBlob){
+      var _uPart=_hUser?('<span style="color:var(--t2)">👤 <span class="mono" style="color:var(--text);font-weight:600">'+E(_hUser)+'</span></span>'):(_Adm?'<span style="color:var(--t3)">👤 sin usuario</span>':'');
+      var _pPart=_hBlob
+        ?('<span style="color:var(--t2)">🔑 <span class="inv-pw mono" id="hpw'+idx+'" data-pw="'+E(_hBlob)+'" data-enc="'+_hEnc+'" data-shown="0">••••••</span> <button type="button" class="inv-pweye" onclick="_invTogglePw(\'hpw'+idx+'\')" title="'+(_hShared==='1'?'Clave HMI común — mostrar / ocultar':'Mostrar / ocultar contraseña del HMI')+'">👁️</button>'+(_hShared==='1'?' <span style="font-size:8.5px;color:var(--t3);font-family:var(--mono)">común</span>':'')+'</span>')
+        :(_Adm?('<button type="button" onclick="_invEdit(\''+s._id+'\')" style="background:none;border:1px dashed var(--b1);color:#1a3fcc;border-radius:7px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">🔑 Capturar contraseña</button>'):'<span style="color:var(--t3)">🔑 sin capturar</span>');
+      _hmiCred='<div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:2px 0 9px;padding:7px 11px;background:var(--s1);border:1px solid var(--b1);border-radius:9px;font-size:12px">'+
+        '<span style="font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#1a3fcc;background:rgba(26,63,204,.1);padding:2px 8px;border-radius:20px">Acceso HMI</span>'+_uPart+_pPart+'</div>';
+    }
     return '<div class="inv-card" id="invc-'+idx+'">'+
       '<div class="inv-cardhead"><div class="inv-sitename">'+E(s.sitio)+' <span class="inv-zbadge">'+E(s.zona)+'</span>'+_sbadge+'</div>'+hmi+(isAdmin()?adminCtl(s._id):'')+'</div>'+
       '<div class="inv-screen">'+(_isVNC?'🖥️ Solo se visualiza por VNC (cliente VNC, no navegador)':(_solM?('☀️ Se visualiza en '+E(_solM)):('Pantalla: '+E(s.hmiTipo))))+(s.notas?(' · '+E(s.notas)):'')+'</div>'+
