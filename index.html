@@ -1476,6 +1476,20 @@ window._dShowApps=async function(){
     <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">${dlBtn(vncUrl,'Descargar VNC Viewer')}${editBtn('vnc')}</div>
     <div style="margin-top:14px;font-size:11.5px;color:var(--text3);line-height:1.5">🖥️ Instalación: ejecuta el instalador (.exe), ábrelo y conéctate a <b>IP:puerto</b> del sitio (VNC en 5900/6000). Requiere VPN.</div>
   </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin-top:14px">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#334155,#64748b);display:flex;align-items:center;justify-content:center;font-size:26px">🤖</div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:17px;font-weight:800;color:var(--text)">Robot de auto-login (Tampermonkey)</div>
+        <div style="font-size:12.5px;color:var(--text2);margin-top:3px">Vuelve a iniciar sesión solo en los HMIs cuando se deslogean. Corre en tu navegador con <b>Tampermonkey</b>; genera tu script con los sitios del inventario y tu contraseña.</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <a href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:11px 18px;border-radius:11px;text-decoration:none;font-weight:700;font-size:13px">⬇ Instalar Tampermonkey ↗</a>
+      <button onclick="try{alOpen()}catch(e){}" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#334155,#64748b);color:#fff;padding:12px 22px;border-radius:12px;border:none;cursor:pointer;font-weight:800;font-size:13.5px">🤖 Abrir generador del robot</button>
+    </div>
+    <div style="margin-top:14px;font-size:11.5px;color:var(--text3);line-height:1.6">🔧 <b>Pasos:</b> 1) Instala Tampermonkey. 2) Abre el generador — los sitios ya vienen del inventario (usa <b>↻ Cargar del inventario</b> si ya lo tenías) y escribe tu contraseña. 3) Genera y <b>copia</b> el script. 4) En Tampermonkey → <b>Crear un nuevo script</b> → pega → <code>Ctrl+S</code>. 5) En <code>chrome://extensions</code> → Tampermonkey → <b>Acceso a todos los sitios</b>.<br>🔒 El script lleva las contraseñas en texto plano: queda <b>solo en tu computadora</b>, no lo subas a repositorios públicos.</div>
+  </div>
   <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);font-weight:700;margin:22px 2px 10px">Material de referencia</div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px">
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
@@ -5491,7 +5505,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795418679';
+  var APP_VERSION = '1795470641';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -38194,6 +38208,7 @@ setTimeout(_fpPatchMedidorReport, 2500);
         <div id="alSiteCount" class="al-count"></div>
         <div id="alSiteList" class="al-site-list"></div>
         <button class="al-add" onclick="alAddSite()">+ Agregar sitio</button>
+        <button class="al-add" onclick="alReseedInv()" style="margin-left:8px">↻ Cargar del inventario</button>
 
         <label class="al-lbl">Recargar solo en segundo plano cada (minutos, 0 = desactivado)</label>
         <input id="alBgReload" class="al-input" type="number" min="0" step="1" placeholder="10" style="max-width:100px">
@@ -38319,8 +38334,24 @@ setTimeout(_fpPatchMedidorReport, 2500);
     if (savedSites.length) {
       savedSites.forEach(function(s){ alAddSite(s.name, s.host, s.user, s.pass); });
     } else {
-      SEED_SITES.forEach(function(s){ alAddSite(s[0], s[1], '', ''); });
+      var _inv = (window.ACCESS_DIR && window.ACCESS_DIR.sites) || [];
+      if (_inv.length) {
+        _inv.forEach(function(s){ if(s.ip && s.hmiPuerto){ alAddSite(s.sitio, s.ip + ':' + s.hmiPuerto, '', ''); } });
+      } else {
+        SEED_SITES.forEach(function(s){ alAddSite(s[0], s[1], '', ''); });
+      }
     }
+    alUpdateSiteCount();
+  };
+  /* Re-cargar la lista desde el inventario actual (para quien ya tenía preferencias guardadas) */
+  window.alReseedInv = function(){
+    var _inv = (window.ACCESS_DIR && window.ACCESS_DIR.sites) || [];
+    if(!_inv.length){ alert('No hay inventario cargado.'); return; }
+    if(!confirm('Cargar todos los sitios del inventario actual? Se conservan las contraseñas por sitio que ya tengas escritas abajo.')) return;
+    // conserva credenciales ya escritas (por host)
+    var prev = {}; alCollectSites().forEach(function(s){ if(s.host) prev[s.host]={user:s.user,pass:s.pass,name:s.name}; });
+    var list = document.getElementById('alSiteList'); if(list) list.innerHTML='';
+    _inv.forEach(function(s){ if(s.ip && s.hmiPuerto){ var host=s.ip+':'+s.hmiPuerto; var p=prev[host]||{}; alAddSite(s.sitio, host, p.user||'', p.pass||''); } });
     alUpdateSiteCount();
   };
   window.alClose = function(){
