@@ -5505,7 +5505,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795475089';
+  var APP_VERSION = '1795567075';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -9379,6 +9379,7 @@ async function expDoZip(mode){
 
     <!-- v122: ASUR · Legado (consumo mensual por códigos) -->
     <div id="mb-leg-section" class="mbnav-sec" style="flex-shrink:0"></div>
+    <div id="mb-desfases-section" class="mbnav-sec" style="flex-shrink:0"></div>
 
     <!-- Filtros -->
     <div style="flex-shrink:0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -11339,6 +11340,7 @@ async function expDoZip(mode){
       <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:12px">
         Marca el estatus de cada sitio conforme entra a descarga (clic de nuevo lo quita). Cualquier anomalía (rack fuera, entrada tardía, potencia disminuida, sin comunicación) se agrega automáticamente como observación al Reporte Operativo del día, y puedes generar un reporte de incidente profesional con un clic.
       </div>
+      <div id="vd-ventanas-panel" style="margin:2px 0 14px"></div>
       <div id="ckl-hdr-cancun"></div>
       <div id="ckl-grid-cancun" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
 
@@ -11879,6 +11881,192 @@ var CEREBRO_HORARIO_VERANO = {
 
 window._CEREBRO_LOCAL = CEREBRO_SEED.slice();
 window._CEREBRO_CLOUD = [];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VENTANAS DE DESCARGA (región + ajuste fino por desfase de medidor)  ·  v1
+   - Ventana por región (CDMX / Cancún / Mazatlán) × temporada (verano/invierno),
+     editable y compartida por Firebase (medidor_bess/ventanas).
+   - Config por sitio: región, desfase del medidor (min) y "excluir" del checklist,
+     editable desde Medidores BESS, compartida por Firebase (medidor_bess/sitios_cfg).
+   - El desfase del medidor recorre TODA la ventana del sitio (inicio y fin) esos
+     minutos (positivo = más tarde, negativo = más temprano) sin cambiar su duración.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var VENTANAS_DEFAULT = {
+  'CDMX':     { verano:{inicio:'20:00', fin:'22:00'}, invierno:{inicio:'18:00', fin:'22:00'} },
+  'Cancún':   { verano:{inicio:'19:00', fin:'21:00'}, invierno:{inicio:'17:00', fin:'21:00'} },
+  'Mazatlán': { verano:{inicio:'21:00', fin:'23:00'}, invierno:{inicio:'19:00', fin:'23:00'} }
+};
+var VD_REGIONES = ['CDMX','Cancún','Mazatlán'];
+function _vdClone(o){ return JSON.parse(JSON.stringify(o)); }
+window.VENTANAS_DESCARGA = _vdClone(VENTANAS_DEFAULT);
+window._SITIOS_CFG = {};               /* key -> {region, desfaseMin, excluir} */
+var _vdSitiosLoaded = false, _vdVentLoaded = false;
+
+function _vdKey(nombre){ return String(nombre||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
+function _vdSeasonNow(dateStr){
+  var s = (typeof getBessSeasonForDate==='function') ? getBessSeasonForDate(dateStr||new Date()) : 'summer';
+  return (s==='summer') ? 'verano' : 'invierno';
+}
+function _vdSeasonEs(season){ return season==='verano' ? 'Verano' : 'Invierno'; }
+function _vdSeasonIcon(season){ return season==='verano' ? '☀️' : '❄️'; }
+function _vdAutoRegion(site){
+  var c = (site && site.ciudad || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(c==='cancun' || c==='cozumel') return 'Cancún';
+  if(c==='mazatlan') return 'Mazatlán';
+  return 'CDMX';
+}
+window._sitioCfg = function(site){
+  var k = _vdKey(site && (site.grupo||site.sitio||site));
+  var base = window._SITIOS_CFG[k] || {};
+  return { region: base.region || _vdAutoRegion(site), desfaseMin: (base.desfaseMin!=null?Number(base.desfaseMin):0), excluir: !!base.excluir };
+};
+window._sitioRegion = function(site){ return window._sitioCfg(site).region; };
+window._sitioExcluido = function(site){ return window._sitioCfg(site).excluir; };
+function _hhmmToMin(s){ var p=String(s||'0:0').split(':'); return (parseInt(p[0],10)||0)*60 + (parseInt(p[1],10)||0); }
+function _minToHHMM(m){ m=Math.round(m); m=((m%1440)+1440)%1440; return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+/* Ventana efectiva de un sitio para una temporada: base de su región, recorrida por su desfase. */
+window.ventanaParaSitio = function(site, season){
+  season = season || _vdSeasonNow();
+  var reg = window._sitioRegion(site);
+  var base = (window.VENTANAS_DESCARGA[reg] && window.VENTANAS_DESCARGA[reg][season]) || VENTANAS_DEFAULT[reg][season];
+  var off = window._sitioCfg(site).desfaseMin || 0;
+  return { region:reg, season:season, inicio:_minToHHMM(_hhmmToMin(base.inicio)+off), fin:_minToHHMM(_hhmmToMin(base.fin)+off), desfaseMin:off };
+};
+
+/* ── Persistencia (Firebase, mismo patrón que medidor_bess) ── */
+function _vdFS(){ return (window._fbFS && window._fbDB) ? window._fbFS : null; }
+window._vdSaveVentanas = function(){
+  try{ localStorage.setItem('bess:ventanas:v1', JSON.stringify(window.VENTANAS_DESCARGA)); }catch(e){}
+  var FS=_vdFS(); if(!FS) return;
+  FS.setDoc(FS.doc(window._fbDB,'medidor_bess','ventanas'), { data: JSON.stringify(window.VENTANAS_DESCARGA), updatedAt: Date.now(), by: (localStorage.getItem('bess_uname')||'') }).catch(function(){});
+};
+window._vdSaveSitios = function(){
+  try{ localStorage.setItem('bess:sitios_cfg:v1', JSON.stringify(window._SITIOS_CFG)); }catch(e){}
+  var FS=_vdFS(); if(!FS) return;
+  FS.setDoc(FS.doc(window._fbDB,'medidor_bess','sitios_cfg'), { data: JSON.stringify(window._SITIOS_CFG), updatedAt: Date.now(), by: (localStorage.getItem('bess_uname')||'') }).catch(function(){});
+};
+/* Semilla inicial de desfases desde la tabla que ya existía en el código (una sola vez). */
+function _vdSeedFromLegacy(){
+  if(typeof CEREBRO_DESFASE_MEDIDOR==='undefined') return;
+  Object.keys(CEREBRO_DESFASE_MEDIDOR).forEach(function(nombre){
+    var k=_vdKey(nombre);
+    if(!window._SITIOS_CFG[k]) window._SITIOS_CFG[k]={};
+    if(window._SITIOS_CFG[k].desfaseMin==null) window._SITIOS_CFG[k].desfaseMin = CEREBRO_DESFASE_MEDIDOR[nombre];
+  });
+}
+window._vdPull = function(cb){
+  /* local primero (respuesta instantánea) */
+  try{ var lv=localStorage.getItem('bess:ventanas:v1'); if(lv){ window.VENTANAS_DESCARGA = Object.assign(_vdClone(VENTANAS_DEFAULT), JSON.parse(lv)); } }catch(e){}
+  try{ var ls=localStorage.getItem('bess:sitios_cfg:v1'); if(ls){ window._SITIOS_CFG = JSON.parse(ls)||{}; } }catch(e){}
+  if(!_vdSitiosLoaded){ _vdSeedFromLegacy(); }
+  var FS=_vdFS();
+  if(!FS){ _vdSitiosLoaded=true; _vdVentLoaded=true; _vdRenderAll(); if(cb)cb(); return; }
+  var p1=FS.getDocs(FS.query(FS.collection(window._fbDB,'medidor_bess'), FS.where('__name__','==','ventanas'))).then(function(snap){
+    snap.forEach(function(d){ try{ var o=JSON.parse(d.data().data||'{}'); if(o && typeof o==='object'){ window.VENTANAS_DESCARGA=Object.assign(_vdClone(VENTANAS_DEFAULT), o); } }catch(e){} });
+    _vdVentLoaded=true;
+  }).catch(function(){ _vdVentLoaded=true; });
+  var p2=FS.getDocs(FS.query(FS.collection(window._fbDB,'medidor_bess'), FS.where('__name__','==','sitios_cfg'))).then(function(snap){
+    var got=false;
+    snap.forEach(function(d){ try{ var o=JSON.parse(d.data().data||'{}'); if(o && typeof o==='object'){ window._SITIOS_CFG=o; got=true; } }catch(e){} });
+    if(got){ _vdSeedFromLegacy(); } /* completa desfases legacy que no se hayan tocado */
+    _vdSitiosLoaded=true;
+  }).catch(function(){ _vdSitiosLoaded=true; });
+  Promise.all([p1,p2]).then(function(){ _vdRenderAll(); if(cb)cb(); });
+};
+function _vdRenderAll(){
+  try{ if(document.getElementById('vd-ventanas-panel') && window.vdRenderPanel) window.vdRenderPanel(); }catch(e){}
+  try{ if(document.getElementById('mb-desfases-section') && window.mbRenderDesfases) window.mbRenderDesfases(); }catch(e){}
+  try{ if(document.getElementById('ckl-grid-cancun') && typeof cklRender==='function') cklRender(); }catch(e){}
+}
+
+/* ── Panel editable de VENTANAS (dentro del checklist del Cerebro) ── */
+window.vdRenderPanel = function(){
+  var el=document.getElementById('vd-ventanas-panel'); if(!el) return;
+  var dateInp=document.getElementById('ckl-date'); var dStr=dateInp&&dateInp.value?dateInp.value:null;
+  var season=_vdSeasonNow(dStr);
+  var esc=function(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var rowsHtml = VD_REGIONES.map(function(reg){
+    var v=window.VENTANAS_DESCARGA[reg]||VENTANAS_DEFAULT[reg];
+    function cell(se,campo){ var val=(v[se]&&v[se][campo])||''; var on=(se===season); return '<input type="time" value="'+esc(val)+'" onchange="vdSetVentana(\''+reg+'\',\''+se+'\',\''+campo+'\',this.value)" style="width:92px;padding:5px 7px;border-radius:7px;border:1px solid '+(on?'#1a3fcc':'rgba(26,63,204,.2)')+';background:'+(on?'rgba(26,63,204,.07)':'#fff')+';color:#0f172a;font:700 11px var(--mono),monospace;outline:none">'; }
+    function dur(se){ var a=_hhmmToMin(v[se].inicio), b=_hhmmToMin(v[se].fin); var d=((b-a)+1440)%1440; return (d/60).toFixed(d%60?1:0)+'h'; }
+    return '<div style="display:grid;grid-template-columns:96px 1fr 1fr;gap:8px;align-items:center;padding:8px 0;border-top:1px solid rgba(26,63,204,.08)">'
+      +'<div style="font:800 12px Inter,Arial,sans-serif;color:#0a1f5e">'+esc(reg)+'</div>'
+      +'<div style="'+(season==='invierno'?'outline:2px solid rgba(26,63,204,.25);outline-offset:3px;border-radius:9px;':'')+'"><div style="font:800 8.5px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase;margin-bottom:3px">❄️ Invierno · '+dur('invierno')+'</div>'+cell('invierno','inicio')+' <span style="color:#94a3b8">→</span> '+cell('invierno','fin')+'</div>'
+      +'<div style="'+(season==='verano'?'outline:2px solid rgba(234,108,0,.3);outline-offset:3px;border-radius:9px;':'')+'"><div style="font:800 8.5px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase;margin-bottom:3px">☀️ Verano · '+dur('verano')+'</div>'+cell('verano','inicio')+' <span style="color:#94a3b8">→</span> '+cell('verano','fin')+'</div>'
+    +'</div>';
+  }).join('');
+  el.innerHTML = '<div style="background:var(--card,#fff);border:1px solid rgba(26,63,204,.18);border-radius:14px;padding:13px 15px;box-shadow:0 6px 18px rgba(10,31,94,.06)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">'
+      +'<div style="font:900 13.5px Syne,Inter,sans-serif;color:var(--text,#0a1f5e)">🪟 Ventanas de descarga <span style="font:700 10px var(--mono),monospace;color:#64748b">· inicio y fin por región y temporada</span></div>'
+      +'<div style="display:flex;align-items:center;gap:8px"><span style="font:800 10px var(--mono),monospace;padding:4px 10px;border-radius:20px;background:'+(season==='verano'?'rgba(234,108,0,.12);color:#c2410c':'rgba(26,63,204,.1);color:#1a3fcc')+'">'+_vdSeasonIcon(season)+' Temporada actual: '+_vdSeasonEs(season)+'</span>'
+      +'<button onclick="vdResetVentanas()" title="Restablecer a los valores por defecto" style="padding:5px 10px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#64748b;font:700 10px var(--mono),monospace;cursor:pointer">↺ Default</button></div>'
+    +'</div>'
+    +rowsHtml
+    +'<div style="font:600 9.5px var(--mono),monospace;color:#64748b;margin-top:8px;line-height:1.5">Verano = 2 h de descarga · Invierno = 4 h. Cada sitio hereda la ventana de su región; su <b>desfase de medidor</b> (en Medidores BESS) recorre su ventana esos minutos. Los cambios se guardan y se comparten con todo el equipo.</div>'
+  +'</div>';
+};
+window.vdSetVentana = function(reg, season, campo, val){
+  if(!window.VENTANAS_DESCARGA[reg]) window.VENTANAS_DESCARGA[reg]=_vdClone(VENTANAS_DEFAULT[reg]||VENTANAS_DEFAULT['CDMX']);
+  if(!window.VENTANAS_DESCARGA[reg][season]) window.VENTANAS_DESCARGA[reg][season]={};
+  window.VENTANAS_DESCARGA[reg][season][campo]=val;
+  window._vdSaveVentanas();
+  _vdRenderAll();
+  if(typeof showToast==='function') showToast('🪟 Ventana '+reg+' ('+_vdSeasonEs(season)+') actualizada');
+};
+window.vdResetVentanas = function(){
+  if(!confirm('¿Restablecer todas las ventanas a los valores por defecto?')) return;
+  window.VENTANAS_DESCARGA=_vdClone(VENTANAS_DEFAULT); window._vdSaveVentanas(); _vdRenderAll();
+  if(typeof showToast==='function') showToast('↺ Ventanas restablecidas');
+};
+
+/* ── Sección DESFASES DE MEDIDORES (dentro de Medidores BESS) ── */
+window.mbRenderDesfases = function(){
+  var el=document.getElementById('mb-desfases-section'); if(!el) return;
+  var esc=function(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var sites=[]; var seen={};
+  if(typeof cerebroAll==='function'){
+    cerebroAll().forEach(function(s){ var k=_vdKey(s.grupo); if(seen[k])return; seen[k]=1; sites.push({key:k, nombre:s.grupo, ciudad:s.ciudad||'', site:s}); });
+  }
+  sites.sort(function(a,b){ return String(a.nombre).localeCompare(String(b.nombre),'es'); });
+  var season=_vdSeasonNow();
+  var filtro=(window._mbDesfFiltro||'').toLowerCase();
+  var rows=sites.filter(function(r){ return !filtro || r.nombre.toLowerCase().indexOf(filtro)>=0 || r.ciudad.toLowerCase().indexOf(filtro)>=0; }).map(function(r){
+    var cfg=window._sitioCfg(r.site); var vent=window.ventanaParaSitio(r.site, season);
+    var regSel='<select onchange="vdSetSitio(\''+r.key+'\',\'region\',this.value)" style="padding:5px 7px;border-radius:7px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:700 10.5px Inter,Arial,sans-serif;outline:none">'
+      + VD_REGIONES.map(function(rg){ return '<option value="'+rg+'"'+(cfg.region===rg?' selected':'')+'>'+rg+'</option>'; }).join('')+'</select>';
+    var desfInp='<input type="number" step="0.5" value="'+(cfg.desfaseMin||0)+'" onchange="vdSetSitio(\''+r.key+'\',\'desfaseMin\',this.value)" style="width:70px;padding:5px 7px;border-radius:7px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:700 11px var(--mono),monospace;outline:none;text-align:center"> <span style="font:600 9px var(--mono),monospace;color:#94a3b8">min</span>';
+    var exc='<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font:700 10px Inter,Arial,sans-serif;color:'+(cfg.excluir?'#dc2626':'#64748b')+'"><input type="checkbox" '+(cfg.excluir?'checked':'')+' onchange="vdSetSitio(\''+r.key+'\',\'excluir\',this.checked)" style="width:15px;height:15px;cursor:pointer">No va</label>';
+    return '<tr style="border-top:1px solid rgba(26,63,204,.07)'+(cfg.excluir?';opacity:.5':'')+'">'
+      +'<td style="padding:7px 8px;font:800 11.5px Inter,Arial,sans-serif;color:#0a1f5e">'+esc(r.nombre)+(r.ciudad?'<div style="font:600 9px var(--mono),monospace;color:#94a3b8">'+esc(r.ciudad)+'</div>':'')+'</td>'
+      +'<td style="padding:7px 8px">'+regSel+'</td>'
+      +'<td style="padding:7px 8px;white-space:nowrap">'+desfInp+'</td>'
+      +'<td style="padding:7px 8px;font:800 11px var(--mono),monospace;color:#1a3fcc;white-space:nowrap">'+vent.inicio+' → '+vent.fin+'</td>'
+      +'<td style="padding:7px 8px">'+exc+'</td>'
+    +'</tr>';
+  }).join('');
+  var excluidos=sites.filter(function(r){ return window._sitioExcluido(r.site); }).length;
+  el.innerHTML='<div style="background:var(--card,#fff);border:1px solid rgba(26,63,204,.18);border-radius:14px;overflow:hidden;margin-top:8px">'
+    +'<div style="padding:13px 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      +'<div><div style="font:900 14px Syne,Inter,sans-serif;color:var(--text,#0a1f5e)">⏱ Desfases de medidores</div>'
+      +'<div style="font:600 10px var(--mono),monospace;color:#64748b;margin-top:2px">Ajuste fino de cada sitio: región, minutos de desfase del medidor CFE y si NO debe entrar al checklist. Alimenta al Cerebro BESS. '+(excluidos?('<b style="color:#dc2626">'+excluidos+' excluido(s)</b>'):'')+'</div></div>'
+      +'<input type="text" placeholder="🔍 Buscar sitio…" value="'+esc(window._mbDesfFiltro||'')+'" oninput="window._mbDesfFiltro=this.value; mbRenderDesfases()" style="padding:8px 11px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:600 11px var(--mono),monospace;outline:none;min-width:170px">'
+    +'</div>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px">'
+      +'<thead><tr style="background:rgba(26,63,204,.05)"><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Sitio</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Región</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Desfase</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Ventana ('+_vdSeasonEs(season)+')</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Excluir</th></tr></thead>'
+      +'<tbody>'+(rows||'<tr><td colspan="5" style="padding:16px;text-align:center;color:#94a3b8;font:600 11px var(--mono),monospace">Sin sitios para mostrar.</td></tr>')+'</tbody>'
+    +'</table></div>'
+  +'</div>';
+};
+window.vdSetSitio = function(key, field, val){
+  if(!window._SITIOS_CFG[key]) window._SITIOS_CFG[key]={};
+  if(field==='desfaseMin'){ val=(val===''||val==null)?0:Number(val); if(isNaN(val))val=0; }
+  if(field==='excluir'){ val=!!val; }
+  window._SITIOS_CFG[key][field]=val;
+  window._vdSaveSitios();
+  _vdRenderAll();
+};
+
+
 
 function cerebroAll(){
   var map = {};
@@ -12961,6 +13149,7 @@ window._cerebroZoneOf = function(s){
   var k = _cklKey(s && s.grupo);
   var ov = window._cklZoneOverride[k];
   if(ov==='cancun' || ov==='resto') return ov;
+  try{ if(window._sitioRegion && window._sitioRegion(s)==='Cancún') return 'cancun'; }catch(e){}
   var ciudadNorm = (s.ciudad||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   if(ciudadNorm==='cancun'||ciudadNorm==='cozumel') return 'cancun';
   if(CKL_EARLY_DEFAULT.indexOf(k)>=0) return 'cancun';
@@ -12991,6 +13180,7 @@ function cklAllSiteRows(){
   /* Una fila por cada BESS individual (ej. T4 B1, T4 B2, T4 B3) de todos los grupos del manual */
   var rows = [];
   cerebroAll().forEach(function(s){
+    if(window._sitioExcluido && window._sitioExcluido(s)) return;
     var zone = window._cerebroZoneOf(s);
     (s.bess&&s.bess.length ? s.bess : [{nombre:s.grupo}]).forEach(function(b){
       rows.push({siteId:s.id+'::'+b.nombre, label:b.nombre, grupo:s.grupo, ciudad:s.ciudad||'', prioridad:s.prioridad||99, zone:zone});
@@ -13013,10 +13203,12 @@ window.cklLoad = async function(){
     }
   }catch(e){ console.warn('[Checklist] error cargando:', e.message); }
   cklRender();
+  try{ if(window._vdPull) window._vdPull(); }catch(e){}
   _cklZonesPull();
   if(window.cerebroRefreshBrainStatus) window.cerebroRefreshBrainStatus();
 };
 function cklRender(){
+  try{ if(window.vdRenderPanel && document.getElementById('vd-ventanas-panel')) window.vdRenderPanel(); }catch(e){}
   var gridCancun = document.getElementById('ckl-grid-cancun'), gridResto = document.getElementById('ckl-grid-resto');
   if(!gridCancun && !gridResto) return;
   var rows = cklAllSiteRows();
@@ -13369,7 +13561,7 @@ function cerebroBuildTeamsReport(zone){
   var groups = {};
   var sinComunicacion = [], fueraOperacion = [], conNovedad = [];
 
-  cerebroAll().filter(function(s){ return _zoneOf(s)===zone; }).forEach(function(s){
+  cerebroAll().filter(function(s){ return _zoneOf(s)===zone && !(window._sitioExcluido && window._sitioExcluido(s)); }).forEach(function(s){
     var units = (s.bess&&s.bess.length) ? s.bess : [{nombre:s.grupo}];
     var bySiteNames = {};
     units.forEach(function(b){
@@ -13427,7 +13619,12 @@ function _renderTeamsPanel(zone, title){
   dateLbl = dateLbl.charAt(0).toUpperCase()+dateLbl.slice(1);
 
   document.getElementById('teams-report-text-'+zone).value = title+'\n'+dateLbl+'\n\n'+r.text;
-  document.getElementById('teams-report-date-'+zone).textContent = '🕐 '+dateLbl;
+  var _vdS = (typeof _vdSeasonNow==='function') ? _vdSeasonNow(dateStr) : 'verano';
+  var _vdReg = (zone==='cancun') ? 'Cancún' : 'CDMX';
+  var _vdW = (window.VENTANAS_DESCARGA && window.VENTANAS_DESCARGA[_vdReg] && window.VENTANAS_DESCARGA[_vdReg][_vdS]) || null;
+  var _vdWtxt = _vdW ? ('   \uD83E\uDE9F '+_vdReg+' '+_vdW.inicio+'\u2013'+_vdW.fin) : '';
+  var _vdIco = (_vdS==='verano')?'\u2600\uFE0F':'\u2744\uFE0F';
+  document.getElementById('teams-report-date-'+zone).textContent = '🕐 '+dateLbl+'   '+_vdIco+' '+(_vdS==='verano'?'Verano (2 h)':'Invierno (4 h)')+_vdWtxt;
   var logoEl = document.getElementById('teams-report-logo-'+zone);
   if(logoEl) logoEl.src = (typeof SKYSENSE_LOGO_B64!=='undefined') ? SKYSENSE_LOGO_B64 : '';
   document.getElementById('teams-report-body-'+zone).innerHTML = r.html;
@@ -33771,6 +33968,7 @@ window._mbInit = function(){
   var qcMes=document.getElementById('mb-qc-mes');
   if(qcMes && !qcMes.value){ qcMes.value=_mbToday().slice(0,7); document.getElementById('mb-qc-q').value=_mbQuincena(_mbToday())+''; }
   _mbRenderAll();
+  try{ if(window._vdPull) window._vdPull(); else if(window.mbRenderDesfases) window.mbRenderDesfases(); }catch(e){}
   /* Cada vez que se abre la página se vuelve a sincronizar con la nube — así se ven de inmediato
      los cambios que haya hecho cualquier otra persona (multiplicador, código, lecturas, etc.) */
   window._mbSyncCloud(true);
