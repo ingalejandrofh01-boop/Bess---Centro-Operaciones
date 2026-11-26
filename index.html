@@ -5505,7 +5505,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795665415';
+  var APP_VERSION = '1795666249';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -11854,10 +11854,10 @@ var CEREBRO_PRIORITY_OVERRIDES = {
    Es distinto al desfase de huso horario de Cancún — este es un ajuste fino de sincronía
    del medidor para entrar exactamente a hora punta. ── */
 var CEREBRO_DESFASE_MEDIDOR = {
-  'Alpha': -2.5, 'BHS': -5, 'Comedor': 1, 'PTAR': -2.5,
-  'Park Royal Luna': -9, 'Park Royal Sol': 2,
-  'Plastiexports 1': 20, 'Plastiexports 3': -3,
-  'LG': 5, 'Vesta': 5, 'Brom': 5, 'THOR': -3, 'Veracruz': 7, 'Zihuatanejo': -42
+  'Alpha': 3, 'BHS': 5, 'Park Royal CBE': -1, 'Comedor': -1, 'Park Royal Cozumel': 1,
+  'DESA': -1, 'LG': -3, 'Park Royal Luna': 10, 'Plastiexports 1': -23, 'Plastiexports 3': -23,
+  'PTAR': 2.5, 'Park Royal Sol': -1, 'THOR': 3, 'TUGAL': -4, 'Park Royal Vallarta': -7.5,
+  'Veracruz': 7, 'Zihuatanejo': 42, 'Vesta': 5, 'Brom': 5
 };
 /* Margen de cobertura (min): ensancha la ventana — entra ANTES y sale DESPUÉS ese tanto. */
 var CEREBRO_MARGEN = { 'Durango':30, 'Zacatecas':30, 'Zihuatanejo':30 };
