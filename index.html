@@ -5505,7 +5505,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795726120';
+  var APP_VERSION = '1795728827';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -11936,11 +11936,11 @@ window.ventanaParaSitio = function(site, season){
   var waS = season==='invierno' ? (w.inicio!=null?w.inicio:WINTER_DEFAULT.inicio) : 0;
   var waE = season==='invierno' ? (w.fin!=null?w.fin:WINTER_DEFAULT.fin) : 0;
   var margen = window._sitioCfg(site).margenMin || 0;
-  var sMeter = _hhmmToMin(base.inicio)+waS-margen;
-  var eMeter = _hhmmToMin(base.fin)+waE+margen;
+  var sLocal = _hhmmToMin(base.inicio)+waS-margen+off;
+  var eLocal = _hhmmToMin(base.fin)+waE+margen+off;
   return { region:reg, season:season, desfaseMin:off, zoneOff:zoneOff,
-    inicio:_minToHHMM(sMeter), fin:_minToHHMM(eMeter),            /* ventana en hora del MEDIDOR */
-    sBrowser:sMeter+off-zoneOff, eBrowser:eMeter+off-zoneOff };   /* real (CDMX) para el contador */
+    inicio:_minToHHMM(sLocal), fin:_minToHHMM(eLocal),            /* hora de ENTRADA con desfase (hora local) */
+    sBrowser:sLocal-zoneOff, eBrowser:eLocal-zoneOff };           /* minutos en hora CDMX/navegador */
 };
 
 /* ── Persistencia (Firebase, mismo patrón que medidor_bess) ── */
