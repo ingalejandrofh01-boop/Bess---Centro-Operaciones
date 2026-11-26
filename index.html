@@ -13489,10 +13489,10 @@ function cclockBadgeFor(it){
   }
   if(dE>0){
     var cnt='termina en '+_cclockFmt(dE,true);
-    if(it.status==='ok') return {text:'🟢 Descargando · OK · '+cnt, color:'#059669', bg:'rgba(5,150,105,.14)'};
-    if(it.status) return {text:'🔴 Descargando · incidencia · '+cnt, color:'#dc2626', bg:'rgba(220,38,38,.12)'};
-    if(dS>-10) return {text:'🟠 Entrando ahora · '+it.inicio+' · '+cnt, color:'#d97706', bg:'rgba(217,119,6,.14)'};
-    return {text:'🟢 Descargando · '+cnt, color:'#059669', bg:'rgba(5,150,105,.1)'};
+    if(it.status==='ok') return {text:'🟢 Descargó OK · '+cnt, color:'#059669', bg:'rgba(5,150,105,.14)'};
+    if(it.status) return {text:'🔴 Incidencia · '+cnt, color:'#dc2626', bg:'rgba(220,38,38,.12)'};
+    if(dS>-10) return {text:'🟠 Inicio de ventana · '+cnt, color:'#d97706', bg:'rgba(217,119,6,.14)'};
+    return {text:'🔵 En ventana de descarga · '+cnt+' · (horario, no confirma potencia)', color:'#2563eb', bg:'rgba(37,99,235,.12)'};
   }
   if(it.status==='ok') return {text:'✅ Terminó '+it.fin+' · OK', color:'#059669', bg:'rgba(5,150,105,.12)'};
   if(it.status) return {text:'🔴 Terminó · incidencia', color:'#dc2626', bg:'rgba(220,38,38,.12)'};
