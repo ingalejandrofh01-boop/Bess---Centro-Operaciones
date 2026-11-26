@@ -11954,8 +11954,10 @@ function _vdSeedFromLegacy(){
     if(window._SITIOS_CFG[k].desfaseMin==null) window._SITIOS_CFG[k].desfaseMin = CEREBRO_DESFASE_MEDIDOR[nombre];
   });
 }
+window._MONITOR_URL = '';
 window._vdPull = function(cb){
   /* local primero (respuesta instantánea) */
+  try{ var lm=localStorage.getItem('bess:monitor_url:v1'); if(lm){ window._MONITOR_URL=lm; } }catch(e){}
   try{ var lv=localStorage.getItem('bess:ventanas:v1'); if(lv){ window.VENTANAS_DESCARGA = Object.assign(_vdClone(VENTANAS_DEFAULT), JSON.parse(lv)); } }catch(e){}
   try{ var ls=localStorage.getItem('bess:sitios_cfg:v1'); if(ls){ window._SITIOS_CFG = JSON.parse(ls)||{}; } }catch(e){}
   if(!_vdSitiosLoaded){ _vdSeedFromLegacy(); }
@@ -11971,7 +11973,10 @@ window._vdPull = function(cb){
     if(got){ _vdSeedFromLegacy(); } /* completa desfases legacy que no se hayan tocado */
     _vdSitiosLoaded=true;
   }).catch(function(){ _vdSitiosLoaded=true; });
-  Promise.all([p1,p2]).then(function(){ _vdRenderAll(); if(cb)cb(); });
+  var p3=FS.getDocs(FS.query(FS.collection(window._fbDB,'medidor_bess'), FS.where('__name__','==','monitor'))).then(function(snap){
+    snap.forEach(function(d){ try{ var o=JSON.parse(d.data().data||'{}'); if(o && typeof o.url==='string'){ window._MONITOR_URL=o.url; } }catch(e){} });
+  }).catch(function(){});
+  Promise.all([p1,p2,p3]).then(function(){ _vdRenderAll(); if(cb)cb(); });
 };
 function _vdRenderAll(){
   try{ if(document.getElementById('vd-ventanas-panel') && window.vdRenderPanel) window.vdRenderPanel(); }catch(e){}
@@ -11979,6 +11984,13 @@ function _vdRenderAll(){
   try{ if(document.getElementById('ckl-grid-cancun') && typeof cklRender==='function') cklRender(); }catch(e){}
 }
 
+window.vdSetMonitorUrl = function(url){
+  url=String(url||'').trim();
+  window._MONITOR_URL=url;
+  try{ localStorage.setItem('bess:monitor_url:v1', url); }catch(e){}
+  var FS=_vdFS(); if(FS){ FS.setDoc(FS.doc(window._fbDB,'medidor_bess','monitor'), { data: JSON.stringify({url:url}), updatedAt: Date.now() }).catch(function(){}); }
+  if(typeof showToast==='function') showToast(url?('🖥️ BESS Monitor configurado'):'🖥️ URL del monitor borrada');
+};
 /* ── Panel editable de VENTANAS (dentro del checklist del Cerebro) ── */
 window.vdRenderPanel = function(){
   var el=document.getElementById('vd-ventanas-panel'); if(!el) return;
@@ -12002,6 +12014,7 @@ window.vdRenderPanel = function(){
       +'<button onclick="vdResetVentanas()" title="Restablecer a los valores por defecto" style="padding:5px 10px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#64748b;font:700 10px var(--mono),monospace;cursor:pointer">↺ Default</button></div>'
     +'</div>'
     +rowsHtml
+    +'<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(26,63,204,.1);display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+'<span style="font:800 10.5px Inter,Arial,sans-serif;color:#0a1f5e;white-space:nowrap">🖥️ BESS Monitor (estado en vivo):</span>'+'<input id="vd-monitor-url" type="text" value="'+esc(window._MONITOR_URL||'')+'" placeholder="http://100.96.x.x:3000" style="flex:1;min-width:160px;padding:6px 9px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:600 11px var(--mono),monospace;outline:none">'+'<button onclick="vdSetMonitorUrl(document.getElementById(\'vd-monitor-url\').value)" style="padding:6px 12px;border-radius:8px;border:none;background:#1a3fcc;color:#fff;font:800 10.5px var(--mono),monospace;cursor:pointer">Guardar</button>'+'<span style="font:600 9px var(--mono),monospace;color:#94a3b8;flex-basis:100%">La extensión de Chrome usa esta dirección para mostrar si cada sitio está descargando de verdad. Déjala vacía para solo mostrar el horario.</span>'+'</div>'
     +'<div style="font:600 9.5px var(--mono),monospace;color:#64748b;margin-top:8px;line-height:1.5">Verano = 2 h de descarga · Invierno = 4 h. Cada sitio hereda la ventana de su región; su <b>desfase de medidor</b> (en Medidores BESS) recorre su ventana esos minutos. Los cambios se guardan y se comparten con todo el equipo.</div>'
   +'</div>';
 };
