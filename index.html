@@ -13446,48 +13446,57 @@ window.cklGenerateIncidentReport = function(){
 };
 
 /* ══ RELOJ EN TIEMPO REAL — SITIOS POR ENTRAR ══ */
+function _cclockFmt(mins, withSecs){
+  var totalSec = Math.max(0, Math.round(mins*60));
+  var h=Math.floor(totalSec/3600), m=Math.floor((totalSec%3600)/60), s=totalSec%60;
+  if(h>0) return h+'h '+String(m).padStart(2,'0')+'m';
+  if(withSecs) return m+'m '+String(s).padStart(2,'0')+'s';
+  return m+' min';
+}
 function cclockSiteSchedule(){
   var now = new Date();
-  var season = (typeof getBessSeasonForDate==='function') ? getBessSeasonForDate(now) : 'summer';
+  var seasonEs = (typeof _vdSeasonNow==='function') ? _vdSeasonNow() : ((typeof getBessSeasonForDate==='function' && getBessSeasonForDate(now)==='summer')?'verano':'invierno');
   var out = [];
   cerebroAll().forEach(function(s){
-    var se = season==='summer' ? s.verano : s.invierno;
+    if(window._sitioExcluido && window._sitioExcluido(s)) return;
+    var v = (typeof ventanaParaSitio==='function') ? ventanaParaSitio(s, seasonEs) : null;
     (s.bess&&s.bess.length? s.bess : [{nombre:s.grupo}]).forEach(function(b){
       var siteId = s.id+'::'+b.nombre;
       var d = window._cklData ? window._cklData[siteId] : null;
-      var item = {siteId:siteId, label:b.nombre, grupo:s.grupo, status:(d||{}).status||'', season:season};
-      if(se && se.horaInicioCDMX){
-        var parts = se.horaInicioCDMX.split(':');
-        var start = new Date(now); start.setHours(parseInt(parts[0]),parseInt(parts[1]),0,0);
-        item.scheduled = start; item.horaTxt = se.horaInicioCDMX;
-        item.diffMin = (start-now)/60000;
-      } else { item.scheduled = null; item.horaTxt = null; item.diffMin = null; }
+      var item = {siteId:siteId, label:b.nombre, grupo:s.grupo, status:(d||{}).status||'', season:seasonEs};
+      if(v && v.inicio){
+        var pi=v.inicio.split(':'), pf=v.fin.split(':');
+        var start=new Date(now); start.setHours(parseInt(pi[0],10),parseInt(pi[1],10),0,0);
+        var end=new Date(now); end.setHours(parseInt(pf[0],10),parseInt(pf[1],10),0,0);
+        if(end<=start) end=new Date(end.getTime()+24*3600*1000);
+        item.start=start; item.end=end; item.inicio=v.inicio; item.fin=v.fin; item.region=v.region; item.desfaseMin=v.desfaseMin;
+        item.diffStartMin=(start-now)/60000; item.diffEndMin=(end-now)/60000;
+        item.scheduled=start; item.diffMin=item.diffStartMin; item.horaTxt=v.inicio;
+      } else { item.start=null; item.scheduled=null; item.horaTxt=null; item.diffMin=null; }
       out.push(item);
     });
   });
-  out.sort(function(a,b){
-    if(a.scheduled && b.scheduled) return a.scheduled-b.scheduled;
-    if(a.scheduled) return -1; if(b.scheduled) return 1; return 0;
-  });
+  out.sort(function(a,b){ if(a.start&&b.start) return a.start-b.start; if(a.start) return -1; if(b.start) return 1; return 0; });
   return out;
 }
 function cclockBadgeFor(it){
-  var badge, badgeColor, badgeBg;
-  if(it.scheduled===null){
-    badge='Sin horario'; badgeColor='#6685ac'; badgeBg='rgba(102,133,172,.1)';
-  } else if(it.diffMin>15){
-    var h=Math.floor(it.diffMin/60), m=Math.round(it.diffMin%60);
-    badge=it.horaTxt+' hrs · en '+(h>0?(h+'h '+m+'m'):(m+' min')); badgeColor='#6685ac'; badgeBg='rgba(102,133,172,.1)';
-  } else if(it.diffMin>=-10){
-    badge='🟠 Entrando ahora · '+it.horaTxt+' hrs'; badgeColor='#d97706'; badgeBg='rgba(217,119,6,.12)';
-  } else if(it.status==='ok'){
-    badge='🟢 Entró · OK'; badgeColor='#059669'; badgeBg='rgba(5,150,105,.12)';
-  } else if(it.status){
-    badge='🔴 Entró · incidencia'; badgeColor='#dc2626'; badgeBg='rgba(220,38,38,.12)';
-  } else {
-    badge='⚪ Debió entrar · sin marcar'; badgeColor='#dc2626'; badgeBg='rgba(220,38,38,.08)';
+  if(!it.start){ return {text:'Sin ventana', color:'#6685ac', bg:'rgba(102,133,172,.1)'}; }
+  var dS=it.diffStartMin, dE=it.diffEndMin;
+  if(dS>0){
+    if(dS>60) return {text:'🕐 '+it.inicio+' · faltan '+_cclockFmt(dS,false), color:'#6685ac', bg:'rgba(102,133,172,.1)'};
+    if(dS>15) return {text:'🕐 '+it.inicio+' · faltan '+_cclockFmt(dS,false), color:'#1a3fcc', bg:'rgba(26,63,204,.1)'};
+    return {text:'🟡 '+it.inicio+' · faltan '+_cclockFmt(dS,true), color:'#b45309', bg:'rgba(234,179,8,.16)'};
   }
-  return {text:badge, color:badgeColor, bg:badgeBg};
+  if(dE>0){
+    var cnt='termina en '+_cclockFmt(dE,true);
+    if(it.status==='ok') return {text:'🟢 Descargando · OK · '+cnt, color:'#059669', bg:'rgba(5,150,105,.14)'};
+    if(it.status) return {text:'🔴 Descargando · incidencia · '+cnt, color:'#dc2626', bg:'rgba(220,38,38,.12)'};
+    if(dS>-10) return {text:'🟠 Entrando ahora · '+it.inicio+' · '+cnt, color:'#d97706', bg:'rgba(217,119,6,.14)'};
+    return {text:'🟢 Descargando · '+cnt, color:'#059669', bg:'rgba(5,150,105,.1)'};
+  }
+  if(it.status==='ok') return {text:'✅ Terminó '+it.fin+' · OK', color:'#059669', bg:'rgba(5,150,105,.12)'};
+  if(it.status) return {text:'🔴 Terminó · incidencia', color:'#dc2626', bg:'rgba(220,38,38,.12)'};
+  return {text:'⚪ Terminó '+it.fin+' · sin marcar', color:'#64748b', bg:'rgba(100,116,139,.1)'};
 }
 /* Actualiza solo los badges de horario dentro de cada fila del checklist, sin redibujar los inputs (así no se pierde el foco mientras se escribe) */
 function cclockUpdateBadges(){
@@ -13507,7 +13516,7 @@ function cclockRender(){
   cclockUpdateBadges();
   cclockCheckAutoReset();
 }
-var _cclockResetHour = 22, _cclockResetMin = 15; /* 10:15 pm — un poco después de que termina la hora punta (21:02/22:02) */
+var _cclockResetHour = 23, _cclockResetMin = 30; /* 10:15 pm — un poco después de que termina la hora punta (21:02/22:02) */
 function cclockCheckAutoReset(){
   var dateInp = document.getElementById('ckl-date');
   if(!dateInp || !dateInp.value) return;
