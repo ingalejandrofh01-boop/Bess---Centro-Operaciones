@@ -5505,7 +5505,7 @@ window._todayLocalStr = function(d){
 /* ── Detección de version nueva — independiente del Service Worker ── */
 (function(){
   /* Solo registrar version — sin auto-recarga (causaba loop infinito en móvil) */
-  var APP_VERSION = '1795567075';
+  var APP_VERSION = '1795665415';
   try { localStorage.setItem('bess_app_version', APP_VERSION); } catch(e){}
 
   /* Aviso de "hay una versión nueva" — problema real observado: en una
@@ -11857,8 +11857,10 @@ var CEREBRO_DESFASE_MEDIDOR = {
   'Alpha': -2.5, 'BHS': -5, 'Comedor': 1, 'PTAR': -2.5,
   'Park Royal Luna': -9, 'Park Royal Sol': 2,
   'Plastiexports 1': 20, 'Plastiexports 3': -3,
-  'LG': 3, 'THOR': -3, 'Veracruz': -7, 'Zihuatanejo': -42
+  'LG': 5, 'Vesta': 5, 'Brom': 5, 'THOR': -3, 'Veracruz': 7, 'Zihuatanejo': -42
 };
+/* Margen de cobertura (min): ensancha la ventana — entra ANTES y sale DESPUÉS ese tanto. */
+var CEREBRO_MARGEN = { 'Durango':30, 'Zacatecas':30, 'Zihuatanejo':30 };
 /* ── Horario de entrada a descarga en temporada VERANO (hora CDMX de referencia, ya con el
    desfase del medidor de cada sitio aplicado — es la hora real a la que hay que estar atentos).
    Cancún y Cozumel entran por default a las 18:58 hrs salvo excepción marcada aquí.
@@ -11891,14 +11893,12 @@ window._CEREBRO_CLOUD = [];
    - El desfase del medidor recorre TODA la ventana del sitio (inicio y fin) esos
      minutos (positivo = más tarde, negativo = más temprano) sin cambiar su duración.
    ═══════════════════════════════════════════════════════════════════════════ */
-var VENTANAS_DEFAULT = {
-  'CDMX':     { verano:{inicio:'20:00', fin:'22:00'}, invierno:{inicio:'18:00', fin:'22:00'} },
-  'Cancún':   { verano:{inicio:'19:00', fin:'21:00'}, invierno:{inicio:'17:00', fin:'21:00'} },
-  'Mazatlán': { verano:{inicio:'21:00', fin:'23:00'}, invierno:{inicio:'19:00', fin:'23:00'} }
-};
+var VENTANAS_BASE_DEFAULT = { verano:{inicio:'20:00', fin:'22:00'}, invierno:{inicio:'18:00', fin:'22:00'} }; /* hora LOCAL, igual para todos */
+var WINTER_DEFAULT = { inicio:-2, fin:2 };                 /* invierno: entra 2 min antes, sale 2 min después (de ley) */
+var VD_ZONA = { 'CDMX':0, 'Cancún':60, 'Mazatlán':-60 };     /* minutos respecto a CDMX (la hora del navegador) */
 var VD_REGIONES = ['CDMX','Cancún','Mazatlán'];
 function _vdClone(o){ return JSON.parse(JSON.stringify(o)); }
-window.VENTANAS_DESCARGA = _vdClone(VENTANAS_DEFAULT);
+window.VENTANAS_DESCARGA = { base:_vdClone(VENTANAS_BASE_DEFAULT), winter:_vdClone(WINTER_DEFAULT) };
 window._SITIOS_CFG = {};               /* key -> {region, desfaseMin, excluir} */
 var _vdSitiosLoaded = false, _vdVentLoaded = false;
 
@@ -11918,7 +11918,7 @@ function _vdAutoRegion(site){
 window._sitioCfg = function(site){
   var k = _vdKey(site && (site.grupo||site.sitio||site));
   var base = window._SITIOS_CFG[k] || {};
-  return { region: base.region || _vdAutoRegion(site), desfaseMin: (base.desfaseMin!=null?Number(base.desfaseMin):0), excluir: !!base.excluir };
+  return { region: base.region || _vdAutoRegion(site), desfaseMin: (base.desfaseMin!=null?Number(base.desfaseMin):0), margenMin: (base.margenMin!=null?Number(base.margenMin):0), excluir: !!base.excluir };
 };
 window._sitioRegion = function(site){ return window._sitioCfg(site).region; };
 window._sitioExcluido = function(site){ return window._sitioCfg(site).excluir; };
@@ -11928,9 +11928,19 @@ function _minToHHMM(m){ m=Math.round(m); m=((m%1440)+1440)%1440; return String(M
 window.ventanaParaSitio = function(site, season){
   season = season || _vdSeasonNow();
   var reg = window._sitioRegion(site);
-  var base = (window.VENTANAS_DESCARGA[reg] && window.VENTANAS_DESCARGA[reg][season]) || VENTANAS_DEFAULT[reg][season];
   var off = window._sitioCfg(site).desfaseMin || 0;
-  return { region:reg, season:season, inicio:_minToHHMM(_hhmmToMin(base.inicio)+off), fin:_minToHHMM(_hhmmToMin(base.fin)+off), desfaseMin:off };
+  var zoneOff = (VD_ZONA[reg]!=null)?VD_ZONA[reg]:0;
+  var VD = window.VENTANAS_DESCARGA||{};
+  var base = (VD.base && VD.base[season]) || VENTANAS_BASE_DEFAULT[season];
+  var w = VD.winter || WINTER_DEFAULT;
+  var waS = season==='invierno' ? (w.inicio!=null?w.inicio:WINTER_DEFAULT.inicio) : 0;
+  var waE = season==='invierno' ? (w.fin!=null?w.fin:WINTER_DEFAULT.fin) : 0;
+  var margen = window._sitioCfg(site).margenMin || 0;
+  var sLocal = _hhmmToMin(base.inicio)+waS-margen+off;
+  var eLocal = _hhmmToMin(base.fin)+waE+margen+off;
+  return { region:reg, season:season, desfaseMin:off, zoneOff:zoneOff,
+    inicio:_minToHHMM(sLocal), fin:_minToHHMM(eLocal),            /* hora LOCAL del sitio */
+    sBrowser:sLocal-zoneOff, eBrowser:eLocal-zoneOff };           /* minutos en hora CDMX/navegador */
 };
 
 /* ── Persistencia (Firebase, mismo patrón que medidor_bess) ── */
@@ -11947,24 +11957,32 @@ window._vdSaveSitios = function(){
 };
 /* Semilla inicial de desfases desde la tabla que ya existía en el código (una sola vez). */
 function _vdSeedFromLegacy(){
-  if(typeof CEREBRO_DESFASE_MEDIDOR==='undefined') return;
-  Object.keys(CEREBRO_DESFASE_MEDIDOR).forEach(function(nombre){
-    var k=_vdKey(nombre);
-    if(!window._SITIOS_CFG[k]) window._SITIOS_CFG[k]={};
-    if(window._SITIOS_CFG[k].desfaseMin==null) window._SITIOS_CFG[k].desfaseMin = CEREBRO_DESFASE_MEDIDOR[nombre];
-  });
+  if(typeof CEREBRO_DESFASE_MEDIDOR!=='undefined'){
+    Object.keys(CEREBRO_DESFASE_MEDIDOR).forEach(function(nombre){
+      var k=_vdKey(nombre);
+      if(!window._SITIOS_CFG[k]) window._SITIOS_CFG[k]={};
+      if(window._SITIOS_CFG[k].desfaseMin==null) window._SITIOS_CFG[k].desfaseMin = CEREBRO_DESFASE_MEDIDOR[nombre];
+    });
+  }
+  if(typeof CEREBRO_MARGEN!=='undefined'){
+    Object.keys(CEREBRO_MARGEN).forEach(function(nombre){
+      var k=_vdKey(nombre);
+      if(!window._SITIOS_CFG[k]) window._SITIOS_CFG[k]={};
+      if(window._SITIOS_CFG[k].margenMin==null) window._SITIOS_CFG[k].margenMin = CEREBRO_MARGEN[nombre];
+    });
+  }
 }
 window._MONITOR_URL = '';
 window._vdPull = function(cb){
   /* local primero (respuesta instantánea) */
   try{ var lm=localStorage.getItem('bess:monitor_url:v1'); if(lm){ window._MONITOR_URL=lm; } }catch(e){}
-  try{ var lv=localStorage.getItem('bess:ventanas:v1'); if(lv){ window.VENTANAS_DESCARGA = Object.assign(_vdClone(VENTANAS_DEFAULT), JSON.parse(lv)); } }catch(e){}
+  try{ var lv=localStorage.getItem('bess:ventanas:v1'); if(lv){ var _lo=JSON.parse(lv); if(_lo&&_lo.base){ window.VENTANAS_DESCARGA={ base:Object.assign(_vdClone(VENTANAS_BASE_DEFAULT),_lo.base), winter:(_lo.winter||_vdClone(WINTER_DEFAULT)) }; } } }catch(e){}
   try{ var ls=localStorage.getItem('bess:sitios_cfg:v1'); if(ls){ window._SITIOS_CFG = JSON.parse(ls)||{}; } }catch(e){}
   if(!_vdSitiosLoaded){ _vdSeedFromLegacy(); }
   var FS=_vdFS();
   if(!FS){ _vdSitiosLoaded=true; _vdVentLoaded=true; _vdRenderAll(); if(cb)cb(); return; }
   var p1=FS.getDocs(FS.query(FS.collection(window._fbDB,'medidor_bess'), FS.where('__name__','==','ventanas'))).then(function(snap){
-    snap.forEach(function(d){ try{ var o=JSON.parse(d.data().data||'{}'); if(o && typeof o==='object'){ window.VENTANAS_DESCARGA=Object.assign(_vdClone(VENTANAS_DEFAULT), o); } }catch(e){} });
+    snap.forEach(function(d){ try{ var o=JSON.parse(d.data().data||'{}'); if(o && o.base){ window.VENTANAS_DESCARGA={ base:Object.assign(_vdClone(VENTANAS_BASE_DEFAULT), o.base), winter:(o.winter||_vdClone(WINTER_DEFAULT)) }; } }catch(e){} });
     _vdVentLoaded=true;
   }).catch(function(){ _vdVentLoaded=true; });
   var p2=FS.getDocs(FS.query(FS.collection(window._fbDB,'medidor_bess'), FS.where('__name__','==','sitios_cfg'))).then(function(snap){
@@ -11997,38 +12015,46 @@ window.vdRenderPanel = function(){
   var dateInp=document.getElementById('ckl-date'); var dStr=dateInp&&dateInp.value?dateInp.value:null;
   var season=_vdSeasonNow(dStr);
   var esc=function(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
-  var rowsHtml = VD_REGIONES.map(function(reg){
-    var v=window.VENTANAS_DESCARGA[reg]||VENTANAS_DEFAULT[reg];
-    function cell(se,campo){ var val=(v[se]&&v[se][campo])||''; var on=(se===season); return '<input type="time" value="'+esc(val)+'" onchange="vdSetVentana(\''+reg+'\',\''+se+'\',\''+campo+'\',this.value)" style="width:92px;padding:5px 7px;border-radius:7px;border:1px solid '+(on?'#1a3fcc':'rgba(26,63,204,.2)')+';background:'+(on?'rgba(26,63,204,.07)':'#fff')+';color:#0f172a;font:700 11px var(--mono),monospace;outline:none">'; }
-    function dur(se){ var a=_hhmmToMin(v[se].inicio), b=_hhmmToMin(v[se].fin); var d=((b-a)+1440)%1440; return (d/60).toFixed(d%60?1:0)+'h'; }
-    return '<div style="display:grid;grid-template-columns:96px 1fr 1fr;gap:8px;align-items:center;padding:8px 0;border-top:1px solid rgba(26,63,204,.08)">'
-      +'<div style="font:800 12px Inter,Arial,sans-serif;color:#0a1f5e">'+esc(reg)+'</div>'
-      +'<div style="'+(season==='invierno'?'outline:2px solid rgba(26,63,204,.25);outline-offset:3px;border-radius:9px;':'')+'"><div style="font:800 8.5px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase;margin-bottom:3px">❄️ Invierno · '+dur('invierno')+'</div>'+cell('invierno','inicio')+' <span style="color:#94a3b8">→</span> '+cell('invierno','fin')+'</div>'
-      +'<div style="'+(season==='verano'?'outline:2px solid rgba(234,108,0,.3);outline-offset:3px;border-radius:9px;':'')+'"><div style="font:800 8.5px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase;margin-bottom:3px">☀️ Verano · '+dur('verano')+'</div>'+cell('verano','inicio')+' <span style="color:#94a3b8">→</span> '+cell('verano','fin')+'</div>'
-    +'</div>';
-  }).join('');
-  el.innerHTML = '<div style="background:var(--card,#fff);border:1px solid rgba(26,63,204,.18);border-radius:14px;padding:13px 15px;box-shadow:0 6px 18px rgba(10,31,94,.06)">'
+  var VD=window.VENTANAS_DESCARGA||{}; var base=VD.base||VENTANAS_BASE_DEFAULT; var win=VD.winter||WINTER_DEFAULT;
+  function cell(se,campo){ var val=(base[se]&&base[se][campo])||''; var on=(se===season); return '<input type="time" value="'+esc(val)+'" onchange="vdSetBase(\''+se+'\',\''+campo+'\',this.value)" style="width:96px;padding:5px 7px;border-radius:7px;border:1px solid '+(on?'#1a3fcc':'rgba(26,63,204,.2)')+';background:'+(on?'rgba(26,63,204,.07)':'#fff')+';color:#0f172a;font:700 11px var(--mono),monospace;outline:none">'; }
+  function durTxt(se){ var a=_hhmmToMin(base[se].inicio), b=_hhmmToMin(base[se].fin); var d=((b-a)+1440)%1440; return (d/60).toFixed(d%60?1:0)+'h'; }
+  function row(se,ico,col){ return '<div style="display:grid;grid-template-columns:104px 1fr;gap:8px;align-items:center;padding:8px 0;border-top:1px solid rgba(26,63,204,.08)">'
+    +'<div style="font:800 12px Inter,Arial,sans-serif;color:#0a1f5e">'+ico+' '+_vdSeasonEs(se)+'<div style="font:700 8.5px var(--mono),monospace;color:#64748b">'+durTxt(se)+'</div></div>'
+    +'<div'+(season===se?' style="outline:2px solid '+col+';outline-offset:3px;border-radius:9px"':'')+'>'+cell(se,'inicio')+' <span style="color:#94a3b8">→</span> '+cell(se,'fin')+'</div></div>'; }
+  var winRow='<div style="padding:9px 0 4px;border-top:1px solid rgba(26,63,204,.08);font:700 11px Inter,Arial,sans-serif;color:#0a1f5e;display:flex;align-items:center;gap:7px;flex-wrap:wrap">❄️ Regla de invierno (de ley): entra <input type="number" step="1" value="'+(win.inicio)+'" onchange="vdSetWinter(\'inicio\',this.value)" style="width:54px;padding:4px 6px;border-radius:7px;border:1px solid rgba(26,63,204,.2);font:700 11px var(--mono),monospace;text-align:center"> min · sale <input type="number" step="1" value="'+(win.fin)+'" onchange="vdSetWinter(\'fin\',this.value)" style="width:54px;padding:4px 6px;border-radius:7px;border:1px solid rgba(26,63,204,.2);font:700 11px var(--mono),monospace;text-align:center"> min <span style="color:#64748b;font-weight:600">(− = antes · + = después)</span></div>';
+  var zonas='<div style="padding:8px 0;border-top:1px solid rgba(26,63,204,.08);font:600 10px var(--mono),monospace;color:#64748b">🌎 Zona horaria (el reloj marca la hora de cada sitio): <b style="color:#0a1f5e">Cancún +1h</b> · CDMX 0 · <b style="color:#0a1f5e">Mazatlán −1h</b></div>';
+  var monUrl=(window._MONITOR_URL||'');
+  var monRow='<div style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(26,63,204,.1);display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span style="font:800 10.5px Inter,Arial,sans-serif;color:#0a1f5e;white-space:nowrap">🖥️ BESS Monitor (estado en vivo):</span>'
+    +'<input id="vd-monitor-url" type="text" value="'+esc(monUrl)+'" placeholder="http://100.96.x.x:3000" style="flex:1;min-width:160px;padding:6px 9px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:600 11px var(--mono),monospace;outline:none">'
+    +'<button onclick="vdSetMonitorUrl(document.getElementById(\'vd-monitor-url\').value)" style="padding:6px 12px;border-radius:8px;border:none;background:#1a3fcc;color:#fff;font:800 10.5px var(--mono),monospace;cursor:pointer">Guardar</button></div>';
+  el.innerHTML='<div style="background:var(--card,#fff);border:1px solid rgba(26,63,204,.18);border-radius:14px;padding:13px 15px;box-shadow:0 6px 18px rgba(10,31,94,.06)">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">'
-      +'<div style="font:900 13.5px Syne,Inter,sans-serif;color:var(--text,#0a1f5e)">🪟 Ventanas de descarga <span style="font:700 10px var(--mono),monospace;color:#64748b">· inicio y fin por región y temporada</span></div>'
-      +'<div style="display:flex;align-items:center;gap:8px"><span style="font:800 10px var(--mono),monospace;padding:4px 10px;border-radius:20px;background:'+(season==='verano'?'rgba(234,108,0,.12);color:#c2410c':'rgba(26,63,204,.1);color:#1a3fcc')+'">'+_vdSeasonIcon(season)+' Temporada actual: '+_vdSeasonEs(season)+'</span>'
-      +'<button onclick="vdResetVentanas()" title="Restablecer a los valores por defecto" style="padding:5px 10px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#64748b;font:700 10px var(--mono),monospace;cursor:pointer">↺ Default</button></div>'
+      +'<div style="font:900 13.5px Syne,Inter,sans-serif;color:var(--text,#0a1f5e)">🪟 Ventanas de descarga <span style="font:700 10px var(--mono),monospace;color:#64748b">· hora local del sitio</span></div>'
+      +'<div style="display:flex;align-items:center;gap:8px"><span style="font:800 10px var(--mono),monospace;padding:4px 10px;border-radius:20px;background:'+(season==='verano'?'rgba(234,108,0,.12);color:#c2410c':'rgba(26,63,204,.1);color:#1a3fcc')+'">'+_vdSeasonIcon(season)+' '+_vdSeasonEs(season)+'</span>'
+      +'<button onclick="vdResetVentanas()" title="Restablecer" style="padding:5px 10px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#64748b;font:700 10px var(--mono),monospace;cursor:pointer">↺ Default</button></div>'
     +'</div>'
-    +rowsHtml
-    +'<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(26,63,204,.1);display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+'<span style="font:800 10.5px Inter,Arial,sans-serif;color:#0a1f5e;white-space:nowrap">🖥️ BESS Monitor (estado en vivo):</span>'+'<input id="vd-monitor-url" type="text" value="'+esc(window._MONITOR_URL||'')+'" placeholder="http://100.96.x.x:3000" style="flex:1;min-width:160px;padding:6px 9px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:600 11px var(--mono),monospace;outline:none">'+'<button onclick="vdSetMonitorUrl(document.getElementById(\'vd-monitor-url\').value)" style="padding:6px 12px;border-radius:8px;border:none;background:#1a3fcc;color:#fff;font:800 10.5px var(--mono),monospace;cursor:pointer">Guardar</button>'+'<span style="font:600 9px var(--mono),monospace;color:#94a3b8;flex-basis:100%">La extensión de Chrome usa esta dirección para mostrar si cada sitio está descargando de verdad. Déjala vacía para solo mostrar el horario.</span>'+'</div>'
-    +'<div style="font:600 9.5px var(--mono),monospace;color:#64748b;margin-top:8px;line-height:1.5">Verano = 2 h de descarga · Invierno = 4 h. Cada sitio hereda la ventana de su región; su <b>desfase de medidor</b> (en Medidores BESS) recorre su ventana esos minutos. Los cambios se guardan y se comparten con todo el equipo.</div>'
+    +row('invierno','❄️','rgba(26,63,204,.25)')+row('verano','☀️','rgba(234,108,0,.3)')+winRow+zonas+monRow
+    +'<div style="font:600 9.5px var(--mono),monospace;color:#64748b;margin-top:8px;line-height:1.5">La ventana es en <b>hora local</b> (6–10 pm invierno · 8–10 pm verano), igual para todos. En invierno se aplica la regla ±2. El <b>desfase de medidor</b> de cada sitio (en Medidores) recorre su ventana, y la <b>zona horaria</b> mueve su reloj. Se comparte con el equipo y con la extensión de Chrome.</div>'
   +'</div>';
 };
-window.vdSetVentana = function(reg, season, campo, val){
-  if(!window.VENTANAS_DESCARGA[reg]) window.VENTANAS_DESCARGA[reg]=_vdClone(VENTANAS_DEFAULT[reg]||VENTANAS_DEFAULT['CDMX']);
-  if(!window.VENTANAS_DESCARGA[reg][season]) window.VENTANAS_DESCARGA[reg][season]={};
-  window.VENTANAS_DESCARGA[reg][season][campo]=val;
-  window._vdSaveVentanas();
-  _vdRenderAll();
-  if(typeof showToast==='function') showToast('🪟 Ventana '+reg+' ('+_vdSeasonEs(season)+') actualizada');
+window.vdSetBase = function(season, campo, val){
+  if(!window.VENTANAS_DESCARGA.base) window.VENTANAS_DESCARGA.base=_vdClone(VENTANAS_BASE_DEFAULT);
+  if(!window.VENTANAS_DESCARGA.base[season]) window.VENTANAS_DESCARGA.base[season]={};
+  window.VENTANAS_DESCARGA.base[season][campo]=val;
+  window._vdSaveVentanas(); _vdRenderAll();
+  if(typeof showToast==='function') showToast('🪟 Ventana '+_vdSeasonEs(season)+' actualizada');
+};
+window.vdSetWinter = function(campo, val){
+  if(!window.VENTANAS_DESCARGA.winter) window.VENTANAS_DESCARGA.winter=_vdClone(WINTER_DEFAULT);
+  window.VENTANAS_DESCARGA.winter[campo]=parseFloat(val)||0;
+  window._vdSaveVentanas(); _vdRenderAll();
+  if(typeof showToast==='function') showToast('❄️ Regla de invierno actualizada');
 };
 window.vdResetVentanas = function(){
-  if(!confirm('¿Restablecer todas las ventanas a los valores por defecto?')) return;
-  window.VENTANAS_DESCARGA=_vdClone(VENTANAS_DEFAULT); window._vdSaveVentanas(); _vdRenderAll();
+  if(!confirm('¿Restablecer las ventanas a los valores por defecto?')) return;
+  window.VENTANAS_DESCARGA={ base:_vdClone(VENTANAS_BASE_DEFAULT), winter:_vdClone(WINTER_DEFAULT) };
+  window._vdSaveVentanas(); _vdRenderAll();
   if(typeof showToast==='function') showToast('↺ Ventanas restablecidas');
 };
 
@@ -12043,17 +12069,23 @@ window.mbRenderDesfases = function(){
   sites.sort(function(a,b){ return String(a.nombre).localeCompare(String(b.nombre),'es'); });
   var season=_vdSeasonNow();
   var filtro=(window._mbDesfFiltro||'').toLowerCase();
+  var _mdb=(function(){ var db=window.MASTER_SITES_DB||[]; var m={}; db.forEach(function(x){ var bk=_vdKey(_cerebroBaseName(x.sitio)); if(!m[bk]) m[bk]={ps:0,pw:0,has:false,marca:''}; var o=m[bk]; if(x.powSummer!=null){o.ps+=x.powSummer;o.has=true;} if(x.powWinter!=null){o.pw+=x.powWinter;o.has=true;} if(!o.marca && x.marca && x.marca!=='\u2014' && x.marca!=='marca') o.marca=x.marca; }); return m; })();
+  function _powBat(r){ var info=_mdb[r.key]; var kw=null, bat=(r.site&&r.site.tecnologia)||''; if(info){ kw = season==='verano'? info.ps : info.pw; if(!bat) bat=info.marca; } if(kw==null && r.site && r.site.bess){ var s2=0,h=false; r.site.bess.forEach(function(b){ if(b&&typeof b.potenciaKW==='number'){s2+=b.potenciaKW;h=true;} }); if(h) kw=s2; } return {kw:kw, bat:bat}; }
   var rows=sites.filter(function(r){ return !filtro || r.nombre.toLowerCase().indexOf(filtro)>=0 || r.ciudad.toLowerCase().indexOf(filtro)>=0; }).map(function(r){
-    var cfg=window._sitioCfg(r.site); var vent=window.ventanaParaSitio(r.site, season);
+    var cfg=window._sitioCfg(r.site); var vent=window.ventanaParaSitio(r.site, season); var pb=_powBat(r);
     var regSel='<select onchange="vdSetSitio(\''+r.key+'\',\'region\',this.value)" style="padding:5px 7px;border-radius:7px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:700 10.5px Inter,Arial,sans-serif;outline:none">'
       + VD_REGIONES.map(function(rg){ return '<option value="'+rg+'"'+(cfg.region===rg?' selected':'')+'>'+rg+'</option>'; }).join('')+'</select>';
     var desfInp='<input type="number" step="0.5" value="'+(cfg.desfaseMin||0)+'" onchange="vdSetSitio(\''+r.key+'\',\'desfaseMin\',this.value)" style="width:70px;padding:5px 7px;border-radius:7px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:700 11px var(--mono),monospace;outline:none;text-align:center"> <span style="font:600 9px var(--mono),monospace;color:#94a3b8">min</span>';
+    var margInp='<input type="number" step="1" value="'+(cfg.margenMin||0)+'" onchange="vdSetSitio(\''+r.key+'\',\'margenMin\',this.value)" style="width:62px;padding:5px 7px;border-radius:7px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:700 11px var(--mono),monospace;outline:none;text-align:center"> <span style="font:600 9px var(--mono),monospace;color:#94a3b8">±min</span>';
     var exc='<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font:700 10px Inter,Arial,sans-serif;color:'+(cfg.excluir?'#dc2626':'#64748b')+'"><input type="checkbox" '+(cfg.excluir?'checked':'')+' onchange="vdSetSitio(\''+r.key+'\',\'excluir\',this.checked)" style="width:15px;height:15px;cursor:pointer">No va</label>';
     return '<tr style="border-top:1px solid rgba(26,63,204,.07)'+(cfg.excluir?';opacity:.5':'')+'">'
       +'<td style="padding:7px 8px;font:800 11.5px Inter,Arial,sans-serif;color:#0a1f5e">'+esc(r.nombre)+(r.ciudad?'<div style="font:600 9px var(--mono),monospace;color:#94a3b8">'+esc(r.ciudad)+'</div>':'')+'</td>'
       +'<td style="padding:7px 8px">'+regSel+'</td>'
       +'<td style="padding:7px 8px;white-space:nowrap">'+desfInp+'</td>'
+      +'<td style="padding:7px 8px;white-space:nowrap">'+margInp+'</td>'
       +'<td style="padding:7px 8px;font:800 11px var(--mono),monospace;color:#1a3fcc;white-space:nowrap">'+vent.inicio+' → '+vent.fin+'</td>'
+      +'<td style="padding:7px 8px;font:800 11.5px var(--mono),monospace;color:#0a7d3a;white-space:nowrap">'+(pb.kw!=null?(Math.round(pb.kw)+' kW'):'—')+'</td>'
+      +'<td style="padding:7px 8px;font:700 10.5px Inter,Arial,sans-serif;color:#334155;white-space:nowrap">'+(pb.bat?esc(pb.bat):'—')+'</td>'
       +'<td style="padding:7px 8px">'+exc+'</td>'
     +'</tr>';
   }).join('');
@@ -12065,14 +12097,14 @@ window.mbRenderDesfases = function(){
       +'<input type="text" placeholder="🔍 Buscar sitio…" value="'+esc(window._mbDesfFiltro||'')+'" oninput="window._mbDesfFiltro=this.value; mbRenderDesfases()" style="padding:8px 11px;border-radius:8px;border:1px solid rgba(26,63,204,.2);background:#fff;color:#0f172a;font:600 11px var(--mono),monospace;outline:none;min-width:170px">'
     +'</div>'
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px">'
-      +'<thead><tr style="background:rgba(26,63,204,.05)"><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Sitio</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Región</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Desfase</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Ventana ('+_vdSeasonEs(season)+')</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Excluir</th></tr></thead>'
-      +'<tbody>'+(rows||'<tr><td colspan="5" style="padding:16px;text-align:center;color:#94a3b8;font:600 11px var(--mono),monospace">Sin sitios para mostrar.</td></tr>')+'</tbody>'
+      +'<thead><tr style="background:rgba(26,63,204,.05)"><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Sitio</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Región</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Desfase</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Margen</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Ventana ('+_vdSeasonEs(season)+')</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Potencia ('+_vdSeasonEs(season)+')</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Batería</th><th style="padding:8px;text-align:left;font:800 9px var(--mono),monospace;letter-spacing:1px;color:#64748b;text-transform:uppercase">Excluir</th></tr></thead>'
+      +'<tbody>'+(rows||'<tr><td colspan="8" style="padding:16px;text-align:center;color:#94a3b8;font:600 11px var(--mono),monospace">Sin sitios para mostrar.</td></tr>')+'</tbody>'
     +'</table></div>'
   +'</div>';
 };
 window.vdSetSitio = function(key, field, val){
   if(!window._SITIOS_CFG[key]) window._SITIOS_CFG[key]={};
-  if(field==='desfaseMin'){ val=(val===''||val==null)?0:Number(val); if(isNaN(val))val=0; }
+  if(field==='desfaseMin'||field==='margenMin'){ val=(val===''||val==null)?0:Number(val); if(isNaN(val))val=0; }
   if(field==='excluir'){ val=!!val; }
   window._SITIOS_CFG[key][field]=val;
   window._vdSaveSitios();
@@ -13477,10 +13509,9 @@ function cclockSiteSchedule(){
       var siteId = s.id+'::'+b.nombre;
       var d = window._cklData ? window._cklData[siteId] : null;
       var item = {siteId:siteId, label:b.nombre, grupo:s.grupo, status:(d||{}).status||'', season:seasonEs};
-      if(v && v.inicio){
-        var pi=v.inicio.split(':'), pf=v.fin.split(':');
-        var start=new Date(now); start.setHours(parseInt(pi[0],10),parseInt(pi[1],10),0,0);
-        var end=new Date(now); end.setHours(parseInt(pf[0],10),parseInt(pf[1],10),0,0);
+      if(v && v.sBrowser!=null){
+        var start=new Date(now); start.setHours(0,0,0,0); start=new Date(start.getTime()+v.sBrowser*60000);
+        var end=new Date(now); end.setHours(0,0,0,0); end=new Date(end.getTime()+v.eBrowser*60000);
         if(end<=start) end=new Date(end.getTime()+24*3600*1000);
         item.start=start; item.end=end; item.inicio=v.inicio; item.fin=v.fin; item.region=v.region; item.desfaseMin=v.desfaseMin;
         item.diffStartMin=(start-now)/60000; item.diffEndMin=(end-now)/60000;
